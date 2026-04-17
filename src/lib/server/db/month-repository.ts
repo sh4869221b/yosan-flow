@@ -1,3 +1,5 @@
+import type { DatabaseTransaction } from "$lib/server/db/client";
+
 export type BudgetStatus = "unset" | "set";
 
 export type MonthRecord = {
@@ -36,6 +38,13 @@ export type InMemoryMonthRepository = MonthRepository & {
   dumpSnapshot(): MonthRecord[];
 };
 
+export type MonthTransaction = DatabaseTransaction<MonthRecord, any, any>;
+
+export interface TransactionalMonthRepository {
+  findMonth(tx: MonthTransaction, yearMonth: string): Promise<MonthRecord | null>;
+  createMonthIfAbsent(tx: MonthTransaction, input: CreateMonthInput): Promise<MonthRecord>;
+}
+
 function assertYearMonth(value: string): void {
   const matched = /^(\d{4})-(\d{2})$/.exec(value);
   if (!matched) {
@@ -60,6 +69,36 @@ export function toPreviousYearMonth(yearMonth: string): string {
 
 function cloneMonth(month: MonthRecord): MonthRecord {
   return { ...month };
+}
+
+export function createTransactionalMonthRepository(): TransactionalMonthRepository {
+  return {
+    async findMonth(tx, yearMonth) {
+      assertYearMonth(yearMonth);
+      const month = tx.state.monthlyBudgets.get(yearMonth);
+      return month ? cloneMonth(month) : null;
+    },
+
+    async createMonthIfAbsent(tx, input) {
+      assertYearMonth(input.yearMonth);
+      const existing = tx.state.monthlyBudgets.get(input.yearMonth);
+      if (existing) {
+        return cloneMonth(existing);
+      }
+
+      const next: MonthRecord = {
+        yearMonth: input.yearMonth,
+        budgetYen: input.budgetYen,
+        budgetStatus: input.budgetStatus,
+        initializedFromPreviousMonth: input.initializedFromPreviousMonth,
+        carriedFromYearMonth: input.carriedFromYearMonth,
+        createdAt: input.nowIso,
+        updatedAt: input.nowIso
+      };
+      tx.state.monthlyBudgets.set(input.yearMonth, next);
+      return cloneMonth(next);
+    }
+  };
 }
 
 export function createInMemoryMonthRepository(
