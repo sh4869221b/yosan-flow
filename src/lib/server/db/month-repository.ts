@@ -32,8 +32,18 @@ export interface MonthRepository {
   countMonths(): Promise<number>;
 }
 
+export type InMemoryMonthRepository = MonthRepository & {
+  dumpSnapshot(): MonthRecord[];
+};
+
 function assertYearMonth(value: string): void {
-  if (!/^\d{4}-\d{2}$/.test(value)) {
+  const matched = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!matched) {
+    throw new Error(`Invalid yearMonth: ${value}`);
+  }
+
+  const month = Number(matched[2]);
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
     throw new Error(`Invalid yearMonth: ${value}`);
   }
 }
@@ -52,7 +62,9 @@ function cloneMonth(month: MonthRecord): MonthRecord {
   return { ...month };
 }
 
-export function createInMemoryMonthRepository(initialMonths: MonthRecord[] = []): MonthRepository {
+export function createInMemoryMonthRepository(
+  initialMonths: MonthRecord[] = []
+): InMemoryMonthRepository {
   const store = new Map<string, MonthRecord>();
   for (const month of initialMonths) {
     store.set(month.yearMonth, cloneMonth(month));
@@ -117,6 +129,12 @@ export function createInMemoryMonthRepository(initialMonths: MonthRecord[] = [])
 
     async countMonths() {
       return store.size;
+    },
+
+    dumpSnapshot() {
+      return [...store.values()]
+        .map((month) => cloneMonth(month))
+        .sort((left, right) => left.yearMonth.localeCompare(right.yearMonth));
     }
   };
 }

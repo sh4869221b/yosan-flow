@@ -53,6 +53,31 @@ describe("month explicit initialization", () => {
     expect(await repository.countMonths()).toBe(2);
   });
 
+  it("service + repository を跨いで初期化結果が再読込できる", async () => {
+    const writerRepository = createInMemoryMonthRepository();
+    await writerRepository.createMonthIfAbsent({
+      yearMonth: "2026-03",
+      budgetYen: 70000,
+      budgetStatus: "set",
+      initializedFromPreviousMonth: false,
+      carriedFromYearMonth: null,
+      nowIso: "2026-03-01T00:00:00.000Z"
+    });
+
+    await initializeMonthExplicit(writerRepository, {
+      yearMonth: "2026-04",
+      nowIso: "2026-04-01T00:00:00.000Z"
+    });
+
+    const persistedSnapshot = writerRepository.dumpSnapshot();
+    const readerRepository = createInMemoryMonthRepository(persistedSnapshot);
+    const month = await readerRepository.findMonth("2026-04");
+
+    expect(month).not.toBeNull();
+    expect(month?.budgetYen).toBe(70000);
+    expect(month?.carriedFromYearMonth).toBe("2026-03");
+  });
+
   it("PUT /budget 相当の初回更新で月を作成できる", async () => {
     const repository = createInMemoryMonthRepository();
     await repository.createMonthIfAbsent({
@@ -74,5 +99,13 @@ describe("month explicit initialization", () => {
     expect(month.budgetStatus).toBe("set");
     expect(month.initializedFromPreviousMonth).toBe(true);
     expect(month.carriedFromYearMonth).toBe("2026-03");
+  });
+
+  it("yearMonth は 01..12 の範囲のみ許可する", async () => {
+    const repository = createInMemoryMonthRepository();
+
+    await expect(repository.findMonth("2026-00")).rejects.toThrow("Invalid yearMonth");
+    await expect(repository.findMonth("2026-13")).rejects.toThrow("Invalid yearMonth");
+    await expect(repository.findMonth("2026-12")).resolves.toBeNull();
   });
 });
