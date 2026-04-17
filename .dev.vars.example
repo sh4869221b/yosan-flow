@@ -1,0 +1,2 @@
+# Copy this file to `.dev.vars` for local `wrangler dev` settings.
+# Add non-secret local overrides here when needed.

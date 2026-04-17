@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "yosan-flow",
+  "main": ".svelte-kit/cloudflare/_worker.js",
+  "compatibility_date": "2026-04-18",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "yosan-flow",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
+}
