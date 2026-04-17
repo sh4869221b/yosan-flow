@@ -3,10 +3,15 @@
   "name": "yosan-flow",
   "main": ".svelte-kit/cloudflare/_worker.js",
   "compatibility_date": "2026-04-18",
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".svelte-kit/cloudflare"
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "yosan-flow",
+      // Placeholder: replace with your actual D1 database_id (UUID).
       "database_id": "00000000-0000-0000-0000-000000000000"
     }
   ]
