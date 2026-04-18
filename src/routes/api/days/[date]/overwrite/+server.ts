@@ -1,7 +1,7 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
 import {
   buildMonthSummary,
-  getDefaultInMemoryApiServices,
+  getApiServicesFromPlatform,
   type InMemoryApiServices
 } from "$lib/server/services/month-summary-service";
 import {
@@ -45,6 +45,8 @@ export function createDayOverwriteHandler(dependencies: DayOverwriteRouteDepende
   };
 }
 
-export const PUT = createDayOverwriteHandler({
-  services: getDefaultInMemoryApiServices()
-});
+export const PUT: RequestHandler = async (event) => {
+  return createDayOverwriteHandler({
+    services: getApiServicesFromPlatform(event.platform)
+  })(event);
+};

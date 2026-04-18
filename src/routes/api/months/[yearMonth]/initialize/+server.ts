@@ -1,7 +1,7 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
 import {
   buildMonthSummary,
-  getDefaultInMemoryApiServices,
+  getApiServicesFromPlatform,
   initializeMonthExplicit,
   type InMemoryApiServices
 } from "$lib/server/services/month-summary-service";
@@ -43,6 +43,8 @@ export function createMonthInitializeHandler(
   };
 }
 
-export const POST = createMonthInitializeHandler({
-  services: getDefaultInMemoryApiServices()
-});
+export const POST: RequestHandler = async (event) => {
+  return createMonthInitializeHandler({
+    services: getApiServicesFromPlatform(event.platform)
+  })(event);
+};

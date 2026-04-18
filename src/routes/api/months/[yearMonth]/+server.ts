@@ -1,7 +1,7 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
 import {
   buildMonthSummary,
-  getDefaultInMemoryApiServices,
+  getApiServicesFromPlatform,
   type InMemoryApiServices
 } from "$lib/server/services/month-summary-service";
 import { parseYearMonth, toApiErrorResponse } from "$lib/server/validation/month";
@@ -26,6 +26,8 @@ export function createMonthGetHandler(dependencies: MonthRouteDependencies): Req
   };
 }
 
-export const GET = createMonthGetHandler({
-  services: getDefaultInMemoryApiServices()
-});
+export const GET: RequestHandler = async (event) => {
+  return createMonthGetHandler({
+    services: getApiServicesFromPlatform(event.platform)
+  })(event);
+};

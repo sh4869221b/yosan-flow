@@ -178,6 +178,16 @@ describe("month and day APIs", () => {
       })
     } as any);
     expect(mismatch.status).toBe(400);
+
+    const invalidYearMonthFormat = await fixture.addDay({
+      params: { date: "2026-04-20" },
+      request: new Request("http://localhost/api/days/2026-04-20/add", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ inputYen: 1000, yearMonth: "2026-4" })
+      })
+    } as any);
+    expect(invalidYearMonthFormat.status).toBe(400);
   });
 
   it("supports add/overwrite/history flow", async () => {

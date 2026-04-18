@@ -97,4 +97,30 @@ describe("month summary service", () => {
     expect(result.todayRecommendedYen).toBe(0);
     expect(result.dailyRows.every((row) => row.recommendedYen === 0)).toBe(true);
   });
+
+  it("returns meaningful dailyRows for past month", async () => {
+    const repository = createInMemoryMonthRepository();
+    await repository.createMonthIfAbsent({
+      yearMonth: "2026-04",
+      budgetYen: 60000,
+      budgetStatus: "set",
+      initializedFromPreviousMonth: false,
+      carriedFromYearMonth: null,
+      nowIso: "2026-04-01T00:00:00.000Z"
+    });
+
+    const result = await buildMonthSummary(repository, "2026-04", {
+      jstToday: "2026-05-18",
+      dailyTotals: [{ date: "2026-04-10", yearMonth: "2026-04", totalUsedYen: 2000 }]
+    });
+
+    expect(result.dailyRows).toHaveLength(30);
+    expect(result.dailyRows[0].date).toBe("2026-04-01");
+    expect(result.dailyRows[9]).toEqual({
+      date: "2026-04-10",
+      label: "planned",
+      usedYen: 2000,
+      recommendedYen: expect.any(Number)
+    });
+  });
 });

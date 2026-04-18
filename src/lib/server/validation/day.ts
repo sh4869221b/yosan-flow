@@ -1,4 +1,9 @@
-import { ApiRouteError, parseNonNegativeIntegerYen, parseRequestBodyObject } from "./month";
+import {
+  ApiRouteError,
+  parseNonNegativeIntegerYen,
+  parseRequestBodyObject,
+  parseYearMonth
+} from "./month";
 
 export function parseDate(date: string | undefined): string {
   if (!date) {
@@ -50,8 +55,11 @@ export async function parseDayMutationInput(request: Request): Promise<DayMutati
   const body = await parseRequestBodyObject(request);
   const inputYen = parseNonNegativeIntegerYen(body.inputYen, "inputYen");
 
-  if (body.yearMonth != null && typeof body.yearMonth !== "string") {
-    throw new ApiRouteError(400, "INVALID_YEAR_MONTH", "yearMonth は yyyy-mm 形式で指定してください。");
+  if (body.yearMonth != null) {
+    if (typeof body.yearMonth !== "string") {
+      throw new ApiRouteError(400, "INVALID_YEAR_MONTH", "yearMonth は yyyy-mm 形式で指定してください。");
+    }
+    parseYearMonth(body.yearMonth);
   }
 
   const memoValue = body.memo;

@@ -1,6 +1,6 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
 import {
-  getDefaultInMemoryApiServices,
+  getApiServicesFromPlatform,
   type InMemoryApiServices
 } from "$lib/server/services/month-summary-service";
 import { parseDate } from "$lib/server/validation/day";
@@ -26,6 +26,8 @@ export function createDayHistoryHandler(dependencies: DayHistoryRouteDependencie
   };
 }
 
-export const GET = createDayHistoryHandler({
-  services: getDefaultInMemoryApiServices()
-});
+export const GET: RequestHandler = async (event) => {
+  return createDayHistoryHandler({
+    services: getApiServicesFromPlatform(event.platform)
+  })(event);
+};

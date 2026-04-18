@@ -1,7 +1,7 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
 import {
   buildMonthSummary,
-  getDefaultInMemoryApiServices,
+  getApiServicesFromPlatform,
   upsertMonthBudget,
   type InMemoryApiServices
 } from "$lib/server/services/month-summary-service";
@@ -41,6 +41,8 @@ export function createMonthBudgetHandler(dependencies: MonthBudgetRouteDependenc
   };
 }
 
-export const PUT = createMonthBudgetHandler({
-  services: getDefaultInMemoryApiServices()
-});
+export const PUT: RequestHandler = async (event) => {
+  return createMonthBudgetHandler({
+    services: getApiServicesFromPlatform(event.platform)
+  })(event);
+};

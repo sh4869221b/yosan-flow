@@ -114,10 +114,6 @@ function buildDailyTotalMap(
 
 function resolveVisibleDates(yearMonth: string, jstToday: string): string[] {
   const todayYearMonth = jstToday.slice(0, 7);
-  if (yearMonth < todayYearMonth) {
-    return [];
-  }
-
   const startDate =
     yearMonth === todayYearMonth ? jstToday : `${yearMonth}-${String(1).padStart(2, "0")}`;
   const endDate = toDateString(yearMonth, getDaysInMonth(yearMonth));
@@ -367,6 +363,7 @@ export function createInMemoryApiServices(
 }
 
 const defaultApiServicesKey = Symbol.for("yosan-flow.default-api-services");
+const d1BindingScopedServices = new WeakMap<D1Database, InMemoryApiServices>();
 
 export function getDefaultInMemoryApiServices(): InMemoryApiServices {
   const globalObject = globalThis as Record<string | symbol, unknown>;
@@ -377,5 +374,22 @@ export function getDefaultInMemoryApiServices(): InMemoryApiServices {
 
   const created = createInMemoryApiServices();
   globalObject[defaultApiServicesKey] = created;
+  return created;
+}
+
+export function getApiServicesFromPlatform(platform?: App.Platform): InMemoryApiServices {
+  const db = platform?.env?.DB;
+  if (!db) {
+    return getDefaultInMemoryApiServices();
+  }
+
+  const existing = d1BindingScopedServices.get(db);
+  if (existing) {
+    return existing;
+  }
+
+  // Wiring point for D1-backed repositories/services. For now we scope service containers by DB binding.
+  const created = createInMemoryApiServices();
+  d1BindingScopedServices.set(db, created);
   return created;
 }
