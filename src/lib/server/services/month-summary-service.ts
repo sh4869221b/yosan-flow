@@ -437,17 +437,17 @@ function createD1MonthRepository(db: D1Database): MonthRepository {
     },
 
     async findPreviousMonthWithBudget(yearMonth) {
+      const previousYearMonth = toPreviousYearMonth(yearMonth);
       const row = await db
         .prepare(
           `SELECT year_month, budget_yen
              FROM monthly_budgets
-            WHERE year_month < ?
+            WHERE year_month = ?
               AND budget_status = 'set'
               AND budget_yen IS NOT NULL
-            ORDER BY year_month DESC
             LIMIT 1`
         )
-        .bind(yearMonth)
+        .bind(previousYearMonth)
         .first<{ year_month: string; budget_yen: number }>();
       if (!row) {
         return null;
@@ -527,15 +527,15 @@ function createD1DayEntryService(
 
     const nowIso = now().toISOString();
     const memo = normalizeMemo(command.memo);
-    const existing = await db
-      .prepare(`SELECT total_used_yen FROM daily_totals WHERE date = ?`)
-      .bind(command.date)
-      .first<{ total_used_yen: number }>();
-    const beforeTotalYen = existing?.total_used_yen ?? 0;
-    const afterTotalYen = operationType === "add" ? beforeTotalYen + command.inputYen : command.inputYen;
-
     try {
-      await db.prepare("BEGIN TRANSACTION").run();
+      await db.prepare("BEGIN IMMEDIATE TRANSACTION").run();
+      const existing = await db
+        .prepare(`SELECT total_used_yen FROM daily_totals WHERE date = ?`)
+        .bind(command.date)
+        .first<{ total_used_yen: number }>();
+      const beforeTotalYen = existing?.total_used_yen ?? 0;
+      const afterTotalYen =
+        operationType === "add" ? beforeTotalYen + command.inputYen : command.inputYen;
       await db
         .prepare(
           `INSERT INTO daily_totals (date, year_month, total_used_yen, updated_at)

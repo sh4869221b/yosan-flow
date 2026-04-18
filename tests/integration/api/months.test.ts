@@ -4,6 +4,7 @@ import {
   type InMemoryApiServices
 } from "$lib/server/services/month-summary-service";
 import { GET as monthGetDefaultRoute, createMonthGetHandler } from "../../../src/routes/api/months/[yearMonth]/+server";
+import { POST as dayAddDefaultRoute } from "../../../src/routes/api/days/[date]/add/+server";
 import { createMonthInitializeHandler } from "../../../src/routes/api/months/[yearMonth]/initialize/+server";
 import { createMonthBudgetHandler } from "../../../src/routes/api/months/[yearMonth]/budget/+server";
 import { createDayAddHandler } from "../../../src/routes/api/days/[date]/add/+server";
@@ -41,11 +42,13 @@ function createFixture(now = new Date("2026-04-18T00:00:00.000Z")): {
 describe("month and day APIs", () => {
   it("default GET route uses platform.env.DB backed adapter path", async () => {
     const preparedSql: string[] = [];
+    const bindArgsList: unknown[][] = [];
     const fakeDb = {
       prepare(sql: string) {
         preparedSql.push(sql);
         return {
-          bind() {
+          bind(...args: unknown[]) {
+            bindArgsList.push(args);
             return {
               async first() {
                 return null;
@@ -84,6 +87,88 @@ describe("month and day APIs", () => {
     expect(response.status).toBe(200);
     expect(preparedSql.some((sql) => sql.includes("FROM monthly_budgets"))).toBe(true);
     expect(preparedSql.some((sql) => sql.includes("FROM daily_totals"))).toBe(true);
+    expect(bindArgsList.some((args) => args[0] === "2026-03")).toBe(true);
+  });
+
+  it("default day add route reads daily total inside transaction", async () => {
+    const preparedSql: string[] = [];
+    const fakeDb = {
+      prepare(sql: string) {
+        preparedSql.push(sql);
+        return {
+          bind() {
+            return {
+              async first() {
+                if (sql.includes("FROM monthly_budgets")) {
+                  return {
+                    year_month: "2026-04",
+                    budget_yen: 100000,
+                    budget_status: "set",
+                    initialized_from_previous_month: 0,
+                    carried_from_year_month: null,
+                    created_at: "2026-04-01T00:00:00.000Z",
+                    updated_at: "2026-04-01T00:00:00.000Z"
+                  };
+                }
+                if (sql.includes("SELECT total_used_yen FROM daily_totals")) {
+                  return {
+                    total_used_yen: 1000
+                  };
+                }
+                return null;
+              },
+              async all() {
+                if (sql.includes("FROM daily_totals") && sql.includes("ORDER BY date ASC")) {
+                  return {
+                    results: [
+                      {
+                        date: "2026-04-18",
+                        year_month: "2026-04",
+                        total_used_yen: 2000
+                      }
+                    ]
+                  };
+                }
+                return { results: [] };
+              },
+              async run() {
+                return {};
+              }
+            };
+          },
+          async first() {
+            return null;
+          },
+          async all() {
+            return { results: [] };
+          },
+          async run() {
+            return {};
+          }
+        };
+      }
+    } as unknown as D1Database;
+
+    const response = await dayAddDefaultRoute({
+      params: { date: "2026-04-18" },
+      request: new Request("http://localhost/api/days/2026-04-18/add", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ inputYen: 1000 })
+      }),
+      platform: {
+        env: { DB: fakeDb }
+      }
+    } as any);
+
+    expect(response.status).toBe(200);
+    const beginIndex = preparedSql.findIndex((sql) => sql.includes("BEGIN IMMEDIATE TRANSACTION"));
+    const readDailyTotalIndex = preparedSql.findIndex((sql) =>
+      sql.includes("SELECT total_used_yen FROM daily_totals")
+    );
+    expect(beginIndex).toBeGreaterThanOrEqual(0);
+    expect(readDailyTotalIndex).toBeGreaterThanOrEqual(0);
+    expect(beginIndex).toBeLessThan(readDailyTotalIndex);
   });
 
   it("GET month is side-effect free", async () => {
