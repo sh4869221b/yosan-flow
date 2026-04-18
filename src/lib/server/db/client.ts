@@ -42,13 +42,26 @@ export function createInMemoryDatabaseClient<M = unknown, D = unknown, H = unkno
     dailyTotals: new Map(input.initialState?.dailyTotals ?? []),
     dailyOperationHistories: [...(input.initialState?.dailyOperationHistories ?? [])]
   };
+  let transactionQueue = Promise.resolve();
 
   return {
     async transaction<T>(work) {
-      const txState = cloneState(currentState);
-      const result = await work({ state: txState });
-      currentState = txState;
-      return result;
+      const pending = transactionQueue;
+      let releaseQueue: (() => void) | null = null;
+      transactionQueue = new Promise<void>((resolve) => {
+        releaseQueue = resolve;
+      });
+
+      await pending;
+
+      try {
+        const txState = cloneState(currentState);
+        const result = await work({ state: txState });
+        currentState = txState;
+        return result;
+      } finally {
+        releaseQueue?.();
+      }
     },
 
     async read<T>(work) {

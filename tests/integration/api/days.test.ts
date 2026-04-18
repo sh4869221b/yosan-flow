@@ -91,6 +91,63 @@ describe("day entry service", () => {
     expect(response.history.beforeTotalYen).toBe(0);
     expect(response.history.afterTotalYen).toBe(1000);
     expect(response.history.memo).toBe("lunch");
+
+    const persistedDailyTotal = await fixture.databaseClient.read(async (tx) => {
+      return fixture.dailyTotalRepository.findByDate(tx, "2026-04-18");
+    });
+    const persistedHistories = await fixture.databaseClient.read(async (tx) => {
+      return fixture.dailyHistoryRepository.listHistoriesByDate(tx, "2026-04-18");
+    });
+    expect(persistedDailyTotal?.totalUsedYen).toBe(1000);
+    expect(persistedHistories).toHaveLength(1);
+    expect(persistedHistories[0]).toMatchObject({
+      operationType: "add",
+      beforeTotalYen: 0,
+      afterTotalYen: 1000,
+      memo: "lunch"
+    });
+  });
+
+  it("applies concurrent add operations without losing updates", async () => {
+    const fixture = await createFixture();
+    await seedBudget(fixture, { yearMonth: "2026-04", budgetYen: 100000, budgetStatus: "set" });
+
+    await Promise.all([
+      fixture.service.addDailyAmount({
+        date: "2026-04-18",
+        inputYen: 1000
+      }),
+      fixture.service.addDailyAmount({
+        date: "2026-04-18",
+        inputYen: 2000
+      })
+    ]);
+
+    const dailyTotal = await fixture.databaseClient.read(async (tx) => {
+      return fixture.dailyTotalRepository.findByDate(tx, "2026-04-18");
+    });
+    const histories = await fixture.databaseClient.read(async (tx) => {
+      return fixture.dailyHistoryRepository.listHistoriesByDate(tx, "2026-04-18");
+    });
+
+    expect(dailyTotal?.totalUsedYen).toBe(3000);
+    expect(histories).toHaveLength(2);
+    expect(histories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationType: "add",
+          beforeTotalYen: 0,
+          afterTotalYen: 1000,
+          inputYen: 1000
+        }),
+        expect.objectContaining({
+          operationType: "add",
+          beforeTotalYen: 1000,
+          afterTotalYen: 3000,
+          inputYen: 2000
+        })
+      ])
+    );
   });
 
   it("overwrites the day's total atomically", async () => {
