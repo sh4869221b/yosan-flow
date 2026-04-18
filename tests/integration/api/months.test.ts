@@ -3,7 +3,7 @@ import {
   createInMemoryApiServices,
   type InMemoryApiServices
 } from "$lib/server/services/month-summary-service";
-import { createMonthGetHandler } from "../../../src/routes/api/months/[yearMonth]/+server";
+import { GET as monthGetDefaultRoute, createMonthGetHandler } from "../../../src/routes/api/months/[yearMonth]/+server";
 import { createMonthInitializeHandler } from "../../../src/routes/api/months/[yearMonth]/initialize/+server";
 import { createMonthBudgetHandler } from "../../../src/routes/api/months/[yearMonth]/budget/+server";
 import { createDayAddHandler } from "../../../src/routes/api/days/[date]/add/+server";
@@ -39,6 +39,53 @@ function createFixture(now = new Date("2026-04-18T00:00:00.000Z")): {
 }
 
 describe("month and day APIs", () => {
+  it("default GET route uses platform.env.DB backed adapter path", async () => {
+    const preparedSql: string[] = [];
+    const fakeDb = {
+      prepare(sql: string) {
+        preparedSql.push(sql);
+        return {
+          bind() {
+            return {
+              async first() {
+                return null;
+              },
+              async all() {
+                return { results: [] };
+              },
+              async run() {
+                return {};
+              }
+            };
+          },
+          async first() {
+            return null;
+          },
+          async all() {
+            return { results: [] };
+          },
+          async run() {
+            return {};
+          }
+        };
+      }
+    } as unknown as D1Database;
+
+    const response = await monthGetDefaultRoute({
+      params: { yearMonth: "2026-04" },
+      request: new Request("http://localhost/api/months/2026-04", {
+        method: "GET"
+      }),
+      platform: {
+        env: { DB: fakeDb }
+      }
+    } as any);
+
+    expect(response.status).toBe(200);
+    expect(preparedSql.some((sql) => sql.includes("FROM monthly_budgets"))).toBe(true);
+    expect(preparedSql.some((sql) => sql.includes("FROM daily_totals"))).toBe(true);
+  });
+
   it("GET month is side-effect free", async () => {
     const fixture = createFixture();
 

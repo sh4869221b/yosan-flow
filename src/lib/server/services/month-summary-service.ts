@@ -17,8 +17,9 @@ import {
   type PreviousMonthBudget,
   type TransactionalMonthRepository
 } from "$lib/server/db/month-repository";
+import { assertValidDate, assertValidInputYen, normalizeMemo, toYearMonth } from "$lib/server/domain/daily-entry";
 import { buildDailyRecommendations } from "$lib/server/domain/reallocation";
-import { DayEntryService } from "$lib/server/services/day-entry-service";
+import { BudgetNotSetError, DayEntryService } from "$lib/server/services/day-entry-service";
 import { getJstDateParts } from "$lib/server/time/jst";
 
 export type MonthStatus = "ready" | "uninitialized";
@@ -51,6 +52,11 @@ export type MonthSummary = {
   todayRecommendedYen: number;
   daysRemaining: number;
   dailyRows: DailyRow[];
+};
+
+export type DayEntryServicePort = {
+  addDailyAmount(command: { date: string; inputYen: number; memo?: string | null }): Promise<unknown>;
+  overwriteDailyAmount(command: { date: string; inputYen: number; memo?: string | null }): Promise<unknown>;
 };
 
 export type InitializeMonthInput = {
@@ -292,16 +298,19 @@ export function createDatabaseBackedMonthRepository(
 }
 
 export type InMemoryApiServices = {
-  databaseClient: DatabaseClient<MonthRecord, DailyTotalRecord, DailyHistoryRecord>;
   monthRepository: MonthRepository;
-  transactionalMonthRepository: TransactionalMonthRepository;
-  dailyTotalRepository: DailyTotalRepository;
-  dailyHistoryRepository: DailyHistoryRepository;
-  dayEntryService: DayEntryService;
+  dayEntryService: DayEntryServicePort;
   listDailyTotalsByYearMonth: (yearMonth: string) => Promise<MonthSummaryDailyTotal[]>;
   listHistoryByDate: (date: string) => Promise<DailyHistoryRecord[]>;
   nowIso: () => string;
   jstToday: () => string;
+};
+
+export type InMemoryApiServicesWithInternals = InMemoryApiServices & {
+  databaseClient: DatabaseClient<MonthRecord, DailyTotalRecord, DailyHistoryRecord>;
+  transactionalMonthRepository: TransactionalMonthRepository;
+  dailyTotalRepository: DailyTotalRepository;
+  dailyHistoryRepository: DailyHistoryRepository;
 };
 
 export type CreateInMemoryApiServicesInput = {
@@ -311,7 +320,7 @@ export type CreateInMemoryApiServicesInput = {
 
 export function createInMemoryApiServices(
   input: CreateInMemoryApiServicesInput = {}
-): InMemoryApiServices {
+): InMemoryApiServicesWithInternals {
   const now = input.now ?? (() => new Date());
   const databaseClient = createInMemoryDatabaseClient<
     MonthRecord,
@@ -377,6 +386,272 @@ export function getDefaultInMemoryApiServices(): InMemoryApiServices {
   return created;
 }
 
+function defaultCreateHistoryId(): string {
+  const cryptoObject = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  if (cryptoObject?.randomUUID) {
+    return cryptoObject.randomUUID();
+  }
+  return `history-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function toMonthRecord(row: {
+  year_month: string;
+  budget_yen: number | null;
+  budget_status: "unset" | "set";
+  initialized_from_previous_month: number;
+  carried_from_year_month: string | null;
+  created_at: string;
+  updated_at: string;
+}): MonthRecord {
+  return {
+    yearMonth: row.year_month,
+    budgetYen: row.budget_yen,
+    budgetStatus: row.budget_status,
+    initializedFromPreviousMonth: row.initialized_from_previous_month === 1,
+    carriedFromYearMonth: row.carried_from_year_month,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function createD1MonthRepository(db: D1Database): MonthRepository {
+  return {
+    async findMonth(yearMonth) {
+      const row = await db
+        .prepare(
+          `SELECT year_month, budget_yen, budget_status, initialized_from_previous_month, carried_from_year_month, created_at, updated_at
+             FROM monthly_budgets
+            WHERE year_month = ?`
+        )
+        .bind(yearMonth)
+        .first<{
+          year_month: string;
+          budget_yen: number | null;
+          budget_status: "unset" | "set";
+          initialized_from_previous_month: number;
+          carried_from_year_month: string | null;
+          created_at: string;
+          updated_at: string;
+        }>();
+      return row ? toMonthRecord(row) : null;
+    },
+
+    async findPreviousMonthWithBudget(yearMonth) {
+      const row = await db
+        .prepare(
+          `SELECT year_month, budget_yen
+             FROM monthly_budgets
+            WHERE year_month < ?
+              AND budget_status = 'set'
+              AND budget_yen IS NOT NULL
+            ORDER BY year_month DESC
+            LIMIT 1`
+        )
+        .bind(yearMonth)
+        .first<{ year_month: string; budget_yen: number }>();
+      if (!row) {
+        return null;
+      }
+      return {
+        yearMonth: row.year_month,
+        budgetYen: row.budget_yen
+      };
+    },
+
+    async createMonthIfAbsent(input) {
+      await db
+        .prepare(
+          `INSERT INTO monthly_budgets (
+             year_month, budget_yen, budget_status, initialized_from_previous_month, carried_from_year_month, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(year_month) DO NOTHING`
+        )
+        .bind(
+          input.yearMonth,
+          input.budgetYen,
+          input.budgetStatus,
+          input.initializedFromPreviousMonth ? 1 : 0,
+          input.carriedFromYearMonth,
+          input.nowIso,
+          input.nowIso
+        )
+        .run();
+
+      const month = await this.findMonth(input.yearMonth);
+      if (!month) {
+        throw new Error(`month not found after create: ${input.yearMonth}`);
+      }
+      return month;
+    },
+
+    async updateBudget(yearMonth, budgetYen, nowIso) {
+      await db
+        .prepare(
+          `UPDATE monthly_budgets
+              SET budget_yen = ?,
+                  budget_status = 'set',
+                  updated_at = ?
+            WHERE year_month = ?`
+        )
+        .bind(budgetYen, nowIso, yearMonth)
+        .run();
+      const month = await this.findMonth(yearMonth);
+      if (!month) {
+        throw new Error(`month not found: ${yearMonth}`);
+      }
+      return month;
+    },
+
+    async countMonths() {
+      const row = await db.prepare(`SELECT COUNT(*) AS count FROM monthly_budgets`).first<{ count: number }>();
+      return Number(row?.count ?? 0);
+    }
+  };
+}
+
+function createD1DayEntryService(
+  db: D1Database,
+  monthRepository: MonthRepository,
+  now: () => Date,
+  createHistoryId: () => string
+): DayEntryServicePort {
+  async function execute(command: { date: string; inputYen: number; memo?: string | null }, operationType: "add" | "overwrite") {
+    assertValidDate(command.date);
+    assertValidInputYen(command.inputYen);
+
+    const yearMonth = toYearMonth(command.date);
+    const month = await monthRepository.findMonth(yearMonth);
+    if (!month || month.budgetStatus !== "set" || month.budgetYen == null) {
+      throw new BudgetNotSetError(yearMonth);
+    }
+
+    const nowIso = now().toISOString();
+    const memo = normalizeMemo(command.memo);
+    const existing = await db
+      .prepare(`SELECT total_used_yen FROM daily_totals WHERE date = ?`)
+      .bind(command.date)
+      .first<{ total_used_yen: number }>();
+    const beforeTotalYen = existing?.total_used_yen ?? 0;
+    const afterTotalYen = operationType === "add" ? beforeTotalYen + command.inputYen : command.inputYen;
+
+    try {
+      await db.prepare("BEGIN TRANSACTION").run();
+      await db
+        .prepare(
+          `INSERT INTO daily_totals (date, year_month, total_used_yen, updated_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(date) DO UPDATE SET
+             year_month = excluded.year_month,
+             total_used_yen = excluded.total_used_yen,
+             updated_at = excluded.updated_at`
+        )
+        .bind(command.date, yearMonth, afterTotalYen, nowIso)
+        .run();
+      await db
+        .prepare(
+          `INSERT INTO daily_operation_histories (
+             id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          createHistoryId(),
+          command.date,
+          operationType,
+          command.inputYen,
+          beforeTotalYen,
+          afterTotalYen,
+          memo,
+          nowIso
+        )
+        .run();
+      await db.prepare("COMMIT").run();
+    } catch (error) {
+      await db.prepare("ROLLBACK").run().catch(() => undefined);
+      throw error;
+    }
+  }
+
+  return {
+    async addDailyAmount(command) {
+      await execute(command, "add");
+      return {};
+    },
+    async overwriteDailyAmount(command) {
+      await execute(command, "overwrite");
+      return {};
+    }
+  };
+}
+
+export function createD1ApiServices(
+  db: D1Database,
+  input: CreateInMemoryApiServicesInput = {}
+): InMemoryApiServices {
+  const now = input.now ?? (() => new Date());
+  const monthRepository = createD1MonthRepository(db);
+  const dayEntryService = createD1DayEntryService(
+    db,
+    monthRepository,
+    now,
+    input.createHistoryId ?? defaultCreateHistoryId
+  );
+
+  return {
+    monthRepository,
+    dayEntryService,
+    listDailyTotalsByYearMonth: async (yearMonth) => {
+      const result = await db
+        .prepare(
+          `SELECT date, year_month, total_used_yen
+             FROM daily_totals
+            WHERE year_month = ?
+            ORDER BY date ASC`
+        )
+        .bind(yearMonth)
+        .all<{ date: string; year_month: string; total_used_yen: number }>();
+      const rows = result.results ?? [];
+      return rows.map((row) => ({
+        date: row.date,
+        yearMonth: row.year_month,
+        totalUsedYen: row.total_used_yen
+      }));
+    },
+    listHistoryByDate: async (date) => {
+      const result = await db
+        .prepare(
+          `SELECT id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
+             FROM daily_operation_histories
+            WHERE date = ?
+            ORDER BY created_at DESC, id DESC`
+        )
+        .bind(date)
+        .all<{
+          id: string;
+          date: string;
+          operation_type: "add" | "overwrite";
+          input_yen: number;
+          before_total_yen: number;
+          after_total_yen: number;
+          memo: string | null;
+          created_at: string;
+        }>();
+      const rows = result.results ?? [];
+      return rows.map((row) => ({
+        id: row.id,
+        date: row.date,
+        operationType: row.operation_type,
+        inputYen: row.input_yen,
+        beforeTotalYen: row.before_total_yen,
+        afterTotalYen: row.after_total_yen,
+        memo: row.memo,
+        createdAt: row.created_at
+      }));
+    },
+    nowIso: () => now().toISOString(),
+    jstToday: () => getJstDateParts(now()).date
+  };
+}
+
 export function getApiServicesFromPlatform(platform?: App.Platform): InMemoryApiServices {
   const db = platform?.env?.DB;
   if (!db) {
@@ -388,8 +663,7 @@ export function getApiServicesFromPlatform(platform?: App.Platform): InMemoryApi
     return existing;
   }
 
-  // Wiring point for D1-backed repositories/services. For now we scope service containers by DB binding.
-  const created = createInMemoryApiServices();
+  const created = createD1ApiServices(db);
   d1BindingScopedServices.set(db, created);
   return created;
 }
