@@ -96,6 +96,8 @@ describe("month and day APIs", () => {
     expect(response.status).toBe(200);
     expect(body.budgetStatus).toBe("set");
     expect(body.budgetYen).toBe(120000);
+    expect(body.monthStatus).toBe("ready");
+    expect(body.daysRemaining).toBe(30);
     expect(body).toHaveProperty("dailyRows");
   });
 

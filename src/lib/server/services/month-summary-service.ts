@@ -21,7 +21,7 @@ import { buildDailyRecommendations } from "$lib/server/domain/reallocation";
 import { DayEntryService } from "$lib/server/services/day-entry-service";
 import { getJstDateParts } from "$lib/server/time/jst";
 
-export type MonthStatus = "initialized" | "uninitialized";
+export type MonthStatus = "ready" | "uninitialized";
 
 export type DailyRow = {
   date: string;
@@ -131,6 +131,7 @@ export async function buildMonthSummary(
 ): Promise<MonthSummary> {
   const jstToday = options.jstToday ?? getJstDateParts(new Date()).date;
   const dailyTotals = options.dailyTotals ?? [];
+  const daysInMonth = getDaysInMonth(yearMonth);
   const dailyTotalsByDate = buildDailyTotalMap(yearMonth, dailyTotals);
   const plannedTotalYen = [...dailyTotalsByDate.values()].reduce((total, current) => total + current, 0);
   const spentToDateYen = [...dailyTotalsByDate.entries()].reduce((total, [date, value]) => {
@@ -161,7 +162,7 @@ export async function buildMonthSummary(
   if (month) {
     return {
       yearMonth: month.yearMonth,
-      monthStatus: "initialized",
+      monthStatus: "ready",
       budgetYen: month.budgetYen,
       budgetStatus: month.budgetStatus,
       initializedFromPreviousMonth: month.initializedFromPreviousMonth,
@@ -172,7 +173,7 @@ export async function buildMonthSummary(
       remainingYen,
       overspentYen,
       todayRecommendedYen,
-      daysRemaining: dailyRows.length,
+      daysRemaining: daysInMonth,
       dailyRows
     };
   }
@@ -191,7 +192,7 @@ export async function buildMonthSummary(
     remainingYen,
     overspentYen,
     todayRecommendedYen,
-    daysRemaining: dailyRows.length,
+    daysRemaining: daysInMonth,
     dailyRows
   };
 }
