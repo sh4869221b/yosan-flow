@@ -10,9 +10,33 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "yosan-flow",
-      // Placeholder: replace with your actual D1 database_id (UUID).
+      "database_name": "yosan-flow-local",
+      // Local development DB placeholder.
       "database_id": "00000000-0000-0000-0000-000000000000"
     }
-  ]
+  ],
+  "env": {
+    "preview": {
+      "name": "yosan-flow-preview",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "yosan-flow-preview",
+          // Replace with preview D1 database_id (UUID).
+          "database_id": "00000000-0000-0000-0000-000000000000"
+        }
+      ]
+    },
+    "production": {
+      "name": "yosan-flow",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "yosan-flow-prod",
+          // Replace with production D1 database_id (UUID).
+          "database_id": "00000000-0000-0000-0000-000000000000"
+        }
+      ]
+    }
+  }
 }
