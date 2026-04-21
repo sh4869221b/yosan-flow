@@ -40,8 +40,7 @@
         {
           "binding": "DB",
           "database_name": "yosan-flow-prod",
-          // Replace with production D1 database_id (UUID).
-          "database_id": "00000000-0000-0000-0000-000000000000"
+          "database_id": "243d7022-5343-40d4-82dc-cef427eba406"
         }
       ]
     }
