@@ -33,6 +33,22 @@
   let historyLoading = false;
   let historyError: string | null = null;
   let histories: HistoryItem[] = [];
+  let modalInputYen = "";
+  let modalMemo = "";
+  let modalOperation: "add" | "overwrite" = "add";
+
+  $: modalPreviewAfterYen =
+    modalOperation === "add"
+      ? (selectedRow?.usedYen ?? 0) + (Number.parseInt(modalInputYen || "0", 10) || 0)
+      : Number.parseInt(modalInputYen || "0", 10) || 0;
+  $: modalPreviewRemainingYen =
+    summary.budgetYen == null
+      ? null
+      : summary.remainingYen + (selectedRow?.usedYen ?? 0) - modalPreviewAfterYen;
+  $: modalPreviewRecommendedYen =
+    modalPreviewRemainingYen == null || summary.dailyRows.length === 0
+      ? null
+      : Math.max(0, Math.floor(modalPreviewRemainingYen / summary.dailyRows.length));
 
   async function parseApiError(response: Response): Promise<string> {
     const body = await response.json().catch(() => ({}));
@@ -96,7 +112,6 @@
       }
 
       summary = await response.json();
-      await refreshSummary();
     } catch {
       budgetError = "保存に失敗しました。";
     } finally {
@@ -104,33 +119,41 @@
     }
   }
 
-  async function openDayEntry(event: CustomEvent<{ date: string }>): Promise<void> {
-    selectedDate = event.detail.date;
+  function openDayEntry(payload: { date: string }): void {
+    selectedDate = payload.date;
     selectedRow = summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
     modalError = null;
     modalOpen = true;
+    modalInputYen = "";
+    modalMemo = "";
+    modalOperation = "add";
     histories = [];
-    await loadHistory(event.detail.date);
+    void loadHistory(payload.date);
+  }
+
+  function closeDayEntry(): void {
+    modalOpen = false;
+    modalError = null;
   }
 
   async function saveDayEntry(
-    event: CustomEvent<{ date: string; inputYen: number; operation: "add" | "overwrite"; memo: string }>
+    event: { date: string; inputYen: number; operation: "add" | "overwrite"; memo: string }
   ): Promise<void> {
     modalSaving = true;
     modalError = null;
     try {
       const endpoint =
-        event.detail.operation === "add"
-          ? `/api/days/${event.detail.date}/add`
-          : `/api/days/${event.detail.date}/overwrite`;
-      const method = event.detail.operation === "add" ? "POST" : "PUT";
+        event.operation === "add"
+          ? `/api/days/${event.date}/add`
+          : `/api/days/${event.date}/overwrite`;
+      const method = event.operation === "add" ? "POST" : "PUT";
       const response = await fetch(endpoint, {
         method,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           yearMonth: summary.yearMonth,
-          inputYen: event.detail.inputYen,
-          memo: event.detail.memo
+          inputYen: event.inputYen,
+          memo: event.memo
         })
       });
 
@@ -140,17 +163,22 @@
       }
 
       summary = await response.json();
-      await refreshSummary();
       if (selectedDate) {
         selectedRow = summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
         await loadHistory(selectedDate);
       }
-      modalOpen = false;
+      closeDayEntry();
     } catch {
       modalError = "保存に失敗しました。";
     } finally {
       modalSaving = false;
     }
+  }
+
+  async function submitDayEntry(
+    event: CustomEvent<{ date: string; inputYen: number; operation: "add" | "overwrite"; memo: string }>
+  ): Promise<void> {
+    await saveDayEntry(event.detail);
   }
 </script>
 
@@ -166,17 +194,27 @@
     <p role="alert">{summaryError}</p>
   {/if}
 
-  <DailyBudgetTable rows={summary.dailyRows} loading={summaryLoading} on:edit={openDayEntry} />
+  <DailyBudgetTable
+    rows={summary.dailyRows}
+    loading={summaryLoading}
+    on:request-edit={(event) => openDayEntry(event.detail)}
+  />
 
   <DayEntryModal
-    open={modalOpen}
+    isOpen={modalOpen}
     date={selectedDate}
     currentUsedYen={selectedRow?.usedYen ?? 0}
     isPlanned={selectedRow?.label === "planned"}
     saving={modalSaving}
     errorMessage={modalError}
-    on:close={() => (modalOpen = false)}
-    on:save={saveDayEntry}
+    bind:inputYen={modalInputYen}
+    bind:memo={modalMemo}
+    bind:operation={modalOperation}
+    previewAfterYen={modalPreviewAfterYen}
+    previewRemainingYen={modalPreviewRemainingYen}
+    previewRecommendedYen={modalPreviewRecommendedYen}
+    on:close={closeDayEntry}
+    on:save={submitDayEntry}
   />
 
   <HistoryPanel

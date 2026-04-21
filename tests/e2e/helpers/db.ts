@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
 
 export type DailySeed = {
   date: string;
@@ -19,6 +19,7 @@ export type SeedHistoryEntry = {
 
 async function requestJson(
   request: APIRequestContext,
+  baseUrl: string,
   method: "GET" | "POST" | "PUT",
   path: string,
   body?: unknown
@@ -26,7 +27,7 @@ async function requestJson(
   status: number;
   json: any;
 }> {
-  const response = await request.fetch(path, {
+  const response = await request.fetch(new URL(path, `${baseUrl}/`).toString(), {
     method,
     headers: body == null ? undefined : { "content-type": "application/json" },
     data: body
@@ -40,49 +41,74 @@ async function requestJson(
 
 export async function resetDatabase(
   request: APIRequestContext,
+  baseUrl: string,
   input: { yearMonth: string; budgetYen?: number; dates?: string[] } = { yearMonth: "2026-04" }
 ): Promise<void> {
   const budgetYen = input.budgetYen ?? 0;
   const response = await requestJson(
     request,
+    baseUrl,
     "PUT",
     `/api/months/${input.yearMonth}/budget`,
     { budgetYen }
   );
-  expect(response.status).toBe(200);
+  if (response.status !== 200) {
+    throw new Error(`resetDatabase budget request failed: ${response.status}`);
+  }
 
   for (const date of input.dates ?? []) {
-    const resetDayResponse = await requestJson(request, "PUT", `/api/days/${date}/overwrite`, {
-      yearMonth: input.yearMonth,
-      inputYen: 0
-    });
-    expect(resetDayResponse.status).toBe(200);
+    const resetDayResponse = await requestJson(
+      request,
+      baseUrl,
+      "PUT",
+      `/api/days/${date}/overwrite`,
+      {
+        yearMonth: input.yearMonth,
+        inputYen: 0
+      }
+    );
+    if (resetDayResponse.status !== 200) {
+      throw new Error(`resetDatabase day overwrite failed: ${resetDayResponse.status}`);
+    }
   }
 }
 
 export async function seedMonth(
   request: APIRequestContext,
+  baseUrl: string,
   input: SeedMonthInput
 ): Promise<void> {
   const budgetResponse = await requestJson(
     request,
+    baseUrl,
     "PUT",
     `/api/months/${input.yearMonth}/budget`,
     { budgetYen: input.budgetYen }
   );
-  expect(budgetResponse.status).toBe(200);
+  if (budgetResponse.status !== 200) {
+    throw new Error(`seedMonth budget request failed: ${budgetResponse.status}`);
+  }
 
   for (const row of input.dailyTotals ?? []) {
-    const dayResponse = await requestJson(request, "PUT", `/api/days/${row.date}/overwrite`, {
-      yearMonth: input.yearMonth,
-      inputYen: row.totalUsedYen
-    });
-    expect(dayResponse.status).toBe(200);
+    const dayResponse = await requestJson(
+      request,
+      baseUrl,
+      "POST",
+      `/api/days/${row.date}/add`,
+      {
+        yearMonth: input.yearMonth,
+        inputYen: row.totalUsedYen
+      }
+    );
+    if (dayResponse.status !== 200) {
+      throw new Error(`seedMonth day overwrite failed: ${dayResponse.status}`);
+    }
   }
 }
 
 export async function seedHistory(
   request: APIRequestContext,
+  baseUrl: string,
   input: { date: string; yearMonth: string; entries: SeedHistoryEntry[] }
 ): Promise<void> {
   for (const entry of input.entries) {
@@ -91,11 +117,13 @@ export async function seedHistory(
       entry.operation === "add"
         ? `/api/days/${input.date}/add`
         : `/api/days/${input.date}/overwrite`;
-    const response = await requestJson(request, method, path, {
+    const response = await requestJson(request, baseUrl, method, path, {
       yearMonth: input.yearMonth,
       inputYen: entry.inputYen,
       memo: entry.memo
     });
-    expect(response.status).toBe(200);
+    if (response.status !== 200) {
+      throw new Error(`seedHistory request failed: ${response.status}`);
+    }
   }
 }

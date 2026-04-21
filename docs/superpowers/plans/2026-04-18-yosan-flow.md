@@ -108,7 +108,7 @@
 - Create: `.dev.vars.example`
 - Create: `README.md`
 
-- [ ] **Step 1: Write the failing bootstrap expectation**
+- [x] **Step 1: Write the failing bootstrap expectation**
 
 README に最小要件を書き、必要な scripts を列挙する。
 
@@ -121,7 +121,7 @@ README に最小要件を書き、必要な scripts を列挙する。
 - build
 ```
 
-- [ ] **Step 2: Create the minimal app/tooling scaffold**
+- [x] **Step 2: Create the minimal app/tooling scaffold**
 
 SvelteKit + TypeScript + adapter-cloudflare を導入し、`wrangler.jsonc` に D1 binding 名 `DB` を定義する。
 
@@ -138,17 +138,17 @@ SvelteKit + TypeScript + adapter-cloudflare を導入し、`wrangler.jsonc` に 
 }
 ```
 
-- [ ] **Step 3: Verify the scaffold compiles**
+- [x] **Step 3: Verify the scaffold compiles**
 
 Run: `pnpm install`
 Expected: dependencies install successfully
 
-- [ ] **Step 4: Verify static checks**
+- [x] **Step 4: Verify static checks**
 
 Run: `pnpm check`
 Expected: no type or Svelte config errors
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json pnpm-lock.yaml tsconfig.json svelte.config.js vite.config.ts wrangler.jsonc .gitignore .dev.vars.example README.md
@@ -163,7 +163,7 @@ git commit -m "feat: scaffold SvelteKit Cloudflare app"
 - Create: `src/lib/server/time/jst.ts`
 - Test: `tests/unit/jst.test.ts`
 
-- [ ] **Step 1: Write the failing JST tests**
+- [x] **Step 1: Write the failing JST tests**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -184,12 +184,12 @@ describe("isFutureDateFromJstToday", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:unit tests/unit/jst.test.ts`
 Expected: FAIL with module not found
 
-- [ ] **Step 3: Write minimal time utilities and D1 schema**
+- [x] **Step 3: Write minimal time utilities and D1 schema**
 
 ```sql
 CREATE TABLE monthly_budgets (
@@ -243,12 +243,12 @@ export function getJstDateParts(now: Date) {
 }
 ```
 
-- [ ] **Step 4: Run unit tests**
+- [x] **Step 4: Run unit tests**
 
 Run: `pnpm test:unit`
 Expected: JST utility tests pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add migrations/0001_initial.sql src/app.d.ts src/lib/server/time/jst.ts tests/unit/jst.test.ts
@@ -262,7 +262,7 @@ git commit -m "feat: add D1 schema and JST utilities"
 - Create: `src/lib/server/domain/budget.ts`
 - Test: `tests/unit/reallocation.test.ts`
 
-- [ ] **Step 1: Write the failing reallocation tests**
+- [x] **Step 1: Write the failing reallocation tests**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -278,12 +278,12 @@ it("distributes remainder from today forward", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:unit tests/unit/reallocation.test.ts`
 Expected: FAIL with missing function
 
-- [ ] **Step 3: Implement minimal pure functions**
+- [x] **Step 3: Implement minimal pure functions**
 
 ```ts
 export function buildDailyRecommendations(input: { remainingYen: number; dates: string[] }) {
@@ -299,7 +299,7 @@ export function buildDailyRecommendations(input: { remainingYen: number; dates: 
 }
 ```
 
-- [ ] **Step 4: Expand tests**
+- [x] **Step 4: Expand tests**
 
 追加で以下をカバーする。
 
@@ -310,12 +310,12 @@ export function buildDailyRecommendations(input: { remainingYen: number; dates: 
 - 予定支出込みの remaining 計算
 ```
 
-- [ ] **Step 5: Run unit tests**
+- [x] **Step 5: Run unit tests**
 
 Run: `pnpm test:unit`
 Expected: reallocation tests pass
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/server/domain/reallocation.ts src/lib/server/domain/budget.ts tests/unit/reallocation.test.ts
@@ -329,7 +329,7 @@ git commit -m "feat: add budget reallocation domain logic"
 - Modify: `src/lib/server/services/month-summary-service.ts`
 - Create: `tests/integration/api/month-initialize.test.ts`
 
-- [ ] **Step 1: Write failing initialize tests**
+- [x] **Step 1: Write failing initialize tests**
 
 ```ts
 it("creates month from previous budget candidate", async () => {
@@ -347,12 +347,12 @@ it("treats duplicate initialize requests idempotently", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:integration tests/integration/api/month-initialize.test.ts`
 Expected: FAIL with missing initialization behavior
 
-- [ ] **Step 3: Implement explicit initialization**
+- [x] **Step 3: Implement explicit initialization**
 
 要件:
 
@@ -363,12 +363,12 @@ Expected: FAIL with missing initialization behavior
 - 重複初期化は既存レコードを返して冪等に扱う
 ```
 
-- [ ] **Step 4: Run integration tests**
+- [x] **Step 4: Run integration tests**
 
 Run: `pnpm test:integration tests/integration/api/month-initialize.test.ts`
 Expected: initialize behavior passes
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/server/db/month-repository.ts src/lib/server/services/month-summary-service.ts tests/integration/api/month-initialize.test.ts
@@ -386,7 +386,7 @@ git commit -m "feat: add explicit month initialization flow"
 - Create: `src/lib/server/services/day-entry-service.ts`
 - Test: `tests/integration/api/days.test.ts`
 
-- [ ] **Step 1: Write failing integration tests for add/overwrite**
+- [x] **Step 1: Write failing integration tests for add/overwrite**
 
 ```ts
 it("adds to the day's total and records history", async () => {
@@ -403,12 +403,12 @@ it("overwrites the day's total atomically", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:integration tests/integration/api/days.test.ts`
 Expected: FAIL with missing repositories/routes
 
-- [ ] **Step 3: Implement repository primitives**
+- [x] **Step 3: Implement repository primitives**
 
 最低限、以下の責務を分離する。
 
@@ -420,7 +420,7 @@ Expected: FAIL with missing repositories/routes
 - insertHistory(entry)
 ```
 
-- [ ] **Step 4: Implement transaction service**
+- [x] **Step 4: Implement transaction service**
 
 `day-entry-service.ts` に以下を実装する。
 
@@ -439,12 +439,12 @@ Expected: FAIL with missing repositories/routes
 - 同一トランザクションで実行
 ```
 
-- [ ] **Step 5: Run integration tests**
+- [x] **Step 5: Run integration tests**
 
 Run: `pnpm test:integration tests/integration/api/days.test.ts`
 Expected: add/overwrite behavior passes
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/server/db src/lib/server/domain/daily-entry.ts src/lib/server/services/day-entry-service.ts tests/integration/api/days.test.ts
@@ -466,7 +466,7 @@ git commit -m "feat: add transactional daily entry services"
 - Test: `tests/unit/month-summary-service.test.ts`
 - Test: `tests/integration/api/months.test.ts`
 
-- [ ] **Step 1: Write failing month summary tests**
+- [x] **Step 1: Write failing month summary tests**
 
 ```ts
 it("returns suggestedInitialBudgetYen when month record does not exist", async () => {
@@ -476,7 +476,7 @@ it("returns suggestedInitialBudgetYen when month record does not exist", async (
 });
 ```
 
-- [ ] **Step 2: Write failing API tests**
+- [x] **Step 2: Write failing API tests**
 
 ```ts
 it("GET month is side-effect free", async () => {
@@ -490,7 +490,7 @@ it("POST initialize creates the month explicitly", async () => {
 });
 ```
 
-- [ ] **Step 3: Implement summary service**
+- [x] **Step 3: Implement summary service**
 
 レスポンスに以下を含める。
 
@@ -522,7 +522,7 @@ type DailyRow = {
 };
 ```
 
-- [ ] **Step 4: Implement route handlers and validation**
+- [x] **Step 4: Implement route handlers and validation**
 
 必須制約:
 
@@ -534,12 +534,12 @@ type DailyRow = {
 - エラーレスポンス統一
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `pnpm test:unit && pnpm test:integration`
 Expected: month summary / month APIs / day APIs all pass
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/server/services/month-summary-service.ts src/lib/server/validation src/routes/api tests/unit/month-summary-service.test.ts tests/integration/api/months.test.ts
@@ -558,7 +558,7 @@ git commit -m "feat: add month summary and API routes"
 - Create: `tests/e2e/helpers/db.ts`
 - Test: `tests/e2e/dashboard.spec.ts`
 
-- [ ] **Step 1: Write failing E2E expectations**
+- [x] **Step 1: Write failing E2E expectations**
 
 ```ts
 test("shows budget prompt for uninitialized month", async ({ page }) => {
@@ -577,12 +577,12 @@ test("shows future entries as planned spending", async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Run E2E to verify it fails**
+- [x] **Step 2: Run E2E to verify it fails**
 
 Run: `pnpm test:e2e tests/e2e/dashboard.spec.ts`
 Expected: FAIL because page and components do not exist yet
 
-- [ ] **Step 3: Implement page loader and components**
+- [x] **Step 3: Implement page loader and components**
 
 表示要件:
 
@@ -597,7 +597,7 @@ Expected: FAIL because page and components do not exist yet
 - 今日以降一覧
 ```
 
-- [ ] **Step 4: Implement modal interactions**
+- [x] **Step 4: Implement modal interactions**
 
 最低限の操作:
 
@@ -609,12 +609,12 @@ Expected: FAIL because page and components do not exist yet
 - 保存後リロード
 ```
 
-- [ ] **Step 5: Run checks and E2E**
+- [x] **Step 5: Run checks and E2E**
 
 Run: `pnpm check && pnpm test:e2e`
 Expected: dashboard behavior passes
 
-- [ ] **Step 5.1: Add repeatable seed/reset helpers**
+- [x] **Step 5.1: Add repeatable seed/reset helpers**
 
 `tests/e2e/helpers/db.ts` に以下を実装する。
 
@@ -626,7 +626,7 @@ Expected: dashboard behavior passes
 
 E2E の `beforeEach` / `afterEach` で毎回同じ初期状態を作る。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/routes/+page.server.ts src/routes/+page.svelte src/lib/components tests/e2e/helpers/db.ts tests/e2e/dashboard.spec.ts
@@ -640,7 +640,7 @@ git commit -m "feat: build Yosan Flow dashboard UI"
 - Modify: `wrangler.jsonc`
 - Modify: `.dev.vars.example`
 
-- [ ] **Step 1: Document local/preview/production flow**
+- [x] **Step 1: Document local/preview/production flow**
 
 README に以下を書く。
 
@@ -654,17 +654,17 @@ README に以下を書く。
 - Cloudflare Access protection notes
 ```
 
-- [ ] **Step 2: Validate build and deploy config**
+- [x] **Step 2: Validate build and deploy config**
 
 Run: `pnpm build`
 Expected: production build succeeds
 
-- [ ] **Step 3: Validate test suite**
+- [x] **Step 3: Validate test suite**
 
 Run: `pnpm check && pnpm test:unit && pnpm test:integration`
 Expected: all green
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md wrangler.jsonc .dev.vars.example
@@ -673,14 +673,14 @@ git commit -m "docs: add setup and deployment guidance"
 
 ## Final Verification
 
-- [ ] Run: `pnpm check`
-- [ ] Run: `pnpm test:unit`
-- [ ] Run: `pnpm test:integration`
-- [ ] Run: `pnpm build`
-- [ ] If browser tooling is ready, run: `pnpm test:e2e`
-- [ ] Confirm D1 migration applies locally: `pnpm wrangler d1 migrations apply DB --local`
-- [ ] Confirm repeatable E2E setup: `pnpm test:e2e tests/e2e/dashboard.spec.ts --repeat-each=2`
-- [ ] If integration/E2E tests seed D1 locally, reset before rerun with the documented helper or script
+- [x] Run: `pnpm check`
+- [x] Run: `pnpm test:unit`
+- [x] Run: `pnpm test:integration`
+- [x] Run: `pnpm build`
+- [x] If browser tooling is ready, run: `pnpm test:e2e`
+- [x] Confirm D1 migration applies locally: `pnpm wrangler d1 migrations apply DB --local`
+- [x] Confirm repeatable E2E setup: `pnpm test:e2e tests/e2e/dashboard.spec.ts --repeat-each=2`
+- [x] If integration/E2E tests seed D1 locally, reset before rerun with the documented helper or script
 
 ## Notes For Execution
 

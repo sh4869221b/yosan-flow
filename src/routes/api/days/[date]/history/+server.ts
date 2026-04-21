@@ -10,7 +10,7 @@ export type DayHistoryRouteDependencies = {
   services: InMemoryApiServices;
 };
 
-export function createDayHistoryHandler(dependencies: DayHistoryRouteDependencies): RequestHandler {
+export function _createDayHistoryHandler(dependencies: DayHistoryRouteDependencies): RequestHandler {
   return async ({ params }) => {
     try {
       const date = parseDate(params.date);
@@ -27,7 +27,7 @@ export function createDayHistoryHandler(dependencies: DayHistoryRouteDependencie
 }
 
 export const GET: RequestHandler = async (event) => {
-  return createDayHistoryHandler({
+  return _createDayHistoryHandler({
     services: getApiServicesFromPlatform(event.platform)
   })(event);
 };

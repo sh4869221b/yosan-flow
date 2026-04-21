@@ -42,12 +42,12 @@ export function createInMemoryDatabaseClient<M = unknown, D = unknown, H = unkno
     dailyTotals: new Map(input.initialState?.dailyTotals ?? []),
     dailyOperationHistories: [...(input.initialState?.dailyOperationHistories ?? [])]
   };
-  let transactionQueue = Promise.resolve();
+  let transactionQueue: Promise<void> = Promise.resolve();
 
   return {
-    async transaction<T>(work) {
+    async transaction<T>(work: (tx: DatabaseTransaction<M, D, H>) => Promise<T>) {
       const pending = transactionQueue;
-      let releaseQueue: (() => void) | null = null;
+      let releaseQueue: (() => void) | undefined;
       transactionQueue = new Promise<void>((resolve) => {
         releaseQueue = resolve;
       });
@@ -64,7 +64,7 @@ export function createInMemoryDatabaseClient<M = unknown, D = unknown, H = unkno
       }
     },
 
-    async read<T>(work) {
+    async read<T>(work: (tx: DatabaseTransaction<M, D, H>) => Promise<T>) {
       const readState = cloneState(currentState);
       return work({ state: readState });
     },

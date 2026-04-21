@@ -16,7 +16,7 @@ export type MonthInitializeRouteDependencies = {
   services: InMemoryApiServices;
 };
 
-export function createMonthInitializeHandler(
+export function _createMonthInitializeHandler(
   dependencies: MonthInitializeRouteDependencies
 ): RequestHandler {
   return async ({ params, request }) => {
@@ -44,7 +44,7 @@ export function createMonthInitializeHandler(
 }
 
 export const POST: RequestHandler = async (event) => {
-  return createMonthInitializeHandler({
+  return _createMonthInitializeHandler({
     services: getApiServicesFromPlatform(event.platform)
   })(event);
 };

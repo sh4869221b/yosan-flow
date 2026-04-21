@@ -8,3 +8,5 @@ dist
 .dev.vars
 .DS_Store
 .codex
+.tmp-*
+test-results

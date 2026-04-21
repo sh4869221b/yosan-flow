@@ -16,7 +16,7 @@ export type MonthBudgetRouteDependencies = {
   services: InMemoryApiServices;
 };
 
-export function createMonthBudgetHandler(dependencies: MonthBudgetRouteDependencies): RequestHandler {
+export function _createMonthBudgetHandler(dependencies: MonthBudgetRouteDependencies): RequestHandler {
   return async ({ params, request }) => {
     try {
       const yearMonth = parseYearMonth(params.yearMonth);
@@ -42,7 +42,7 @@ export function createMonthBudgetHandler(dependencies: MonthBudgetRouteDependenc
 }
 
 export const PUT: RequestHandler = async (event) => {
-  return createMonthBudgetHandler({
+  return _createMonthBudgetHandler({
     services: getApiServicesFromPlatform(event.platform)
   })(event);
 };

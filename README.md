@@ -17,6 +17,12 @@ pnpm wrangler d1 migrations apply DB --local
 pnpm dev
 ```
 
+補足:
+
+- `.dev.vars` は主に `wrangler dev` / `wrangler d1 ... --local` 向けの設定ファイルです。
+- 現在の開発サーバー起動は `pnpm dev` (`vite dev`) なので、`.dev.vars` の値は自動では読み込まれません。
+- ローカルで Workers 相当の挙動を確認したい場合は `pnpm wrangler dev` を使い、`.dev.vars` をその実行系に渡してください。
+
 ## ローカル検証コマンド
 
 - `pnpm check`
@@ -32,8 +38,9 @@ pnpm dev
 1. `pnpm install`
 2. `cp .dev.vars.example .dev.vars`
 3. `pnpm wrangler d1 migrations apply DB --local`
-4. `pnpm dev`
-5. 必要に応じて `pnpm check && pnpm test:unit && pnpm test:integration`
+4. UI 開発は `pnpm dev`
+5. Workers 実行系の確認は `pnpm wrangler dev`
+6. 必要に応じて `pnpm check && pnpm test:unit && pnpm test:integration`
 
 ### preview
 
@@ -57,6 +64,7 @@ pnpm dev
 - 本アプリは Access 通過後のトラフィックのみ到達する前提です。
 - preview / production それぞれの公開ホスト名を Access policy に登録してください。
 - 未保護の公開 URL を残さないように、DNS/route 設定後に Access 適用漏れを確認してください。
+- `wrangler.jsonc` では `workers_dev` / `preview_urls` を明示的に `false` にして、未保護の `*.workers.dev` / preview URL が出ない前提にしています。
 
 ## D1 migration 運用メモ
 
