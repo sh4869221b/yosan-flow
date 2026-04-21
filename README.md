@@ -33,30 +33,36 @@ pnpm dev
 
 ## 環境フロー（local / preview / production）
 
+重要:
+
+- `wrangler.jsonc` の top-level `d1_databases[0].database_id` はローカル開発用プレースホルダです。そのまま `wrangler deploy` を実行すると、Cloudflare 上では存在しない UUID を参照して失敗します。
+- preview / production にデプロイするときは、必ず `--env` を指定してください。`wrangler deploy` を引数なしで実行すると root 環境を対象にし、preview / production の D1 binding は使われません。
+- Cloudflare の Workers / Pages の build 設定でも、Deploy command は `npx wrangler deploy` ではなく、`pnpm run deploy:preview` または `pnpm run deploy:production` を使ってください。
+
 ### local
 
 1. `pnpm install`
 2. `cp .dev.vars.example .dev.vars`
-3. `pnpm wrangler d1 migrations apply DB --local`
+3. `pnpm run cf:migrate:local`
 4. UI 開発は `pnpm dev`
 5. Workers 実行系の確認は `pnpm wrangler dev`
 6. 必要に応じて `pnpm check && pnpm test:unit && pnpm test:integration`
 
 ### preview
 
-1. preview 用 D1 を作成して `wrangler.jsonc` の `env.preview.d1_databases[0].database_id` を設定
-2. `pnpm wrangler d1 migrations apply DB --env preview --remote`
+1. preview 用 D1 を作成して `wrangler.jsonc` の `env.preview.d1_databases[0].database_id` を実 UUID に置き換える
+2. `pnpm run cf:migrate:preview`
 3. `pnpm build`
-4. `pnpm wrangler deploy --env preview`
+4. `pnpm run deploy:preview`
 5. preview ホストを Cloudflare Access 保護対象に追加
 
 ### production
 
-1. production 用 D1 を作成して `wrangler.jsonc` の `env.production.d1_databases[0].database_id` を設定
-2. `pnpm wrangler d1 migrations apply DB --env production --remote`
+1. production 用 D1 を作成して `wrangler.jsonc` の `env.production.d1_databases[0].database_id` を実 UUID に置き換える
+2. `pnpm run cf:migrate:production`
 3. `pnpm check && pnpm test:unit && pnpm test:integration`
 4. `pnpm build`
-5. `pnpm wrangler deploy --env production`
+5. `pnpm run deploy:production`
 6. production ホストが Cloudflare Access 保護対象であることを確認
 
 ## Cloudflare Access 保護メモ
@@ -69,10 +75,14 @@ pnpm dev
 ## D1 migration 運用メモ
 
 - スキーマは `migrations/*.sql` で管理します。
-- ローカル適用: `pnpm wrangler d1 migrations apply DB --local`
-- preview 適用: `pnpm wrangler d1 migrations apply DB --env preview --remote`
-- production 適用: `pnpm wrangler d1 migrations apply DB --env production --remote`
+- ローカル適用: `pnpm run cf:migrate:local`
+- preview 適用: `pnpm run cf:migrate:preview`
+- production 適用: `pnpm run cf:migrate:production`
 
 ## Cloudflare 設定
 
 - D1 binding 名は全環境で `DB`（`wrangler.jsonc`）です。
+- deploy 前に `env.preview` / `env.production` の `database_id` がプレースホルダ (`00000000-0000-0000-0000-000000000000`) のままでないことを確認してください。
+- Cloudflare dashboard の Deploy command 例:
+  - preview: `pnpm run deploy:preview`
+  - production: `pnpm run deploy:production`
