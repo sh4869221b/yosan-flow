@@ -9,7 +9,12 @@
     "test:unit": "vitest run --passWithNoTests tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test",
-    "build": "vite build"
+    "build": "vite build",
+    "cf:migrate:local": "wrangler d1 migrations apply DB --local",
+    "cf:migrate:preview": "wrangler d1 migrations apply DB --env preview --remote",
+    "cf:migrate:production": "wrangler d1 migrations apply DB --env production --remote",
+    "deploy:preview": "wrangler deploy --env preview",
+    "deploy:production": "wrangler deploy --env production"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0",
