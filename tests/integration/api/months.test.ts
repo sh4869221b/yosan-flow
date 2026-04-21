@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
+import type { D1Database } from "$lib/server/db/d1-types";
 import {
   createInMemoryApiServices,
   type InMemoryApiServices
 } from "$lib/server/services/month-summary-service";
-import { GET as monthGetDefaultRoute, createMonthGetHandler } from "../../../src/routes/api/months/[yearMonth]/+server";
+import { GET as monthGetDefaultRoute, _createMonthGetHandler } from "../../../src/routes/api/months/[yearMonth]/+server";
 import { POST as dayAddDefaultRoute } from "../../../src/routes/api/days/[date]/add/+server";
-import { createMonthInitializeHandler } from "../../../src/routes/api/months/[yearMonth]/initialize/+server";
-import { createMonthBudgetHandler } from "../../../src/routes/api/months/[yearMonth]/budget/+server";
-import { createDayAddHandler } from "../../../src/routes/api/days/[date]/add/+server";
-import { createDayOverwriteHandler } from "../../../src/routes/api/days/[date]/overwrite/+server";
-import { createDayHistoryHandler } from "../../../src/routes/api/days/[date]/history/+server";
+import { PUT as monthPutBudgetDefaultRoute, _createMonthBudgetHandler } from "../../../src/routes/api/months/[yearMonth]/budget/+server";
+import { _createMonthInitializeHandler } from "../../../src/routes/api/months/[yearMonth]/initialize/+server";
+import { _createDayAddHandler } from "../../../src/routes/api/days/[date]/add/+server";
+import { _createDayOverwriteHandler } from "../../../src/routes/api/days/[date]/overwrite/+server";
+import { _createDayHistoryHandler } from "../../../src/routes/api/days/[date]/history/+server";
 
 async function parseJson(response: Response): Promise<any> {
   return response.json();
@@ -17,12 +18,12 @@ async function parseJson(response: Response): Promise<any> {
 
 function createFixture(now = new Date("2026-04-18T00:00:00.000Z")): {
   services: InMemoryApiServices;
-  getMonth: ReturnType<typeof createMonthGetHandler>;
-  initializeMonth: ReturnType<typeof createMonthInitializeHandler>;
-  putBudget: ReturnType<typeof createMonthBudgetHandler>;
-  addDay: ReturnType<typeof createDayAddHandler>;
-  overwriteDay: ReturnType<typeof createDayOverwriteHandler>;
-  getHistory: ReturnType<typeof createDayHistoryHandler>;
+  getMonth: ReturnType<typeof _createMonthGetHandler>;
+  initializeMonth: ReturnType<typeof _createMonthInitializeHandler>;
+  putBudget: ReturnType<typeof _createMonthBudgetHandler>;
+  addDay: ReturnType<typeof _createDayAddHandler>;
+  overwriteDay: ReturnType<typeof _createDayOverwriteHandler>;
+  getHistory: ReturnType<typeof _createDayHistoryHandler>;
 } {
   const services = createInMemoryApiServices({
     now: () => now
@@ -30,12 +31,12 @@ function createFixture(now = new Date("2026-04-18T00:00:00.000Z")): {
 
   return {
     services,
-    getMonth: createMonthGetHandler({ services }),
-    initializeMonth: createMonthInitializeHandler({ services }),
-    putBudget: createMonthBudgetHandler({ services }),
-    addDay: createDayAddHandler({ services }),
-    overwriteDay: createDayOverwriteHandler({ services }),
-    getHistory: createDayHistoryHandler({ services })
+    getMonth: _createMonthGetHandler({ services }),
+    initializeMonth: _createMonthInitializeHandler({ services }),
+    putBudget: _createMonthBudgetHandler({ services }),
+    addDay: _createDayAddHandler({ services }),
+    overwriteDay: _createDayOverwriteHandler({ services }),
+    getHistory: _createDayHistoryHandler({ services })
   };
 }
 
@@ -71,6 +72,9 @@ describe("month and day APIs", () => {
             return {};
           }
         };
+      },
+      async batch() {
+        return [];
       }
     } as unknown as D1Database;
 
@@ -85,13 +89,15 @@ describe("month and day APIs", () => {
     } as any);
 
     expect(response.status).toBe(200);
+    expect(preparedSql.some((sql) => sql.includes("CREATE TABLE IF NOT EXISTS monthly_budgets"))).toBe(true);
     expect(preparedSql.some((sql) => sql.includes("FROM monthly_budgets"))).toBe(true);
     expect(preparedSql.some((sql) => sql.includes("FROM daily_totals"))).toBe(true);
     expect(bindArgsList.some((args) => args[0] === "2026-03")).toBe(true);
   });
 
-  it("default day add route reads daily total inside transaction", async () => {
+  it("default day add route reads daily total and writes via D1 batch", async () => {
     const preparedSql: string[] = [];
+    let batchCallCount = 0;
     const fakeDb = {
       prepare(sql: string) {
         preparedSql.push(sql);
@@ -146,6 +152,10 @@ describe("month and day APIs", () => {
             return {};
           }
         };
+      },
+      async batch() {
+        batchCallCount += 1;
+        return [];
       }
     } as unknown as D1Database;
 
@@ -162,13 +172,44 @@ describe("month and day APIs", () => {
     } as any);
 
     expect(response.status).toBe(200);
-    const beginIndex = preparedSql.findIndex((sql) => sql.includes("BEGIN IMMEDIATE TRANSACTION"));
+    const ensureSchemaIndex = preparedSql.findIndex((sql) =>
+      sql.includes("CREATE TABLE IF NOT EXISTS monthly_budgets")
+    );
     const readDailyTotalIndex = preparedSql.findIndex((sql) =>
       sql.includes("SELECT total_used_yen FROM daily_totals")
     );
-    expect(beginIndex).toBeGreaterThanOrEqual(0);
+    expect(ensureSchemaIndex).toBeGreaterThanOrEqual(0);
     expect(readDailyTotalIndex).toBeGreaterThanOrEqual(0);
-    expect(beginIndex).toBeLessThan(readDailyTotalIndex);
+    expect(ensureSchemaIndex).toBeLessThan(readDailyTotalIndex);
+    expect(batchCallCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it("default no-platform services keep state across PUT and GET requests", async () => {
+    const yearMonth = "2030-04";
+
+    const putResponse = await monthPutBudgetDefaultRoute({
+      params: { yearMonth },
+      request: new Request(`http://localhost/api/months/${yearMonth}/budget`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ budgetYen: 120000 })
+      })
+    } as any);
+
+    expect(putResponse.status).toBe(200);
+
+    const getResponse = await monthGetDefaultRoute({
+      params: { yearMonth },
+      request: new Request(`http://localhost/api/months/${yearMonth}`, {
+        method: "GET"
+      })
+    } as any);
+
+    expect(getResponse.status).toBe(200);
+    const body = await parseJson(getResponse);
+    expect(body.budgetStatus).toBe("set");
+    expect(body.budgetYen).toBe(120000);
+    expect(body.monthStatus).toBe("ready");
   });
 
   it("GET month is side-effect free", async () => {
@@ -229,7 +270,7 @@ describe("month and day APIs", () => {
     expect(body.budgetStatus).toBe("set");
     expect(body.budgetYen).toBe(120000);
     expect(body.monthStatus).toBe("ready");
-    expect(body.daysRemaining).toBe(30);
+    expect(body.daysRemaining).toBe(13);
     expect(body).toHaveProperty("dailyRows");
   });
 

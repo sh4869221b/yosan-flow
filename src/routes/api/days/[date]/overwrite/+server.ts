@@ -16,7 +16,7 @@ export type DayOverwriteRouteDependencies = {
   services: InMemoryApiServices;
 };
 
-export function createDayOverwriteHandler(dependencies: DayOverwriteRouteDependencies): RequestHandler {
+export function _createDayOverwriteHandler(dependencies: DayOverwriteRouteDependencies): RequestHandler {
   return async ({ params, request }) => {
     try {
       const date = parseDate(params.date);
@@ -46,7 +46,7 @@ export function createDayOverwriteHandler(dependencies: DayOverwriteRouteDepende
 }
 
 export const PUT: RequestHandler = async (event) => {
-  return createDayOverwriteHandler({
+  return _createDayOverwriteHandler({
     services: getApiServicesFromPlatform(event.platform)
   })(event);
 };

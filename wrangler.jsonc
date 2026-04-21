@@ -3,6 +3,9 @@
   "name": "yosan-flow",
   "main": ".svelte-kit/cloudflare/_worker.js",
   "compatibility_date": "2026-04-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": {
     "binding": "ASSETS",
     "directory": ".svelte-kit/cloudflare"
@@ -18,6 +21,8 @@
   "env": {
     "preview": {
       "name": "yosan-flow-preview",
+      "workers_dev": false,
+      "preview_urls": false,
       "d1_databases": [
         {
           "binding": "DB",
@@ -29,6 +34,8 @@
     },
     "production": {
       "name": "yosan-flow",
+      "workers_dev": false,
+      "preview_urls": false,
       "d1_databases": [
         {
           "binding": "DB",

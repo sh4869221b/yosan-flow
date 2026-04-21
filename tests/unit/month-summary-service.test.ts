@@ -23,7 +23,7 @@ describe("month summary service", () => {
     expect(result.suggestedInitialBudgetYen).toBe(120000);
     expect(result.yearMonth).toBe("2026-04");
     expect(result.budgetYen).toBeNull();
-    expect(result.daysRemaining).toBe(30);
+    expect(result.daysRemaining).toBe(13);
     expect(result.dailyRows).toHaveLength(13);
   });
 
@@ -60,7 +60,7 @@ describe("month summary service", () => {
       remainingYen: 103000,
       overspentYen: 0,
       todayRecommendedYen: 7924,
-      daysRemaining: 30
+      daysRemaining: 13
     });
     expect(result.dailyRows[0]).toEqual({
       date: "2026-04-18",

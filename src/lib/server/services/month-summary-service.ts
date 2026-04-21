@@ -1,4 +1,5 @@
 import { createInMemoryDatabaseClient, type DatabaseClient } from "$lib/server/db/client";
+import type { D1Database } from "$lib/server/db/d1-types";
 import {
   createDailyHistoryRepository,
   type DailyHistoryRecord,
@@ -160,6 +161,7 @@ export async function buildMonthSummary(
   }));
   const todayRecommendedYen =
     dailyRows.find((row) => row.date === jstToday)?.recommendedYen ?? dailyRows[0]?.recommendedYen ?? 0;
+  const daysRemaining = visibleDates.length;
 
   if (month) {
     return {
@@ -175,7 +177,7 @@ export async function buildMonthSummary(
       remainingYen,
       overspentYen,
       todayRecommendedYen,
-      daysRemaining: daysInMonth,
+      daysRemaining,
       dailyRows
     };
   }
@@ -194,7 +196,7 @@ export async function buildMonthSummary(
     remainingYen,
     overspentYen,
     todayRecommendedYen,
-    daysRemaining: daysInMonth,
+    daysRemaining,
     dailyRows
   };
 }
@@ -371,18 +373,89 @@ export function createInMemoryApiServices(
   };
 }
 
-const defaultApiServicesKey = Symbol.for("yosan-flow.default-api-services");
-const d1BindingScopedServices = new WeakMap<D1Database, InMemoryApiServices>();
+type ApiServicesGlobalCache = {
+  defaultInMemoryApiServices?: InMemoryApiServices;
+  d1BindingScopedServices?: WeakMap<D1Database, InMemoryApiServices>;
+  d1SchemaReadyByBinding?: WeakMap<D1Database, Promise<void>>;
+};
+
+const apiServicesCacheKey = Symbol.for("yosan-flow.api-services-cache");
+
+function getApiServicesGlobalCache(): ApiServicesGlobalCache {
+  const runtimeHost =
+    (globalThis as { process?: unknown }).process ?? (globalThis as unknown);
+  const cacheHost = runtimeHost as Record<string | symbol, unknown>;
+  const existing = cacheHost[apiServicesCacheKey] as ApiServicesGlobalCache | undefined;
+  if (existing) {
+    return existing;
+  }
+
+  const created: ApiServicesGlobalCache = {};
+  cacheHost[apiServicesCacheKey] = created;
+  return created;
+}
+
+const d1SchemaStatements = [
+  `CREATE TABLE IF NOT EXISTS monthly_budgets (
+     year_month TEXT PRIMARY KEY,
+     budget_yen INTEGER NULL,
+     budget_status TEXT NOT NULL CHECK (budget_status IN ('unset', 'set')),
+     initialized_from_previous_month INTEGER NOT NULL DEFAULT 0,
+     carried_from_year_month TEXT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS daily_totals (
+     date TEXT PRIMARY KEY,
+     year_month TEXT NOT NULL,
+     total_used_yen INTEGER NOT NULL CHECK (total_used_yen >= 0),
+     updated_at TEXT NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_daily_totals_year_month
+     ON daily_totals (year_month, date)`,
+  `CREATE TABLE IF NOT EXISTS daily_operation_histories (
+     id TEXT PRIMARY KEY,
+     date TEXT NOT NULL,
+     operation_type TEXT NOT NULL CHECK (operation_type IN ('add', 'overwrite')),
+     input_yen INTEGER NOT NULL CHECK (input_yen >= 0),
+     before_total_yen INTEGER NOT NULL CHECK (before_total_yen >= 0),
+     after_total_yen INTEGER NOT NULL CHECK (after_total_yen >= 0),
+     memo TEXT NULL,
+     created_at TEXT NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_daily_histories_date_created_at
+     ON daily_operation_histories (date, created_at DESC)`
+];
+
+async function ensureD1Schema(db: D1Database): Promise<void> {
+  const cache = getApiServicesGlobalCache();
+  cache.d1SchemaReadyByBinding ??= new WeakMap<D1Database, Promise<void>>();
+  const existing = cache.d1SchemaReadyByBinding.get(db);
+  if (existing) {
+    await existing;
+    return;
+  }
+
+  const initializePromise = db.batch(d1SchemaStatements.map((sql) => db.prepare(sql))).then(() => {});
+  cache.d1SchemaReadyByBinding.set(db, initializePromise);
+
+  try {
+    await initializePromise;
+  } catch (error) {
+    cache.d1SchemaReadyByBinding.delete(db);
+    throw error;
+  }
+}
 
 export function getDefaultInMemoryApiServices(): InMemoryApiServices {
-  const globalObject = globalThis as Record<string | symbol, unknown>;
-  const existing = globalObject[defaultApiServicesKey] as InMemoryApiServices | undefined;
+  const cache = getApiServicesGlobalCache();
+  const existing = cache.defaultInMemoryApiServices;
   if (existing) {
     return existing;
   }
 
   const created = createInMemoryApiServices();
-  globalObject[defaultApiServicesKey] = created;
+  cache.defaultInMemoryApiServices = created;
   return created;
 }
 
@@ -417,6 +490,7 @@ function toMonthRecord(row: {
 function createD1MonthRepository(db: D1Database): MonthRepository {
   return {
     async findMonth(yearMonth) {
+      await ensureD1Schema(db);
       const row = await db
         .prepare(
           `SELECT year_month, budget_yen, budget_status, initialized_from_previous_month, carried_from_year_month, created_at, updated_at
@@ -437,6 +511,7 @@ function createD1MonthRepository(db: D1Database): MonthRepository {
     },
 
     async findPreviousMonthWithBudget(yearMonth) {
+      await ensureD1Schema(db);
       const previousYearMonth = toPreviousYearMonth(yearMonth);
       const row = await db
         .prepare(
@@ -459,6 +534,7 @@ function createD1MonthRepository(db: D1Database): MonthRepository {
     },
 
     async createMonthIfAbsent(input) {
+      await ensureD1Schema(db);
       await db
         .prepare(
           `INSERT INTO monthly_budgets (
@@ -485,6 +561,7 @@ function createD1MonthRepository(db: D1Database): MonthRepository {
     },
 
     async updateBudget(yearMonth, budgetYen, nowIso) {
+      await ensureD1Schema(db);
       await db
         .prepare(
           `UPDATE monthly_budgets
@@ -503,6 +580,7 @@ function createD1MonthRepository(db: D1Database): MonthRepository {
     },
 
     async countMonths() {
+      await ensureD1Schema(db);
       const row = await db.prepare(`SELECT COUNT(*) AS count FROM monthly_budgets`).first<{ count: number }>();
       return Number(row?.count ?? 0);
     }
@@ -518,6 +596,7 @@ function createD1DayEntryService(
   async function execute(command: { date: string; inputYen: number; memo?: string | null }, operationType: "add" | "overwrite") {
     assertValidDate(command.date);
     assertValidInputYen(command.inputYen);
+    await ensureD1Schema(db);
 
     const yearMonth = toYearMonth(command.date);
     const month = await monthRepository.findMonth(yearMonth);
@@ -527,16 +606,16 @@ function createD1DayEntryService(
 
     const nowIso = now().toISOString();
     const memo = normalizeMemo(command.memo);
-    try {
-      await db.prepare("BEGIN IMMEDIATE TRANSACTION").run();
-      const existing = await db
-        .prepare(`SELECT total_used_yen FROM daily_totals WHERE date = ?`)
-        .bind(command.date)
-        .first<{ total_used_yen: number }>();
-      const beforeTotalYen = existing?.total_used_yen ?? 0;
-      const afterTotalYen =
-        operationType === "add" ? beforeTotalYen + command.inputYen : command.inputYen;
-      await db
+    const existing = await db
+      .prepare(`SELECT total_used_yen FROM daily_totals WHERE date = ?`)
+      .bind(command.date)
+      .first<{ total_used_yen: number }>();
+    const beforeTotalYen = existing?.total_used_yen ?? 0;
+    const afterTotalYen =
+      operationType === "add" ? beforeTotalYen + command.inputYen : command.inputYen;
+
+    await db.batch([
+      db
         .prepare(
           `INSERT INTO daily_totals (date, year_month, total_used_yen, updated_at)
            VALUES (?, ?, ?, ?)
@@ -545,9 +624,8 @@ function createD1DayEntryService(
              total_used_yen = excluded.total_used_yen,
              updated_at = excluded.updated_at`
         )
-        .bind(command.date, yearMonth, afterTotalYen, nowIso)
-        .run();
-      await db
+        .bind(command.date, yearMonth, afterTotalYen, nowIso),
+      db
         .prepare(
           `INSERT INTO daily_operation_histories (
              id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
@@ -563,12 +641,7 @@ function createD1DayEntryService(
           memo,
           nowIso
         )
-        .run();
-      await db.prepare("COMMIT").run();
-    } catch (error) {
-      await db.prepare("ROLLBACK").run().catch(() => undefined);
-      throw error;
-    }
+    ]);
   }
 
   return {
@@ -600,6 +673,7 @@ export function createD1ApiServices(
     monthRepository,
     dayEntryService,
     listDailyTotalsByYearMonth: async (yearMonth) => {
+      await ensureD1Schema(db);
       const result = await db
         .prepare(
           `SELECT date, year_month, total_used_yen
@@ -610,13 +684,14 @@ export function createD1ApiServices(
         .bind(yearMonth)
         .all<{ date: string; year_month: string; total_used_yen: number }>();
       const rows = result.results ?? [];
-      return rows.map((row) => ({
+      return rows.map((row: { date: string; year_month: string; total_used_yen: number }) => ({
         date: row.date,
         yearMonth: row.year_month,
         totalUsedYen: row.total_used_yen
       }));
     },
     listHistoryByDate: async (date) => {
+      await ensureD1Schema(db);
       const result = await db
         .prepare(
           `SELECT id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
@@ -636,7 +711,16 @@ export function createD1ApiServices(
           created_at: string;
         }>();
       const rows = result.results ?? [];
-      return rows.map((row) => ({
+      return rows.map((row: {
+        id: string;
+        date: string;
+        operation_type: "add" | "overwrite";
+        input_yen: number;
+        before_total_yen: number;
+        after_total_yen: number;
+        memo: string | null;
+        created_at: string;
+      }) => ({
         id: row.id,
         date: row.date,
         operationType: row.operation_type,
@@ -653,11 +737,19 @@ export function createD1ApiServices(
 }
 
 export function getApiServicesFromPlatform(platform?: App.Platform): InMemoryApiServices {
+  const runtimeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  if (runtimeProcess?.env?.YOSAN_FLOW_FORCE_IN_MEMORY_DEV === "1") {
+    return getDefaultInMemoryApiServices();
+  }
+
   const db = platform?.env?.DB;
   if (!db) {
     return getDefaultInMemoryApiServices();
   }
 
+  const cache = getApiServicesGlobalCache();
+  const d1BindingScopedServices =
+    cache.d1BindingScopedServices ?? (cache.d1BindingScopedServices = new WeakMap());
   const existing = d1BindingScopedServices.get(db);
   if (existing) {
     return existing;

@@ -1,33 +1,23 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
 
-  export let open = false;
+  export let isOpen = false;
   export let date: string | null = null;
   export let currentUsedYen = 0;
   export let isPlanned = false;
   export let saving = false;
   export let errorMessage: string | null = null;
+  export let inputYen = "";
+  export let memo = "";
+  export let operation: "add" | "overwrite" = "add";
+  export let previewAfterYen = 0;
+  export let previewRemainingYen: number | null = null;
+  export let previewRecommendedYen: number | null = null;
 
   const dispatch = createEventDispatcher<{
     close: undefined;
     save: { date: string; inputYen: number; operation: "add" | "overwrite"; memo: string };
   }>();
-
-  let inputYen = "";
-  let memo = "";
-  let operation: "add" | "overwrite" = "add";
-  let previewAfterYen = 0;
-
-  $: if (!open) {
-    inputYen = "";
-    memo = "";
-    operation = "add";
-  }
-
-  $: previewAfterYen =
-    operation === "add"
-      ? currentUsedYen + (Number.parseInt(inputYen || "0", 10) || 0)
-      : Number.parseInt(inputYen || "0", 10) || 0;
 
   function save(): void {
     if (!date) {
@@ -47,7 +37,7 @@
   }
 </script>
 
-{#if open}
+{#if isOpen}
   <section aria-label="日次入力モーダル">
     <h2>日次入力</h2>
     {#if date}
@@ -59,19 +49,25 @@
 
     <p>変更前日次合計: {currentUsedYen} 円</p>
     <p>変更後日次合計（試算）: {previewAfterYen} 円</p>
-
-    {#if errorMessage}
-      <p role="alert">{errorMessage}</p>
+    {#if previewRemainingYen != null}
+      <p>操作後の月残額（試算）: {previewRemainingYen} 円</p>
+    {/if}
+    {#if previewRecommendedYen != null}
+      <p>操作後の今日以降推奨予算（試算）: {previewRecommendedYen} 円</p>
     {/if}
 
-    <label>
-      入力額 (円)
-      <input type="number" min="0" bind:value={inputYen} />
-    </label>
+      {#if errorMessage}
+        <p role="alert">{errorMessage}</p>
+      {/if}
 
-    <fieldset>
-      <legend>操作種別</legend>
       <label>
+        入力額 (円)
+        <input type="number" min="0" bind:value={inputYen} />
+      </label>
+
+      <fieldset>
+        <legend>操作種別</legend>
+        <label>
         <input type="radio" name="operation" value="add" bind:group={operation} />
         追加
       </label>
@@ -86,9 +82,9 @@
       <input type="text" bind:value={memo} />
     </label>
 
-    <button on:click={save} disabled={saving}>
+    <button type="button" on:click={save} disabled={saving}>
       {saving ? "保存中..." : "保存する"}
     </button>
-    <button on:click={() => dispatch("close")} disabled={saving}>閉じる</button>
+    <button type="button" on:click={() => dispatch("close")} disabled={saving}>閉じる</button>
   </section>
 {/if}

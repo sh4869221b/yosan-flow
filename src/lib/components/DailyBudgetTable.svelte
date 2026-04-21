@@ -11,7 +11,7 @@
   export let rows: DailyRow[] = [];
   export let loading = false;
 
-  const dispatch = createEventDispatcher<{ edit: { date: string } }>();
+  const dispatch = createEventDispatcher<{ "request-edit": { date: string } }>();
 </script>
 
 <section>
@@ -37,7 +37,11 @@
           <td data-testid={`used-${row.date}`}>{row.usedYen} 円</td>
           <td>{row.recommendedYen} 円</td>
           <td>
-            <button data-testid={`edit-${row.date}`} on:click={() => dispatch("edit", { date: row.date })}>
+            <button
+              type="button"
+              data-testid={`edit-${row.date}`}
+              on:click={() => dispatch("request-edit", { date: row.date })}
+            >
               入力
             </button>
           </td>

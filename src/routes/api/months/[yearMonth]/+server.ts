@@ -10,7 +10,7 @@ export type MonthRouteDependencies = {
   services: InMemoryApiServices;
 };
 
-export function createMonthGetHandler(dependencies: MonthRouteDependencies): RequestHandler {
+export function _createMonthGetHandler(dependencies: MonthRouteDependencies): RequestHandler {
   return async ({ params }) => {
     try {
       const yearMonth = parseYearMonth(params.yearMonth);
@@ -27,7 +27,7 @@ export function createMonthGetHandler(dependencies: MonthRouteDependencies): Req
 }
 
 export const GET: RequestHandler = async (event) => {
-  return createMonthGetHandler({
+  return _createMonthGetHandler({
     services: getApiServicesFromPlatform(event.platform)
   })(event);
 };
