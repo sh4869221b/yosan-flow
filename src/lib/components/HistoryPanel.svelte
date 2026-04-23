@@ -27,15 +27,19 @@
   {#if errorMessage}
     <p role="alert">{errorMessage}</p>
   {/if}
-  <ul>
-    {#each histories as history}
-      <li>
-        {history.createdAt} / {history.operationType === "add" ? "追加" : "上書き"} / 入力
-        {history.inputYen} 円 / 変更前 {history.beforeTotalYen} 円 / 変更後 {history.afterTotalYen} 円
-        {#if history.memo}
-          / {history.memo}
-        {/if}
-      </li>
-    {/each}
-  </ul>
+  {#if histories.length === 0}
+    <p>履歴はまだありません。</p>
+  {:else}
+    <ul>
+      {#each histories as history}
+        <li>
+          {history.createdAt} / {history.operationType === "add" ? "追加" : "上書き"} / 入力
+          {history.inputYen} 円 / 変更前 {history.beforeTotalYen} 円 / 変更後 {history.afterTotalYen} 円
+          {#if history.memo}
+            / {history.memo}
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
 </section>

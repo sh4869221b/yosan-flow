@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { seedMonth } from "./helpers/db";
+import { seedPeriod } from "./helpers/db";
 import {
-  fetchMonthSummary,
+  addDays,
+  fetchPeriodSummary,
   getBaseUrl,
-  getCurrentJstYearMonth,
-  monthOffset,
+  getCurrentJstDate,
   startDevServer,
   stopDevServer,
   warmUpBrowser
@@ -23,59 +23,77 @@ test.afterEach(async () => {
   await stopDevServer();
 });
 
-test("supports add and overwrite, and keeps values after reload", async ({ page, request }) => {
-  const yearMonth = getCurrentJstYearMonth();
-  const summary = await fetchMonthSummary(request, yearMonth);
-  const todayRow = summary.dailyRows.find((row) => row.label === "today");
-  expect(todayRow).toBeDefined();
-  await seedMonth(request, getBaseUrl(), {
-    yearMonth,
+test("supports add and overwrite in day modal, and keeps values after reload", async ({
+  page,
+  request
+}) => {
+  const startDate = getCurrentJstDate();
+  const periodId = `p-${startDate}`;
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate,
+    endDate: addDays(startDate, 29),
     budgetYen: 120000
   });
 
+  const summary = await fetchPeriodSummary(request, periodId);
+  const todayRow = summary.dailyRows.find((row) => row.label === "today");
+  expect(todayRow).toBeDefined();
+
   await page.goto(`${getBaseUrl()}/`);
-  await expect(page.getByRole("cell", { name: "予定支出" }).first()).toBeVisible();
-  await expect(page.getByTestId(`edit-${todayRow?.date}`)).toBeVisible();
-  await page.getByTestId(`edit-${todayRow?.date}`).click();
-  await expect(page.getByLabel("入力額 (円)")).toBeVisible();
+  await expect(page.getByTestId(`calendar-day-${todayRow?.date}`)).toBeVisible();
+
+  await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
+  await expect(page.getByTestId("day-entry-modal")).toBeVisible();
   await page.getByLabel("入力額 (円)").fill("2000");
   await page.getByLabel("追加").check();
   await page.getByRole("button", { name: "保存する" }).click();
-  await expect(page.getByTestId(`used-${todayRow?.date}`)).toHaveText("2000 円");
-  await page.getByTestId(`edit-${todayRow?.date}`).click();
+  await expect(
+    page.getByTestId(`calendar-day-${todayRow?.date}`).getByTestId(`used-${todayRow?.date}`)
+  ).toHaveText("2000 円");
+
+  await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
   await expect(page.getByLabel("入力額 (円)")).toBeVisible();
   await page.getByLabel("入力額 (円)").fill("500");
   await page.getByLabel("上書き").check();
   await page.getByRole("button", { name: "保存する" }).click();
-  await expect(page.getByTestId(`used-${todayRow?.date}`)).toHaveText("500 円");
+  await expect(
+    page.getByTestId(`calendar-day-${todayRow?.date}`).getByTestId(`used-${todayRow?.date}`)
+  ).toHaveText("500 円");
 
   await page.reload();
-  await expect(page.getByTestId(`used-${todayRow?.date}`)).toHaveText("500 円");
+  await expect(
+    page.getByTestId(`calendar-day-${todayRow?.date}`).getByTestId(`used-${todayRow?.date}`)
+  ).toHaveText("500 円");
 });
 
-test("shows save error and keeps input on failed save", async ({ page, request }, testInfo) => {
-  const yearMonth = getCurrentJstYearMonth();
-  await seedMonth(request, getBaseUrl(), {
-    yearMonth,
+test("shows save error and keeps input on failed period update", async ({ page, request }) => {
+  const startDate = getCurrentJstDate();
+  const periodId = `p-${startDate}`;
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate,
+    endDate: addDays(startDate, 29),
     budgetYen: 120000
   });
+
   await page.goto(`${getBaseUrl()}/`);
-  await page.getByLabel("月予算 (円)").fill("130000");
-  await page.route(`**/api/months/${yearMonth}/budget`, async (route) => {
+  await page.getByLabel("期間予算 (円)").fill("130000");
+  await page.route(`**/api/periods/${periodId}`, async (route) => {
     await route.fulfill({
       status: 409,
       contentType: "application/json",
       body: JSON.stringify({
         error: {
-          code: "BUDGET_NOT_SET",
-          message: "月予算を設定してください。"
+          code: "PERIOD_NOT_FOUND",
+          message: "対象の予算期間が見つかりません。"
         }
       })
     });
   });
 
-  await page.getByRole("button", { name: "予算を保存" }).click();
+  await page.getByRole("button", { name: "期間を更新" }).click();
 
   await expect(page.getByRole("alert")).toBeVisible();
-  await expect(page.getByLabel("月予算 (円)")).toHaveValue("130000");
+  await expect(page.getByLabel("期間予算 (円)")).toHaveValue("130000");
 });

@@ -1,8 +1,7 @@
 import {
   ApiRouteError,
   parseNonNegativeIntegerYen,
-  parseRequestBodyObject,
-  parseYearMonth
+  parseRequestBodyObject
 } from "./month";
 
 export function parseDate(date: string | undefined): string {
@@ -31,36 +30,14 @@ export function parseDate(date: string | undefined): string {
   return date;
 }
 
-export function yearMonthOfDate(date: string): string {
-  return parseDate(date).slice(0, 7);
-}
-
-export function assertDateInYearMonth(date: string, yearMonth: string): void {
-  if (yearMonthOfDate(date) !== yearMonth) {
-    throw new ApiRouteError(
-      400,
-      "DATE_OUT_OF_MONTH",
-      "指定された date が対象 month の範囲外です。"
-    );
-  }
-}
-
 export type DayMutationInput = {
   inputYen: number;
   memo: string | null;
-  yearMonth?: string;
 };
 
 export async function parseDayMutationInput(request: Request): Promise<DayMutationInput> {
   const body = await parseRequestBodyObject(request);
   const inputYen = parseNonNegativeIntegerYen(body.inputYen, "inputYen");
-
-  if (body.yearMonth != null) {
-    if (typeof body.yearMonth !== "string") {
-      throw new ApiRouteError(400, "INVALID_YEAR_MONTH", "yearMonth は yyyy-mm 形式で指定してください。");
-    }
-    parseYearMonth(body.yearMonth);
-  }
 
   const memoValue = body.memo;
   if (memoValue != null && typeof memoValue !== "string") {
@@ -69,7 +46,6 @@ export async function parseDayMutationInput(request: Request): Promise<DayMutati
 
   return {
     inputYen,
-    memo: memoValue == null ? null : memoValue.trim() || null,
-    yearMonth: body.yearMonth as string | undefined
+    memo: memoValue == null ? null : memoValue.trim() || null
   };
 }

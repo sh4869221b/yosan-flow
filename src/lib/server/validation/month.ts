@@ -37,6 +37,13 @@ export function parseYearMonth(value: string | undefined): string {
   return value;
 }
 
+export function parsePeriodId(value: string | undefined): string {
+  if (!value || typeof value !== "string" || value.trim().length === 0) {
+    throw new ApiRouteError(400, "INVALID_PERIOD_ID", "periodId を指定してください。");
+  }
+  return value;
+}
+
 export function parseNonNegativeIntegerYen(value: unknown, fieldName: string): number {
   if (!Number.isInteger(value) || (value as number) < 0) {
     throw new ApiRouteError(400, "INVALID_AMOUNT", `${fieldName} は 0 以上の整数で指定してください。`);
@@ -91,13 +98,47 @@ export function toApiErrorResponse(error: unknown): Response {
     return toErrorResponse(error.status, error.code, error.message);
   }
 
-  if (
-    typeof error === "object" &&
-    error != null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "BUDGET_NOT_SET"
-  ) {
-    return toErrorResponse(409, "BUDGET_NOT_SET", "月予算を設定してください。");
+  const code = typeof error === "object" && error != null && "code" in error
+    ? (error as { code?: unknown }).code
+    : undefined;
+  const message = error instanceof Error ? error.message : "";
+  const resolvedCode =
+    typeof code === "string" && code.length > 0
+      ? code
+      : [
+          "PERIOD_NOT_FOUND",
+          "DATE_OUT_OF_PERIOD",
+          "PERIOD_OVERLAP",
+          "PERIOD_CONTINUITY_VIOLATION",
+          "PERIOD_PREDECESSOR_NOT_FOUND",
+          "INVALID_PERIOD_RANGE",
+          "PERIOD_HAS_OUT_OF_RANGE_ENTRIES"
+        ].find((candidate) => message.includes(candidate));
+
+  if (resolvedCode === "PERIOD_NOT_FOUND") {
+    return toErrorResponse(404, "PERIOD_NOT_FOUND", "対象の予算期間が見つかりません。");
+  }
+  if (resolvedCode === "DATE_OUT_OF_PERIOD") {
+    return toErrorResponse(400, "DATE_OUT_OF_PERIOD", "指定された date は予算期間の範囲外です。");
+  }
+  if (resolvedCode === "PERIOD_OVERLAP") {
+    return toErrorResponse(400, "PERIOD_OVERLAP", "予算期間が既存期間と重複しています。");
+  }
+  if (resolvedCode === "PERIOD_CONTINUITY_VIOLATION") {
+    return toErrorResponse(400, "PERIOD_CONTINUITY_VIOLATION", "前後の予算期間との連続性が不正です。");
+  }
+  if (resolvedCode === "PERIOD_PREDECESSOR_NOT_FOUND") {
+    return toErrorResponse(400, "PERIOD_PREDECESSOR_NOT_FOUND", "前期間が見つかりません。");
+  }
+  if (resolvedCode === "INVALID_PERIOD_RANGE") {
+    return toErrorResponse(400, "INVALID_PERIOD_RANGE", "開始日と終了日の範囲が不正です。");
+  }
+  if (resolvedCode === "PERIOD_HAS_OUT_OF_RANGE_ENTRIES") {
+    return toErrorResponse(
+      400,
+      "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
+      "期間外に出る日次データが存在するため、この変更は適用できません。"
+    );
   }
 
   return toErrorResponse(500, "INTERNAL_ERROR", "サーバーエラーが発生しました。");

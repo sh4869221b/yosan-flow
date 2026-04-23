@@ -1,6 +1,13 @@
 import { createInMemoryDatabaseClient, type DatabaseClient } from "$lib/server/db/client";
 import type { D1Database } from "$lib/server/db/d1-types";
 import {
+  createD1BudgetPeriodRepository,
+  createInMemoryBudgetPeriodRepository,
+  PeriodValidationError,
+  type BudgetPeriodRecord,
+  type BudgetPeriodRepository
+} from "$lib/server/db/budget-period-repository";
+import {
   createDailyHistoryRepository,
   type DailyHistoryRecord,
   type DailyHistoryRepository
@@ -10,80 +17,87 @@ import {
   type DailyTotalRecord,
   type DailyTotalRepository
 } from "$lib/server/db/daily-total-repository";
-import {
-  createTransactionalMonthRepository,
-  toPreviousYearMonth,
-  type MonthRecord,
-  type MonthRepository,
-  type PreviousMonthBudget,
-  type TransactionalMonthRepository
-} from "$lib/server/db/month-repository";
-import { assertValidDate, assertValidInputYen, normalizeMemo, toYearMonth } from "$lib/server/domain/daily-entry";
+import { assertValidDate, assertValidInputYen, normalizeMemo } from "$lib/server/domain/daily-entry";
+import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
 import { buildDailyRecommendations } from "$lib/server/domain/reallocation";
-import { BudgetNotSetError, DayEntryService } from "$lib/server/services/day-entry-service";
+import { DayEntryService } from "$lib/server/services/day-entry-service";
 import { getJstDateParts } from "$lib/server/time/jst";
 
-export type MonthStatus = "ready" | "uninitialized";
+export class PeriodNotFoundError extends Error {
+  readonly code = "PERIOD_NOT_FOUND";
 
-export type DailyRow = {
+  constructor(periodId: string) {
+    super(`Period not found: ${periodId}`);
+    this.name = "PeriodNotFoundError";
+  }
+}
+
+export class DateOutOfPeriodError extends Error {
+  readonly code = "DATE_OUT_OF_PERIOD";
+
+  constructor(date: string, periodId: string) {
+    super(`Date ${date} is outside period ${periodId}`);
+    this.name = "DateOutOfPeriodError";
+  }
+}
+
+export type PeriodDailyRow = {
   date: string;
   label: "today" | "planned";
   usedYen: number;
   recommendedYen: number;
 };
 
-export type MonthSummaryDailyTotal = {
+export type PeriodSummaryDailyTotal = {
   date: string;
-  yearMonth: string;
+  budgetPeriodId: string;
   totalUsedYen: number;
 };
 
-export type MonthSummary = {
-  yearMonth: string;
-  monthStatus: MonthStatus;
-  budgetYen: number | null;
-  budgetStatus: "unset" | "set";
-  initializedFromPreviousMonth: boolean;
-  carriedFromYearMonth: string | null;
-  suggestedInitialBudgetYen: number | null;
+export type PeriodSummary = {
+  periodId: string;
+  startDate: string;
+  endDate: string;
+  budgetYen: number;
+  status: "active" | "closed";
+  periodLengthDays: number;
   spentToDateYen: number;
   plannedTotalYen: number;
   remainingYen: number;
   overspentYen: number;
   todayRecommendedYen: number;
+  varianceFromRecommendationYen: number;
+  remainingAfterDayYenPreview: number;
   daysRemaining: number;
-  dailyRows: DailyRow[];
+  dailyRows: PeriodDailyRow[];
 };
 
 export type DayEntryServicePort = {
-  addDailyAmount(command: { date: string; inputYen: number; memo?: string | null }): Promise<unknown>;
-  overwriteDailyAmount(command: { date: string; inputYen: number; memo?: string | null }): Promise<unknown>;
+  addDailyAmount(command: {
+    periodId: string;
+    date: string;
+    inputYen: number;
+    memo?: string | null;
+  }): Promise<unknown>;
+  overwriteDailyAmount(command: {
+    periodId: string;
+    date: string;
+    inputYen: number;
+    memo?: string | null;
+  }): Promise<unknown>;
 };
 
-export type InitializeMonthInput = {
-  yearMonth: string;
-  budgetYen?: number;
-  nowIso: string;
-};
-
-export type UpsertMonthBudgetInput = {
-  yearMonth: string;
-  budgetYen: number;
-  nowIso: string;
-};
-
-export type BuildMonthSummaryOptions = {
+export type BuildPeriodSummaryOptions = {
   jstToday?: string;
-  dailyTotals?: MonthSummaryDailyTotal[];
+  dailyTotals?: PeriodSummaryDailyTotal[];
 };
 
-function getDaysInMonth(yearMonth: string): number {
-  const [year, month] = yearMonth.split("-").map(Number);
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+function toDateValue(date: string): number {
+  return Date.parse(`${date}T00:00:00.000Z`);
 }
 
-function toDateString(yearMonth: string, day: number): string {
-  return `${yearMonth}-${String(day).padStart(2, "0")}`;
+function nextDate(date: string): string {
+  return new Date(toDateValue(date) + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function buildDateRange(startDate: string, endDate: string): string[] {
@@ -95,23 +109,23 @@ function buildDateRange(startDate: string, endDate: string): string[] {
   let cursor = startDate;
   while (cursor <= endDate) {
     rows.push(cursor);
-    const [year, month, day] = cursor.split("-").map(Number);
-    const next = new Date(Date.UTC(year, month - 1, day + 1));
-    const nextYear = next.getUTCFullYear();
-    const nextMonth = String(next.getUTCMonth() + 1).padStart(2, "0");
-    const nextDay = String(next.getUTCDate()).padStart(2, "0");
-    cursor = `${nextYear}-${nextMonth}-${nextDay}`;
+    cursor = nextDate(cursor);
   }
   return rows;
 }
 
 function buildDailyTotalMap(
-  yearMonth: string,
-  dailyTotals: MonthSummaryDailyTotal[]
+  periodId: string,
+  startDate: string,
+  endDate: string,
+  dailyTotals: PeriodSummaryDailyTotal[]
 ): Map<string, number> {
   const map = new Map<string, number>();
   for (const row of dailyTotals) {
-    if (row.yearMonth !== yearMonth) {
+    if (row.budgetPeriodId !== periodId) {
+      continue;
+    }
+    if (!isDateWithinPeriod(row.date, startDate, endDate)) {
       continue;
     }
     map.set(row.date, (map.get(row.date) ?? 0) + row.totalUsedYen);
@@ -119,198 +133,109 @@ function buildDailyTotalMap(
   return map;
 }
 
-function resolveVisibleDates(yearMonth: string, jstToday: string): string[] {
-  const todayYearMonth = jstToday.slice(0, 7);
-  const startDate =
-    yearMonth === todayYearMonth ? jstToday : `${yearMonth}-${String(1).padStart(2, "0")}`;
-  const endDate = toDateString(yearMonth, getDaysInMonth(yearMonth));
-  return buildDateRange(startDate, endDate);
+function resolveDaysRemaining(startDate: string, endDate: string, jstToday: string): number {
+  if (jstToday < startDate) {
+    return buildDateRange(startDate, endDate).length;
+  }
+  if (jstToday > endDate) {
+    return 0;
+  }
+  return buildDateRange(jstToday, endDate).length;
 }
 
-export async function buildMonthSummary(
-  monthRepository: MonthRepository,
-  yearMonth: string,
-  options: BuildMonthSummaryOptions = {}
-): Promise<MonthSummary> {
+export async function buildPeriodSummary(
+  budgetPeriodRepository: BudgetPeriodRepository,
+  periodId: string,
+  options: BuildPeriodSummaryOptions = {}
+): Promise<PeriodSummary> {
+  const period = await budgetPeriodRepository.findById(periodId);
+  if (!period) {
+    throw new PeriodNotFoundError(periodId);
+  }
+
   const jstToday = options.jstToday ?? getJstDateParts(new Date()).date;
   const dailyTotals = options.dailyTotals ?? [];
-  const daysInMonth = getDaysInMonth(yearMonth);
-  const dailyTotalsByDate = buildDailyTotalMap(yearMonth, dailyTotals);
+  const dailyTotalsByDate = buildDailyTotalMap(period.id, period.startDate, period.endDate, dailyTotals);
+  const periodDates = buildDateRange(period.startDate, period.endDate);
+  const periodLengthDays = periodDates.length;
   const plannedTotalYen = [...dailyTotalsByDate.values()].reduce((total, current) => total + current, 0);
   const spentToDateYen = [...dailyTotalsByDate.entries()].reduce((total, [date, value]) => {
     return date <= jstToday ? total + value : total;
   }, 0);
-  const visibleDates = resolveVisibleDates(yearMonth, jstToday);
+  const spentBeforeTodayYen = [...dailyTotalsByDate.entries()].reduce((total, [date, value]) => {
+    return date < jstToday ? total + value : total;
+  }, 0);
+  const usedTodayYen = dailyTotalsByDate.get(jstToday) ?? 0;
+  const remainingAtTodayYen = period.budgetYen - spentBeforeTodayYen;
+  const remainingDates =
+    jstToday < period.startDate
+      ? periodDates
+      : jstToday > period.endDate
+        ? []
+        : buildDateRange(jstToday, period.endDate);
 
-  const month = await monthRepository.findMonth(yearMonth);
-  const budgetStatus = month?.budgetStatus ?? "unset";
-  const budgetYen = month?.budgetYen ?? null;
-  const hasBudget = budgetStatus === "set" && budgetYen != null;
-  const remainingYen = hasBudget ? budgetYen - plannedTotalYen : 0;
+  const remainingYen = period.budgetYen - plannedTotalYen;
   const overspentYen = remainingYen < 0 ? Math.abs(remainingYen) : 0;
   const recommendations = buildDailyRecommendations({
-    remainingYen: hasBudget ? remainingYen : 0,
-    dates: visibleDates
+    remainingYen: remainingAtTodayYen,
+    dates: remainingDates
   });
   const recommendationMap = new Map(recommendations.map((row) => [row.date, row.recommendedYen]));
-  const dailyRows: DailyRow[] = visibleDates.map((date) => ({
+  const dailyRows: PeriodDailyRow[] = periodDates.map((date) => ({
     date,
     label: date === jstToday ? "today" : "planned",
     usedYen: dailyTotalsByDate.get(date) ?? 0,
     recommendedYen: recommendationMap.get(date) ?? 0
   }));
-  const todayRecommendedYen =
-    dailyRows.find((row) => row.date === jstToday)?.recommendedYen ?? dailyRows[0]?.recommendedYen ?? 0;
-  const daysRemaining = visibleDates.length;
+  const todayRecommendedYen = recommendationMap.get(jstToday) ?? 0;
+  const varianceFromRecommendationYen = usedTodayYen - todayRecommendedYen;
+  const remainingAfterDayYenPreview = remainingAtTodayYen - usedTodayYen;
+  const daysRemaining = resolveDaysRemaining(period.startDate, period.endDate, jstToday);
 
-  if (month) {
-    return {
-      yearMonth: month.yearMonth,
-      monthStatus: "ready",
-      budgetYen: month.budgetYen,
-      budgetStatus: month.budgetStatus,
-      initializedFromPreviousMonth: month.initializedFromPreviousMonth,
-      carriedFromYearMonth: month.carriedFromYearMonth,
-      suggestedInitialBudgetYen: null,
-      spentToDateYen,
-      plannedTotalYen,
-      remainingYen,
-      overspentYen,
-      todayRecommendedYen,
-      daysRemaining,
-      dailyRows
-    };
-  }
-
-  const previousBudget = await monthRepository.findPreviousMonthWithBudget(yearMonth);
   return {
-    yearMonth,
-    monthStatus: "uninitialized",
-    budgetYen: null,
-    budgetStatus: "unset",
-    initializedFromPreviousMonth: false,
-    carriedFromYearMonth: null,
-    suggestedInitialBudgetYen: previousBudget?.budgetYen ?? null,
+    periodId: period.id,
+    startDate: period.startDate,
+    endDate: period.endDate,
+    budgetYen: period.budgetYen,
+    status: period.status,
+    periodLengthDays,
     spentToDateYen,
     plannedTotalYen,
     remainingYen,
     overspentYen,
     todayRecommendedYen,
+    varianceFromRecommendationYen,
+    remainingAfterDayYenPreview,
     daysRemaining,
     dailyRows
   };
 }
 
-export async function initializeMonthExplicit(
-  monthRepository: MonthRepository,
-  input: InitializeMonthInput
-): Promise<MonthRecord> {
-  const existing = await monthRepository.findMonth(input.yearMonth);
-  if (existing) {
-    return existing;
-  }
-
-  const previousBudget = await monthRepository.findPreviousMonthWithBudget(input.yearMonth);
-  const initializedFromPreviousMonth = previousBudget != null;
-  const resolvedBudgetYen = input.budgetYen ?? previousBudget?.budgetYen ?? null;
-
-  return monthRepository.createMonthIfAbsent({
-    yearMonth: input.yearMonth,
-    budgetYen: resolvedBudgetYen,
-    budgetStatus: resolvedBudgetYen == null ? "unset" : "set",
-    initializedFromPreviousMonth,
-    carriedFromYearMonth: previousBudget?.yearMonth ?? null,
-    nowIso: input.nowIso
-  });
-}
-
-export async function upsertMonthBudget(
-  monthRepository: MonthRepository,
-  input: UpsertMonthBudgetInput
-): Promise<MonthRecord> {
-  const existing = await monthRepository.findMonth(input.yearMonth);
-  if (!existing) {
-    return initializeMonthExplicit(monthRepository, {
-      yearMonth: input.yearMonth,
-      budgetYen: input.budgetYen,
-      nowIso: input.nowIso
-    });
-  }
-
-  if (existing.budgetStatus === "set" && existing.budgetYen === input.budgetYen) {
-    return existing;
-  }
-
-  return monthRepository.updateBudget(input.yearMonth, input.budgetYen, input.nowIso);
-}
-
-export function createDatabaseBackedMonthRepository(
-  databaseClient: DatabaseClient<MonthRecord, DailyTotalRecord, DailyHistoryRecord>,
-  transactionalMonthRepository: TransactionalMonthRepository
-): MonthRepository {
-  return {
-    async findMonth(yearMonth) {
-      return databaseClient.read((tx) => transactionalMonthRepository.findMonth(tx, yearMonth));
-    },
-
-    async findPreviousMonthWithBudget(yearMonth) {
-      const previousYearMonth = toPreviousYearMonth(yearMonth);
-      const month = await databaseClient.read((tx) =>
-        transactionalMonthRepository.findMonth(tx, previousYearMonth)
-      );
-      if (!month || month.budgetStatus !== "set" || month.budgetYen == null) {
-        return null;
-      }
-
-      const previous: PreviousMonthBudget = {
-        yearMonth: month.yearMonth,
-        budgetYen: month.budgetYen
-      };
-      return previous;
-    },
-
-    async createMonthIfAbsent(input) {
-      return databaseClient.transaction((tx) => {
-        return transactionalMonthRepository.createMonthIfAbsent(tx, input);
-      });
-    },
-
-    async updateBudget(yearMonth, budgetYen, nowIso) {
-      return databaseClient.transaction(async (tx) => {
-        const existing = await transactionalMonthRepository.findMonth(tx, yearMonth);
-        if (!existing) {
-          throw new Error(`month not found: ${yearMonth}`);
-        }
-
-        const updated: MonthRecord = {
-          ...existing,
-          budgetYen,
-          budgetStatus: "set",
-          updatedAt: nowIso
-        };
-        tx.state.monthlyBudgets.set(yearMonth, updated);
-        return { ...updated };
-      });
-    },
-
-    async countMonths() {
-      return databaseClient.read(async (tx) => tx.state.monthlyBudgets.size);
-    }
-  };
-}
-
 export type InMemoryApiServices = {
-  monthRepository: MonthRepository;
+  budgetPeriodRepository: BudgetPeriodRepository;
   dayEntryService: DayEntryServicePort;
-  listDailyTotalsByYearMonth: (yearMonth: string) => Promise<MonthSummaryDailyTotal[]>;
-  listHistoryByDate: (date: string) => Promise<DailyHistoryRecord[]>;
+  createPeriod: (input: {
+    id: string;
+    startDate: string;
+    endDate: string;
+    budgetYen: number;
+    predecessorPeriodId?: string | null;
+  }) => Promise<BudgetPeriodRecord>;
+  updatePeriod: (input: {
+    id: string;
+    startDate: string;
+    endDate: string;
+    budgetYen: number;
+  }) => Promise<BudgetPeriodRecord>;
+  listPeriods: () => Promise<BudgetPeriodRecord[]>;
+  listDailyTotalsByPeriodId: (periodId: string) => Promise<PeriodSummaryDailyTotal[]>;
+  listHistoryByDate: (periodId: string, date: string) => Promise<DailyHistoryRecord[]>;
   nowIso: () => string;
   jstToday: () => string;
 };
 
 export type InMemoryApiServicesWithInternals = InMemoryApiServices & {
-  databaseClient: DatabaseClient<MonthRecord, DailyTotalRecord, DailyHistoryRecord>;
-  transactionalMonthRepository: TransactionalMonthRepository;
+  databaseClient: DatabaseClient<BudgetPeriodRecord, DailyTotalRecord, DailyHistoryRecord>;
   dailyTotalRepository: DailyTotalRepository;
   dailyHistoryRepository: DailyHistoryRepository;
 };
@@ -325,48 +250,116 @@ export function createInMemoryApiServices(
 ): InMemoryApiServicesWithInternals {
   const now = input.now ?? (() => new Date());
   const databaseClient = createInMemoryDatabaseClient<
-    MonthRecord,
+    BudgetPeriodRecord,
     DailyTotalRecord,
     DailyHistoryRecord
   >();
-  const transactionalMonthRepository = createTransactionalMonthRepository();
   const dailyTotalRepository = createDailyTotalRepository();
   const dailyHistoryRepository = createDailyHistoryRepository();
-  const monthRepository = createDatabaseBackedMonthRepository(
-    databaseClient,
-    transactionalMonthRepository
-  );
+  const budgetPeriodRepository = createInMemoryBudgetPeriodRepository();
 
-  const dayEntryService = new DayEntryService({
+  let mutationQueue: Promise<void> = Promise.resolve();
+  async function runSerialized<T>(work: () => Promise<T>): Promise<T> {
+    const pending = mutationQueue;
+    let releaseQueue: (() => void) | undefined;
+    mutationQueue = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
+    });
+    await pending;
+    try {
+      return await work();
+    } finally {
+      releaseQueue?.();
+    }
+  }
+
+  const rawDayEntryService = new DayEntryService({
     databaseClient,
-    monthRepository: transactionalMonthRepository,
+    budgetPeriodRepository,
     dailyTotalRepository,
     dailyHistoryRepository,
     now: () => now().toISOString(),
     createHistoryId: input.createHistoryId
   });
 
+  async function assertNoOutOfRangePeriodEntries(
+    periodId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<void> {
+    const hasOutOfRangeEntries = await databaseClient.read(async (tx) => {
+      const hasOutOfRangeTotal = [...tx.state.dailyTotals.values()].some(
+        (row) =>
+          row.budgetPeriodId === periodId &&
+          !isDateWithinPeriod(row.date, startDate, endDate)
+      );
+      if (hasOutOfRangeTotal) {
+        return true;
+      }
+      return tx.state.dailyOperationHistories.some(
+        (row) =>
+          row.budgetPeriodId === periodId &&
+          !isDateWithinPeriod(row.date, startDate, endDate)
+      );
+    });
+
+    if (hasOutOfRangeEntries) {
+      throw new PeriodValidationError(
+        "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
+        `period ${periodId} has entries outside the updated range`
+      );
+    }
+  }
+
   return {
     databaseClient,
-    monthRepository,
-    transactionalMonthRepository,
+    budgetPeriodRepository,
     dailyTotalRepository,
     dailyHistoryRepository,
-    dayEntryService,
-    listDailyTotalsByYearMonth: async (yearMonth) => {
+    dayEntryService: {
+      addDailyAmount: (command) => runSerialized(() => rawDayEntryService.addDailyAmount(command)),
+      overwriteDailyAmount: (command) =>
+        runSerialized(() => rawDayEntryService.overwriteDailyAmount(command))
+    },
+    createPeriod: async (periodInput) =>
+      runSerialized(() =>
+        budgetPeriodRepository.createPeriod({
+          ...periodInput,
+          nowIso: now().toISOString()
+        })
+      ),
+    updatePeriod: async (periodInput) => {
+      return runSerialized(async () => {
+        await assertNoOutOfRangePeriodEntries(
+          periodInput.id,
+          periodInput.startDate,
+          periodInput.endDate
+        );
+        return budgetPeriodRepository.updatePeriod({
+          ...periodInput,
+          nowIso: now().toISOString()
+        });
+      });
+    },
+    listPeriods: () => budgetPeriodRepository.listPeriods(),
+    listDailyTotalsByPeriodId: async (periodId) => {
       return databaseClient.read(async (tx) => {
         return [...tx.state.dailyTotals.values()]
-          .filter((row) => row.yearMonth === yearMonth)
+          .filter((row) => row.budgetPeriodId === periodId)
           .map((row) => ({
             date: row.date,
-            yearMonth: row.yearMonth,
+            budgetPeriodId: row.budgetPeriodId,
             totalUsedYen: row.totalUsedYen
           }))
           .sort((left, right) => left.date.localeCompare(right.date));
       });
     },
-    listHistoryByDate: async (date) => {
-      return databaseClient.read((tx) => dailyHistoryRepository.listHistoriesByDate(tx, date));
+    listHistoryByDate: async (periodId, date) => {
+      const period = await budgetPeriodRepository.findById(periodId);
+      if (!period) {
+        throw new PeriodNotFoundError(periodId);
+      }
+      return databaseClient.read((tx) => dailyHistoryRepository.listHistoriesByDate(tx, date, periodId));
     },
     nowIso: () => now().toISOString(),
     jstToday: () => getJstDateParts(now()).date
@@ -396,25 +389,32 @@ function getApiServicesGlobalCache(): ApiServicesGlobalCache {
 }
 
 const d1SchemaStatements = [
-  `CREATE TABLE IF NOT EXISTS monthly_budgets (
-     year_month TEXT PRIMARY KEY,
-     budget_yen INTEGER NULL,
-     budget_status TEXT NOT NULL CHECK (budget_status IN ('unset', 'set')),
-     initialized_from_previous_month INTEGER NOT NULL DEFAULT 0,
-     carried_from_year_month TEXT NULL,
+  `CREATE TABLE IF NOT EXISTS budget_periods (
+     id TEXT PRIMARY KEY,
+     start_date TEXT NOT NULL,
+     end_date TEXT NOT NULL,
+     budget_yen INTEGER NOT NULL CHECK (budget_yen >= 0),
+     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed')),
+     predecessor_period_id TEXT NULL REFERENCES budget_periods (id),
      created_at TEXT NOT NULL,
-     updated_at TEXT NOT NULL
+     updated_at TEXT NOT NULL,
+     CHECK (start_date <= end_date)
    )`,
+  `CREATE INDEX IF NOT EXISTS idx_budget_periods_start_end
+     ON budget_periods (start_date, end_date)`,
   `CREATE TABLE IF NOT EXISTS daily_totals (
-     date TEXT PRIMARY KEY,
+     budget_period_id TEXT NOT NULL REFERENCES budget_periods (id),
+     date TEXT NOT NULL,
      year_month TEXT NOT NULL,
      total_used_yen INTEGER NOT NULL CHECK (total_used_yen >= 0),
-     updated_at TEXT NOT NULL
+     updated_at TEXT NOT NULL,
+     PRIMARY KEY (budget_period_id, date)
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_daily_totals_year_month
-     ON daily_totals (year_month, date)`,
+  `CREATE INDEX IF NOT EXISTS idx_daily_totals_period_date
+     ON daily_totals (budget_period_id, date)`,
   `CREATE TABLE IF NOT EXISTS daily_operation_histories (
      id TEXT PRIMARY KEY,
+     budget_period_id TEXT NOT NULL REFERENCES budget_periods (id),
      date TEXT NOT NULL,
      operation_type TEXT NOT NULL CHECK (operation_type IN ('add', 'overwrite')),
      input_yen INTEGER NOT NULL CHECK (input_yen >= 0),
@@ -423,8 +423,139 @@ const d1SchemaStatements = [
      memo TEXT NULL,
      created_at TEXT NOT NULL
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_daily_histories_date_created_at
-     ON daily_operation_histories (date, created_at DESC)`
+  `CREATE INDEX IF NOT EXISTS idx_daily_histories_period_date_created_at
+     ON daily_operation_histories (budget_period_id, date, created_at DESC)`,
+  `CREATE TRIGGER IF NOT EXISTS budget_periods_no_overlap_insert
+     BEFORE INSERT ON budget_periods
+     FOR EACH ROW
+     BEGIN
+       SELECT CASE
+         WHEN EXISTS (
+           SELECT 1
+             FROM budget_periods
+            WHERE start_date <= NEW.end_date
+              AND end_date >= NEW.start_date
+         ) THEN RAISE(ABORT, 'PERIOD_OVERLAP')
+       END;
+     END`,
+  `CREATE TRIGGER IF NOT EXISTS budget_periods_no_overlap_update
+     BEFORE UPDATE ON budget_periods
+     FOR EACH ROW
+     BEGIN
+       SELECT CASE
+         WHEN EXISTS (
+           SELECT 1
+             FROM budget_periods
+            WHERE id <> NEW.id
+              AND start_date <= NEW.end_date
+              AND end_date >= NEW.start_date
+         ) THEN RAISE(ABORT, 'PERIOD_OVERLAP')
+       END;
+     END`,
+  `CREATE TRIGGER IF NOT EXISTS budget_periods_predecessor_insert
+     BEFORE INSERT ON budget_periods
+     FOR EACH ROW
+     WHEN NEW.predecessor_period_id IS NOT NULL
+     BEGIN
+       SELECT CASE
+         WHEN NOT EXISTS (
+           SELECT 1
+             FROM budget_periods
+            WHERE id = NEW.predecessor_period_id
+              AND date(end_date, '+1 day') = NEW.start_date
+         ) THEN RAISE(ABORT, 'PERIOD_CONTINUITY_VIOLATION')
+       END;
+     END`,
+  `CREATE TRIGGER IF NOT EXISTS budget_periods_predecessor_update
+     BEFORE UPDATE ON budget_periods
+     FOR EACH ROW
+     WHEN NEW.predecessor_period_id IS NOT NULL
+     BEGIN
+       SELECT CASE
+         WHEN NOT EXISTS (
+           SELECT 1
+             FROM budget_periods
+            WHERE id = NEW.predecessor_period_id
+              AND date(end_date, '+1 day') = NEW.start_date
+         ) THEN RAISE(ABORT, 'PERIOD_CONTINUITY_VIOLATION')
+       END;
+     END`,
+  `CREATE TRIGGER IF NOT EXISTS budget_periods_successor_update
+     BEFORE UPDATE ON budget_periods
+     FOR EACH ROW
+     BEGIN
+       SELECT CASE
+         WHEN EXISTS (
+           SELECT 1
+             FROM budget_periods
+            WHERE predecessor_period_id = NEW.id
+              AND start_date <> date(NEW.end_date, '+1 day')
+         ) THEN RAISE(ABORT, 'PERIOD_CONTINUITY_VIOLATION')
+       END;
+     END`,
+  `CREATE TRIGGER IF NOT EXISTS budget_periods_update_range_guard
+     BEFORE UPDATE ON budget_periods
+     FOR EACH ROW
+     BEGIN
+       SELECT CASE
+         WHEN EXISTS (
+           SELECT 1
+             FROM daily_totals
+            WHERE budget_period_id = NEW.id
+              AND (date < NEW.start_date OR date > NEW.end_date)
+         ) THEN RAISE(ABORT, 'PERIOD_HAS_OUT_OF_RANGE_ENTRIES')
+       END;
+       SELECT CASE
+         WHEN EXISTS (
+           SELECT 1
+             FROM daily_operation_histories
+            WHERE budget_period_id = NEW.id
+              AND (date < NEW.start_date OR date > NEW.end_date)
+         ) THEN RAISE(ABORT, 'PERIOD_HAS_OUT_OF_RANGE_ENTRIES')
+       END;
+     END`,
+  `CREATE TRIGGER IF NOT EXISTS daily_totals_date_in_period_insert
+     BEFORE INSERT ON daily_totals
+     FOR EACH ROW
+     BEGIN
+       SELECT CASE
+         WHEN NOT EXISTS (
+           SELECT 1
+             FROM budget_periods
+            WHERE id = NEW.budget_period_id
+              AND NEW.date >= start_date
+              AND NEW.date <= end_date
+         ) THEN RAISE(ABORT, 'DATE_OUT_OF_PERIOD')
+       END;
+     END`,
+  `CREATE TRIGGER IF NOT EXISTS daily_totals_date_in_period_update
+     BEFORE UPDATE ON daily_totals
+     FOR EACH ROW
+     BEGIN
+       SELECT CASE
+         WHEN NOT EXISTS (
+           SELECT 1
+             FROM budget_periods
+            WHERE id = NEW.budget_period_id
+              AND NEW.date >= start_date
+              AND NEW.date <= end_date
+         ) THEN RAISE(ABORT, 'DATE_OUT_OF_PERIOD')
+       END;
+     END`,
+  `CREATE TRIGGER IF NOT EXISTS daily_histories_date_in_period_insert
+     BEFORE INSERT ON daily_operation_histories
+     FOR EACH ROW
+     BEGIN
+       SELECT CASE
+         WHEN NOT EXISTS (
+           SELECT 1
+             FROM budget_periods
+            WHERE id = NEW.budget_period_id
+              AND NEW.date >= start_date
+              AND NEW.date <= end_date
+         ) THEN RAISE(ABORT, 'DATE_OUT_OF_PERIOD')
+       END;
+     END`
 ];
 
 async function ensureD1Schema(db: D1Database): Promise<void> {
@@ -467,181 +598,121 @@ function defaultCreateHistoryId(): string {
   return `history-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function toMonthRecord(row: {
-  year_month: string;
-  budget_yen: number | null;
-  budget_status: "unset" | "set";
-  initialized_from_previous_month: number;
-  carried_from_year_month: string | null;
+function toPeriodRow(row: {
+  id: string;
+  start_date: string;
+  end_date: string;
+  budget_yen: number;
+  status: "active" | "closed";
+  predecessor_period_id: string | null;
   created_at: string;
   updated_at: string;
-}): MonthRecord {
+}): BudgetPeriodRecord {
   return {
-    yearMonth: row.year_month,
+    id: row.id,
+    startDate: row.start_date,
+    endDate: row.end_date,
     budgetYen: row.budget_yen,
-    budgetStatus: row.budget_status,
-    initializedFromPreviousMonth: row.initialized_from_previous_month === 1,
-    carriedFromYearMonth: row.carried_from_year_month,
+    status: row.status,
+    predecessorPeriodId: row.predecessor_period_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
 }
 
-function createD1MonthRepository(db: D1Database): MonthRepository {
-  return {
-    async findMonth(yearMonth) {
-      await ensureD1Schema(db);
-      const row = await db
-        .prepare(
-          `SELECT year_month, budget_yen, budget_status, initialized_from_previous_month, carried_from_year_month, created_at, updated_at
-             FROM monthly_budgets
-            WHERE year_month = ?`
-        )
-        .bind(yearMonth)
-        .first<{
-          year_month: string;
-          budget_yen: number | null;
-          budget_status: "unset" | "set";
-          initialized_from_previous_month: number;
-          carried_from_year_month: string | null;
-          created_at: string;
-          updated_at: string;
-        }>();
-      return row ? toMonthRecord(row) : null;
-    },
-
-    async findPreviousMonthWithBudget(yearMonth) {
-      await ensureD1Schema(db);
-      const previousYearMonth = toPreviousYearMonth(yearMonth);
-      const row = await db
-        .prepare(
-          `SELECT year_month, budget_yen
-             FROM monthly_budgets
-            WHERE year_month = ?
-              AND budget_status = 'set'
-              AND budget_yen IS NOT NULL
-            LIMIT 1`
-        )
-        .bind(previousYearMonth)
-        .first<{ year_month: string; budget_yen: number }>();
-      if (!row) {
-        return null;
-      }
-      return {
-        yearMonth: row.year_month,
-        budgetYen: row.budget_yen
-      };
-    },
-
-    async createMonthIfAbsent(input) {
-      await ensureD1Schema(db);
-      await db
-        .prepare(
-          `INSERT INTO monthly_budgets (
-             year_month, budget_yen, budget_status, initialized_from_previous_month, carried_from_year_month, created_at, updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(year_month) DO NOTHING`
-        )
-        .bind(
-          input.yearMonth,
-          input.budgetYen,
-          input.budgetStatus,
-          input.initializedFromPreviousMonth ? 1 : 0,
-          input.carriedFromYearMonth,
-          input.nowIso,
-          input.nowIso
-        )
-        .run();
-
-      const month = await this.findMonth(input.yearMonth);
-      if (!month) {
-        throw new Error(`month not found after create: ${input.yearMonth}`);
-      }
-      return month;
-    },
-
-    async updateBudget(yearMonth, budgetYen, nowIso) {
-      await ensureD1Schema(db);
-      await db
-        .prepare(
-          `UPDATE monthly_budgets
-              SET budget_yen = ?,
-                  budget_status = 'set',
-                  updated_at = ?
-            WHERE year_month = ?`
-        )
-        .bind(budgetYen, nowIso, yearMonth)
-        .run();
-      const month = await this.findMonth(yearMonth);
-      if (!month) {
-        throw new Error(`month not found: ${yearMonth}`);
-      }
-      return month;
-    },
-
-    async countMonths() {
-      await ensureD1Schema(db);
-      const row = await db.prepare(`SELECT COUNT(*) AS count FROM monthly_budgets`).first<{ count: number }>();
-      return Number(row?.count ?? 0);
-    }
-  };
-}
-
 function createD1DayEntryService(
   db: D1Database,
-  monthRepository: MonthRepository,
   now: () => Date,
   createHistoryId: () => string
 ): DayEntryServicePort {
-  async function execute(command: { date: string; inputYen: number; memo?: string | null }, operationType: "add" | "overwrite") {
+  async function execute(
+    command: { periodId: string; date: string; inputYen: number; memo?: string | null },
+    operationType: "add" | "overwrite"
+  ) {
     assertValidDate(command.date);
     assertValidInputYen(command.inputYen);
     await ensureD1Schema(db);
 
-    const yearMonth = toYearMonth(command.date);
-    const month = await monthRepository.findMonth(yearMonth);
-    if (!month || month.budgetStatus !== "set" || month.budgetYen == null) {
-      throw new BudgetNotSetError(yearMonth);
+    const period = await db
+      .prepare(
+        `SELECT id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
+           FROM budget_periods
+          WHERE id = ?`
+      )
+      .bind(command.periodId)
+      .first<{
+        id: string;
+        start_date: string;
+        end_date: string;
+        budget_yen: number;
+        status: "active" | "closed";
+        predecessor_period_id: string | null;
+        created_at: string;
+        updated_at: string;
+      }>();
+    if (!period) {
+      throw new PeriodNotFoundError(command.periodId);
+    }
+    if (!isDateWithinPeriod(command.date, period.start_date, period.end_date)) {
+      throw new DateOutOfPeriodError(command.date, command.periodId);
     }
 
     const nowIso = now().toISOString();
     const memo = normalizeMemo(command.memo);
+
     const existing = await db
-      .prepare(`SELECT total_used_yen FROM daily_totals WHERE date = ?`)
-      .bind(command.date)
+      .prepare(
+        `SELECT total_used_yen
+           FROM daily_totals
+          WHERE budget_period_id = ?
+            AND date = ?`
+      )
+      .bind(command.periodId, command.date)
       .first<{ total_used_yen: number }>();
     const beforeTotalYen = existing?.total_used_yen ?? 0;
     const afterTotalYen =
       operationType === "add" ? beforeTotalYen + command.inputYen : command.inputYen;
+    const totalMutation =
+      operationType === "add"
+        ? db
+            .prepare(
+              `INSERT INTO daily_totals (budget_period_id, date, year_month, total_used_yen, updated_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(budget_period_id, date) DO UPDATE SET
+                 year_month = excluded.year_month,
+                 total_used_yen = daily_totals.total_used_yen + excluded.total_used_yen,
+                 updated_at = excluded.updated_at`
+            )
+            .bind(command.periodId, command.date, command.date.slice(0, 7), command.inputYen, nowIso)
+        : db
+            .prepare(
+              `INSERT INTO daily_totals (budget_period_id, date, year_month, total_used_yen, updated_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(budget_period_id, date) DO UPDATE SET
+                 year_month = excluded.year_month,
+                 total_used_yen = excluded.total_used_yen,
+                 updated_at = excluded.updated_at`
+            )
+            .bind(command.periodId, command.date, command.date.slice(0, 7), command.inputYen, nowIso);
+    const historyInsert = db
+      .prepare(
+        `INSERT INTO daily_operation_histories (
+           id, budget_period_id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        createHistoryId(),
+        command.periodId,
+        command.date,
+        operationType,
+        command.inputYen,
+        beforeTotalYen,
+        afterTotalYen,
+        memo,
+        nowIso
+      );
 
-    await db.batch([
-      db
-        .prepare(
-          `INSERT INTO daily_totals (date, year_month, total_used_yen, updated_at)
-           VALUES (?, ?, ?, ?)
-           ON CONFLICT(date) DO UPDATE SET
-             year_month = excluded.year_month,
-             total_used_yen = excluded.total_used_yen,
-             updated_at = excluded.updated_at`
-        )
-        .bind(command.date, yearMonth, afterTotalYen, nowIso),
-      db
-        .prepare(
-          `INSERT INTO daily_operation_histories (
-             id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .bind(
-          createHistoryId(),
-          command.date,
-          operationType,
-          command.inputYen,
-          beforeTotalYen,
-          afterTotalYen,
-          memo,
-          nowIso
-        )
-    ]);
+    await db.batch([totalMutation, historyInsert]);
   }
 
   return {
@@ -661,47 +732,107 @@ export function createD1ApiServices(
   input: CreateInMemoryApiServicesInput = {}
 ): InMemoryApiServices {
   const now = input.now ?? (() => new Date());
-  const monthRepository = createD1MonthRepository(db);
+  const budgetPeriodRepository = createD1BudgetPeriodRepository({
+    db,
+    ensureSchema: () => ensureD1Schema(db)
+  });
   const dayEntryService = createD1DayEntryService(
     db,
-    monthRepository,
     now,
     input.createHistoryId ?? defaultCreateHistoryId
   );
 
+  async function assertNoOutOfRangePeriodEntries(
+    periodId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<void> {
+    await ensureD1Schema(db);
+    const outOfRangeTotal = await db
+      .prepare(
+        `SELECT 1
+           FROM daily_totals
+          WHERE budget_period_id = ?
+            AND (date < ? OR date > ?)
+          LIMIT 1`
+      )
+      .bind(periodId, startDate, endDate)
+      .first();
+    const outOfRangeHistory = await db
+      .prepare(
+        `SELECT 1
+           FROM daily_operation_histories
+          WHERE budget_period_id = ?
+            AND (date < ? OR date > ?)
+          LIMIT 1`
+      )
+      .bind(periodId, startDate, endDate)
+      .first();
+
+    if (outOfRangeTotal || outOfRangeHistory) {
+      throw new PeriodValidationError(
+        "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
+        `period ${periodId} has entries outside the updated range`
+      );
+    }
+  }
+
   return {
-    monthRepository,
+    budgetPeriodRepository,
     dayEntryService,
-    listDailyTotalsByYearMonth: async (yearMonth) => {
+    createPeriod: (periodInput) =>
+      budgetPeriodRepository.createPeriod({
+        ...periodInput,
+        nowIso: now().toISOString()
+      }),
+    updatePeriod: async (periodInput) => {
+      await assertNoOutOfRangePeriodEntries(
+        periodInput.id,
+        periodInput.startDate,
+        periodInput.endDate
+      );
+      return budgetPeriodRepository.updatePeriod({
+        ...periodInput,
+        nowIso: now().toISOString()
+      });
+    },
+    listPeriods: () => budgetPeriodRepository.listPeriods(),
+    listDailyTotalsByPeriodId: async (periodId) => {
       await ensureD1Schema(db);
       const result = await db
         .prepare(
-          `SELECT date, year_month, total_used_yen
+          `SELECT budget_period_id, date, total_used_yen
              FROM daily_totals
-            WHERE year_month = ?
+            WHERE budget_period_id = ?
             ORDER BY date ASC`
         )
-        .bind(yearMonth)
-        .all<{ date: string; year_month: string; total_used_yen: number }>();
+        .bind(periodId)
+        .all<{ budget_period_id: string; date: string; total_used_yen: number }>();
       const rows = result.results ?? [];
-      return rows.map((row: { date: string; year_month: string; total_used_yen: number }) => ({
+      return rows.map((row) => ({
         date: row.date,
-        yearMonth: row.year_month,
+        budgetPeriodId: row.budget_period_id,
         totalUsedYen: row.total_used_yen
       }));
     },
-    listHistoryByDate: async (date) => {
+    listHistoryByDate: async (periodId, date) => {
       await ensureD1Schema(db);
+      const period = await budgetPeriodRepository.findById(periodId);
+      if (!period) {
+        throw new PeriodNotFoundError(periodId);
+      }
       const result = await db
         .prepare(
-          `SELECT id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
+          `SELECT id, budget_period_id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
              FROM daily_operation_histories
-            WHERE date = ?
+            WHERE budget_period_id = ?
+              AND date = ?
             ORDER BY created_at DESC, id DESC`
         )
-        .bind(date)
+        .bind(periodId, date)
         .all<{
           id: string;
+          budget_period_id: string;
           date: string;
           operation_type: "add" | "overwrite";
           input_yen: number;
@@ -711,17 +842,9 @@ export function createD1ApiServices(
           created_at: string;
         }>();
       const rows = result.results ?? [];
-      return rows.map((row: {
-        id: string;
-        date: string;
-        operation_type: "add" | "overwrite";
-        input_yen: number;
-        before_total_yen: number;
-        after_total_yen: number;
-        memo: string | null;
-        created_at: string;
-      }) => ({
+      return rows.map((row) => ({
         id: row.id,
+        budgetPeriodId: row.budget_period_id,
         date: row.date,
         operationType: row.operation_type,
         inputYen: row.input_yen,
@@ -744,6 +867,9 @@ export function getApiServicesFromPlatform(platform?: App.Platform): InMemoryApi
 
   const db = platform?.env?.DB;
   if (!db) {
+    if (platform) {
+      throw new Error("D1 binding DB is required");
+    }
     return getDefaultInMemoryApiServices();
   }
 
@@ -758,4 +884,14 @@ export function getApiServicesFromPlatform(platform?: App.Platform): InMemoryApi
   const created = createD1ApiServices(db);
   d1BindingScopedServices.set(db, created);
   return created;
+}
+
+export async function getPeriodSummaryFromServices(
+  services: InMemoryApiServices,
+  periodId: string
+): Promise<PeriodSummary> {
+  return buildPeriodSummary(services.budgetPeriodRepository, periodId, {
+    jstToday: services.jstToday(),
+    dailyTotals: await services.listDailyTotalsByPeriodId(periodId)
+  });
 }

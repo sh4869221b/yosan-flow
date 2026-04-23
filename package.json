@@ -28,5 +28,9 @@
     "vite": "^7.0.0",
     "vitest": "^3.2.0",
     "wrangler": "^4.23.0"
+  },
+  "dependencies": {
+    "@internationalized/date": "^3.12.1",
+    "bits-ui": "^2.18.0"
   }
 }

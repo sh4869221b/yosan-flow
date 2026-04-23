@@ -5,6 +5,7 @@ export type DailyOperationType = "add" | "overwrite";
 export type DailyHistoryRecord = {
   id: string;
   date: string;
+  budgetPeriodId: string;
   operationType: DailyOperationType;
   inputYen: number;
   beforeTotalYen: number;
@@ -16,6 +17,7 @@ export type DailyHistoryRecord = {
 export type InsertDailyHistoryInput = {
   id: string;
   date: string;
+  budgetPeriodId: string;
   operationType: DailyOperationType;
   inputYen: number;
   beforeTotalYen: number;
@@ -27,7 +29,7 @@ export type InsertDailyHistoryInput = {
 export type DailyHistoryTransaction = DatabaseTransaction<any, any, DailyHistoryRecord>;
 
 export interface DailyHistoryRepository {
-  listHistoriesByDate(tx: DailyHistoryTransaction, date: string): Promise<DailyHistoryRecord[]>;
+  listHistoriesByDate(tx: DailyHistoryTransaction, date: string, budgetPeriodId: string): Promise<DailyHistoryRecord[]>;
   insertHistory(
     tx: DailyHistoryTransaction,
     input: InsertDailyHistoryInput
@@ -40,9 +42,17 @@ function cloneHistory(row: DailyHistoryRecord): DailyHistoryRecord {
 
 export function createDailyHistoryRepository(): DailyHistoryRepository {
   return {
-    async listHistoriesByDate(tx, date) {
+    async listHistoriesByDate(tx, date, budgetPeriodId) {
       return tx.state.dailyOperationHistories
-        .filter((entry) => entry.date === date)
+        .filter((entry) => {
+          if (entry.date !== date) {
+            return false;
+          }
+          if (entry.budgetPeriodId !== budgetPeriodId) {
+            return false;
+          }
+          return true;
+        })
         .slice()
         .sort((left, right) => {
           if (left.createdAt === right.createdAt) {
@@ -57,6 +67,7 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
       const history: DailyHistoryRecord = {
         id: input.id,
         date: input.date,
+        budgetPeriodId: input.budgetPeriodId,
         operationType: input.operationType,
         inputYen: input.inputYen,
         beforeTotalYen: input.beforeTotalYen,

@@ -1,31 +1,56 @@
 import type { PageServerLoad } from "./$types";
-import { buildMonthSummary, getApiServicesFromPlatform } from "$lib/server/services/month-summary-service";
-import { getJstDateParts } from "$lib/server/time/jst";
-import { parseYearMonth } from "$lib/server/validation/month";
+import {
+  getApiServicesFromPlatform,
+  getPeriodSummaryFromServices
+} from "$lib/server/services/month-summary-service";
+import { parsePeriodId } from "$lib/server/validation/month";
 
-function resolveYearMonth(url: URL): string {
-  const fallback = getJstDateParts(new Date()).yearMonth;
-  const requested = url.searchParams.get("yearMonth") ?? url.searchParams.get("month");
+function resolveRequestedPeriodId(url: URL): string | null {
+  const requested = url.searchParams.get("periodId");
   if (!requested) {
-    return fallback;
+    return null;
   }
-
   try {
-    return parseYearMonth(requested);
+    return parsePeriodId(requested);
   } catch {
-    return fallback;
+    return null;
   }
 }
 
 export const load: PageServerLoad = async ({ platform, url }) => {
-  const yearMonth = resolveYearMonth(url);
   const services = getApiServicesFromPlatform(platform);
-  const summary = await buildMonthSummary(services.monthRepository, yearMonth, {
-    jstToday: services.jstToday(),
-    dailyTotals: await services.listDailyTotalsByYearMonth(yearMonth)
-  });
+  const requestedPeriodId = resolveRequestedPeriodId(url);
+  const periods = await services.listPeriods();
+  const today = services.jstToday();
+  if (periods.length === 0) {
+    return {
+      today,
+      periods,
+      selectedPeriodId: null,
+      summary: null
+    };
+  }
+
+  const requestedPeriod = requestedPeriodId
+    ? periods.find((period) => period.id === requestedPeriodId) ?? null
+    : null;
+  const currentPeriod =
+    periods.find(
+      (period) =>
+        period.status === "active" &&
+        period.startDate <= today &&
+        today <= period.endDate
+    ) ?? null;
+  const latestPeriod = periods[periods.length - 1] ?? null;
+  const selectedPeriod = requestedPeriod ?? currentPeriod ?? latestPeriod;
+  const summary = selectedPeriod
+    ? await getPeriodSummaryFromServices(services, selectedPeriod.id)
+    : null;
 
   return {
+    today,
+    periods,
+    selectedPeriodId: selectedPeriod?.id ?? null,
     summary
   };
 };

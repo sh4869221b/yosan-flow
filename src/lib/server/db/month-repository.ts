@@ -75,13 +75,13 @@ export function createTransactionalMonthRepository(): TransactionalMonthReposito
   return {
     async findMonth(tx, yearMonth) {
       assertYearMonth(yearMonth);
-      const month = tx.state.monthlyBudgets.get(yearMonth);
+      const month = tx.state.budgetPeriods.get(yearMonth);
       return month ? cloneMonth(month) : null;
     },
 
     async createMonthIfAbsent(tx, input) {
       assertYearMonth(input.yearMonth);
-      const existing = tx.state.monthlyBudgets.get(input.yearMonth);
+      const existing = tx.state.budgetPeriods.get(input.yearMonth);
       if (existing) {
         return cloneMonth(existing);
       }
@@ -95,7 +95,7 @@ export function createTransactionalMonthRepository(): TransactionalMonthReposito
         createdAt: input.nowIso,
         updatedAt: input.nowIso
       };
-      tx.state.monthlyBudgets.set(input.yearMonth, next);
+      tx.state.budgetPeriods.set(input.yearMonth, next);
       return cloneMonth(next);
     }
   };

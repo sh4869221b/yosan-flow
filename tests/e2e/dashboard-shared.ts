@@ -20,27 +20,23 @@ export function getBaseUrl(): string {
   return baseUrl;
 }
 
-export function toYearMonth(year: number, month: number): string {
-  const normalizedYear = year + Math.floor((month - 1) / 12);
-  const normalizedMonth = ((month - 1) % 12) + 1;
-  return `${normalizedYear}-${String(normalizedMonth).padStart(2, "0")}`;
-}
-
-export function monthOffset(base: string, offset: number): string {
-  const [year, month] = base.split("-").map(Number);
-  return toYearMonth(year, month + offset);
-}
-
-export function getCurrentJstYearMonth(): string {
+export function getCurrentJstDate(): string {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Tokyo",
     year: "numeric",
-    month: "2-digit"
+    month: "2-digit",
+    day: "2-digit"
   });
   const parts = formatter.formatToParts(new Date());
   const year = parts.find((part) => part.type === "year")?.value ?? "2026";
   const month = parts.find((part) => part.type === "month")?.value ?? "04";
-  return `${year}-${month}`;
+  const day = parts.find((part) => part.type === "day")?.value ?? "20";
+  return `${year}-${month}-${day}`;
+}
+
+export function addDays(date: string, days: number): string {
+  const dateValue = Date.parse(`${date}T00:00:00.000Z`);
+  return new Date(dateValue + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 async function waitForServerReady(url: string): Promise<void> {
@@ -144,13 +140,22 @@ export async function warmUpBrowser(browser: Browser): Promise<void> {
   }
 }
 
-export async function fetchMonthSummary(request: APIRequestContext, yearMonth: string) {
-  const response = await request.get(`${baseUrl}/api/months/${yearMonth}`);
+export async function fetchPeriods(request: APIRequestContext) {
+  const response = await request.get(`${baseUrl}/api/periods`);
   if (!response.ok()) {
-    throw new Error(`Failed to fetch month summary for ${yearMonth}: ${response.status()}`);
+    throw new Error(`Failed to fetch periods: ${response.status()}`);
+  }
+  const body = await response.json();
+  return body.periods as Array<{ id: string; startDate: string; endDate: string }>;
+}
+
+export async function fetchPeriodSummary(request: APIRequestContext, periodId: string) {
+  const response = await request.get(`${baseUrl}/api/periods/${encodeURIComponent(periodId)}`);
+  if (!response.ok()) {
+    throw new Error(`Failed to fetch period summary for ${periodId}: ${response.status()}`);
   }
   return (await response.json()) as {
-    yearMonth: string;
+    periodId: string;
     dailyRows: Array<{ date: string; label: "today" | "planned" }>;
   };
 }

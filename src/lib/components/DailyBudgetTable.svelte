@@ -15,7 +15,7 @@
 </script>
 
 <section>
-  <h2>今日以降一覧</h2>
+  <h2>期間日次一覧</h2>
   {#if loading}
     <p>読み込み中...</p>
   {/if}

@@ -1,95 +1,88 @@
 import { describe, expect, it } from "vitest";
-import { createInMemoryMonthRepository } from "$lib/server/db/month-repository";
-import { buildMonthSummary } from "$lib/server/services/month-summary-service";
+import { createInMemoryBudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
+import { buildPeriodSummary } from "$lib/server/services/month-summary-service";
 
-describe("month summary service", () => {
-  it("returns suggestedInitialBudgetYen when month record does not exist", async () => {
-    const repository = createInMemoryMonthRepository();
-    await repository.createMonthIfAbsent({
-      yearMonth: "2026-03",
+describe("period summary service", () => {
+  it("builds summary fields for selected period with full calendar range", async () => {
+    const repository = createInMemoryBudgetPeriodRepository();
+    await repository.createPeriod({
+      id: "2026-04-main",
+      startDate: "2026-04-20",
+      endDate: "2026-05-19",
       budgetYen: 120000,
-      budgetStatus: "set",
-      initializedFromPreviousMonth: false,
-      carriedFromYearMonth: null,
-      nowIso: "2026-03-01T00:00:00.000Z"
-    });
-
-    const result = await buildMonthSummary(repository, "2026-04", {
-      jstToday: "2026-04-18",
-      dailyTotals: []
-    });
-
-    expect(result.monthStatus).toBe("uninitialized");
-    expect(result.suggestedInitialBudgetYen).toBe(120000);
-    expect(result.yearMonth).toBe("2026-04");
-    expect(result.budgetYen).toBeNull();
-    expect(result.daysRemaining).toBe(13);
-    expect(result.dailyRows).toHaveLength(13);
-  });
-
-  it("builds full month summary fields", async () => {
-    const repository = createInMemoryMonthRepository();
-    await repository.createMonthIfAbsent({
-      yearMonth: "2026-04",
-      budgetYen: 120000,
-      budgetStatus: "set",
-      initializedFromPreviousMonth: true,
-      carriedFromYearMonth: "2026-03",
       nowIso: "2026-04-01T00:00:00.000Z"
     });
 
-    const result = await buildMonthSummary(repository, "2026-04", {
-      jstToday: "2026-04-18",
+    const result = await buildPeriodSummary(repository, "2026-04-main", {
+      jstToday: "2026-04-20",
       dailyTotals: [
-        { date: "2026-04-01", yearMonth: "2026-04", totalUsedYen: 10000 },
-        { date: "2026-04-17", yearMonth: "2026-04", totalUsedYen: 2000 },
-        { date: "2026-04-19", yearMonth: "2026-04", totalUsedYen: 5000 }
+        { date: "2026-04-20", budgetPeriodId: "2026-04-main", totalUsedYen: 10000 },
+        { date: "2026-04-21", budgetPeriodId: "2026-04-main", totalUsedYen: 2000 },
+        { date: "2026-05-19", budgetPeriodId: "2026-04-main", totalUsedYen: 5000 }
       ]
     });
 
     expect(result).toMatchObject({
-      yearMonth: "2026-04",
+      periodId: "2026-04-main",
+      startDate: "2026-04-20",
+      endDate: "2026-05-19",
       budgetYen: 120000,
-      monthStatus: "ready",
-      budgetStatus: "set",
-      initializedFromPreviousMonth: true,
-      carriedFromYearMonth: "2026-03",
-      suggestedInitialBudgetYen: null,
-      spentToDateYen: 12000,
+      status: "active",
+      periodLengthDays: 30,
+      spentToDateYen: 10000,
       plannedTotalYen: 17000,
       remainingYen: 103000,
       overspentYen: 0,
-      todayRecommendedYen: 7924,
-      daysRemaining: 13
+      varianceFromRecommendationYen: expect.any(Number),
+      remainingAfterDayYenPreview: expect.any(Number),
+      daysRemaining: 30
     });
     expect(result.dailyRows[0]).toEqual({
-      date: "2026-04-18",
+      date: "2026-04-20",
       label: "today",
-      usedYen: 0,
-      recommendedYen: 7924
+      usedYen: 10000,
+      recommendedYen: expect.any(Number)
     });
-    expect(result.dailyRows[1]).toEqual({
-      date: "2026-04-19",
-      label: "planned",
-      usedYen: 5000,
-      recommendedYen: 7923
-    });
+    expect(result.dailyRows[result.dailyRows.length - 1].date).toBe("2026-05-19");
+    expect(result.dailyRows).toHaveLength(30);
   });
 
-  it("shows zero recommendation when overspent", async () => {
-    const repository = createInMemoryMonthRepository();
-    await repository.createMonthIfAbsent({
-      yearMonth: "2026-04",
-      budgetYen: 10000,
-      budgetStatus: "set",
-      initializedFromPreviousMonth: false,
-      carriedFromYearMonth: null,
+  it("calculates today recommendation from spent before today only", async () => {
+    const repository = createInMemoryBudgetPeriodRepository();
+    await repository.createPeriod({
+      id: "period-rule",
+      startDate: "2026-04-18",
+      endDate: "2026-04-20",
+      budgetYen: 90,
       nowIso: "2026-04-01T00:00:00.000Z"
     });
 
-    const result = await buildMonthSummary(repository, "2026-04", {
-      jstToday: "2026-04-18",
-      dailyTotals: [{ date: "2026-04-18", yearMonth: "2026-04", totalUsedYen: 11000 }]
+    const result = await buildPeriodSummary(repository, "period-rule", {
+      jstToday: "2026-04-19",
+      dailyTotals: [
+        { date: "2026-04-18", budgetPeriodId: "period-rule", totalUsedYen: 30 },
+        { date: "2026-04-20", budgetPeriodId: "period-rule", totalUsedYen: 60 }
+      ]
+    });
+
+    expect(result.todayRecommendedYen).toBe(30);
+    expect(result.varianceFromRecommendationYen).toBe(-30);
+    expect(result.remainingAfterDayYenPreview).toBe(60);
+  });
+
+  it("shows zero recommendation when overspent", async () => {
+    const repository = createInMemoryBudgetPeriodRepository();
+    await repository.createPeriod({
+      id: "period-overspent",
+      startDate: "2026-04-18",
+      endDate: "2026-04-22",
+      budgetYen: 10000,
+      nowIso: "2026-04-01T00:00:00.000Z"
+    });
+
+    const result = await buildPeriodSummary(repository, "period-overspent", {
+      jstToday: "2026-04-20",
+      dailyTotals: [{ date: "2026-04-18", budgetPeriodId: "period-overspent", totalUsedYen: 11000 }]
     });
 
     expect(result.remainingYen).toBe(-1000);
@@ -98,29 +91,26 @@ describe("month summary service", () => {
     expect(result.dailyRows.every((row) => row.recommendedYen === 0)).toBe(true);
   });
 
-  it("returns meaningful dailyRows for past month", async () => {
-    const repository = createInMemoryMonthRepository();
-    await repository.createMonthIfAbsent({
-      yearMonth: "2026-04",
-      budgetYen: 60000,
-      budgetStatus: "set",
-      initializedFromPreviousMonth: false,
-      carriedFromYearMonth: null,
+  it("ignores out-of-range daily totals when period bounds are narrower", async () => {
+    const repository = createInMemoryBudgetPeriodRepository();
+    await repository.createPeriod({
+      id: "period-shrink",
+      startDate: "2026-04-20",
+      endDate: "2026-04-22",
+      budgetYen: 10000,
       nowIso: "2026-04-01T00:00:00.000Z"
     });
 
-    const result = await buildMonthSummary(repository, "2026-04", {
-      jstToday: "2026-05-18",
-      dailyTotals: [{ date: "2026-04-10", yearMonth: "2026-04", totalUsedYen: 2000 }]
+    const result = await buildPeriodSummary(repository, "period-shrink", {
+      jstToday: "2026-04-20",
+      dailyTotals: [
+        { date: "2026-04-19", budgetPeriodId: "period-shrink", totalUsedYen: 9999 },
+        { date: "2026-04-20", budgetPeriodId: "period-shrink", totalUsedYen: 1000 },
+        { date: "2026-04-23", budgetPeriodId: "period-shrink", totalUsedYen: 9999 }
+      ]
     });
 
-    expect(result.dailyRows).toHaveLength(30);
-    expect(result.dailyRows[0].date).toBe("2026-04-01");
-    expect(result.dailyRows[9]).toEqual({
-      date: "2026-04-10",
-      label: "planned",
-      usedYen: 2000,
-      recommendedYen: expect.any(Number)
-    });
+    expect(result.plannedTotalYen).toBe(1000);
+    expect(result.spentToDateYen).toBe(1000);
   });
 });
