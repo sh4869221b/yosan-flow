@@ -72,6 +72,24 @@ pnpm dev
 - 未保護の公開 URL を残さないように、DNS/route 設定後に Access 適用漏れを確認してください。
 - `wrangler.jsonc` では `workers_dev` / `preview_urls` を明示的に `false` にして、未保護の `*.workers.dev` / preview URL が出ない前提にしています。
 
+## 観察可能性
+
+- production は `wrangler.jsonc` で Workers Observability を有効化しています。
+- invocation logs / persistent logs / traces は Cloudflare dashboard の Workers Observability から確認します。
+- runtime log をリアルタイムに見る場合:
+
+```bash
+pnpm wrangler tail yosan-flow --env production --format pretty
+```
+
+- エラーだけ追う場合:
+
+```bash
+pnpm wrangler tail yosan-flow --env production --status error --format pretty
+```
+
+- production deploy では source maps も upload します。
+
 ## D1 migration 運用メモ
 
 - スキーマは `migrations/*.sql` で管理します。
