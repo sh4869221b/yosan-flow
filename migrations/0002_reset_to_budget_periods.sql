@@ -1,3 +1,8 @@
+DROP TABLE IF EXISTS daily_operation_histories;
+DROP TABLE IF EXISTS daily_totals;
+DROP TABLE IF EXISTS budget_periods;
+DROP TABLE IF EXISTS monthly_budgets;
+
 CREATE TABLE budget_periods (
   id TEXT PRIMARY KEY,
   start_date TEXT NOT NULL,
