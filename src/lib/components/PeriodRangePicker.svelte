@@ -11,6 +11,7 @@
   export let startDate = "";
   export let endDate = "";
   export let saving = false;
+  export let testIdPrefix = "period-range";
 
   const dispatch = createEventDispatcher<{ change: { startDate: string; endDate: string } }>();
 
@@ -18,22 +19,23 @@
     start: toDateValue(startDate),
     end: toDateValue(endDate)
   };
+  let syncedStartDate = startDate;
+  let syncedEndDate = endDate;
 
   $: {
-    const nextStart = toDateValue(startDate);
-    const nextEnd = toDateValue(endDate);
-    const currentStart = range.start?.toString() ?? "";
-    const currentEnd = range.end?.toString() ?? "";
-    if (currentStart !== (nextStart?.toString() ?? "") || currentEnd !== (nextEnd?.toString() ?? "")) {
+    if (startDate !== syncedStartDate || endDate !== syncedEndDate) {
+      syncedStartDate = startDate;
+      syncedEndDate = endDate;
       range = {
-        start: nextStart,
-        end: nextEnd
+        start: toDateValue(startDate),
+        end: toDateValue(endDate)
       };
     }
   }
 
   $: selectedStartDate = range.start?.toString() ?? "";
   $: selectedEndDate = range.end?.toString() ?? "";
+  $: isRangeValid = Boolean(selectedStartDate && selectedEndDate && selectedStartDate <= selectedEndDate);
 
   function toDateValue(value: string): DateValue | undefined {
     if (!value) {
@@ -50,8 +52,15 @@
     range = value;
   }
 
+  function handleDateInput(field: "start" | "end", value: string): void {
+    range = {
+      ...range,
+      [field]: toDateValue(value)
+    };
+  }
+
   function submitPeriodRange(): void {
-    if (!selectedStartDate || !selectedEndDate) {
+    if (!isRangeValid) {
       return;
     }
     dispatch("change", {
@@ -66,11 +75,25 @@
   <p>
     <label>
       開始日
-      <input type="text" readonly value={selectedStartDate} />
+      <input
+        type="date"
+        data-testid={`${testIdPrefix}-start`}
+        value={selectedStartDate}
+        max={selectedEndDate || undefined}
+        disabled={saving}
+        on:input={(event) => handleDateInput("start", event.currentTarget.value)}
+      />
     </label>
     <label>
       終了日
-      <input type="text" readonly value={selectedEndDate} />
+      <input
+        type="date"
+        data-testid={`${testIdPrefix}-end`}
+        value={selectedEndDate}
+        min={selectedStartDate || undefined}
+        disabled={saving}
+        on:input={(event) => handleDateInput("end", event.currentTarget.value)}
+      />
     </label>
   </p>
 
@@ -116,8 +139,8 @@
 
   <button
     type="button"
-    data-testid="period-range-apply"
-    disabled={saving || !selectedStartDate || !selectedEndDate}
+    data-testid={`${testIdPrefix}-apply`}
+    disabled={saving || !isRangeValid}
     on:click={submitPeriodRange}
   >
     {saving ? "保存中..." : "期間を反映"}

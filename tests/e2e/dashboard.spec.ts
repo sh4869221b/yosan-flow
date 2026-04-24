@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { seedPeriod } from "./helpers/db";
 import { addDays, getBaseUrl, getCurrentJstDate, startDevServer, stopDevServer, warmUpBrowser } from "./dashboard-shared";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -38,4 +39,29 @@ test("creates period and updates budget", async ({ page }) => {
   await page.getByLabel("期間予算 (円)").fill("150000");
   await page.getByRole("button", { name: "期間を更新" }).click();
   await expect(page.getByTestId("budget-value")).toContainText("150000");
+});
+
+test("updates period start and end dates from settings inputs", async ({ page, request }) => {
+  const startDate = getCurrentJstDate();
+  const updatedStartDate = addDays(startDate, 1);
+  const updatedEndDate = addDays(startDate, 30);
+  const periodId = `p-${startDate}`;
+
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate,
+    endDate: addDays(startDate, 29),
+    budgetYen: 120000
+  });
+
+  await page.goto(`${getBaseUrl()}/`);
+  await expect(page.getByTestId("period-id")).toContainText(periodId);
+  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByTestId("current-period-range-start").fill(updatedStartDate);
+  await page.getByTestId("current-period-range-end").fill(updatedEndDate);
+  await page.getByTestId("current-period-range-apply").click();
+
+  await expect(page.getByText(`期間: ${updatedStartDate} - ${updatedEndDate}`)).toBeVisible();
+  await expect(page.getByTestId("current-period-range-start")).toHaveValue(updatedStartDate);
+  await expect(page.getByTestId("current-period-range-end")).toHaveValue(updatedEndDate);
 });

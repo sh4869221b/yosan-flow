@@ -88,7 +88,7 @@
 </script>
 
 <section>
-  <h2>期間カレンダー</h2>
+  <h2>日付を選ぶ</h2>
   {#if loading}
     <p>読み込み中...</p>
   {/if}
@@ -120,8 +120,9 @@
                       on:click={() => dispatch("request-edit", { date })}
                       class:today={rowsByDate.get(date)?.label === "today"}
                     >
-                      <span>{Number(date.slice(8, 10))}</span>
-                      <span data-testid={`used-${date}`}>{rowsByDate.get(date)?.usedYen ?? 0} 円</span>
+                      <span class="date-number">{Number(date.slice(8, 10))}</span>
+                      <span class="used" data-testid={`used-${date}`}>{rowsByDate.get(date)?.usedYen ?? 0} 円</span>
+                      <span class="hint">入力</span>
                     </button>
                   {:else}
                     <span aria-hidden="true">-</span>
@@ -137,34 +138,80 @@
 </section>
 
 <style>
+  section {
+    display: grid;
+    gap: 1rem;
+  }
+
+  h2 {
+    margin: 0;
+  }
+
+  article {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+    margin: 0;
+  }
+
   table {
     border-collapse: collapse;
-    margin-bottom: 1rem;
     width: 100%;
   }
 
   th,
   td {
-    border: 1px solid #d0d7de;
-    padding: 0.25rem;
+    border: 1px solid #e4d7c2;
+    padding: 0.2rem;
     vertical-align: top;
+  }
+
+  th {
+    color: #7b6a58;
+    font-size: 0.82rem;
+    padding: 0.45rem 0.2rem;
   }
 
   button {
     align-items: flex-start;
-    background: transparent;
-    border: 0;
+    background: #fffdf8;
+    border: 1px solid transparent;
+    border-radius: 14px;
     cursor: pointer;
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
-    min-height: 3rem;
+    gap: 0.28rem;
+    min-height: 5rem;
+    padding: 0.55rem;
     text-align: left;
     width: 100%;
   }
 
+  button:hover {
+    background: #f7ead2;
+    border-color: #c5813c;
+  }
+
+  .date-number {
+    font-size: 1.15rem;
+    font-weight: 900;
+  }
+
+  .used {
+    color: #2f5c43;
+    font-weight: 800;
+  }
+
+  .hint {
+    color: #9b8062;
+    font-size: 0.76rem;
+  }
+
   .today {
     font-weight: 700;
-    outline: 2px solid #1f6feb;
+    outline: 3px solid #c5813c;
   }
 </style>
