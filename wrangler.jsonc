@@ -36,6 +36,12 @@
       "name": "yosan-flow",
       "workers_dev": false,
       "preview_urls": false,
+      "routes": [
+        {
+          "pattern": "yosan.sh4869221b.work",
+          "custom_domain": true
+        }
+      ],
       "d1_databases": [
         {
           "binding": "DB",
