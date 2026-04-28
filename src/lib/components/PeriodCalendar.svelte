@@ -99,13 +99,13 @@
       <table>
         <thead>
           <tr>
-            <th>日</th>
+            <th class="sunday">日</th>
             <th>月</th>
             <th>火</th>
             <th>水</th>
             <th>木</th>
             <th>金</th>
-            <th>土</th>
+            <th class="saturday">土</th>
           </tr>
         </thead>
         <tbody>
@@ -119,13 +119,14 @@
                       data-testid={`calendar-day-${date}`}
                       on:click={() => dispatch("request-edit", { date })}
                       class:today={rowsByDate.get(date)?.label === "today"}
+                      class:spent={(rowsByDate.get(date)?.usedYen ?? 0) > 0}
                     >
                       <span class="date-number">{Number(date.slice(8, 10))}</span>
                       <span class="used" data-testid={`used-${date}`}>{rowsByDate.get(date)?.usedYen ?? 0} 円</span>
                       <span class="hint">入力</span>
                     </button>
                   {:else}
-                    <span aria-hidden="true">-</span>
+                    <span class="empty-cell" aria-hidden="true">-</span>
                   {/if}
                 </td>
               {/each}
@@ -140,78 +141,169 @@
 <style>
   section {
     display: grid;
-    gap: 1rem;
+    gap: 0.9rem;
   }
 
   h2 {
+    color: #38291f;
+    font-size: 1.05rem;
     margin: 0;
   }
 
   article {
     display: grid;
-    gap: 0.6rem;
+    gap: 0.8rem;
   }
 
   h3 {
-    font-size: 1.15rem;
+    color: #2f2219;
+    font-size: 1.25rem;
+    font-weight: 900;
     margin: 0;
+    text-align: center;
   }
 
   table {
-    border-collapse: collapse;
+    border: 1px solid #e6ded4;
+    border-collapse: separate;
+    border-radius: 10px;
+    border-spacing: 0;
+    overflow: hidden;
+    table-layout: fixed;
     width: 100%;
   }
 
   th,
   td {
-    border: 1px solid #e4d7c2;
-    padding: 0.2rem;
+    border: 0;
+    border-bottom: 1px solid #e6ded4;
+    border-right: 1px solid #e6ded4;
+    padding: 0;
     vertical-align: top;
   }
 
+  tr:last-child td {
+    border-bottom: 0;
+  }
+
+  th:last-child,
+  td:last-child {
+    border-right: 0;
+  }
+
   th {
-    color: #7b6a58;
-    font-size: 0.82rem;
-    padding: 0.45rem 0.2rem;
+    background: #fffdf8;
+    color: #33261c;
+    font-size: 0.86rem;
+    font-weight: 900;
+    padding: 0.55rem 0.2rem;
+  }
+
+  .sunday {
+    color: #d74743;
+  }
+
+  .saturday {
+    color: #2f76c2;
   }
 
   button {
-    align-items: flex-start;
+    align-items: center;
     background: #fffdf8;
-    border: 1px solid transparent;
-    border-radius: 14px;
+    border: 2px solid transparent;
+    border-radius: 0;
     cursor: pointer;
     display: flex;
     flex-direction: column;
-    gap: 0.28rem;
-    min-height: 5rem;
-    padding: 0.55rem;
-    text-align: left;
+    gap: 0.18rem;
+    min-height: 5.15rem;
+    padding: 0.55rem 0.25rem;
+    text-align: center;
     width: 100%;
   }
 
   button:hover {
-    background: #f7ead2;
-    border-color: #c5813c;
+    background: #f4fbf1;
+    border-color: #83a978;
   }
 
   .date-number {
-    font-size: 1.15rem;
+    color: #2d2118;
+    font-size: 1.05rem;
     font-weight: 900;
   }
 
   .used {
-    color: #2f5c43;
+    color: #8a8179;
+    font-size: 0.88rem;
     font-weight: 800;
   }
 
   .hint {
-    color: #9b8062;
-    font-size: 0.76rem;
+    color: #74716d;
+    font-size: 0.8rem;
+    font-weight: 800;
   }
 
   .today {
+    background: #f1f8ef;
+    border-color: #7eaa75;
+    box-shadow: inset 0 0 0 1px #7eaa75;
     font-weight: 700;
-    outline: 3px solid #c5813c;
+  }
+
+  .spent .used {
+    color: #d96945;
+  }
+
+  .spent .hint,
+  .today .hint {
+    color: #2f7a3f;
+  }
+
+  .empty-cell {
+    align-items: center;
+    color: #b0aaa4;
+    display: flex;
+    min-height: 5.15rem;
+    justify-content: center;
+  }
+
+  @media (max-width: 760px) {
+    section {
+      gap: 0.7rem;
+    }
+
+    h2 {
+      display: none;
+    }
+
+    h3 {
+      font-size: 1.2rem;
+    }
+
+    th {
+      font-size: 0.82rem;
+      padding: 0.5rem 0;
+    }
+
+    button {
+      gap: 0.12rem;
+      min-height: 3.55rem;
+      padding: 0.45rem 0.15rem;
+    }
+
+    .date-number {
+      font-size: 0.85rem;
+    }
+
+    .used,
+    .hint {
+      font-size: 0.65rem;
+    }
+
+    .empty-cell {
+      min-height: 3.55rem;
+    }
   }
 </style>

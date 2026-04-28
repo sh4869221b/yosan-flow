@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { CalendarDays, CalendarPlus, Settings2 } from "lucide-svelte";
   import BudgetSummary from "$lib/components/BudgetSummary.svelte";
   import DailyBudgetTable from "$lib/components/DailyBudgetTable.svelte";
   import DayEntryModal from "$lib/components/DayEntryModal.svelte";
@@ -320,6 +321,9 @@
 
       <section class="primary-workspace" aria-label="日別入力">
         <div class="workspace-heading">
+          <span class="heading-icon" aria-hidden="true">
+            <CalendarDays size={25} strokeWidth={2.4} />
+          </span>
           <div>
             <p class="eyebrow">Step 1</p>
             <h2>カレンダーの日付を選んで入力</h2>
@@ -345,7 +349,10 @@
 
       <section class="secondary-actions" aria-label="期間設定">
         <details>
-          <summary>期間の終了日や予算を変更する</summary>
+          <summary>
+            <Settings2 size={20} strokeWidth={2.4} aria-hidden="true" />
+            期間の終了日や予算を変更する
+          </summary>
           <div class="details-body">
             <PeriodRangePicker
               startDate={rangeStartDate}
@@ -358,7 +365,10 @@
         </details>
 
         <details data-testid="create-period-panel">
-          <summary>次の予算期間を作成する</summary>
+          <summary>
+            <CalendarPlus size={20} strokeWidth={2.4} aria-hidden="true" />
+            次の予算期間を作成する
+          </summary>
           <div class="details-body">
             <p>今の期間が終わった後の期間を追加します。開始日は前期間の翌日が基本です。</p>
             <label>
@@ -394,6 +404,9 @@
     </section>
   {:else}
     <section class="empty-state" data-testid="create-period-panel">
+      <span class="heading-icon" aria-hidden="true">
+        <CalendarPlus size={25} strokeWidth={2.4} />
+      </span>
       <p class="eyebrow">Step 1</p>
       <h1>最初の予算期間を作成</h1>
       <p>まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。</p>
@@ -453,60 +466,87 @@
 
 <style>
   :global(body) {
-    background: #f6f3ec;
-    color: #201b16;
+    background: #f8f5ef;
+    color: #2f2219;
     font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
     margin: 0;
+    -webkit-text-size-adjust: 100%;
   }
 
   main {
     margin: 0 auto;
-    max-width: 1180px;
-    padding: 2rem;
+    max-width: 1480px;
+    padding: 1.35rem;
   }
 
   .workspace-shell {
     display: grid;
-    gap: 1.25rem;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1.45fr) minmax(20rem, 0.9fr);
   }
 
   .primary-workspace,
   .empty-state,
   .secondary-actions details {
-    background: #fffaf1;
-    border: 1px solid #e2d7c4;
-    border-radius: 24px;
-    box-shadow: 0 18px 50px rgba(42, 31, 18, 0.08);
-    padding: 1.25rem;
+    background: #fffdf8;
+    border: 1px solid #e4ddd2;
+    border-radius: 12px;
+    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
+    padding: 1.15rem 1.25rem;
+  }
+
+  .workspace-shell > :global(:first-child) {
+    grid-column: 1 / -1;
   }
 
   .workspace-heading {
-    align-items: flex-start;
+    align-items: center;
     display: flex;
     gap: 1rem;
-    justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .workspace-heading > div {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .heading-icon {
+    align-items: center;
+    background: #e1f0dd;
+    border-radius: 999px;
+    color: #397d3d;
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: 2.75rem;
+    justify-content: center;
+    width: 2.75rem;
   }
 
   .workspace-heading h2,
   .empty-state h1 {
-    font-size: clamp(1.5rem, 3vw, 2.25rem);
-    letter-spacing: -0.04em;
+    color: #2f2219;
+    font-size: clamp(1.25rem, 2vw, 1.55rem);
+    letter-spacing: 0;
     line-height: 1.1;
-    margin: 0.2rem 0;
+    margin: 0;
   }
 
   .workspace-heading p,
   .empty-state p {
-    color: #65584a;
+    color: #76675b;
     margin: 0;
   }
 
+  .workspace-heading div > p:not(.eyebrow) {
+    margin-top: 0.35rem;
+  }
+
   .eyebrow {
-    color: #a45f23;
+    color: #357b3d;
     font-size: 0.78rem;
     font-weight: 800;
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
@@ -515,6 +555,7 @@
     border-radius: 999px;
     color: #fff;
     font-size: 0.85rem;
+    margin-left: auto;
     padding: 0.45rem 0.75rem;
     white-space: nowrap;
   }
@@ -522,12 +563,22 @@
   .secondary-actions {
     display: grid;
     gap: 0.75rem;
+    align-content: start;
   }
 
   details summary {
+    align-items: center;
     cursor: pointer;
+    display: flex;
+    gap: 0.75rem;
     font-weight: 800;
     list-style: none;
+    min-height: 3.8rem;
+  }
+
+  details summary :global(svg) {
+    color: #397d3d;
+    flex: 0 0 auto;
   }
 
   details summary::-webkit-details-marker {
@@ -535,14 +586,15 @@
   }
 
   details summary::after {
-    color: #a45f23;
-    content: "開く";
-    float: right;
-    font-size: 0.85rem;
+    color: #2f2219;
+    content: "⌄";
+    font-size: 1.35rem;
+    line-height: 1;
+    margin-left: auto;
   }
 
   details[open] summary::after {
-    content: "閉じる";
+    content: "⌃";
   }
 
   .details-body {
@@ -556,23 +608,28 @@
     font-weight: 700;
     gap: 0.35rem;
     margin: 0.75rem 0;
+    min-width: 0;
   }
 
   input,
   button {
-    border-radius: 12px;
+    box-sizing: border-box;
+    border-radius: 8px;
     font: inherit;
-    min-height: 2.5rem;
+    max-width: 100%;
+    min-height: 2.65rem;
   }
 
   input {
     background: #fff;
-    border: 1px solid #d7c9b3;
-    padding: 0 0.75rem;
+    border: 1px solid #ded3c6;
+    color: #2f2219;
+    padding: 0 0.85rem;
+    width: 100%;
   }
 
   button {
-    background: #263f33;
+    background: #2f6d3b;
     border: 0;
     color: #fff;
     cursor: pointer;
@@ -583,5 +640,50 @@
   button:disabled {
     cursor: wait;
     opacity: 0.65;
+  }
+
+  @media (max-width: 900px) {
+    main {
+      padding: 1rem;
+    }
+
+    .workspace-shell {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    :global(body) {
+      background: #f4f1eb;
+    }
+
+    main {
+      padding: 0.75rem;
+    }
+
+    .primary-workspace,
+    .empty-state,
+    .secondary-actions details {
+      border-radius: 18px;
+      padding: 0.95rem;
+    }
+
+    .workspace-heading {
+      align-items: flex-start;
+      display: flex;
+    }
+
+    .workspace-heading h2 {
+      font-size: 1.05rem;
+      line-height: 1.25;
+    }
+
+    .workspace-heading div > p:not(.eyebrow) {
+      display: none;
+    }
+
+    details summary {
+      min-height: 3rem;
+    }
   }
 </style>
