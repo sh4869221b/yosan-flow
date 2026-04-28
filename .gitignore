@@ -10,3 +10,4 @@ dist
 .codex
 .tmp-*
 test-results
+output/
