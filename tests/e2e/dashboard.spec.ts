@@ -33,12 +33,17 @@ test("creates period and updates budget", async ({ page }) => {
   await page.getByRole("button", { name: "期間を作成" }).click();
 
   await expect(page.getByTestId("period-id")).toContainText(`p-${today}`);
-  await expect(page.getByTestId("budget-value")).toContainText("120000");
+  await expect(page.getByTestId("budget-value")).toContainText("120,000");
+  await expect(page.getByTestId("today-food-allowance")).toContainText("4,000 円");
+  await expect(page.getByTestId("today-food-used")).toContainText("0 円");
+  await expect(page.getByTestId("today-food-remaining")).toContainText("4,000 円");
+  await expect(page.getByTestId("base-daily-food")).toContainText("4,000 円");
+  await expect(page.getByTestId("food-pace-status")).toContainText("基準どおり");
   await expect(page.getByText(`期間: ${today} - ${endDate}`)).toBeVisible();
 
   await page.getByLabel("期間予算 (円)").fill("150000");
   await page.getByRole("button", { name: "期間を更新" }).click();
-  await expect(page.getByTestId("budget-value")).toContainText("150000");
+  await expect(page.getByTestId("budget-value")).toContainText("150,000");
 });
 
 test("updates period start and end dates from settings inputs", async ({ page, request }) => {
