@@ -19,7 +19,6 @@ import {
 } from "$lib/server/db/daily-total-repository";
 import { assertValidDate, assertValidInputYen, normalizeMemo } from "$lib/server/domain/daily-entry";
 import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
-import { buildDailyRecommendations } from "$lib/server/domain/reallocation";
 import { DayEntryService } from "$lib/server/services/day-entry-service";
 import { getJstDateParts } from "$lib/server/time/jst";
 
@@ -54,6 +53,18 @@ export type PeriodSummaryDailyTotal = {
   totalUsedYen: number;
 };
 
+export type FoodPaceStatus = "bonus" | "adjustment" | "on_track";
+
+export type FoodPaceSummary = {
+  status: FoodPaceStatus;
+  baseDailyYen: number;
+  todayAllowanceYen: number;
+  usedTodayYen: number;
+  todayRemainingYen: number;
+  todayBonusYen: number;
+  adjustmentYen: number;
+};
+
 export type PeriodSummary = {
   periodId: string;
   startDate: string;
@@ -69,6 +80,7 @@ export type PeriodSummary = {
   varianceFromRecommendationYen: number;
   remainingAfterDayYenPreview: number;
   daysRemaining: number;
+  foodPace: FoodPaceSummary;
   dailyRows: PeriodDailyRow[];
 };
 
@@ -143,6 +155,90 @@ function resolveDaysRemaining(startDate: string, endDate: string, jstToday: stri
   return buildDateRange(jstToday, endDate).length;
 }
 
+function buildFoodPaceSummary(input: {
+  budgetYen: number;
+  periodLengthDays: number;
+  spentBeforeTodayYen: number;
+  usedTodayYen: number;
+  remainingDates: string[];
+}): FoodPaceSummary {
+  const baseDailyYen =
+    input.periodLengthDays === 0 ? 0 : Math.floor(input.budgetYen / input.periodLengthDays);
+  const daysFromToday = input.remainingDates.length;
+  if (daysFromToday === 0) {
+    return {
+      status: "on_track",
+      baseDailyYen,
+      todayAllowanceYen: 0,
+      usedTodayYen: input.usedTodayYen,
+      todayRemainingYen: input.usedTodayYen === 0 ? 0 : -input.usedTodayYen,
+      todayBonusYen: 0,
+      adjustmentYen: 0
+    };
+  }
+
+  const remainingAtTodayStartYen = input.budgetYen - input.spentBeforeTodayYen;
+  const expectedRemainingAtBasePaceYen = baseDailyYen * daysFromToday;
+  const paceDeltaYen = remainingAtTodayStartYen - expectedRemainingAtBasePaceYen;
+  const todayBonusYen = paceDeltaYen > 0 ? paceDeltaYen : 0;
+  const shortageYen = paceDeltaYen < 0 ? Math.abs(paceDeltaYen) : 0;
+  const adjustmentBaseYen = shortageYen > 0 ? Math.floor(shortageYen / daysFromToday) : 0;
+  const adjustmentRemainderYen = shortageYen % daysFromToday;
+  const adjustmentYen = adjustmentBaseYen + (adjustmentRemainderYen > 0 ? 1 : 0);
+  const todayAllowanceYen = Math.max(0, baseDailyYen + todayBonusYen - adjustmentYen);
+
+  return {
+    status: todayBonusYen > 0 ? "bonus" : adjustmentYen > 0 ? "adjustment" : "on_track",
+    baseDailyYen,
+    todayAllowanceYen,
+    usedTodayYen: input.usedTodayYen,
+    todayRemainingYen: todayAllowanceYen - input.usedTodayYen,
+    todayBonusYen,
+    adjustmentYen
+  };
+}
+
+function buildFoodPaceRecommendations(input: {
+  foodPace: FoodPaceSummary;
+  remainingAtTodayYen: number;
+  remainingDates: string[];
+}): Array<{ date: string; recommendedYen: number }> {
+  const expectedRemainingAtBasePaceYen = input.foodPace.baseDailyYen * input.remainingDates.length;
+  const surplusYen = Math.max(0, input.remainingAtTodayYen - expectedRemainingAtBasePaceYen);
+  const shortageYen = Math.max(0, expectedRemainingAtBasePaceYen - input.remainingAtTodayYen);
+  const surplusBaseYen =
+    input.remainingDates.length === 0 ? 0 : Math.floor(surplusYen / input.remainingDates.length);
+  const surplusRemainderYen =
+    input.remainingDates.length === 0 ? 0 : surplusYen % input.remainingDates.length;
+  const adjustmentBaseYen =
+    input.remainingDates.length === 0 ? 0 : Math.floor(shortageYen / input.remainingDates.length);
+  const adjustmentRemainderYen =
+    input.remainingDates.length === 0 ? 0 : shortageYen % input.remainingDates.length;
+
+  return input.remainingDates.map((date, index) => {
+    if (input.foodPace.todayBonusYen > 0) {
+      return {
+        date,
+        recommendedYen: index === 0 ? input.foodPace.todayAllowanceYen : input.foodPace.baseDailyYen
+      };
+    }
+
+    if (surplusYen > 0) {
+      const extraYen = surplusBaseYen + (index < surplusRemainderYen ? 1 : 0);
+      return {
+        date,
+        recommendedYen: input.foodPace.baseDailyYen + extraYen
+      };
+    }
+
+    const adjustmentYen = adjustmentBaseYen + (index < adjustmentRemainderYen ? 1 : 0);
+    return {
+      date,
+      recommendedYen: Math.max(0, input.foodPace.baseDailyYen - adjustmentYen)
+    };
+  });
+}
+
 export async function buildPeriodSummary(
   budgetPeriodRepository: BudgetPeriodRepository,
   periodId: string,
@@ -167,18 +263,28 @@ export async function buildPeriodSummary(
   }, 0);
   const usedTodayYen = dailyTotalsByDate.get(jstToday) ?? 0;
   const remainingAtTodayYen = period.budgetYen - spentBeforeTodayYen;
+  const isTodayWithinPeriod = isDateWithinPeriod(jstToday, period.startDate, period.endDate);
   const remainingDates =
     jstToday < period.startDate
       ? periodDates
       : jstToday > period.endDate
         ? []
         : buildDateRange(jstToday, period.endDate);
+  const paceDates = isTodayWithinPeriod ? remainingDates : [];
 
   const remainingYen = period.budgetYen - plannedTotalYen;
   const overspentYen = remainingYen < 0 ? Math.abs(remainingYen) : 0;
-  const recommendations = buildDailyRecommendations({
-    remainingYen: remainingAtTodayYen,
-    dates: remainingDates
+  const foodPace = buildFoodPaceSummary({
+    budgetYen: period.budgetYen,
+    periodLengthDays,
+    spentBeforeTodayYen,
+    usedTodayYen,
+    remainingDates: paceDates
+  });
+  const recommendations = buildFoodPaceRecommendations({
+    foodPace,
+    remainingAtTodayYen,
+    remainingDates
   });
   const recommendationMap = new Map(recommendations.map((row) => [row.date, row.recommendedYen]));
   const dailyRows: PeriodDailyRow[] = periodDates.map((date) => ({
@@ -207,6 +313,7 @@ export async function buildPeriodSummary(
     varianceFromRecommendationYen,
     remainingAfterDayYenPreview,
     daysRemaining,
+    foodPace,
     dailyRows
   };
 }
