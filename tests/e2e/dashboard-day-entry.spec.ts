@@ -46,6 +46,9 @@ test("supports add and overwrite in day modal, and keeps values after reload", a
   await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
   await expect(page.getByTestId("day-entry-modal")).toBeVisible();
   await page.getByLabel("入力額 (円)").fill("2000");
+  const longMemo =
+    "週末用のまとめ買いメモです。野菜、肉、魚、調味料、冷凍食品、飲み物、朝食用の食材まで含めて、100文字を超える内容でも保存できることを確認します。";
+  await page.getByLabel("メモ").fill(longMemo);
   await page.getByLabel("追加").check();
   await page.getByRole("button", { name: "保存する" }).click();
   await expect(
@@ -54,6 +57,7 @@ test("supports add and overwrite in day modal, and keeps values after reload", a
 
   await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
   await expect(page.getByLabel("入力額 (円)")).toBeVisible();
+  await expect(page.getByText(longMemo)).toBeVisible();
   await page.getByLabel("入力額 (円)").fill("500");
   await page.getByLabel("上書き").check();
   await page.getByRole("button", { name: "保存する" }).click();
