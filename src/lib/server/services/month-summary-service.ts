@@ -661,28 +661,6 @@ function defaultCreateHistoryId(): string {
   return `history-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function toPeriodRow(row: {
-  id: string;
-  start_date: string;
-  end_date: string;
-  budget_yen: number;
-  status: "active" | "closed";
-  predecessor_period_id: string | null;
-  created_at: string;
-  updated_at: string;
-}): BudgetPeriodRecord {
-  return {
-    id: row.id,
-    startDate: row.start_date,
-    endDate: row.end_date,
-    budgetYen: row.budget_yen,
-    status: row.status,
-    predecessorPeriodId: row.predecessor_period_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
 function createD1DayEntryService(
   db: D1Database,
   now: () => Date,

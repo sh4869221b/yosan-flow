@@ -1,7 +1,6 @@
 <script lang="ts">
   import { CalendarDays, CalendarPlus, Settings2 } from "lucide-svelte";
   import BudgetSummary from "$lib/components/BudgetSummary.svelte";
-  import DailyBudgetTable from "$lib/components/DailyBudgetTable.svelte";
   import DayEntryModal from "$lib/components/DayEntryModal.svelte";
   import PeriodCalendar from "$lib/components/PeriodCalendar.svelte";
   import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";

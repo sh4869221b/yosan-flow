@@ -101,7 +101,7 @@
     <p>読み込み中...</p>
   {/if}
 
-  {#each months as month}
+  {#each months as month (month.key)}
     <article>
       <h3>{month.label}</h3>
       <table>
@@ -117,9 +117,9 @@
           </tr>
         </thead>
         <tbody>
-          {#each month.weeks as week}
+          {#each month.weeks as week, weekIndex (`${month.key}-${weekIndex}`)}
             <tr>
-              {#each week as date}
+              {#each week as date, dayIndex (date ?? `${month.key}-empty-${weekIndex}-${dayIndex}`)}
                 <td>
                   {#if date}
                     <button

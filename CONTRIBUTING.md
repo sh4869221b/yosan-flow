@@ -4,7 +4,7 @@
 
 Requirements:
 
-- Node.js 20 or newer
+- Node.js 20.19 or newer
 - pnpm 9 or newer
 - Cloudflare account for D1/Workers checks
 
@@ -56,9 +56,17 @@ pnpm format
 pnpm format:check
 ```
 
-Run focused checks while developing. Baseline CI runs:
+Lint source, test, and config files:
 
 ```bash
+pnpm lint
+```
+
+Run focused checks while developing. The local quality baseline is:
+
+```bash
+pnpm format:check
+pnpm lint
 pnpm check
 pnpm test:unit
 pnpm test:integration

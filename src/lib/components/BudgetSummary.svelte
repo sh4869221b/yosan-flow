@@ -103,7 +103,7 @@
           })}
         disabled={saving || loading}
       >
-        {#each periods as period}
+        {#each periods as period (period.id)}
           <option value={period.id}>
             {period.startDate} - {period.endDate}
           </option>

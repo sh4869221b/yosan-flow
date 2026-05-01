@@ -32,7 +32,7 @@
       </tr>
     </thead>
     <tbody>
-      {#each rows as row}
+      {#each rows as row (row.date)}
         <tr class:today={row.label === "today"}>
           <td>{row.date}</td>
           <td>{row.label === "today" ? "今日" : "予定支出"}</td>

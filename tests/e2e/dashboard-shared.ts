@@ -19,7 +19,7 @@ export const WORKDIR = path.resolve(
 const execFileAsync = promisify(execFile);
 
 let devServer: ChildProcessWithoutNullStreams | null = null;
-let baseUrl = `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
+const baseUrl = `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
 const apiServicesCacheKey = Symbol.for("yosan-flow.api-services-cache");
 const LOCAL_PERSIST_DIR = path.join(WORKDIR, ".tmp-wrangler-state");
 

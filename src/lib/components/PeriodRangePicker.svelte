@@ -123,19 +123,19 @@
         >
       </RangeCalendar.Header>
 
-      {#each months as month}
+      {#each months as month (month.value.toString())}
         <RangeCalendar.Grid>
           <RangeCalendar.GridHead>
             <RangeCalendar.GridRow>
-              {#each weekdays as weekday}
+              {#each weekdays as weekday (weekday)}
                 <RangeCalendar.HeadCell>{weekday}</RangeCalendar.HeadCell>
               {/each}
             </RangeCalendar.GridRow>
           </RangeCalendar.GridHead>
           <RangeCalendar.GridBody>
-            {#each month.weeks as weekDates}
+            {#each month.weeks as weekDates, weekIndex (`${month.value.toString()}-${weekIndex}`)}
               <RangeCalendar.GridRow>
-                {#each weekDates as date}
+                {#each weekDates as date (date.toString())}
                   <RangeCalendar.Cell {date} month={month.value}>
                     <RangeCalendar.Day />
                   </RangeCalendar.Cell>

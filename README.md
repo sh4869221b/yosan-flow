@@ -4,7 +4,7 @@ Yosan Flow は Cloudflare Workers 上で動く、SvelteKit 製の月予算管理
 
 ## 前提
 
-- Node.js 20 以上
+- Node.js 20.19 以上
 - pnpm 9 以上
 - Cloudflare アカウント（D1/Workers 利用時）
 
@@ -32,9 +32,17 @@ pnpm format
 pnpm format:check
 ```
 
-Baseline CI と同じ順序:
+Lint:
 
 ```bash
+pnpm lint
+```
+
+ローカルの基本検証順:
+
+```bash
+pnpm format:check
+pnpm lint
 pnpm check
 pnpm test:unit
 pnpm test:integration
@@ -62,7 +70,7 @@ pnpm test:e2e
 3. `pnpm run cf:migrate:local`
 4. UI 開発は `pnpm dev`
 5. Workers 実行系の確認は `pnpm wrangler dev`
-6. 必要に応じて `pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
+6. 必要に応じて `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
 
 ### preview
 
@@ -76,7 +84,7 @@ pnpm test:e2e
 
 1. production 用 D1 を作成して `wrangler.jsonc` の `env.production.d1_databases[0].database_id` を実 UUID に置き換える
 2. `pnpm run cf:migrate:production`
-3. `pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
+3. `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
 4. `pnpm run deploy:production`
 5. production ホストが Cloudflare Access 保護対象であることを確認
 

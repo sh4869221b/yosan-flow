@@ -36,7 +36,7 @@
     </div>
   {:else}
     <ul>
-      {#each histories as history}
+      {#each histories as history (history.id)}
         <li>
           <div>
             <strong
