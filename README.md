@@ -25,11 +25,20 @@ pnpm dev
 
 ## ローカル検証コマンド
 
-- `pnpm check`
-- `pnpm test:unit`
-- `pnpm test:integration`
-- `pnpm test:e2e`
-- `pnpm build`
+Baseline CI と同じ順序:
+
+```bash
+pnpm check
+pnpm test:unit
+pnpm test:integration
+pnpm build
+```
+
+E2E を確認する場合:
+
+```bash
+pnpm test:e2e
+```
 
 ## 環境フロー（local / preview / production）
 
@@ -46,7 +55,7 @@ pnpm dev
 3. `pnpm run cf:migrate:local`
 4. UI 開発は `pnpm dev`
 5. Workers 実行系の確認は `pnpm wrangler dev`
-6. 必要に応じて `pnpm check && pnpm test:unit && pnpm test:integration`
+6. 必要に応じて `pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
 
 ### preview
 
@@ -60,10 +69,9 @@ pnpm dev
 
 1. production 用 D1 を作成して `wrangler.jsonc` の `env.production.d1_databases[0].database_id` を実 UUID に置き換える
 2. `pnpm run cf:migrate:production`
-3. `pnpm check && pnpm test:unit && pnpm test:integration`
-4. `pnpm build`
-5. `pnpm run deploy:production`
-6. production ホストが Cloudflare Access 保護対象であることを確認
+3. `pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
+4. `pnpm run deploy:production`
+5. production ホストが Cloudflare Access 保護対象であることを確認
 
 ## Cloudflare Access 保護メモ
 

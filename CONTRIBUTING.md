@@ -49,13 +49,18 @@ pnpm wrangler dev
 
 ## Verification
 
-Run focused checks while developing. Before merging a user-facing or data-model change, prefer:
+Run focused checks while developing. Baseline CI runs:
 
 ```bash
 pnpm check
 pnpm test:unit
 pnpm test:integration
 pnpm build
+```
+
+Run E2E separately when a change affects browser workflows:
+
+```bash
 pnpm test:e2e
 ```
 
