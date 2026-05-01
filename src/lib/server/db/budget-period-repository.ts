@@ -1,4 +1,7 @@
+import { and, asc, eq, gte, lte, ne } from "drizzle-orm";
+import { createDrizzleD1Database } from "$lib/server/db/client";
 import type { D1Database } from "$lib/server/db/d1-types";
+import { budget_periods, type BudgetPeriodRow } from "$lib/server/db/schema";
 import {
   getNextPeriodStartDate,
   isDateWithinPeriod,
@@ -154,16 +157,7 @@ function assertSuccessorContinuity(
   }
 }
 
-function toBudgetPeriodRecord(row: {
-  id: string;
-  start_date: string;
-  end_date: string;
-  budget_yen: number;
-  status: BudgetPeriodStatus;
-  predecessor_period_id: string | null;
-  created_at: string;
-  updated_at: string;
-}): BudgetPeriodRecord {
+function toBudgetPeriodRecord(row: BudgetPeriodRow): BudgetPeriodRecord {
   return {
     id: row.id,
     startDate: row.start_date,
@@ -281,27 +275,17 @@ export function createD1BudgetPeriodRepository(
   input: CreateD1BudgetPeriodRepositoryInput,
 ): BudgetPeriodRepository {
   const ensureSchema = input.ensureSchema ?? (async () => {});
+  const database = createDrizzleD1Database(input.db);
   const findByIdInternal = async (
     id: string,
   ): Promise<BudgetPeriodRecord | null> => {
     await ensureSchema();
-    const row = await input.db
-      .prepare(
-        `SELECT id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
-           FROM budget_periods
-          WHERE id = ?`,
-      )
-      .bind(id)
-      .first<{
-        id: string;
-        start_date: string;
-        end_date: string;
-        budget_yen: number;
-        status: BudgetPeriodStatus;
-        predecessor_period_id: string | null;
-        created_at: string;
-        updated_at: string;
-      }>();
+    const [row] = await database
+      .select()
+      .from(budget_periods)
+      .where(eq(budget_periods.id, id))
+      .limit(1)
+      .all();
     return row ? toBudgetPeriodRecord(row) : null;
   };
 
@@ -312,48 +296,29 @@ export function createD1BudgetPeriodRepository(
 
     async findByDate(date) {
       await ensureSchema();
-      const row = await input.db
-        .prepare(
-          `SELECT id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
-             FROM budget_periods
-            WHERE start_date <= ?
-              AND end_date >= ?
-            ORDER BY start_date ASC
-            LIMIT 1`,
+      const [row] = await database
+        .select()
+        .from(budget_periods)
+        .where(
+          and(
+            lte(budget_periods.start_date, date),
+            gte(budget_periods.end_date, date),
+          ),
         )
-        .bind(date, date)
-        .first<{
-          id: string;
-          start_date: string;
-          end_date: string;
-          budget_yen: number;
-          status: BudgetPeriodStatus;
-          predecessor_period_id: string | null;
-          created_at: string;
-          updated_at: string;
-        }>();
+        .orderBy(asc(budget_periods.start_date))
+        .limit(1)
+        .all();
       return row ? toBudgetPeriodRecord(row) : null;
     },
 
     async listPeriods() {
       await ensureSchema();
-      const result = await input.db
-        .prepare(
-          `SELECT id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
-             FROM budget_periods
-            ORDER BY start_date ASC`,
-        )
-        .all<{
-          id: string;
-          start_date: string;
-          end_date: string;
-          budget_yen: number;
-          status: BudgetPeriodStatus;
-          predecessor_period_id: string | null;
-          created_at: string;
-          updated_at: string;
-        }>();
-      return (result.results ?? []).map((row) => toBudgetPeriodRecord(row));
+      const rows = await database
+        .select()
+        .from(budget_periods)
+        .orderBy(asc(budget_periods.start_date))
+        .all();
+      return rows.map((row) => toBudgetPeriodRecord(row));
     },
 
     async createPeriod(inputRow) {
@@ -367,10 +332,12 @@ export function createD1BudgetPeriodRepository(
       }
 
       if (inputRow.predecessorPeriodId) {
-        const predecessor = await input.db
-          .prepare(`SELECT end_date FROM budget_periods WHERE id = ?`)
-          .bind(inputRow.predecessorPeriodId)
-          .first<{ end_date: string }>();
+        const [predecessor] = await database
+          .select({ end_date: budget_periods.end_date })
+          .from(budget_periods)
+          .where(eq(budget_periods.id, inputRow.predecessorPeriodId))
+          .limit(1)
+          .all();
         if (!predecessor) {
           throw new PeriodValidationError(
             "PERIOD_PREDECESSOR_NOT_FOUND",
@@ -386,16 +353,17 @@ export function createD1BudgetPeriodRepository(
         }
       }
 
-      const overlapped = await input.db
-        .prepare(
-          `SELECT id
-             FROM budget_periods
-            WHERE start_date <= ?
-              AND end_date >= ?
-            LIMIT 1`,
+      const [overlapped] = await database
+        .select({ id: budget_periods.id })
+        .from(budget_periods)
+        .where(
+          and(
+            lte(budget_periods.start_date, inputRow.endDate),
+            gte(budget_periods.end_date, inputRow.startDate),
+          ),
         )
-        .bind(inputRow.endDate, inputRow.startDate)
-        .first<{ id: string }>();
+        .limit(1)
+        .all();
       if (overlapped) {
         throw new PeriodValidationError(
           "PERIOD_OVERLAP",
@@ -403,22 +371,18 @@ export function createD1BudgetPeriodRepository(
         );
       }
 
-      await input.db
-        .prepare(
-          `INSERT INTO budget_periods (
-             id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          inputRow.id,
-          inputRow.startDate,
-          inputRow.endDate,
-          inputRow.budgetYen,
-          inputRow.status ?? "active",
-          inputRow.predecessorPeriodId ?? null,
-          inputRow.nowIso,
-          inputRow.nowIso,
-        )
+      await database
+        .insert(budget_periods)
+        .values({
+          id: inputRow.id,
+          start_date: inputRow.startDate,
+          end_date: inputRow.endDate,
+          budget_yen: inputRow.budgetYen,
+          status: inputRow.status ?? "active",
+          predecessor_period_id: inputRow.predecessorPeriodId ?? null,
+          created_at: inputRow.nowIso,
+          updated_at: inputRow.nowIso,
+        })
         .run();
 
       const created = await findByIdInternal(inputRow.id);
@@ -438,10 +402,12 @@ export function createD1BudgetPeriodRepository(
         throw new PeriodNotFoundError(inputRow.id);
       }
       if (existing.predecessorPeriodId) {
-        const predecessor = await input.db
-          .prepare(`SELECT end_date FROM budget_periods WHERE id = ?`)
-          .bind(existing.predecessorPeriodId)
-          .first<{ end_date: string }>();
+        const [predecessor] = await database
+          .select({ end_date: budget_periods.end_date })
+          .from(budget_periods)
+          .where(eq(budget_periods.id, existing.predecessorPeriodId))
+          .limit(1)
+          .all();
         if (!predecessor) {
           throw new PeriodValidationError(
             "PERIOD_PREDECESSOR_NOT_FOUND",
@@ -457,18 +423,18 @@ export function createD1BudgetPeriodRepository(
         }
       }
 
-      const successor = await input.db
-        .prepare(
-          `SELECT id, start_date
-             FROM budget_periods
-            WHERE predecessor_period_id = ?`,
-        )
-        .bind(inputRow.id)
-        .all<{ id: string; start_date: string }>();
+      const successors = await database
+        .select({
+          id: budget_periods.id,
+          start_date: budget_periods.start_date,
+        })
+        .from(budget_periods)
+        .where(eq(budget_periods.predecessor_period_id, inputRow.id))
+        .all();
       const expectedSuccessorStartDate = getNextPeriodStartDate(
         inputRow.endDate,
       );
-      for (const row of successor.results ?? []) {
+      for (const row of successors) {
         if (row.start_date !== expectedSuccessorStartDate) {
           throw new PeriodValidationError(
             "PERIOD_CONTINUITY_VIOLATION",
@@ -477,17 +443,18 @@ export function createD1BudgetPeriodRepository(
         }
       }
 
-      const overlapped = await input.db
-        .prepare(
-          `SELECT id
-             FROM budget_periods
-            WHERE id <> ?
-              AND start_date <= ?
-              AND end_date >= ?
-            LIMIT 1`,
+      const [overlapped] = await database
+        .select({ id: budget_periods.id })
+        .from(budget_periods)
+        .where(
+          and(
+            ne(budget_periods.id, inputRow.id),
+            lte(budget_periods.start_date, inputRow.endDate),
+            gte(budget_periods.end_date, inputRow.startDate),
+          ),
         )
-        .bind(inputRow.id, inputRow.endDate, inputRow.startDate)
-        .first<{ id: string }>();
+        .limit(1)
+        .all();
       if (overlapped) {
         throw new PeriodValidationError(
           "PERIOD_OVERLAP",
@@ -495,22 +462,15 @@ export function createD1BudgetPeriodRepository(
         );
       }
 
-      await input.db
-        .prepare(
-          `UPDATE budget_periods
-              SET start_date = ?,
-                  end_date = ?,
-                  budget_yen = ?,
-                  updated_at = ?
-            WHERE id = ?`,
-        )
-        .bind(
-          inputRow.startDate,
-          inputRow.endDate,
-          inputRow.budgetYen,
-          inputRow.nowIso,
-          inputRow.id,
-        )
+      await database
+        .update(budget_periods)
+        .set({
+          start_date: inputRow.startDate,
+          end_date: inputRow.endDate,
+          budget_yen: inputRow.budgetYen,
+          updated_at: inputRow.nowIso,
+        })
+        .where(eq(budget_periods.id, inputRow.id))
         .run();
 
       const updated = await findByIdInternal(inputRow.id);
