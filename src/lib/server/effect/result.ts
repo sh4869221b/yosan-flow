@@ -65,6 +65,8 @@ const KNOWN_ERROR_RESPONSES: Record<
 
 const KNOWN_ERROR_CODES = Object.keys(KNOWN_ERROR_RESPONSES);
 
+// Boundary: Effect is limited to API failure shaping. Repository and domain
+// layers continue to throw their existing errors so public behavior stays stable.
 function readStringProperty(value: unknown, property: string): string | null {
   if (typeof value !== "object" || value == null || !(property in value)) {
     return null;

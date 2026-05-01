@@ -1,3 +1,7 @@
+import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
+import type { D1Database } from "$lib/server/db/d1-types";
+import * as schema from "$lib/server/db/schema";
+
 export type DatabaseState<P = unknown, D = unknown, H = unknown> = {
   budgetPeriods: Map<string, P>;
   dailyTotals: Map<string, D>;
@@ -14,6 +18,14 @@ export interface DatabaseClient<P = unknown, D = unknown, H = unknown> {
   ): Promise<T>;
   read<T>(work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>): Promise<T>;
   dumpState(): DatabaseState<P, D, H>;
+}
+
+// Boundary: D1 bindings enter Drizzle here. Repositories may use this for typed
+// SQL construction/row mapping; service/domain rules stay above this layer.
+export function createDrizzleD1Database(
+  db: D1Database,
+): DrizzleD1Database<typeof schema> {
+  return drizzle(db, { schema });
 }
 
 type CreateClientInput<P, D, H> = {
