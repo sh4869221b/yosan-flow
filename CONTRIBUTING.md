@@ -34,6 +34,7 @@ pnpm wrangler dev
 - `src/lib/components/`: Svelte UI components.
 - `src/lib/server/`: server-side repositories, services, and validation.
 - `migrations/`: D1 schema migrations.
+- `src/lib/server/db/schema.ts`: Drizzle schema mirror for the current SQL migrations.
 - `tests/unit/`: domain and calculation tests.
 - `tests/integration/`: API/repository integration tests.
 - `tests/e2e/`: Playwright dashboard tests.
@@ -84,6 +85,13 @@ For migration work:
 ```bash
 pnpm run cf:migrate:local
 ```
+
+Migration policy:
+
+- SQL files under `migrations/*.sql` remain the source of truth.
+- The Drizzle schema is a mirror only at this stage.
+- Generated Drizzle migrations are not adopted yet.
+- Drift check policy will be decided in a later tooling task.
 
 If E2E needs an in-memory dev server because local D1 state is stale, start the app with:
 

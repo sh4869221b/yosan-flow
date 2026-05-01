@@ -116,6 +116,8 @@ pnpm wrangler tail yosan-flow --env production --status error --format pretty
 ## D1 migration 運用メモ
 
 - スキーマは `migrations/*.sql` で管理します。
+- `src/lib/server/db/schema.ts` は Drizzle 用の schema mirror です。現時点では SQL migrations が source of truth です。
+- Drizzle 生成 migration はまだ採用していません。migration drift check の運用は後続タスクで決めます。
 - ローカル適用: `pnpm run cf:migrate:local`
 - preview 適用: `pnpm run cf:migrate:preview`
 - production 適用: `pnpm run cf:migrate:production`
