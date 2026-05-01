@@ -25,6 +25,13 @@ pnpm dev
 
 ## ローカル検証コマンド
 
+コード整形:
+
+```bash
+pnpm format
+pnpm format:check
+```
+
 Baseline CI と同じ順序:
 
 ```bash

@@ -63,6 +63,7 @@
 **Implementation subagent:** `ci-tooling-implementer`
 
 **Ownership:**
+
 - Create: `.github/workflows/ci.yml`
 - Modify: `README.md`
 - Modify: `CONTRIBUTING.md`
@@ -149,6 +150,7 @@ Review the baseline CI workflow for maintainability and GitHub Actions correctne
 ```
 
 **Acceptance Criteria:**
+
 - `.github/workflows/ci.yml` exists.
 - CI runs on PR and `main` push.
 - CI command order is install, check, unit, integration, build.
@@ -157,6 +159,7 @@ Review the baseline CI workflow for maintainability and GitHub Actions correctne
 - Local baseline commands and `git diff --check` pass.
 
 **Likely Pitfalls:**
+
 - Do not add bare `wrangler deploy`.
 - Do not use the placeholder top-level D1 database id in CI.
 - Integration tests may reveal missing setup. Fix CI setup, not app behavior, unless the failure exposes a real bug.
@@ -174,6 +177,7 @@ git commit -m "ci: add baseline checks"
 **Implementation subagent:** `formatter-implementer`
 
 **Ownership:**
+
 - Create: `.prettierrc`
 - Create: `.prettierignore`
 - Modify: `package.json`
@@ -281,6 +285,7 @@ Review the Prettier setup for maintainability. Check that scripts are simple, co
 ```
 
 **Acceptance Criteria:**
+
 - `format` and `format:check` scripts exist.
 - `.prettierrc` and `.prettierignore` exist.
 - `pnpm format:check` passes.
@@ -288,6 +293,7 @@ Review the Prettier setup for maintainability. Check that scripts are simple, co
 - Baseline checks pass.
 
 **Likely Pitfalls:**
+
 - Do not stage `.wrangler`, `.tmp-*`, `test-results`, `.dev.vars`, or env files.
 - Do not combine formatter changes with linter or app logic changes.
 - Do not manually alter product copy or Playwright selectors while formatting.
@@ -307,6 +313,7 @@ git commit -m "chore: add prettier formatting"
 **Implementation subagent:** `linter-implementer`
 
 **Ownership:**
+
 - Create: `eslint.config.js`
 - Modify: `package.json`
 - Modify: `pnpm-lock.yaml`
@@ -398,6 +405,7 @@ Review the lint configuration for maintainability and signal quality. Check that
 ```
 
 **Acceptance Criteria:**
+
 - `eslint.config.js` exists and works as flat config.
 - `pnpm lint` passes.
 - `pnpm format:check` and `pnpm lint` do not conflict.
@@ -405,6 +413,7 @@ Review the lint configuration for maintainability and signal quality. Check that
 - Docs include lint usage.
 
 **Likely Pitfalls:**
+
 - ESLint ignore rules must not hide `src/`, `tests/`, `svelte.config.js`, or `vite.config.ts`.
 - `.svelte` files must actually be linted.
 - Do not make first-pass lint rules so strict that they force broad refactors.
@@ -424,6 +433,7 @@ git commit -m "chore: add eslint linting"
 **Implementation subagent:** `ci-quality-gate-implementer`
 
 **Ownership:**
+
 - Modify: `.github/workflows/ci.yml`
 - Modify: `README.md`
 - Modify: `CONTRIBUTING.md`
@@ -496,11 +506,13 @@ Review the CI quality gate shape. Check job readability, cache reuse, failure cl
 ```
 
 **Acceptance Criteria:**
+
 - CI runs formatter, linter, typecheck, unit, integration, build on PR / `main` push.
 - README / CONTRIBUTING match the CI command order.
 - E2E is not required.
 
 **Likely Pitfalls:**
+
 - If `.github/workflows/ci.yml` does not exist, Task 1 is incomplete.
 - If `pnpm lint` or `pnpm format:check` is undefined, Tasks 2-3 are incomplete.
 - Do not touch deploy scripts or `wrangler.jsonc`.
@@ -517,6 +529,7 @@ git commit -m "ci: enforce formatting and linting"
 **Implementation subagent:** `effect-boundary-implementer`
 
 **Ownership:**
+
 - Modify: `package.json`
 - Modify: `pnpm-lock.yaml`
 - Create: `src/lib/server/effect/errors.ts`
@@ -623,6 +636,7 @@ Review the Effect boundary for maintainability. Check that Effect improves error
 ```
 
 **Acceptance Criteria:**
+
 - `effect` is added as a runtime dependency.
 - Effect usage is limited to one narrow boundary.
 - API status code, `error.code`, and response shape remain stable.
@@ -631,6 +645,7 @@ Review the Effect boundary for maintainability. Check that Effect improves error
 - Full local gate passes.
 
 **Likely Pitfalls:**
+
 - Do not Effect-convert `DayEntryService` or repositories wholesale.
 - Do not break existing `PeriodValidationError`, `PeriodNotFoundError`, `DateOutOfPeriodError`, or their codes.
 - Do not leak raw DB/secret details in unknown errors.
@@ -648,6 +663,7 @@ git commit -m "feat: add effect error boundary"
 **Implementation subagent:** `drizzle-schema-mirror-implementer`
 
 **Ownership:**
+
 - Modify: `package.json`
 - Modify: `pnpm-lock.yaml`
 - Create: `drizzle.config.ts`
@@ -745,6 +761,7 @@ Review the Drizzle schema mirror for maintainability. Check type naming, snake_c
 ```
 
 **Acceptance Criteria:**
+
 - Drizzle dependencies are added in the correct dependency sections.
 - `src/lib/server/db/schema.ts` mirrors the current three-table schema.
 - Existing repositories are not replaced yet.
@@ -753,6 +770,7 @@ Review the Drizzle schema mirror for maintainability. Check type naming, snake_c
 - Deploy commands and D1 binding policy remain unchanged.
 
 **Likely Pitfalls:**
+
 - `migrations/0002_reset_to_budget_periods.sql` is the practical current period-first reset schema.
 - Do not reintroduce `monthly_budgets`.
 - `budget_period_id` is required in daily totals and histories.
@@ -769,11 +787,13 @@ git commit -m "feat: add drizzle schema mirror"
 ## Task 7: Define Drizzle And Effect Boundaries
 
 **Implementation subagents:**
+
 - `db-boundary-implementer`: owns `src/lib/server/db/client.ts`, `src/lib/server/db/schema.ts`, selected `src/lib/server/db/*.ts`
 - `effect-boundary-implementer`: owns `src/lib/server/effect/*` and thin repository/API error helpers
 - Main agent: integrates and resolves cross-file decisions
 
 **Ownership:**
+
 - Modify: `src/lib/server/db/client.ts`
 - Modify: `src/lib/server/effect/*`
 - Modify: selected `src/lib/server/db/*.ts` only if needed
@@ -848,6 +868,7 @@ Review Task 7 for maintainability. Check whether DatabaseClient abstractions are
 ```
 
 **Acceptance Criteria:**
+
 - Drizzle and Effect responsibilities are clear in code.
 - Repository public interfaces are not broadly changed.
 - API routes, response fields, and status mapping are unchanged.
@@ -855,6 +876,7 @@ Review Task 7 for maintainability. Check whether DatabaseClient abstractions are
 - `budget_period_id` period-first contract is preserved.
 
 **Likely Pitfalls:**
+
 - Existing `DatabaseClient` is in-memory transaction-oriented; do not over-generalize it into a large D1 transaction abstraction.
 - `month-repository.ts` is legacy-ish month-first surface. Avoid touching it unless required.
 - Do not push same-day spend logic into DB boundary.
@@ -870,6 +892,7 @@ git commit -m "feat: define db effect boundary"
 ## Task 8: Migrate Repositories Incrementally
 
 **Implementation subagents:**
+
 - `budget-period-repo-implementer`: owns `src/lib/server/db/budget-period-repository.ts`
 - `daily-total-repo-implementer`: owns `src/lib/server/db/daily-total-repository.ts`
 - `daily-history-repo-implementer`: owns `src/lib/server/db/daily-history-repository.ts`
@@ -877,6 +900,7 @@ git commit -m "feat: define db effect boundary"
 - Main agent: integrates between repository tasks
 
 **Ownership:**
+
 - Modify: `src/lib/server/db/budget-period-repository.ts`
 - Modify: `src/lib/server/db/daily-total-repository.ts`
 - Modify: `src/lib/server/db/daily-history-repository.ts`
@@ -986,6 +1010,7 @@ Review the repository migration for maintainability. Check whether Drizzle expre
 ```
 
 **Acceptance Criteria:**
+
 - Runtime D1 repositories use Drizzle query construction.
 - Repository interfaces are preserved unless explicitly documented.
 - Period-first behavior is preserved.
@@ -994,6 +1019,7 @@ Review the repository migration for maintainability. Check whether Drizzle expre
 - Full local gate passes.
 
 **Likely Pitfalls:**
+
 - `daily_totals` primary key is `(budget_period_id, date)`, not date alone.
 - `daily_operation_histories` ordering can affect UI/API snapshots.
 - `year_month` exists but is not the source of truth.
@@ -1016,11 +1042,13 @@ git commit -m "feat: migrate daily history repository to drizzle"
 ## Task 9: Finalize CI Shape
 
 **Implementation subagents:**
+
 - `ci-shape-implementer`: owns `.github/workflows/ci.yml`, `package.json`
 - `docs-implementer`: owns `README.md`, `CONTRIBUTING.md`
 - `verification-subagent`: runs local gate and checks GitHub Actions parity
 
 **Ownership:**
+
 - Modify: `.github/workflows/ci.yml`
 - Modify: `package.json`
 - Modify: `README.md`
@@ -1105,6 +1133,7 @@ Review final CI shape for maintainability. Check job decomposition, caching, fai
 ```
 
 **Acceptance Criteria:**
+
 - Required CI gate is explicit and documented.
 - Formatter/linter/typecheck/unit/integration/build run on PR.
 - E2E policy is documented.
@@ -1113,6 +1142,7 @@ Review final CI shape for maintainability. Check job decomposition, caching, fai
 - Lockfile is compatible with frozen install.
 
 **Likely Pitfalls:**
+
 - Top-level `wrangler.jsonc` D1 id is a placeholder. Do not add CI/deploy paths that use it.
 - E2E depends on D1/local state; required CI E2E needs stable seed/reset.
 - Drizzle generated migration checks can conflict with SQL-source-of-truth workflow.
@@ -1146,4 +1176,3 @@ pnpm run cf:migrate:local
 ```
 
 Record any skipped commands with the reason and residual risk.
-

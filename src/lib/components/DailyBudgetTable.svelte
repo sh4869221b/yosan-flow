@@ -11,7 +11,9 @@
   export let rows: DailyRow[] = [];
   export let loading = false;
 
-  const dispatch = createEventDispatcher<{ "request-edit": { date: string } }>();
+  const dispatch = createEventDispatcher<{
+    "request-edit": { date: string };
+  }>();
 </script>
 
 <section>

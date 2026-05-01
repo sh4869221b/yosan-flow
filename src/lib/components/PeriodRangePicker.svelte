@@ -13,11 +13,13 @@
   export let saving = false;
   export let testIdPrefix = "period-range";
 
-  const dispatch = createEventDispatcher<{ change: { startDate: string; endDate: string } }>();
+  const dispatch = createEventDispatcher<{
+    change: { startDate: string; endDate: string };
+  }>();
 
   let range: DateRange = {
     start: toDateValue(startDate),
-    end: toDateValue(endDate)
+    end: toDateValue(endDate),
   };
   let syncedStartDate = startDate;
   let syncedEndDate = endDate;
@@ -28,14 +30,18 @@
       syncedEndDate = endDate;
       range = {
         start: toDateValue(startDate),
-        end: toDateValue(endDate)
+        end: toDateValue(endDate),
       };
     }
   }
 
   $: selectedStartDate = range.start?.toString() ?? "";
   $: selectedEndDate = range.end?.toString() ?? "";
-  $: isRangeValid = Boolean(selectedStartDate && selectedEndDate && selectedStartDate <= selectedEndDate);
+  $: isRangeValid = Boolean(
+    selectedStartDate &&
+    selectedEndDate &&
+    selectedStartDate <= selectedEndDate,
+  );
 
   function toDateValue(value: string): DateValue | undefined {
     if (!value) {
@@ -55,7 +61,7 @@
   function handleDateInput(field: "start" | "end", value: string): void {
     range = {
       ...range,
-      [field]: toDateValue(value)
+      [field]: toDateValue(value),
     };
   }
 
@@ -65,7 +71,7 @@
     }
     dispatch("change", {
       startDate: selectedStartDate,
-      endDate: selectedEndDate
+      endDate: selectedEndDate,
     });
   }
 </script>
@@ -81,7 +87,8 @@
         value={selectedStartDate}
         max={selectedEndDate || undefined}
         disabled={saving}
-        on:input={(event) => handleDateInput("start", event.currentTarget.value)}
+        on:input={(event) =>
+          handleDateInput("start", event.currentTarget.value)}
       />
     </label>
     <label>
@@ -107,9 +114,13 @@
   >
     {#snippet children({ months, weekdays })}
       <RangeCalendar.Header>
-        <RangeCalendar.PrevButton aria-label="前の月">←</RangeCalendar.PrevButton>
+        <RangeCalendar.PrevButton aria-label="前の月"
+          >←</RangeCalendar.PrevButton
+        >
         <RangeCalendar.Heading />
-        <RangeCalendar.NextButton aria-label="次の月">→</RangeCalendar.NextButton>
+        <RangeCalendar.NextButton aria-label="次の月"
+          >→</RangeCalendar.NextButton
+        >
       </RangeCalendar.Header>
 
       {#each months as month}
@@ -238,7 +249,9 @@
     border-right: 0;
   }
 
-  :global([data-range-calendar-grid-row]:last-child [data-range-calendar-cell]) {
+  :global(
+    [data-range-calendar-grid-row]:last-child [data-range-calendar-cell]
+  ) {
     border-bottom: 0;
   }
 

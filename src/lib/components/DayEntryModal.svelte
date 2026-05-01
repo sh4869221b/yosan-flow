@@ -8,7 +8,7 @@
     RotateCcw,
     Save,
     Wallet,
-    X
+    X,
   } from "lucide-svelte";
   import HistoryPanel from "$lib/components/HistoryPanel.svelte";
 
@@ -41,7 +41,12 @@
 
   const dispatch = createEventDispatcher<{
     close: undefined;
-    save: { date: string; inputYen: number; operation: "add" | "overwrite"; memo: string };
+    save: {
+      date: string;
+      inputYen: number;
+      operation: "add" | "overwrite";
+      memo: string;
+    };
   }>();
 
   function save(): void {
@@ -57,7 +62,7 @@
       date,
       inputYen: parsed,
       operation,
-      memo
+      memo,
     });
   }
 
@@ -67,7 +72,11 @@
 </script>
 
 {#if isOpen}
-  <section class="day-entry-card" aria-label="日次入力モーダル" data-testid="day-entry-modal">
+  <section
+    class="day-entry-card"
+    aria-label="日次入力モーダル"
+    data-testid="day-entry-modal"
+  >
     <div class="entry-header">
       <span class="entry-icon" aria-hidden="true">
         <ClipboardList size={24} strokeWidth={2.4} />
@@ -132,7 +141,12 @@
           入力額 (円)
           <span class="money-input">
             <span aria-hidden="true">¥</span>
-            <input type="number" min="0" inputmode="numeric" bind:value={inputYen} />
+            <input
+              type="number"
+              min="0"
+              inputmode="numeric"
+              bind:value={inputYen}
+            />
           </span>
         </label>
 
@@ -140,7 +154,12 @@
           <legend>操作種別</legend>
           <div class="operation-grid">
             <label class:active={operation === "add"}>
-              <input type="radio" name="operation" value="add" bind:group={operation} />
+              <input
+                type="radio"
+                name="operation"
+                value="add"
+                bind:group={operation}
+              />
               <CheckCircle2 size={18} strokeWidth={2.4} aria-hidden="true" />
               <span>
                 <strong>追加</strong>
@@ -148,7 +167,12 @@
               </span>
             </label>
             <label class:active={operation === "overwrite"}>
-              <input type="radio" name="operation" value="overwrite" bind:group={operation} />
+              <input
+                type="radio"
+                name="operation"
+                value="overwrite"
+                bind:group={operation}
+              />
               <RotateCcw size={18} strokeWidth={2.4} aria-hidden="true" />
               <span>
                 <strong>上書き</strong>
@@ -160,11 +184,20 @@
 
         <label>
           メモ
-          <textarea rows="3" bind:value={memo} placeholder="例: ランチ、食材の買い物など"></textarea>
+          <textarea
+            rows="3"
+            bind:value={memo}
+            placeholder="例: ランチ、食材の買い物など"
+          ></textarea>
         </label>
 
         <div class="actions">
-          <button class="secondary-button" type="button" on:click={() => dispatch("close")} disabled={saving}>
+          <button
+            class="secondary-button"
+            type="button"
+            on:click={() => dispatch("close")}
+            disabled={saving}
+          >
             <X size={18} strokeWidth={2.4} aria-hidden="true" />
             閉じる
           </button>

@@ -2,13 +2,13 @@ import { json, type RequestHandler } from "@sveltejs/kit";
 import {
   getApiServicesFromPlatform,
   getPeriodSummaryFromServices,
-  type InMemoryApiServices
+  type InMemoryApiServices,
 } from "$lib/server/services/month-summary-service";
 import {
   parseNonNegativeIntegerYen,
   parsePeriodId,
   parseRequestBodyObject,
-  toApiErrorResponse
+  toApiErrorResponse,
 } from "$lib/server/validation/month";
 import { parseDate } from "$lib/server/validation/day";
 
@@ -16,11 +16,16 @@ export type PeriodRouteDependencies = {
   services: InMemoryApiServices;
 };
 
-export function _createPeriodGetHandler(dependencies: PeriodRouteDependencies): RequestHandler {
+export function _createPeriodGetHandler(
+  dependencies: PeriodRouteDependencies,
+): RequestHandler {
   return async ({ params }) => {
     try {
       const periodId = parsePeriodId(params.periodId);
-      const summary = await getPeriodSummaryFromServices(dependencies.services, periodId);
+      const summary = await getPeriodSummaryFromServices(
+        dependencies.services,
+        periodId,
+      );
       return json(summary);
     } catch (error) {
       return toApiErrorResponse(error);
@@ -30,11 +35,13 @@ export function _createPeriodGetHandler(dependencies: PeriodRouteDependencies): 
 
 export const GET: RequestHandler = async (event) => {
   return _createPeriodGetHandler({
-    services: getApiServicesFromPlatform(event.platform)
+    services: getApiServicesFromPlatform(event.platform),
   })(event);
 };
 
-export function _createPeriodPutHandler(dependencies: PeriodRouteDependencies): RequestHandler {
+export function _createPeriodPutHandler(
+  dependencies: PeriodRouteDependencies,
+): RequestHandler {
   return async ({ params, request }) => {
     try {
       const periodId = parsePeriodId(params.periodId);
@@ -47,10 +54,13 @@ export function _createPeriodPutHandler(dependencies: PeriodRouteDependencies): 
         id: periodId,
         startDate,
         endDate,
-        budgetYen
+        budgetYen,
       });
 
-      const summary = await getPeriodSummaryFromServices(dependencies.services, periodId);
+      const summary = await getPeriodSummaryFromServices(
+        dependencies.services,
+        periodId,
+      );
       return json(summary);
     } catch (error) {
       return toApiErrorResponse(error);
@@ -60,6 +70,6 @@ export function _createPeriodPutHandler(dependencies: PeriodRouteDependencies): 
 
 export const PUT: RequestHandler = async (event) => {
   return _createPeriodPutHandler({
-    services: getApiServicesFromPlatform(event.platform)
+    services: getApiServicesFromPlatform(event.platform),
   })(event);
 };

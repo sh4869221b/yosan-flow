@@ -33,7 +33,10 @@
   let periodError: string | null = null;
   let rangeStartDate = summary?.startDate ?? data.today;
   let rangeEndDate = summary?.endDate ?? addDays(data.today, 29);
-  let createStartDate = periods.length > 0 ? addDays(periods[periods.length - 1].endDate, 1) : data.today;
+  let createStartDate =
+    periods.length > 0
+      ? addDays(periods[periods.length - 1].endDate, 1)
+      : data.today;
   let createEndDate = addDays(createStartDate, 29);
   let createPeriodId = toPeriodId(createStartDate);
   let createBudgetInput = "120000";
@@ -52,14 +55,20 @@
 
   $: modalPreviewAfterYen =
     modalOperation === "add"
-      ? (selectedRow?.usedYen ?? 0) + (Number.parseInt(modalInputYen || "0", 10) || 0)
+      ? (selectedRow?.usedYen ?? 0) +
+        (Number.parseInt(modalInputYen || "0", 10) || 0)
       : Number.parseInt(modalInputYen || "0", 10) || 0;
   $: modalRemainingRows =
     summary == null || selectedDate == null
       ? 0
-      : summary.dailyRows.filter((row) => row.date >= (selectedDate ?? "")).length;
+      : summary.dailyRows.filter((row) => row.date >= (selectedDate ?? ""))
+          .length;
   $: modalPreviewRemainingYen =
-    summary == null ? null : summary.remainingYen + (selectedRow?.usedYen ?? 0) - modalPreviewAfterYen;
+    summary == null
+      ? null
+      : summary.remainingYen +
+        (selectedRow?.usedYen ?? 0) -
+        modalPreviewAfterYen;
   $: modalPreviewRecommendedYen =
     modalPreviewRemainingYen == null || modalRemainingRows === 0
       ? null
@@ -73,7 +82,9 @@
 
   function addDays(date: string, days: number): string {
     const current = Date.parse(`${date}T00:00:00.000Z`);
-    return new Date(current + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return new Date(current + days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
   }
 
   function toPeriodId(startDate: string): string {
@@ -109,7 +120,9 @@
     summaryLoading = true;
     summaryError = null;
     try {
-      const response = await fetch(`/api/periods/${encodeURIComponent(periodId)}`);
+      const response = await fetch(
+        `/api/periods/${encodeURIComponent(periodId)}`,
+      );
       if (!response.ok) {
         summaryError = await parseApiError(response);
         return;
@@ -130,7 +143,7 @@
     historyError = null;
     try {
       const response = await fetch(
-        `/api/periods/${encodeURIComponent(selectedPeriodId)}/days/${encodeURIComponent(date)}/history`
+        `/api/periods/${encodeURIComponent(selectedPeriodId)}/days/${encodeURIComponent(date)}/history`,
       );
       if (!response.ok) {
         historyError = await parseApiError(response);
@@ -157,11 +170,14 @@
     periodSaving = true;
     periodError = null;
     try {
-      const response = await fetch(`/api/periods/${encodeURIComponent(selectedPeriodId)}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      const response = await fetch(
+        `/api/periods/${encodeURIComponent(selectedPeriodId)}`,
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       if (!response.ok) {
         periodError = await parseApiError(response);
         return;
@@ -176,18 +192,22 @@
     }
   }
 
-  async function handleSavePeriod(event: CustomEvent<{ budgetYen: number }>): Promise<void> {
+  async function handleSavePeriod(
+    event: CustomEvent<{ budgetYen: number }>,
+  ): Promise<void> {
     if (!summary) {
       return;
     }
     await savePeriodUpdate({
       budgetYen: event.detail.budgetYen,
       startDate: rangeStartDate,
-      endDate: rangeEndDate
+      endDate: rangeEndDate,
     });
   }
 
-  async function handleRangeChange(event: CustomEvent<{ startDate: string; endDate: string }>): Promise<void> {
+  async function handleRangeChange(
+    event: CustomEvent<{ startDate: string; endDate: string }>,
+  ): Promise<void> {
     rangeStartDate = event.detail.startDate;
     rangeEndDate = event.detail.endDate;
     if (!summary) {
@@ -196,11 +216,13 @@
     await savePeriodUpdate({
       budgetYen: summary.budgetYen,
       startDate: event.detail.startDate,
-      endDate: event.detail.endDate
+      endDate: event.detail.endDate,
     });
   }
 
-  async function handleSelectPeriod(event: CustomEvent<{ periodId: string }>): Promise<void> {
+  async function handleSelectPeriod(
+    event: CustomEvent<{ periodId: string }>,
+  ): Promise<void> {
     await refreshSummary(event.detail.periodId);
   }
 
@@ -227,8 +249,8 @@
           startDate: createStartDate,
           endDate: createEndDate,
           budgetYen,
-          predecessorPeriodId
-        })
+          predecessorPeriodId,
+        }),
       });
       if (!response.ok) {
         periodError = await parseApiError(response);
@@ -248,7 +270,8 @@
       return;
     }
     selectedDate = payload.date;
-    selectedRow = summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
+    selectedRow =
+      summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
     modalError = null;
     modalOpen = true;
     modalInputYen = "";
@@ -264,7 +287,12 @@
   }
 
   async function submitDayEntry(
-    event: CustomEvent<{ date: string; inputYen: number; operation: "add" | "overwrite"; memo: string }>
+    event: CustomEvent<{
+      date: string;
+      inputYen: number;
+      operation: "add" | "overwrite";
+      memo: string;
+    }>,
   ): Promise<void> {
     if (!selectedPeriodId) {
       return;
@@ -283,8 +311,8 @@
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           inputYen: event.detail.inputYen,
-          memo: event.detail.memo
-        })
+          memo: event.detail.memo,
+        }),
       });
       if (!response.ok) {
         modalError = await parseApiError(response);
@@ -293,7 +321,9 @@
       const updatedSummary = (await response.json()) as PeriodSummary;
       summary = updatedSummary;
       if (selectedDate) {
-        selectedRow = updatedSummary.dailyRows.find((row) => row.date === selectedDate) ?? null;
+        selectedRow =
+          updatedSummary.dailyRows.find((row) => row.date === selectedDate) ??
+          null;
         await loadHistory(selectedDate);
       }
       closeDayEntry();
@@ -370,7 +400,9 @@
             次の予算期間を作成する
           </summary>
           <div class="details-body">
-            <p>今の期間が終わった後の期間を追加します。開始日は前期間の翌日が基本です。</p>
+            <p>
+              今の期間が終わった後の期間を追加します。開始日は前期間の翌日が基本です。
+            </p>
             <label>
               期間ID
               <input
@@ -393,9 +425,18 @@
             />
             <label>
               新規予算額 (円)
-              <input aria-label="新規予算額 (円)" type="number" min="0" bind:value={createBudgetInput} />
+              <input
+                aria-label="新規予算額 (円)"
+                type="number"
+                min="0"
+                bind:value={createBudgetInput}
+              />
             </label>
-            <button type="button" on:click={createInitialPeriod} disabled={periodSaving}>
+            <button
+              type="button"
+              on:click={createInitialPeriod}
+              disabled={periodSaving}
+            >
               {periodSaving ? "作成中..." : "期間を作成"}
             </button>
           </div>
@@ -409,7 +450,9 @@
       </span>
       <p class="eyebrow">Step 1</p>
       <h1>最初の予算期間を作成</h1>
-      <p>まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。</p>
+      <p>
+        まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。
+      </p>
       {#if periodError}
         <p role="alert">{periodError}</p>
       {/if}
@@ -435,9 +478,18 @@
       />
       <label>
         新規予算額 (円)
-        <input aria-label="新規予算額 (円)" type="number" min="0" bind:value={createBudgetInput} />
+        <input
+          aria-label="新規予算額 (円)"
+          type="number"
+          min="0"
+          bind:value={createBudgetInput}
+        />
       </label>
-      <button type="button" on:click={createInitialPeriod} disabled={periodSaving}>
+      <button
+        type="button"
+        on:click={createInitialPeriod}
+        disabled={periodSaving}
+      >
         {periodSaving ? "作成中..." : "期間を作成"}
       </button>
     </section>
@@ -451,7 +503,7 @@
     saving={modalSaving}
     errorMessage={modalError}
     historyErrorMessage={historyError}
-    historyLoading={historyLoading}
+    {historyLoading}
     {histories}
     bind:inputYen={modalInputYen}
     bind:memo={modalMemo}

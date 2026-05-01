@@ -49,6 +49,13 @@ pnpm wrangler dev
 
 ## Verification
 
+Format files before opening a review:
+
+```bash
+pnpm format
+pnpm format:check
+```
+
 Run focused checks while developing. Baseline CI runs:
 
 ```bash

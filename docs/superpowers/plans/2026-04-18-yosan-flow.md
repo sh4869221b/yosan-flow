@@ -98,6 +98,7 @@
 ### Task 1: Repository Scaffold
 
 **Files:**
+
 - Create: `package.json`
 - Create: `pnpm-lock.yaml`
 - Create: `tsconfig.json`
@@ -158,6 +159,7 @@ git commit -m "feat: scaffold SvelteKit Cloudflare app"
 ### Task 2: D1 Schema And Time Utilities
 
 **Files:**
+
 - Create: `migrations/0001_initial.sql`
 - Create: `src/app.d.ts`
 - Create: `src/lib/server/time/jst.ts`
@@ -167,7 +169,10 @@ git commit -m "feat: scaffold SvelteKit Cloudflare app"
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { getJstDateParts, isFutureDateFromJstToday } from "$lib/server/time/jst";
+import {
+  getJstDateParts,
+  isFutureDateFromJstToday,
+} from "$lib/server/time/jst";
 
 describe("getJstDateParts", () => {
   it("converts UTC instant to JST year-month-day", () => {
@@ -233,12 +238,12 @@ export function getJstDateParts(now: Date) {
     timeZone: "Asia/Tokyo",
     year: "numeric",
     month: "2-digit",
-    day: "2-digit"
+    day: "2-digit",
   });
   const parts = formatter.format(now);
   return {
     date: parts,
-    yearMonth: parts.slice(0, 7)
+    yearMonth: parts.slice(0, 7),
   };
 }
 ```
@@ -258,6 +263,7 @@ git commit -m "feat: add D1 schema and JST utilities"
 ### Task 3: Domain Logic For Reallocation
 
 **Files:**
+
 - Create: `src/lib/server/domain/reallocation.ts`
 - Create: `src/lib/server/domain/budget.ts`
 - Test: `tests/unit/reallocation.test.ts`
@@ -269,12 +275,16 @@ import { describe, expect, it } from "vitest";
 import { buildDailyRecommendations } from "$lib/server/domain/reallocation";
 
 it("distributes remainder from today forward", () => {
-  expect(buildDailyRecommendations({ remainingYen: 100, dates: ["2026-04-18", "2026-04-19", "2026-04-20"] }))
-    .toEqual([
-      { date: "2026-04-18", recommendedYen: 34 },
-      { date: "2026-04-19", recommendedYen: 33 },
-      { date: "2026-04-20", recommendedYen: 33 }
-    ]);
+  expect(
+    buildDailyRecommendations({
+      remainingYen: 100,
+      dates: ["2026-04-18", "2026-04-19", "2026-04-20"],
+    }),
+  ).toEqual([
+    { date: "2026-04-18", recommendedYen: 34 },
+    { date: "2026-04-19", recommendedYen: 33 },
+    { date: "2026-04-20", recommendedYen: 33 },
+  ]);
 });
 ```
 
@@ -286,7 +296,10 @@ Expected: FAIL with missing function
 - [x] **Step 3: Implement minimal pure functions**
 
 ```ts
-export function buildDailyRecommendations(input: { remainingYen: number; dates: string[] }) {
+export function buildDailyRecommendations(input: {
+  remainingYen: number;
+  dates: string[];
+}) {
   if (input.remainingYen < 0) {
     return input.dates.map((date) => ({ date, recommendedYen: 0 }));
   }
@@ -294,7 +307,7 @@ export function buildDailyRecommendations(input: { remainingYen: number; dates: 
   const remainder = input.remainingYen % input.dates.length;
   return input.dates.map((date, index) => ({
     date,
-    recommendedYen: base + (index < remainder ? 1 : 0)
+    recommendedYen: base + (index < remainder ? 1 : 0),
   }));
 }
 ```
@@ -325,6 +338,7 @@ git commit -m "feat: add budget reallocation domain logic"
 ### Task 4: Explicit Month Initialization
 
 **Files:**
+
 - Modify: `src/lib/server/db/month-repository.ts`
 - Modify: `src/lib/server/services/month-summary-service.ts`
 - Create: `tests/integration/api/month-initialize.test.ts`
@@ -378,6 +392,7 @@ git commit -m "feat: add explicit month initialization flow"
 ### Task 5: D1 Repositories And Transactional Day Updates
 
 **Files:**
+
 - Create: `src/lib/server/db/client.ts`
 - Create: `src/lib/server/db/month-repository.ts`
 - Create: `src/lib/server/db/daily-total-repository.ts`
@@ -390,7 +405,10 @@ git commit -m "feat: add explicit month initialization flow"
 
 ```ts
 it("adds to the day's total and records history", async () => {
-  const response = await postAdd("2026-04-18", { inputYen: 1000, memo: "lunch" });
+  const response = await postAdd("2026-04-18", {
+    inputYen: 1000,
+    memo: "lunch",
+  });
   expect(response.status).toBe(200);
   expect(response.body.dailyTotal.usedYen).toBe(1000);
   expect(response.body.history[0].operationType).toBe("add");
@@ -412,7 +430,7 @@ Expected: FAIL with missing repositories/routes
 
 最低限、以下の責務を分離する。
 
-```ts
+```text
 - findMonth(yearMonth)
 - createMonth(...)
 - upsertDailyTotal(...)
@@ -424,7 +442,7 @@ Expected: FAIL with missing repositories/routes
 
 `day-entry-service.ts` に以下を実装する。
 
-```ts
+```text
 - requireBudgetSet(yearMonth)
 - addDailyAmount(date, inputYen, memo)
 - overwriteDailyAmount(date, inputYen, memo)
@@ -432,7 +450,7 @@ Expected: FAIL with missing repositories/routes
 
 処理要件:
 
-```ts
+```text
 - daily_totals 更新
 - daily_operation_histories insert
 - before_total_yen / after_total_yen 一貫性
@@ -454,6 +472,7 @@ git commit -m "feat: add transactional daily entry services"
 ### Task 6: Month Summary Service And Month APIs
 
 **Files:**
+
 - Create: `src/lib/server/services/month-summary-service.ts`
 - Create: `src/lib/server/validation/month.ts`
 - Create: `src/lib/server/validation/day.ts`
@@ -494,7 +513,7 @@ it("POST initialize creates the month explicitly", async () => {
 
 レスポンスに以下を含める。
 
-```ts
+```text
 - yearMonth
 - budgetYen
 - monthStatus
@@ -526,7 +545,7 @@ type DailyRow = {
 
 必須制約:
 
-```ts
+```text
 - yyyy-mm / yyyy-mm-dd の形式検証
 - 0 以上整数の金額
 - 月外日付拒否
@@ -549,6 +568,7 @@ git commit -m "feat: add month summary and API routes"
 ### Task 7: Dashboard UI
 
 **Files:**
+
 - Create: `src/routes/+page.server.ts`
 - Create: `src/routes/+page.svelte`
 - Create: `src/lib/components/BudgetSummary.svelte`
@@ -570,7 +590,7 @@ test("shows future entries as planned spending", async ({ page }) => {
   await seedMonth({
     yearMonth: "2026-04",
     budgetYen: 120000,
-    dailyTotals: [{ date: "2026-04-20", totalUsedYen: 3000 }]
+    dailyTotals: [{ date: "2026-04-20", totalUsedYen: 3000 }],
   });
   await page.goto("/");
   await expect(page.getByText("予定支出")).toBeVisible();
@@ -587,14 +607,14 @@ Expected: FAIL because page and components do not exist yet
 表示要件:
 
 ```ts
-- 対象年月
-- 月予算
-- 前月引継ぎ表示
-- 今月ここまでの使用額
-- 今月の総使用予定額
-- 月残額 / 超過額
-- 今日の推奨日次予算
-- 今日以降一覧
+-対象年月 -
+  月予算 -
+  前月引継ぎ表示 -
+  今月ここまでの使用額 -
+  今月の総使用予定額 -
+  月残額 / 超過額 -
+  今日の推奨日次予算 -
+  今日以降一覧;
 ```
 
 - [x] **Step 4: Implement modal interactions**
@@ -602,11 +622,7 @@ Expected: FAIL because page and components do not exist yet
 最低限の操作:
 
 ```ts
-- 月予算の初回設定
-- 月予算の変更
-- 日次追加
-- 日次上書き
-- 保存後リロード
+-月予算の初回設定 - 月予算の変更 - 日次追加 - 日次上書き - 保存後リロード;
 ```
 
 - [x] **Step 5: Run checks and E2E**
@@ -636,6 +652,7 @@ git commit -m "feat: build Yosan Flow dashboard UI"
 ### Task 8: Docs And Deploy Readiness
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `wrangler.jsonc`
 - Modify: `.dev.vars.example`

@@ -5,6 +5,6 @@ export default defineConfig({
   ...viteConfig,
   test: {
     globals: true,
-    environment: "node"
-  }
+    environment: "node",
+  },
 });

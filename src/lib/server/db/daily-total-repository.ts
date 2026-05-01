@@ -16,13 +16,21 @@ export type DailyTotalUpsertInput = {
   nowIso: string;
 };
 
-export type DailyTotalTransaction = DatabaseTransaction<any, DailyTotalRecord, any>;
+export type DailyTotalTransaction = DatabaseTransaction<
+  any,
+  DailyTotalRecord,
+  any
+>;
 
 export interface DailyTotalRepository {
-  findByDate(tx: DailyTotalTransaction, date: string, budgetPeriodId: string): Promise<DailyTotalRecord | null>;
+  findByDate(
+    tx: DailyTotalTransaction,
+    date: string,
+    budgetPeriodId: string,
+  ): Promise<DailyTotalRecord | null>;
   upsertDailyTotal(
     tx: DailyTotalTransaction,
-    input: DailyTotalUpsertInput
+    input: DailyTotalUpsertInput,
   ): Promise<DailyTotalRecord>;
 }
 
@@ -37,7 +45,9 @@ function toDailyTotalKey(date: string, budgetPeriodId: string): string {
 export function createDailyTotalRepository(): DailyTotalRepository {
   return {
     async findByDate(tx, date, budgetPeriodId) {
-      const found = tx.state.dailyTotals.get(toDailyTotalKey(date, budgetPeriodId));
+      const found = tx.state.dailyTotals.get(
+        toDailyTotalKey(date, budgetPeriodId),
+      );
       if (!found) {
         return null;
       }
@@ -53,10 +63,13 @@ export function createDailyTotalRepository(): DailyTotalRepository {
         yearMonth: input.yearMonth,
         budgetPeriodId: input.budgetPeriodId,
         totalUsedYen: input.totalUsedYen,
-        updatedAt: input.nowIso
+        updatedAt: input.nowIso,
       };
-      tx.state.dailyTotals.set(toDailyTotalKey(input.date, input.budgetPeriodId), next);
+      tx.state.dailyTotals.set(
+        toDailyTotalKey(input.date, input.budgetPeriodId),
+        next,
+      );
       return cloneDailyTotal(next);
-    }
+    },
   };
 }

@@ -3,8 +3,8 @@ import { json, type RequestHandler } from "@sveltejs/kit";
 const BODY = {
   error: {
     code: "ENDPOINT_REMOVED",
-    message: "month budget API is removed. Use /api/periods endpoints."
-  }
+    message: "month budget API is removed. Use /api/periods endpoints.",
+  },
 };
 
 export const PUT: RequestHandler = async () => {

@@ -9,7 +9,9 @@ export type DatabaseTransaction<P = unknown, D = unknown, H = unknown> = {
 };
 
 export interface DatabaseClient<P = unknown, D = unknown, H = unknown> {
-  transaction<T>(work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>): Promise<T>;
+  transaction<T>(
+    work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>,
+  ): Promise<T>;
   read<T>(work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>): Promise<T>;
   dumpState(): DatabaseState<P, D, H>;
 }
@@ -22,30 +24,46 @@ function cloneValue<T>(value: T): T {
   return structuredClone(value);
 }
 
-function cloneState<P, D, H>(state: DatabaseState<P, D, H>): DatabaseState<P, D, H> {
+function cloneState<P, D, H>(
+  state: DatabaseState<P, D, H>,
+): DatabaseState<P, D, H> {
   return {
     budgetPeriods: new Map(
-      [...state.budgetPeriods.entries()].map(([key, value]) => [key, cloneValue(value)])
+      [...state.budgetPeriods.entries()].map(([key, value]) => [
+        key,
+        cloneValue(value),
+      ]),
     ),
     dailyTotals: new Map(
-      [...state.dailyTotals.entries()].map(([key, value]) => [key, cloneValue(value)])
+      [...state.dailyTotals.entries()].map(([key, value]) => [
+        key,
+        cloneValue(value),
+      ]),
     ),
-    dailyOperationHistories: state.dailyOperationHistories.map((value) => cloneValue(value))
+    dailyOperationHistories: state.dailyOperationHistories.map((value) =>
+      cloneValue(value),
+    ),
   };
 }
 
-export function createInMemoryDatabaseClient<P = unknown, D = unknown, H = unknown>(
-  input: CreateClientInput<P, D, H> = {}
-): DatabaseClient<P, D, H> {
+export function createInMemoryDatabaseClient<
+  P = unknown,
+  D = unknown,
+  H = unknown,
+>(input: CreateClientInput<P, D, H> = {}): DatabaseClient<P, D, H> {
   let currentState: DatabaseState<P, D, H> = {
     budgetPeriods: new Map(input.initialState?.budgetPeriods ?? []),
     dailyTotals: new Map(input.initialState?.dailyTotals ?? []),
-    dailyOperationHistories: [...(input.initialState?.dailyOperationHistories ?? [])]
+    dailyOperationHistories: [
+      ...(input.initialState?.dailyOperationHistories ?? []),
+    ],
   };
   let transactionQueue: Promise<void> = Promise.resolve();
 
   return {
-    async transaction<T>(work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>) {
+    async transaction<T>(
+      work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>,
+    ) {
       const pending = transactionQueue;
       let releaseQueue: (() => void) | undefined;
       transactionQueue = new Promise<void>((resolve) => {
@@ -71,6 +89,6 @@ export function createInMemoryDatabaseClient<P = unknown, D = unknown, H = unkno
 
     dumpState() {
       return cloneState(currentState);
-    }
+    },
   };
 }

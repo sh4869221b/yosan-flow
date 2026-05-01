@@ -9,7 +9,7 @@ export type BuildDailyRecommendationsInput = {
 };
 
 export function buildDailyRecommendations(
-  input: BuildDailyRecommendationsInput
+  input: BuildDailyRecommendationsInput,
 ): DailyRecommendation[] {
   if (input.dates.length === 0) {
     return [];
@@ -18,7 +18,7 @@ export function buildDailyRecommendations(
   if (input.remainingYen <= 0) {
     return input.dates.map((date) => ({
       date,
-      recommendedYen: 0
+      recommendedYen: 0,
     }));
   }
 
@@ -27,6 +27,6 @@ export function buildDailyRecommendations(
 
   return input.dates.map((date, index) => ({
     date,
-    recommendedYen: base + (index < remainder ? 1 : 0)
+    recommendedYen: base + (index < remainder ? 1 : 0),
   }));
 }

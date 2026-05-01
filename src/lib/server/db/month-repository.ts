@@ -28,9 +28,15 @@ export type CreateMonthInput = {
 
 export interface MonthRepository {
   findMonth(yearMonth: string): Promise<MonthRecord | null>;
-  findPreviousMonthWithBudget(yearMonth: string): Promise<PreviousMonthBudget | null>;
+  findPreviousMonthWithBudget(
+    yearMonth: string,
+  ): Promise<PreviousMonthBudget | null>;
   createMonthIfAbsent(input: CreateMonthInput): Promise<MonthRecord>;
-  updateBudget(yearMonth: string, budgetYen: number, nowIso: string): Promise<MonthRecord>;
+  updateBudget(
+    yearMonth: string,
+    budgetYen: number,
+    nowIso: string,
+  ): Promise<MonthRecord>;
   countMonths(): Promise<number>;
 }
 
@@ -41,8 +47,14 @@ export type InMemoryMonthRepository = MonthRepository & {
 export type MonthTransaction = DatabaseTransaction<MonthRecord, any, any>;
 
 export interface TransactionalMonthRepository {
-  findMonth(tx: MonthTransaction, yearMonth: string): Promise<MonthRecord | null>;
-  createMonthIfAbsent(tx: MonthTransaction, input: CreateMonthInput): Promise<MonthRecord>;
+  findMonth(
+    tx: MonthTransaction,
+    yearMonth: string,
+  ): Promise<MonthRecord | null>;
+  createMonthIfAbsent(
+    tx: MonthTransaction,
+    input: CreateMonthInput,
+  ): Promise<MonthRecord>;
 }
 
 function assertYearMonth(value: string): void {
@@ -93,16 +105,16 @@ export function createTransactionalMonthRepository(): TransactionalMonthReposito
         initializedFromPreviousMonth: input.initializedFromPreviousMonth,
         carriedFromYearMonth: input.carriedFromYearMonth,
         createdAt: input.nowIso,
-        updatedAt: input.nowIso
+        updatedAt: input.nowIso,
       };
       tx.state.budgetPeriods.set(input.yearMonth, next);
       return cloneMonth(next);
-    }
+    },
   };
 }
 
 export function createInMemoryMonthRepository(
-  initialMonths: MonthRecord[] = []
+  initialMonths: MonthRecord[] = [],
 ): InMemoryMonthRepository {
   const store = new Map<string, MonthRecord>();
   for (const month of initialMonths) {
@@ -119,13 +131,17 @@ export function createInMemoryMonthRepository(
     async findPreviousMonthWithBudget(yearMonth) {
       const previousYearMonth = toPreviousYearMonth(yearMonth);
       const previous = store.get(previousYearMonth);
-      if (!previous || previous.budgetStatus !== "set" || previous.budgetYen == null) {
+      if (
+        !previous ||
+        previous.budgetStatus !== "set" ||
+        previous.budgetYen == null
+      ) {
         return null;
       }
 
       return {
         yearMonth: previous.yearMonth,
-        budgetYen: previous.budgetYen
+        budgetYen: previous.budgetYen,
       };
     },
 
@@ -143,7 +159,7 @@ export function createInMemoryMonthRepository(
         initializedFromPreviousMonth: input.initializedFromPreviousMonth,
         carriedFromYearMonth: input.carriedFromYearMonth,
         createdAt: input.nowIso,
-        updatedAt: input.nowIso
+        updatedAt: input.nowIso,
       };
       store.set(input.yearMonth, next);
       return cloneMonth(next);
@@ -160,7 +176,7 @@ export function createInMemoryMonthRepository(
         ...existing,
         budgetYen,
         budgetStatus: "set",
-        updatedAt: nowIso
+        updatedAt: nowIso,
       };
       store.set(yearMonth, updated);
       return cloneMonth(updated);
@@ -174,6 +190,6 @@ export function createInMemoryMonthRepository(
       return [...store.values()]
         .map((month) => cloneMonth(month))
         .sort((left, right) => left.yearMonth.localeCompare(right.yearMonth));
-    }
+    },
   };
 }

@@ -1,6 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { CalendarDays, JapaneseYen, Utensils, WalletCards } from "lucide-svelte";
+  import {
+    CalendarDays,
+    JapaneseYen,
+    Utensils,
+    WalletCards,
+  } from "lucide-svelte";
 
   type PeriodSummary = {
     periodId: string;
@@ -69,7 +74,11 @@
 
   $: pace = summary?.foodPace ?? null;
   $: paceStatusLabel =
-    pace?.status === "bonus" ? "ボーナス" : pace?.status === "adjustment" ? "マイナス調整" : "基準どおり";
+    pace?.status === "bonus"
+      ? "ボーナス"
+      : pace?.status === "adjustment"
+        ? "マイナス調整"
+        : "基準どおり";
 </script>
 
 <section>
@@ -90,7 +99,7 @@
         value={selectedPeriodId ?? ""}
         on:change={(event) =>
           dispatch("selectPeriod", {
-            periodId: (event.currentTarget as HTMLSelectElement).value
+            periodId: (event.currentTarget as HTMLSelectElement).value,
           })}
         disabled={saving || loading}
       >
@@ -104,7 +113,9 @@
   </div>
 
   {#if summary}
-    <p class="period-line" data-testid="period-id">{summary.periodId} / {summary.periodLengthDays} 日</p>
+    <p class="period-line" data-testid="period-id">
+      {summary.periodId} / {summary.periodLengthDays} 日
+    </p>
     <p class="period-line">期間: {summary.startDate} - {summary.endDate}</p>
 
     {#if pace}
@@ -114,15 +125,21 @@
             <Utensils size={30} strokeWidth={2.4} />
           </span>
           <span>今日の食費枠</span>
-          <strong data-testid="today-food-allowance">{formatYen(pace.todayAllowanceYen)}</strong>
+          <strong data-testid="today-food-allowance"
+            >{formatYen(pace.todayAllowanceYen)}</strong
+          >
         </p>
         <p>
           <span>使用済み</span>
-          <strong data-testid="today-food-used">{formatYen(pace.usedTodayYen)}</strong>
+          <strong data-testid="today-food-used"
+            >{formatYen(pace.usedTodayYen)}</strong
+          >
         </p>
         <p>
           <span>残り</span>
-          <strong data-testid="today-food-remaining">{formatYen(pace.todayRemainingYen)}</strong>
+          <strong data-testid="today-food-remaining"
+            >{formatYen(pace.todayRemainingYen)}</strong
+          >
         </p>
       </div>
 
@@ -133,15 +150,21 @@
         </p>
         <p>
           <span>基準</span>
-          <strong data-testid="base-daily-food">{formatYen(pace.baseDailyYen)}</strong>
+          <strong data-testid="base-daily-food"
+            >{formatYen(pace.baseDailyYen)}</strong
+          >
         </p>
         <p>
           <span>今日のボーナス</span>
-          <strong data-testid="today-food-bonus">+{formatYen(pace.todayBonusYen)}</strong>
+          <strong data-testid="today-food-bonus"
+            >+{formatYen(pace.todayBonusYen)}</strong
+          >
         </p>
         <p>
           <span>調整</span>
-          <strong data-testid="today-food-adjustment">-{formatYen(pace.adjustmentYen)}</strong>
+          <strong data-testid="today-food-adjustment"
+            >-{formatYen(pace.adjustmentYen)}</strong
+          >
         </p>
       </div>
     {/if}

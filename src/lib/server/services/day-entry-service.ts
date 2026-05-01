@@ -1,18 +1,29 @@
 import type { DatabaseClient } from "$lib/server/db/client";
 import type {
   BudgetPeriodRecord,
-  BudgetPeriodRepository
+  BudgetPeriodRepository,
 } from "$lib/server/db/budget-period-repository";
 import type {
   DailyHistoryRecord,
-  DailyHistoryRepository
+  DailyHistoryRepository,
 } from "$lib/server/db/daily-history-repository";
-import type { DailyTotalRecord, DailyTotalRepository } from "$lib/server/db/daily-total-repository";
-import { assertValidDate, assertValidInputYen, normalizeMemo } from "$lib/server/domain/daily-entry";
+import type {
+  DailyTotalRecord,
+  DailyTotalRepository,
+} from "$lib/server/db/daily-total-repository";
+import {
+  assertValidDate,
+  assertValidInputYen,
+  normalizeMemo,
+} from "$lib/server/domain/daily-entry";
 import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
 
 type DayEntryServiceInput = {
-  databaseClient: DatabaseClient<BudgetPeriodRecord, DailyTotalRecord, DailyHistoryRecord>;
+  databaseClient: DatabaseClient<
+    BudgetPeriodRecord,
+    DailyTotalRecord,
+    DailyHistoryRecord
+  >;
   budgetPeriodRepository: BudgetPeriodRepository;
   dailyTotalRepository: DailyTotalRepository;
   dailyHistoryRepository: DailyHistoryRepository;
@@ -60,7 +71,9 @@ function defaultNow(): string {
 }
 
 function defaultCreateHistoryId(): string {
-  const cryptoObject = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  const cryptoObject = globalThis.crypto as
+    | { randomUUID?: () => string }
+    | undefined;
   if (cryptoObject?.randomUUID) {
     return cryptoObject.randomUUID();
   }
@@ -69,7 +82,11 @@ function defaultCreateHistoryId(): string {
 }
 
 export class DayEntryService {
-  private readonly databaseClient: DatabaseClient<BudgetPeriodRecord, DailyTotalRecord, DailyHistoryRecord>;
+  private readonly databaseClient: DatabaseClient<
+    BudgetPeriodRecord,
+    DailyTotalRecord,
+    DailyHistoryRecord
+  >;
   private readonly budgetPeriodRepository: BudgetPeriodRepository;
   private readonly dailyTotalRepository: DailyTotalRepository;
   private readonly dailyHistoryRepository: DailyHistoryRepository;
@@ -85,31 +102,41 @@ export class DayEntryService {
     this.createHistoryId = input.createHistoryId ?? defaultCreateHistoryId;
   }
 
-  async addDailyAmount(command: PeriodDayEntryCommand): Promise<DayEntryResult> {
+  async addDailyAmount(
+    command: PeriodDayEntryCommand,
+  ): Promise<DayEntryResult> {
     return this.executeEntry({
       operationType: "add",
-      command
+      command,
     });
   }
 
-  async overwriteDailyAmount(command: PeriodDayEntryCommand): Promise<DayEntryResult> {
+  async overwriteDailyAmount(
+    command: PeriodDayEntryCommand,
+  ): Promise<DayEntryResult> {
     return this.executeEntry({
       operationType: "overwrite",
-      command
+      command,
     });
   }
 
-  private async executeEntry(input: ExecuteEntryInput): Promise<DayEntryResult> {
+  private async executeEntry(
+    input: ExecuteEntryInput,
+  ): Promise<DayEntryResult> {
     assertValidDate(input.command.date);
     assertValidInputYen(input.command.inputYen);
     const nowIso = this.now();
     const memo = normalizeMemo(input.command.memo);
 
-    const period = await this.budgetPeriodRepository.findById(input.command.periodId);
+    const period = await this.budgetPeriodRepository.findById(
+      input.command.periodId,
+    );
     if (!period) {
       throw new PeriodNotFoundError(input.command.periodId);
     }
-    if (!isDateWithinPeriod(input.command.date, period.startDate, period.endDate)) {
+    if (
+      !isDateWithinPeriod(input.command.date, period.startDate, period.endDate)
+    ) {
       throw new DateOutOfPeriodError(input.command.date, period.id);
     }
 
@@ -117,18 +144,20 @@ export class DayEntryService {
       const existingTotal = await this.dailyTotalRepository.findByDate(
         tx,
         input.command.date,
-        period.id
+        period.id,
       );
       const beforeTotalYen = existingTotal?.totalUsedYen ?? 0;
       const afterTotalYen =
-        input.operationType === "add" ? beforeTotalYen + input.command.inputYen : input.command.inputYen;
+        input.operationType === "add"
+          ? beforeTotalYen + input.command.inputYen
+          : input.command.inputYen;
 
       const dailyTotal = await this.dailyTotalRepository.upsertDailyTotal(tx, {
         date: input.command.date,
         yearMonth: input.command.date.slice(0, 7),
         budgetPeriodId: period.id,
         totalUsedYen: afterTotalYen,
-        nowIso
+        nowIso,
       });
       const history = await this.dailyHistoryRepository.insertHistory(tx, {
         id: this.createHistoryId(),
@@ -139,12 +168,12 @@ export class DayEntryService {
         beforeTotalYen,
         afterTotalYen,
         memo,
-        createdAt: nowIso
+        createdAt: nowIso,
       });
 
       return {
         dailyTotal,
-        history
+        history,
       };
     });
   }

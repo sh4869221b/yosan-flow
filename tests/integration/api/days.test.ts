@@ -1,28 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { createInMemoryDatabaseClient, type DatabaseClient } from "$lib/server/db/client";
+import {
+  createInMemoryDatabaseClient,
+  type DatabaseClient,
+} from "$lib/server/db/client";
 import {
   createInMemoryBudgetPeriodRepository,
   type BudgetPeriodRecord,
-  type BudgetPeriodRepository
+  type BudgetPeriodRepository,
 } from "$lib/server/db/budget-period-repository";
 import {
   createDailyTotalRepository,
   type DailyTotalRecord,
-  type DailyTotalRepository
+  type DailyTotalRepository,
 } from "$lib/server/db/daily-total-repository";
 import {
   createDailyHistoryRepository,
   type DailyHistoryRecord,
-  type DailyHistoryRepository
+  type DailyHistoryRepository,
 } from "$lib/server/db/daily-history-repository";
 import {
   DateOutOfPeriodError,
   DayEntryService,
-  PeriodNotFoundError
+  PeriodNotFoundError,
 } from "$lib/server/services/day-entry-service";
 
 type Fixture = {
-  databaseClient: DatabaseClient<BudgetPeriodRecord, DailyTotalRecord, DailyHistoryRecord>;
+  databaseClient: DatabaseClient<
+    BudgetPeriodRecord,
+    DailyTotalRecord,
+    DailyHistoryRecord
+  >;
   budgetPeriodRepository: BudgetPeriodRepository;
   dailyTotalRepository: DailyTotalRepository;
   dailyHistoryRepository: DailyHistoryRepository;
@@ -48,7 +55,7 @@ async function createFixture(): Promise<Fixture> {
     createHistoryId: () => {
       historyCounter += 1;
       return `history-id-${historyCounter}`;
-    }
+    },
   });
 
   return {
@@ -56,7 +63,7 @@ async function createFixture(): Promise<Fixture> {
     budgetPeriodRepository,
     dailyTotalRepository,
     dailyHistoryRepository,
-    service
+    service,
   };
 }
 
@@ -66,7 +73,7 @@ async function seedPeriod(fixture: Fixture): Promise<void> {
     startDate: "2026-04-20",
     endDate: "2026-05-19",
     budgetYen: 100000,
-    nowIso: "2026-04-01T00:00:00.000Z"
+    nowIso: "2026-04-01T00:00:00.000Z",
   });
 }
 
@@ -79,7 +86,7 @@ describe("day entry service", () => {
       periodId: "period-2026-04",
       date: "2026-04-20",
       inputYen: 1000,
-      memo: "lunch"
+      memo: "lunch",
     });
 
     expect(response.dailyTotal.totalUsedYen).toBe(1000);
@@ -88,11 +95,21 @@ describe("day entry service", () => {
     expect(response.history.afterTotalYen).toBe(1000);
     expect(response.history.memo).toBe("lunch");
 
-    const persistedDailyTotal = await fixture.databaseClient.read(async (tx) => {
-      return fixture.dailyTotalRepository.findByDate(tx, "2026-04-20", "period-2026-04");
-    });
+    const persistedDailyTotal = await fixture.databaseClient.read(
+      async (tx) => {
+        return fixture.dailyTotalRepository.findByDate(
+          tx,
+          "2026-04-20",
+          "period-2026-04",
+        );
+      },
+    );
     const persistedHistories = await fixture.databaseClient.read(async (tx) => {
-      return fixture.dailyHistoryRepository.listHistoriesByDate(tx, "2026-04-20", "period-2026-04");
+      return fixture.dailyHistoryRepository.listHistoriesByDate(
+        tx,
+        "2026-04-20",
+        "period-2026-04",
+      );
     });
     expect(persistedDailyTotal?.totalUsedYen).toBe(1000);
     expect(persistedHistories).toHaveLength(1);
@@ -105,8 +122,8 @@ describe("day entry service", () => {
       fixture.service.addDailyAmount({
         periodId: "missing",
         date: "2026-04-20",
-        inputYen: 1000
-      })
+        inputYen: 1000,
+      }),
     ).rejects.toBeInstanceOf(PeriodNotFoundError);
   });
 
@@ -118,8 +135,8 @@ describe("day entry service", () => {
       fixture.service.addDailyAmount({
         periodId: "period-2026-04",
         date: "2026-04-19",
-        inputYen: 1000
-      })
+        inputYen: 1000,
+      }),
     ).rejects.toBeInstanceOf(DateOutOfPeriodError);
   });
 
@@ -130,12 +147,12 @@ describe("day entry service", () => {
     await fixture.service.addDailyAmount({
       periodId: "period-2026-04",
       date: "2026-04-20",
-      inputYen: 1000
+      inputYen: 1000,
     });
     const response = await fixture.service.overwriteDailyAmount({
       periodId: "period-2026-04",
       date: "2026-04-20",
-      inputYen: 3000
+      inputYen: 3000,
     });
 
     expect(response.dailyTotal.totalUsedYen).toBe(3000);

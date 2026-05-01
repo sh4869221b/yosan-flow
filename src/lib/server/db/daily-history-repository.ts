@@ -26,13 +26,21 @@ export type InsertDailyHistoryInput = {
   createdAt: string;
 };
 
-export type DailyHistoryTransaction = DatabaseTransaction<any, any, DailyHistoryRecord>;
+export type DailyHistoryTransaction = DatabaseTransaction<
+  any,
+  any,
+  DailyHistoryRecord
+>;
 
 export interface DailyHistoryRepository {
-  listHistoriesByDate(tx: DailyHistoryTransaction, date: string, budgetPeriodId: string): Promise<DailyHistoryRecord[]>;
+  listHistoriesByDate(
+    tx: DailyHistoryTransaction,
+    date: string,
+    budgetPeriodId: string,
+  ): Promise<DailyHistoryRecord[]>;
   insertHistory(
     tx: DailyHistoryTransaction,
-    input: InsertDailyHistoryInput
+    input: InsertDailyHistoryInput,
   ): Promise<DailyHistoryRecord>;
 }
 
@@ -73,10 +81,10 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
         beforeTotalYen: input.beforeTotalYen,
         afterTotalYen: input.afterTotalYen,
         memo: input.memo,
-        createdAt: input.createdAt
+        createdAt: input.createdAt,
       };
       tx.state.dailyOperationHistories.push(history);
       return cloneHistory(history);
-    }
+    },
   };
 }

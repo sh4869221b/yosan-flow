@@ -39,7 +39,9 @@
       {#each histories as history}
         <li>
           <div>
-            <strong>{history.operationType === "add" ? "追加" : "上書き"}</strong>
+            <strong
+              >{history.operationType === "add" ? "追加" : "上書き"}</strong
+            >
             <time datetime={history.createdAt}>{history.createdAt}</time>
           </div>
           <p>

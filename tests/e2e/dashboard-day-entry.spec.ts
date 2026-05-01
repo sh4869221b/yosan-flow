@@ -7,7 +7,7 @@ import {
   getCurrentJstDate,
   startDevServer,
   stopDevServer,
-  warmUpBrowser
+  warmUpBrowser,
 } from "./dashboard-shared";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -25,7 +25,7 @@ test.afterEach(async () => {
 
 test("supports add and overwrite in day modal, and keeps values after reload", async ({
   page,
-  request
+  request,
 }) => {
   const startDate = getCurrentJstDate();
   const periodId = `p-${startDate}`;
@@ -33,7 +33,7 @@ test("supports add and overwrite in day modal, and keeps values after reload", a
     periodId,
     startDate,
     endDate: addDays(startDate, 29),
-    budgetYen: 120000
+    budgetYen: 120000,
   });
 
   const summary = await fetchPeriodSummary(request, periodId);
@@ -41,7 +41,9 @@ test("supports add and overwrite in day modal, and keeps values after reload", a
   expect(todayRow).toBeDefined();
 
   await page.goto(`${getBaseUrl()}/`);
-  await expect(page.getByTestId(`calendar-day-${todayRow?.date}`)).toBeVisible();
+  await expect(
+    page.getByTestId(`calendar-day-${todayRow?.date}`),
+  ).toBeVisible();
 
   await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
   await expect(page.getByTestId("day-entry-modal")).toBeVisible();
@@ -52,7 +54,9 @@ test("supports add and overwrite in day modal, and keeps values after reload", a
   await page.getByLabel("追加").check();
   await page.getByRole("button", { name: "保存する" }).click();
   await expect(
-    page.getByTestId(`calendar-day-${todayRow?.date}`).getByTestId(`used-${todayRow?.date}`)
+    page
+      .getByTestId(`calendar-day-${todayRow?.date}`)
+      .getByTestId(`used-${todayRow?.date}`),
   ).toHaveText("2000 円");
 
   await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
@@ -62,23 +66,30 @@ test("supports add and overwrite in day modal, and keeps values after reload", a
   await page.getByLabel("上書き").check();
   await page.getByRole("button", { name: "保存する" }).click();
   await expect(
-    page.getByTestId(`calendar-day-${todayRow?.date}`).getByTestId(`used-${todayRow?.date}`)
+    page
+      .getByTestId(`calendar-day-${todayRow?.date}`)
+      .getByTestId(`used-${todayRow?.date}`),
   ).toHaveText("500 円");
 
   await page.reload();
   await expect(
-    page.getByTestId(`calendar-day-${todayRow?.date}`).getByTestId(`used-${todayRow?.date}`)
+    page
+      .getByTestId(`calendar-day-${todayRow?.date}`)
+      .getByTestId(`used-${todayRow?.date}`),
   ).toHaveText("500 円");
 });
 
-test("shows save error and keeps input on failed period update", async ({ page, request }) => {
+test("shows save error and keeps input on failed period update", async ({
+  page,
+  request,
+}) => {
   const startDate = getCurrentJstDate();
   const periodId = `p-${startDate}`;
   await seedPeriod(request, getBaseUrl(), {
     periodId,
     startDate,
     endDate: addDays(startDate, 29),
-    budgetYen: 120000
+    budgetYen: 120000,
   });
 
   await page.goto(`${getBaseUrl()}/`);
@@ -90,9 +101,9 @@ test("shows save error and keeps input on failed period update", async ({ page, 
       body: JSON.stringify({
         error: {
           code: "PERIOD_NOT_FOUND",
-          message: "対象の予算期間が見つかりません。"
-        }
-      })
+          message: "対象の予算期間が見つかりません。",
+        },
+      }),
     });
   });
 
