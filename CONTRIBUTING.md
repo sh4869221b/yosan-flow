@@ -62,7 +62,7 @@ Lint source, test, and config files:
 pnpm lint
 ```
 
-Run focused checks while developing. The local quality baseline is:
+Run focused checks while developing. CI runs the same quality baseline:
 
 ```bash
 pnpm format:check

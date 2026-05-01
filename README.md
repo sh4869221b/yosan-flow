@@ -38,7 +38,7 @@ Lint:
 pnpm lint
 ```
 
-ローカルの基本検証順:
+ローカルと CI の基本検証順:
 
 ```bash
 pnpm format:check

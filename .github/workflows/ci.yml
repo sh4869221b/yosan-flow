@@ -7,8 +7,8 @@ on:
       - main
 
 jobs:
-  baseline:
-    name: Baseline checks
+  quality:
+    name: Quality checks
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +28,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
 
       - name: Check
         run: pnpm check
