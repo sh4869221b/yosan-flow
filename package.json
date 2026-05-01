@@ -42,6 +42,7 @@
   "dependencies": {
     "@internationalized/date": "^3.12.1",
     "bits-ui": "^2.18.0",
+    "effect": "^3.21.2",
     "lucide-svelte": "^1.0.1"
   }
 }
