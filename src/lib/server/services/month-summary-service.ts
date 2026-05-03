@@ -11,7 +11,9 @@ import {
   type BudgetPeriodRepository,
 } from "$lib/server/db/budget-period-repository";
 import {
+  createD1DailyHistoryRepository,
   createDailyHistoryRepository,
+  type D1DailyHistoryRepository,
   type DailyHistoryRecord,
   type DailyHistoryRepository,
 } from "$lib/server/db/daily-history-repository";
@@ -666,6 +668,7 @@ function defaultCreateHistoryId(): string {
 function createD1DayEntryService(
   db: D1Database,
   dailyTotalRepository: D1DailyTotalRepository,
+  dailyHistoryRepository: D1DailyHistoryRepository,
   now: () => Date,
   createHistoryId: () => string,
 ): DayEntryServicePort {
@@ -729,23 +732,17 @@ function createD1DayEntryService(
       },
       operationType,
     );
-    const historyInsert = db
-      .prepare(
-        `INSERT INTO daily_operation_histories (
-           id, budget_period_id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(
-        createHistoryId(),
-        command.periodId,
-        command.date,
-        operationType,
-        command.inputYen,
-        beforeTotalYen,
-        afterTotalYen,
-        memo,
-        nowIso,
-      );
+    const historyInsert = dailyHistoryRepository.prepareInsertHistory({
+      id: createHistoryId(),
+      budgetPeriodId: command.periodId,
+      date: command.date,
+      operationType,
+      inputYen: command.inputYen,
+      beforeTotalYen,
+      afterTotalYen,
+      memo,
+      createdAt: nowIso,
+    });
 
     await db.batch([totalMutation, historyInsert]);
   }
@@ -775,9 +772,14 @@ export function createD1ApiServices(
     db,
     ensureSchema: () => ensureD1Schema(db),
   });
+  const dailyHistoryRepository = createD1DailyHistoryRepository({
+    db,
+    ensureSchema: () => ensureD1Schema(db),
+  });
   const dayEntryService = createD1DayEntryService(
     db,
     dailyTotalRepository,
+    dailyHistoryRepository,
     now,
     input.createHistoryId ?? defaultCreateHistoryId,
   );
@@ -793,16 +795,12 @@ export function createD1ApiServices(
       startDate,
       endDate,
     );
-    const outOfRangeHistory = await db
-      .prepare(
-        `SELECT 1
-           FROM daily_operation_histories
-          WHERE budget_period_id = ?
-            AND (date < ? OR date > ?)
-          LIMIT 1`,
-      )
-      .bind(periodId, startDate, endDate)
-      .first();
+    const outOfRangeHistory =
+      await dailyHistoryRepository.hasEntriesOutsidePeriod(
+        periodId,
+        startDate,
+        endDate,
+      );
 
     if (outOfRangeTotal || outOfRangeHistory) {
       throw new PeriodValidationError(
@@ -846,38 +844,7 @@ export function createD1ApiServices(
       if (!period) {
         throw new PeriodNotFoundError(periodId);
       }
-      const result = await db
-        .prepare(
-          `SELECT id, budget_period_id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
-             FROM daily_operation_histories
-            WHERE budget_period_id = ?
-              AND date = ?
-            ORDER BY created_at DESC, id DESC`,
-        )
-        .bind(periodId, date)
-        .all<{
-          id: string;
-          budget_period_id: string;
-          date: string;
-          operation_type: "add" | "overwrite";
-          input_yen: number;
-          before_total_yen: number;
-          after_total_yen: number;
-          memo: string | null;
-          created_at: string;
-        }>();
-      const rows = result.results ?? [];
-      return rows.map((row) => ({
-        id: row.id,
-        budgetPeriodId: row.budget_period_id,
-        date: row.date,
-        operationType: row.operation_type,
-        inputYen: row.input_yen,
-        beforeTotalYen: row.before_total_yen,
-        afterTotalYen: row.after_total_yen,
-        memo: row.memo,
-        createdAt: row.created_at,
-      }));
+      return dailyHistoryRepository.listHistoriesByDate(date, periodId);
     },
     nowIso: () => now().toISOString(),
     jstToday: () => getJstDateParts(now()).date,

@@ -19,6 +19,18 @@ type DailyTotalRow = {
   updated_at: string;
 };
 
+type DailyOperationHistoryRow = {
+  id: string;
+  budget_period_id: string;
+  date: string;
+  operation_type: "add" | "overwrite";
+  input_yen: number;
+  before_total_yen: number;
+  after_total_yen: number;
+  memo: string | null;
+  created_at: string;
+};
+
 function toBudgetPeriodRawRow(sql: string, row: BudgetPeriodRow): unknown[] {
   const normalizedSql = sql.toLowerCase();
   if (normalizedSql.includes('select "end_date" from "budget_periods"')) {
@@ -61,6 +73,31 @@ function toDailyTotalRawRow(sql: string, row: DailyTotalRow): unknown[] {
     row.year_month,
     row.total_used_yen,
     row.updated_at,
+  ];
+}
+
+function toDailyOperationHistoryRawRow(
+  sql: string,
+  row: DailyOperationHistoryRow,
+): unknown[] {
+  const normalizedSql = sql.toLowerCase();
+  if (
+    normalizedSql.startsWith('select "id"') &&
+    !normalizedSql.includes('"budget_period_id"')
+  ) {
+    return [row.id];
+  }
+
+  return [
+    row.id,
+    row.budget_period_id,
+    row.date,
+    row.operation_type,
+    row.input_yen,
+    row.before_total_yen,
+    row.after_total_yen,
+    row.memo,
+    row.created_at,
   ];
 }
 
@@ -239,11 +276,87 @@ function applyDailyTotalMutation(
   dailyTotals.set(key, row);
 }
 
+function queryDailyOperationHistories(
+  sql: string,
+  args: unknown[],
+  dailyOperationHistories: DailyOperationHistoryRow[],
+): DailyOperationHistoryRow[] {
+  const normalizedSql = sql.toLowerCase();
+  if (!normalizedSql.includes("daily_operation_histories")) {
+    return [];
+  }
+
+  const rows = [...dailyOperationHistories];
+  if (
+    normalizedSql.includes(
+      '"daily_operation_histories"."budget_period_id" = ?',
+    ) &&
+    normalizedSql.includes('"daily_operation_histories"."date" = ?')
+  ) {
+    const periodId = String(args[0]);
+    const date = String(args[1]);
+    return rows
+      .filter((row) => row.budget_period_id === periodId && row.date === date)
+      .sort((left, right) => {
+        if (left.created_at === right.created_at) {
+          return right.id.localeCompare(left.id);
+        }
+        return right.created_at.localeCompare(left.created_at);
+      });
+  }
+  if (
+    normalizedSql.includes(
+      '"daily_operation_histories"."budget_period_id" = ?',
+    ) &&
+    (normalizedSql.includes('"daily_operation_histories"."date" < ?') ||
+      normalizedSql.includes('"daily_operation_histories"."date" > ?'))
+  ) {
+    const periodId = String(args[0]);
+    const startDate = String(args[1]);
+    const endDate = String(args[2]);
+    return rows.filter(
+      (row) =>
+        row.budget_period_id === periodId &&
+        (row.date < startDate || row.date > endDate),
+    );
+  }
+
+  return rows;
+}
+
+function applyDailyOperationHistoryMutation(
+  sql: string,
+  args: unknown[],
+  dailyOperationHistories: DailyOperationHistoryRow[],
+): void {
+  const normalizedSql = sql.toLowerCase();
+  if (
+    !normalizedSql.includes("daily_operation_histories") ||
+    !normalizedSql.includes("insert into") ||
+    args.length < 9
+  ) {
+    return;
+  }
+
+  dailyOperationHistories.push({
+    id: String(args[0]),
+    budget_period_id: String(args[1]),
+    date: String(args[2]),
+    operation_type: args[3] === "overwrite" ? "overwrite" : "add",
+    input_yen: Number(args[4]),
+    before_total_yen: Number(args[5]),
+    after_total_yen: Number(args[6]),
+    memo: args[7] === null ? null : String(args[7]),
+    created_at: String(args[8]),
+  });
+}
+
 export function createPeriodAwareD1Fake(
   preparedSql: string[] = [],
 ): D1Database {
   const periods = new Map<string, BudgetPeriodRow>();
   const dailyTotals = new Map<string, DailyTotalRow>();
+  const dailyOperationHistories: DailyOperationHistoryRow[] = [];
 
   return {
     prepare(sql: string) {
@@ -289,11 +402,25 @@ export function createPeriodAwareD1Fake(
             boundArgs,
             dailyTotals,
           ).map((row) => toDailyTotalRawRow(sql, row));
-          return [...budgetPeriodRows, ...dailyTotalRows] as T[];
+          const dailyOperationHistoryRows = queryDailyOperationHistories(
+            sql,
+            boundArgs,
+            dailyOperationHistories,
+          ).map((row) => toDailyOperationHistoryRawRow(sql, row));
+          return [
+            ...budgetPeriodRows,
+            ...dailyTotalRows,
+            ...dailyOperationHistoryRows,
+          ] as T[];
         },
         async run() {
           applyBudgetPeriodMutation(sql, boundArgs, periods);
           applyDailyTotalMutation(sql, boundArgs, dailyTotals);
+          applyDailyOperationHistoryMutation(
+            sql,
+            boundArgs,
+            dailyOperationHistories,
+          );
           return {};
         },
       };
