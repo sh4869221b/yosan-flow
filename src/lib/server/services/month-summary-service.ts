@@ -16,7 +16,9 @@ import {
   type DailyHistoryRepository,
 } from "$lib/server/db/daily-history-repository";
 import {
+  createD1DailyTotalRepository,
   createDailyTotalRepository,
+  type D1DailyTotalRepository,
   type DailyTotalRecord,
   type DailyTotalRepository,
 } from "$lib/server/db/daily-total-repository";
@@ -663,6 +665,7 @@ function defaultCreateHistoryId(): string {
 
 function createD1DayEntryService(
   db: D1Database,
+  dailyTotalRepository: D1DailyTotalRepository,
   now: () => Date,
   createHistoryId: () => string,
 ): DayEntryServicePort {
@@ -706,54 +709,26 @@ function createD1DayEntryService(
     const nowIso = now().toISOString();
     const memo = normalizeMemo(command.memo);
 
-    const existing = await db
-      .prepare(
-        `SELECT total_used_yen
-           FROM daily_totals
-          WHERE budget_period_id = ?
-            AND date = ?`,
-      )
-      .bind(command.periodId, command.date)
-      .first<{ total_used_yen: number }>();
-    const beforeTotalYen = existing?.total_used_yen ?? 0;
+    const existing = await dailyTotalRepository.findByDate(
+      command.date,
+      command.periodId,
+    );
+    const beforeTotalYen = existing?.totalUsedYen ?? 0;
     const afterTotalYen =
       operationType === "add"
         ? beforeTotalYen + command.inputYen
         : command.inputYen;
-    const totalMutation =
-      operationType === "add"
-        ? db
-            .prepare(
-              `INSERT INTO daily_totals (budget_period_id, date, year_month, total_used_yen, updated_at)
-               VALUES (?, ?, ?, ?, ?)
-               ON CONFLICT(budget_period_id, date) DO UPDATE SET
-                 year_month = excluded.year_month,
-                 total_used_yen = daily_totals.total_used_yen + excluded.total_used_yen,
-                 updated_at = excluded.updated_at`,
-            )
-            .bind(
-              command.periodId,
-              command.date,
-              command.date.slice(0, 7),
-              command.inputYen,
-              nowIso,
-            )
-        : db
-            .prepare(
-              `INSERT INTO daily_totals (budget_period_id, date, year_month, total_used_yen, updated_at)
-               VALUES (?, ?, ?, ?, ?)
-               ON CONFLICT(budget_period_id, date) DO UPDATE SET
-                 year_month = excluded.year_month,
-                 total_used_yen = excluded.total_used_yen,
-                 updated_at = excluded.updated_at`,
-            )
-            .bind(
-              command.periodId,
-              command.date,
-              command.date.slice(0, 7),
-              command.inputYen,
-              nowIso,
-            );
+    const totalMutation = dailyTotalRepository.prepareUpsertDailyTotal(
+      {
+        budgetPeriodId: command.periodId,
+        date: command.date,
+        yearMonth: command.date.slice(0, 7),
+        totalUsedYen:
+          operationType === "add" ? command.inputYen : afterTotalYen,
+        nowIso,
+      },
+      operationType,
+    );
     const historyInsert = db
       .prepare(
         `INSERT INTO daily_operation_histories (
@@ -796,8 +771,13 @@ export function createD1ApiServices(
     db,
     ensureSchema: () => ensureD1Schema(db),
   });
+  const dailyTotalRepository = createD1DailyTotalRepository({
+    db,
+    ensureSchema: () => ensureD1Schema(db),
+  });
   const dayEntryService = createD1DayEntryService(
     db,
+    dailyTotalRepository,
     now,
     input.createHistoryId ?? defaultCreateHistoryId,
   );
@@ -808,16 +788,11 @@ export function createD1ApiServices(
     endDate: string,
   ): Promise<void> {
     await ensureD1Schema(db);
-    const outOfRangeTotal = await db
-      .prepare(
-        `SELECT 1
-           FROM daily_totals
-          WHERE budget_period_id = ?
-            AND (date < ? OR date > ?)
-          LIMIT 1`,
-      )
-      .bind(periodId, startDate, endDate)
-      .first();
+    const outOfRangeTotal = await dailyTotalRepository.hasEntriesOutsidePeriod(
+      periodId,
+      startDate,
+      endDate,
+    );
     const outOfRangeHistory = await db
       .prepare(
         `SELECT 1
@@ -858,25 +833,11 @@ export function createD1ApiServices(
     },
     listPeriods: () => budgetPeriodRepository.listPeriods(),
     listDailyTotalsByPeriodId: async (periodId) => {
-      await ensureD1Schema(db);
-      const result = await db
-        .prepare(
-          `SELECT budget_period_id, date, total_used_yen
-             FROM daily_totals
-            WHERE budget_period_id = ?
-            ORDER BY date ASC`,
-        )
-        .bind(periodId)
-        .all<{
-          budget_period_id: string;
-          date: string;
-          total_used_yen: number;
-        }>();
-      const rows = result.results ?? [];
+      const rows = await dailyTotalRepository.listByPeriodId(periodId);
       return rows.map((row) => ({
         date: row.date,
-        budgetPeriodId: row.budget_period_id,
-        totalUsedYen: row.total_used_yen,
+        budgetPeriodId: row.budgetPeriodId,
+        totalUsedYen: row.totalUsedYen,
       }));
     },
     listHistoryByDate: async (periodId, date) => {

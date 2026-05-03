@@ -1,4 +1,8 @@
+import { and, asc, eq, gt, lt, or, sql } from "drizzle-orm";
 import type { DatabaseTransaction } from "$lib/server/db/client";
+import { createDrizzleD1Database } from "$lib/server/db/client";
+import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
+import { daily_totals, type DailyTotalRow } from "$lib/server/db/schema";
 
 export type DailyTotalRecord = {
   date: string;
@@ -15,6 +19,8 @@ export type DailyTotalUpsertInput = {
   totalUsedYen: number;
   nowIso: string;
 };
+
+export type D1DailyTotalUpsertMode = "add" | "overwrite";
 
 export type DailyTotalTransaction = DatabaseTransaction<
   any,
@@ -34,12 +40,40 @@ export interface DailyTotalRepository {
   ): Promise<DailyTotalRecord>;
 }
 
+export interface D1DailyTotalRepository {
+  findByDate(
+    date: string,
+    budgetPeriodId: string,
+  ): Promise<DailyTotalRecord | null>;
+  upsertDailyTotal(input: DailyTotalUpsertInput): Promise<DailyTotalRecord>;
+  prepareUpsertDailyTotal(
+    input: DailyTotalUpsertInput,
+    mode?: D1DailyTotalUpsertMode,
+  ): D1PreparedStatement;
+  listByPeriodId(periodId: string): Promise<DailyTotalRecord[]>;
+  hasEntriesOutsidePeriod(
+    periodId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<boolean>;
+}
+
 function cloneDailyTotal(row: DailyTotalRecord): DailyTotalRecord {
   return { ...row };
 }
 
 function toDailyTotalKey(date: string, budgetPeriodId: string): string {
   return `${budgetPeriodId}:${date}`;
+}
+
+function toDailyTotalRecord(row: DailyTotalRow): DailyTotalRecord {
+  return {
+    date: row.date,
+    yearMonth: row.year_month,
+    budgetPeriodId: row.budget_period_id,
+    totalUsedYen: row.total_used_yen,
+    updatedAt: row.updated_at,
+  };
 }
 
 export function createDailyTotalRepository(): DailyTotalRepository {
@@ -70,6 +104,120 @@ export function createDailyTotalRepository(): DailyTotalRepository {
         next,
       );
       return cloneDailyTotal(next);
+    },
+  };
+}
+
+type CreateD1DailyTotalRepositoryInput = {
+  db: D1Database;
+  ensureSchema?: () => Promise<void>;
+};
+
+export function createD1DailyTotalRepository(
+  input: CreateD1DailyTotalRepositoryInput,
+): D1DailyTotalRepository {
+  const ensureSchema = input.ensureSchema ?? (async () => {});
+  const database = createDrizzleD1Database(input.db);
+
+  const findByDateInternal = async (
+    date: string,
+    budgetPeriodId: string,
+  ): Promise<DailyTotalRecord | null> => {
+    await ensureSchema();
+    const [row] = await database
+      .select()
+      .from(daily_totals)
+      .where(
+        and(
+          eq(daily_totals.budget_period_id, budgetPeriodId),
+          eq(daily_totals.date, date),
+        ),
+      )
+      .limit(1)
+      .all();
+    return row ? toDailyTotalRecord(row) : null;
+  };
+  const prepareUpsertDailyTotal = (
+    inputRow: DailyTotalUpsertInput,
+    mode: D1DailyTotalUpsertMode = "overwrite",
+  ): D1PreparedStatement => {
+    const nextTotal =
+      mode === "add"
+        ? sql`${daily_totals.total_used_yen} + excluded.total_used_yen`
+        : sql`excluded.total_used_yen`;
+    const query = database
+      .insert(daily_totals)
+      .values({
+        budget_period_id: inputRow.budgetPeriodId,
+        date: inputRow.date,
+        year_month: inputRow.yearMonth,
+        total_used_yen: inputRow.totalUsedYen,
+        updated_at: inputRow.nowIso,
+      })
+      .onConflictDoUpdate({
+        target: [daily_totals.budget_period_id, daily_totals.date],
+        set: {
+          year_month: sql`excluded.year_month`,
+          total_used_yen: nextTotal,
+          updated_at: sql`excluded.updated_at`,
+        },
+      })
+      .toSQL();
+    return input.db.prepare(query.sql).bind(...query.params);
+  };
+
+  return {
+    async findByDate(date, budgetPeriodId) {
+      return findByDateInternal(date, budgetPeriodId);
+    },
+
+    async upsertDailyTotal(inputRow) {
+      await ensureSchema();
+      await prepareUpsertDailyTotal(inputRow).run();
+      const updated = await findByDateInternal(
+        inputRow.date,
+        inputRow.budgetPeriodId,
+      );
+      if (!updated) {
+        throw new Error(
+          `daily total not found after upsert: ${inputRow.budgetPeriodId}:${inputRow.date}`,
+        );
+      }
+      return updated;
+    },
+
+    prepareUpsertDailyTotal(inputRow, mode) {
+      return prepareUpsertDailyTotal(inputRow, mode);
+    },
+
+    async listByPeriodId(periodId) {
+      await ensureSchema();
+      const rows = await database
+        .select()
+        .from(daily_totals)
+        .where(eq(daily_totals.budget_period_id, periodId))
+        .orderBy(asc(daily_totals.date))
+        .all();
+      return rows.map((row) => toDailyTotalRecord(row));
+    },
+
+    async hasEntriesOutsidePeriod(periodId, startDate, endDate) {
+      await ensureSchema();
+      const [row] = await database
+        .select({ date: daily_totals.date })
+        .from(daily_totals)
+        .where(
+          and(
+            eq(daily_totals.budget_period_id, periodId),
+            or(
+              lt(daily_totals.date, startDate),
+              gt(daily_totals.date, endDate),
+            ),
+          ),
+        )
+        .limit(1)
+        .all();
+      return Boolean(row);
     },
   };
 }
