@@ -4,22 +4,15 @@ import {
   addDays,
   getBaseUrl,
   getCurrentJstDate,
-  startDevServer,
-  stopDevServer,
+  resetTestData,
   warmUpBrowser,
 } from "./dashboard-shared";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
 
-test.beforeEach(async ({ browser }, testInfo) => {
-  testInfo.setTimeout(120_000);
-  await stopDevServer();
-  await startDevServer();
+test.beforeEach(async ({ browser, request }) => {
+  await resetTestData(request);
   await warmUpBrowser(browser);
-});
-
-test.afterEach(async () => {
-  await stopDevServer();
 });
 
 test("shows period creation form on empty dashboard", async ({ page }) => {
@@ -75,7 +68,7 @@ test("updates period start and end dates from settings inputs", async ({
     budgetYen: 120000,
   });
 
-  await page.goto(`${getBaseUrl()}/`);
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
   await expect(page.getByTestId("period-id")).toContainText(periodId);
   await page.getByText("期間の終了日や予算を変更する").click();
   await page.getByTestId("current-period-range-start").fill(updatedStartDate);
@@ -146,6 +139,7 @@ test("creates the next budget period from secondary settings", async ({
   });
 
   await page.goto(`${getBaseUrl()}/`);
+  await expect(page.getByTestId("period-id")).toContainText(currentPeriodId);
   await page.getByText("次の予算期間を作成する").click();
   await page.getByLabel("期間ID").fill(nextPeriodId);
   await page.getByTestId("create-period-range-start").fill(nextStartDate);
@@ -178,7 +172,7 @@ test("shows an error when shrinking a period would exclude saved entries", async
     dailyTotals: [{ date: originalEndDate, totalUsedYen: 500 }],
   });
 
-  await page.goto(`${getBaseUrl()}/`);
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
   await page.getByText("期間の終了日や予算を変更する").click();
   await page.getByTestId("current-period-range-end").fill(invalidEndDate);
   await page.getByTestId("current-period-range-apply").click();

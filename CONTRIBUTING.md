@@ -96,6 +96,8 @@ Run E2E separately when a change affects browser workflows:
 pnpm test:e2e
 ```
 
+Playwright starts the local Wrangler server once per run and resets D1 state before each test through a guarded E2E-only endpoint.
+
 Check unit/integration coverage for server and API code:
 
 ```bash
