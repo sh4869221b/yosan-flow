@@ -12,8 +12,8 @@ importers:
         specifier: ^3.12.1
         version: 3.12.1
       bits-ui:
-        specifier: ^2.18.0
-        version: 2.18.0(@internationalized/date@3.12.1)(@sveltejs/kit@2.57.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.4(@typescript-eslint/types@8.59.2))(vite@7.3.2(@types/node@24.12.2)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.2))(typescript@5.9.3)(vite@7.3.2(@types/node@24.12.2)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.2))
+        specifier: ^2.18.1
+        version: 2.18.1(@internationalized/date@3.12.1)(@sveltejs/kit@2.57.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.4(@typescript-eslint/types@8.59.2))(vite@7.3.2(@types/node@24.12.2)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.2))(typescript@5.9.3)(vite@7.3.2(@types/node@24.12.2)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.2))
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@4.20260417.1)
@@ -1330,8 +1330,8 @@ packages:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
 
-  bits-ui@2.18.0:
-    resolution: {integrity: sha512-GLOBZRVy3hxNHIQ2MpD/+5aK9KcBFZRhUJtZ1UDABXdlVR4K6zFpgt4T+Rwuhf2sQzlc6yK1q/DprHPjwT4Pjw==}
+  bits-ui@2.18.1:
+    resolution: {integrity: sha512-KkemzKFH4T3gt3H+P86JcnAWExjByv/6vlwjm/BoCwTPHu03yiCdxbghdJLvFReQTe0acCAiRcKfmixxD6XvlA==}
     engines: {node: '>=20'}
     peerDependencies:
       '@internationalized/date': ^3.8.1
@@ -3084,7 +3084,7 @@ snapshots:
 
   balanced-match@4.0.4: {}
 
-  bits-ui@2.18.0(@internationalized/date@3.12.1)(@sveltejs/kit@2.57.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.4(@typescript-eslint/types@8.59.2))(vite@7.3.2(@types/node@24.12.2)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.2))(typescript@5.9.3)(vite@7.3.2(@types/node@24.12.2)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.2)):
+  bits-ui@2.18.1(@internationalized/date@3.12.1)(@sveltejs/kit@2.57.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.4(@typescript-eslint/types@8.59.2))(vite@7.3.2(@types/node@24.12.2)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.2))(typescript@5.9.3)(vite@7.3.2(@types/node@24.12.2)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.2)):
     dependencies:
       '@floating-ui/core': 1.7.5
       '@floating-ui/dom': 1.7.6
