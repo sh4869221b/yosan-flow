@@ -241,6 +241,66 @@ describe("period API default routes", () => {
     });
   });
 
+  it("rolls back daily total when batch history insert fails with duplicate id", async () => {
+    const fakeDb = createPeriodAwareD1Fake();
+    const historyIds = ["history-dup", "history-dup"];
+    const services = createD1ApiServices(fakeDb, {
+      now: () => new Date("2026-04-20T00:00:00.000Z"),
+      createHistoryId: () => historyIds.shift() ?? "history-fallback",
+    });
+    await services.createPeriod({
+      id: "p-atomicity",
+      startDate: "2026-04-20",
+      endDate: "2026-05-19",
+      budgetYen: 100000,
+    });
+
+    await expect(
+      services.dayEntryService.addDailyAmount({
+        periodId: "p-atomicity",
+        date: "2026-04-20",
+        inputYen: 1000,
+        memo: "first",
+      }),
+    ).resolves.toEqual({});
+
+    await expect(
+      services.dayEntryService.addDailyAmount({
+        periodId: "p-atomicity",
+        date: "2026-04-20",
+        inputYen: 500,
+        memo: "second",
+      }),
+    ).rejects.toThrow(/UNIQUE constraint failed/);
+
+    const periodResponse = await periodGetDefaultRoute({
+      params: { periodId: "p-atomicity" },
+      request: new Request("http://localhost/api/periods/p-atomicity", {
+        method: "GET",
+      }),
+      platform: { env: { DB: fakeDb } },
+    } as any);
+    expect(periodResponse.status).toBe(200);
+    await expect(periodResponse.json()).resolves.toMatchObject({
+      plannedTotalYen: 1000,
+    });
+
+    const getHistory = _createPeriodDayHistoryHandler({ services });
+    const historyResponse = await getHistory({
+      params: { periodId: "p-atomicity", date: "2026-04-20" },
+      request: new Request(
+        "http://localhost/api/periods/p-atomicity/days/2026-04-20/history",
+        { method: "GET" },
+      ),
+    } as any);
+    expect(historyResponse.status).toBe(200);
+    const historyJson = await historyResponse.json();
+    expect(historyJson.histories).toHaveLength(1);
+    expect(historyJson).toMatchObject({
+      histories: [{ id: "history-dup", inputYen: 1000 }],
+    });
+  });
+
   it("updates periods and preserves validation errors in D1 path", async () => {
     const fakeDb = createPeriodAwareD1Fake();
     await createPeriod(fakeDb, {

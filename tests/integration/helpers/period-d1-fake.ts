@@ -338,8 +338,16 @@ function applyDailyOperationHistoryMutation(
     return;
   }
 
+  const id = String(args[0]);
+  const duplicated = dailyOperationHistories.some((row) => row.id === id);
+  if (duplicated) {
+    throw new Error(
+      "D1_ERROR: UNIQUE constraint failed: daily_operation_histories.id",
+    );
+  }
+
   dailyOperationHistories.push({
-    id: String(args[0]),
+    id,
     budget_period_id: String(args[1]),
     date: String(args[2]),
     operation_type: args[3] === "overwrite" ? "overwrite" : "add",
@@ -354,9 +362,33 @@ function applyDailyOperationHistoryMutation(
 export function createPeriodAwareD1Fake(
   preparedSql: string[] = [],
 ): D1Database {
-  const periods = new Map<string, BudgetPeriodRow>();
-  const dailyTotals = new Map<string, DailyTotalRow>();
-  const dailyOperationHistories: DailyOperationHistoryRow[] = [];
+  let periods = new Map<string, BudgetPeriodRow>();
+  let dailyTotals = new Map<string, DailyTotalRow>();
+  let dailyOperationHistories: DailyOperationHistoryRow[] = [];
+
+  function snapshotState(): {
+    periods: Map<string, BudgetPeriodRow>;
+    dailyTotals: Map<string, DailyTotalRow>;
+    dailyOperationHistories: DailyOperationHistoryRow[];
+  } {
+    return {
+      periods: new Map(
+        [...periods.entries()].map(([key, row]) => [key, { ...row }]),
+      ),
+      dailyTotals: new Map(
+        [...dailyTotals.entries()].map(([key, row]) => [key, { ...row }]),
+      ),
+      dailyOperationHistories: dailyOperationHistories.map((row) => ({
+        ...row,
+      })),
+    };
+  }
+
+  function restoreState(snapshot: ReturnType<typeof snapshotState>): void {
+    periods = snapshot.periods;
+    dailyTotals = snapshot.dailyTotals;
+    dailyOperationHistories = snapshot.dailyOperationHistories;
+  }
 
   return {
     prepare(sql: string) {
@@ -427,8 +459,14 @@ export function createPeriodAwareD1Fake(
       return statement;
     },
     async batch(statements) {
-      for (const statement of statements) {
-        await statement.run();
+      const snapshot = snapshotState();
+      try {
+        for (const statement of statements) {
+          await statement.run();
+        }
+      } catch (error) {
+        restoreState(snapshot);
+        throw error;
       }
       return [];
     },
