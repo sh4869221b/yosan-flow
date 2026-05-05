@@ -52,7 +52,17 @@ pnpm build
 CI gate policy:
 
 - Required on pull requests and `main` pushes: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
+- Renovate update branches also run the same CI gate on `renovate/**` pushes, so Renovate can wait for a green branch before opening selected PRs.
 - `pnpm test:e2e` is not a required PR gate for now. Run it manually when browser workflows/UI flows change.
+
+## Dependency updates
+
+Renovate is configured in `renovate.json`.
+
+- Dependency Dashboard Issue is enabled as `Dependency Dashboard`.
+- Stable patch/minor updates create PRs only after CI succeeds on the `renovate/**` branch.
+- Major updates, current `0.x` dependencies, and core framework/runtime/deployment/database/UI dependencies require manual approval from the Dependency Dashboard before Renovate creates the update branch or PR.
+- Core dependencies are the SvelteKit/Svelte/Vite stack, Cloudflare/Wrangler deployment path, Drizzle/Effect server boundary, TypeScript/check/test tooling, and primary Bits UI/date UI dependencies.
 
 E2E を確認する場合:
 

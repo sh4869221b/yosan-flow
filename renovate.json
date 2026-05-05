@@ -1,0 +1,56 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Asia/Tokyo",
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard",
+  "labels": ["dependencies"],
+  "branchPrefix": "renovate/",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 8am on monday"],
+    "prCreation": "status-success"
+  },
+  "packageRules": [
+    {
+      "description": "Create stable patch/minor PRs only after CI succeeds on the Renovate branch.",
+      "matchUpdateTypes": ["patch", "minor"],
+      "matchCurrentVersion": "!/^0\\./",
+      "prCreation": "status-success"
+    },
+    {
+      "description": "Require Dependency Dashboard approval for major updates.",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Require Dependency Dashboard approval for 0.x dependencies because semver compatibility is weaker before 1.0.",
+      "matchCurrentVersion": "/^0\\./",
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Require Dependency Dashboard approval for core framework, runtime, deployment, database, and primary UI dependencies.",
+      "matchPackageNames": [
+        "@internationalized/date",
+        "@playwright/test",
+        "@sveltejs/adapter-cloudflare",
+        "@sveltejs/kit",
+        "@sveltejs/vite-plugin-svelte",
+        "bits-ui",
+        "drizzle-kit",
+        "drizzle-orm",
+        "effect",
+        "svelte",
+        "svelte-check",
+        "typescript",
+        "vite",
+        "vitest",
+        "wrangler"
+      ],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}

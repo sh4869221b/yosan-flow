@@ -77,7 +77,17 @@ pnpm build
 Required CI gate policy:
 
 - Pull request / `main` push required order: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
+- Renovate branches use the same gate on `renovate/**` pushes. Keep this trigger in place because Renovate waits for successful branch CI before opening stable patch/minor PRs.
 - E2E is intentionally not a required PR gate yet. Run `pnpm test:e2e` manually when browser workflows change. If CI E2E is added later, keep it non-blocking (for example `workflow_dispatch`, scheduled, or main-only optional jobs).
+
+## Dependency Updates
+
+Renovate is configured by `renovate.json`.
+
+- The Dependency Dashboard Issue is enabled for visibility and manual approval.
+- Stable patch/minor updates use `prCreation: "status-success"` so PRs are opened only after CI succeeds on the Renovate branch.
+- Major updates, current `0.x` dependencies, and core dependencies require Dependency Dashboard approval before Renovate creates the branch or PR.
+- Core dependencies are framework/runtime/deployment/database/UI and quality-gate dependencies that can change app behavior, build output, Cloudflare deployment, DB access, or the main dashboard component surface.
 
 Run E2E separately when a change affects browser workflows:
 
