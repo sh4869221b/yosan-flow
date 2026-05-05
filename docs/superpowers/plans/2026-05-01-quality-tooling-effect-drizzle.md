@@ -1,12 +1,23 @@
 # Quality Tooling, Effect, And Drizzle Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Each implementation task should be handled by a fresh subagent, then reviewed by separate spec-compliance and code-quality subagents before moving on. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Each implementation task should be handled by a fresh subagent, then reviewed by separate spec-compliance and code-quality subagents before moving on. Steps use checkbox (`- [ ]` / `- [x]`) syntax for tracking.
 
 **Goal:** Drizzle, Effect, formatter, linter, and CI を段階導入し、既存の period-first D1/SvelteKit アプリを壊さずに開発品質と DB 境界を整える。
 
 **Architecture:** まず既存の `pnpm check` / tests / build を CI で固定し、その後 formatter と linter を独立導入する。Effect は server-side のエラー表現と service/repository 境界に薄く入れ、Drizzle は既存 SQL migration と一致する schema mirror から始める。DB アクセス置換は repository 単位で小さく進める。
 
 **Tech Stack:** SvelteKit, Svelte 5, TypeScript, Cloudflare Workers, Cloudflare D1, Vitest, Playwright, GitHub Actions, Prettier, ESLint, Effect, Drizzle ORM
+
+## Execution Summary
+
+Completed on 2026-05-05.
+
+- Added baseline CI, Prettier, ESLint, Effect boundary, Drizzle schema mirror, DB/Effect boundary, incremental Drizzle repository migrations, and final CI policy documentation.
+- Final required PR / `main` gate: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`.
+- E2E remains a manual/non-blocking check for browser workflow changes at this stage.
+- SQL migrations under `migrations/*.sql` remain the source of truth. Drizzle generated migrations / drift checks are not required yet.
+- Final verification passed: `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build && git diff --check`.
+- D1 local migration verification passed: `pnpm run cf:migrate:local`.
 
 ---
 
@@ -69,7 +80,7 @@
 - Modify: `CONTRIBUTING.md`
 - Do not modify: `package.json`, `pnpm-lock.yaml`, application source, migrations, deploy scripts
 
-- [ ] **Step 1: Re-read required context**
+- [x] **Step 1: Re-read required context**
 
 Implementation subagent reads:
 
@@ -80,7 +91,7 @@ sed -n '1,220p' CONTRIBUTING.md
 sed -n '1,220p' docs/superpowers/plans/2026-05-01-quality-tooling-effect-drizzle.md
 ```
 
-- [ ] **Step 2: Create minimal GitHub Actions workflow**
+- [x] **Step 2: Create minimal GitHub Actions workflow**
 
 Create `.github/workflows/ci.yml`.
 
@@ -105,11 +116,11 @@ pnpm test:integration
 pnpm build
 ```
 
-- [ ] **Step 3: Keep E2E out of the baseline gate**
+- [x] **Step 3: Keep E2E out of the baseline gate**
 
 Do not add Playwright browser install or `pnpm test:e2e` to the required baseline CI. E2E policy is decided in Task 9.
 
-- [ ] **Step 4: Document baseline CI**
+- [x] **Step 4: Document baseline CI**
 
 Update `README.md` and `CONTRIBUTING.md` so the documented verification order matches CI:
 
@@ -120,7 +131,7 @@ pnpm test:integration
 pnpm build
 ```
 
-- [ ] **Step 5: Verify locally**
+- [x] **Step 5: Verify locally**
 
 Run:
 
@@ -133,7 +144,7 @@ pnpm build
 git diff --check
 ```
 
-- [ ] **Step 6: Spec review checkpoint**
+- [x] **Step 6: Spec review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -141,7 +152,7 @@ Ask a reviewer subagent:
 Review Task 1 only. Check that CI is minimal, uses Node 20 and pnpm 9, runs only install/check/unit/integration/build, does not deploy, does not require E2E, and documents the same command order in README/CONTRIBUTING. Flag accidental app, migration, lockfile, wrangler, or deploy-script changes.
 ```
 
-- [ ] **Step 7: Code-quality review checkpoint**
+- [x] **Step 7: Code-quality review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -187,7 +198,7 @@ git commit -m "ci: add baseline checks"
 - May modify: formatting-only changes from `pnpm format`
 - Do not modify: behavior, test semantics, Cloudflare config, migrations
 
-- [ ] **Step 1: Confirm Task 1 is complete**
+- [x] **Step 1: Confirm Task 1 is complete**
 
 Check that `.github/workflows/ci.yml` exists and working tree changes are understood:
 
@@ -196,7 +207,7 @@ git status --short
 test -f .github/workflows/ci.yml
 ```
 
-- [ ] **Step 2: Add Prettier dependencies**
+- [x] **Step 2: Add Prettier dependencies**
 
 Run:
 
@@ -204,7 +215,7 @@ Run:
 pnpm add -D prettier prettier-plugin-svelte
 ```
 
-- [ ] **Step 3: Add formatter scripts**
+- [x] **Step 3: Add formatter scripts**
 
 Add to `package.json`:
 
@@ -215,11 +226,11 @@ Add to `package.json`:
 }
 ```
 
-- [ ] **Step 4: Add minimal Prettier config**
+- [x] **Step 4: Add minimal Prettier config**
 
 Create `.prettierrc` with only the required baseline for Svelte support. Avoid subjective style churn beyond the repo's default Prettier behavior.
 
-- [ ] **Step 5: Add ignore rules**
+- [x] **Step 5: Add ignore rules**
 
 Create `.prettierignore` and exclude at least:
 
@@ -236,7 +247,7 @@ playwright-report
 .dev.vars
 ```
 
-- [ ] **Step 6: Run formatter**
+- [x] **Step 6: Run formatter**
 
 Run:
 
@@ -247,7 +258,7 @@ pnpm format:check
 
 Inspect the diff. It must be formatting-only.
 
-- [ ] **Step 7: Document formatter usage**
+- [x] **Step 7: Document formatter usage**
 
 Update `README.md` / `CONTRIBUTING.md` with:
 
@@ -256,7 +267,7 @@ pnpm format
 pnpm format:check
 ```
 
-- [ ] **Step 8: Verify baseline**
+- [x] **Step 8: Verify baseline**
 
 Run:
 
@@ -268,7 +279,7 @@ pnpm build
 git diff --check
 ```
 
-- [ ] **Step 9: Spec review checkpoint**
+- [x] **Step 9: Spec review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -276,7 +287,7 @@ Ask a reviewer subagent:
 Review Task 2 only. Confirm this is a formatter-only change plus docs/scripts/deps. Check .prettierignore protects .wrangler, .tmp-*, test-results, env/local artifacts, node_modules, and generated build output. Flag behavior edits, migration edits, broad manual refactors, or user-visible text changes hidden inside formatting.
 ```
 
-- [ ] **Step 10: Code-quality review checkpoint**
+- [x] **Step 10: Code-quality review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -322,7 +333,7 @@ git commit -m "chore: add prettier formatting"
 - May modify: minimal source/test fixes required for initial lint pass
 - Prerequisite: Task 2 is complete and `format:check` exists
 
-- [ ] **Step 1: Confirm formatter baseline**
+- [x] **Step 1: Confirm formatter baseline**
 
 Run:
 
@@ -330,7 +341,7 @@ Run:
 pnpm format:check
 ```
 
-- [ ] **Step 2: Add ESLint dependencies**
+- [x] **Step 2: Add ESLint dependencies**
 
 Run:
 
@@ -338,7 +349,7 @@ Run:
 pnpm add -D eslint typescript-eslint eslint-plugin-svelte globals
 ```
 
-- [ ] **Step 3: Create ESLint flat config**
+- [x] **Step 3: Create ESLint flat config**
 
 Create `eslint.config.js` for SvelteKit + Svelte 5 + TypeScript.
 
@@ -350,7 +361,7 @@ Guidelines:
 - Start with practical correctness rules that can pass without broad rewrites.
 - Do not start with strict rules such as global `no-explicit-any` if they cause large churn.
 
-- [ ] **Step 4: Add lint script**
+- [x] **Step 4: Add lint script**
 
 Add to `package.json`:
 
@@ -360,7 +371,7 @@ Add to `package.json`:
 }
 ```
 
-- [ ] **Step 5: Run lint and fix minimal issues**
+- [x] **Step 5: Run lint and fix minimal issues**
 
 Run:
 
@@ -370,11 +381,11 @@ pnpm lint
 
 Fix only issues required for the initial baseline, such as unused imports or config ignores. Do not change period logic, UI text, selectors, or route behavior.
 
-- [ ] **Step 6: Document lint usage**
+- [x] **Step 6: Document lint usage**
 
 Update `README.md` / `CONTRIBUTING.md` with `pnpm lint` and the post-formatter verification order.
 
-- [ ] **Step 7: Verify**
+- [x] **Step 7: Verify**
 
 Run:
 
@@ -388,7 +399,7 @@ pnpm build
 git diff --check
 ```
 
-- [ ] **Step 8: Spec review checkpoint**
+- [x] **Step 8: Spec review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -396,7 +407,7 @@ Ask a reviewer subagent:
 Review Task 3 only. Check ESLint config is Svelte 5/TypeScript compatible, uses flat config, avoids Prettier-overlapping style churn, and passes with minimal source changes. Flag broad refactors, changed product copy/selectors, period-first behavior changes, or ignored directories that hide real source files.
 ```
 
-- [ ] **Step 9: Code-quality review checkpoint**
+- [x] **Step 9: Code-quality review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -439,7 +450,7 @@ git commit -m "chore: add eslint linting"
 - Modify: `CONTRIBUTING.md`
 - Prerequisite: Tasks 1-3 are complete
 
-- [ ] **Step 1: Confirm scripts exist**
+- [x] **Step 1: Confirm scripts exist**
 
 Run:
 
@@ -450,7 +461,7 @@ pnpm lint
 
 If either script is missing, stop and return `BLOCKED`: Task 2 or Task 3 is incomplete.
 
-- [ ] **Step 2: Update CI command order**
+- [x] **Step 2: Update CI command order**
 
 Update `.github/workflows/ci.yml` so the install step is followed by:
 
@@ -463,19 +474,19 @@ pnpm test:integration
 pnpm build
 ```
 
-- [ ] **Step 3: Keep job shape simple**
+- [x] **Step 3: Keep job shape simple**
 
 Keep one job unless the workflow has already become slow or hard to read. If splitting, use clear job names such as `quality` and `test-build`.
 
-- [ ] **Step 4: Keep E2E out of this task**
+- [x] **Step 4: Keep E2E out of this task**
 
 Do not add `pnpm test:e2e` here. E2E policy is decided in Task 9.
 
-- [ ] **Step 5: Align docs**
+- [x] **Step 5: Align docs**
 
 Update README / CONTRIBUTING verification sections so the command order matches CI.
 
-- [ ] **Step 6: Verify locally**
+- [x] **Step 6: Verify locally**
 
 Run:
 
@@ -489,7 +500,7 @@ pnpm test:integration
 pnpm build
 ```
 
-- [ ] **Step 7: Spec review checkpoint**
+- [x] **Step 7: Spec review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -497,7 +508,7 @@ Ask a reviewer subagent:
 Review Task 4 only. Confirm CI runs format:check, lint, check, unit, integration, build in that order; README/CONTRIBUTING match; E2E is not required; and no bare wrangler deploy, D1 database id, deploy script, or app behavior was changed.
 ```
 
-- [ ] **Step 8: Code-quality review checkpoint**
+- [x] **Step 8: Code-quality review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -540,7 +551,7 @@ git commit -m "ci: enforce formatting and linting"
 
 **Recommended first boundary:** API response error mapping. Prefer a small boundary around existing API error conversion rather than rewriting services.
 
-- [ ] **Step 1: Inspect existing errors**
+- [x] **Step 1: Inspect existing errors**
 
 Search existing error classes and API error mapping:
 
@@ -554,7 +565,7 @@ Identify the single boundary to convert. Good candidates:
 - D1 repository error wrapping.
 - Day entry service failure states.
 
-- [ ] **Step 2: Add Effect dependency**
+- [x] **Step 2: Add Effect dependency**
 
 Run:
 
@@ -564,7 +575,7 @@ pnpm add effect
 
 `effect` is a runtime dependency because server-side application code will import it.
 
-- [ ] **Step 3: Add minimal Effect error model**
+- [x] **Step 3: Add minimal Effect error model**
 
 Create `src/lib/server/effect/errors.ts`.
 
@@ -578,17 +589,17 @@ Model only existing behavior:
 
 Do not expose raw database messages to API responses.
 
-- [ ] **Step 4: Add result / mapping helper**
+- [x] **Step 4: Add result / mapping helper**
 
 Create `src/lib/server/effect/result.ts`.
 
 Use it to map existing `Error` / `code`-bearing exceptions to the current API response shape.
 
-- [ ] **Step 5: Wire exactly one boundary**
+- [x] **Step 5: Wire exactly one boundary**
 
 Update the selected boundary to use the helper. Do not convert all services to `Effect.gen`. Do not change API route names, status codes, `error.code`, or response body shape.
 
-- [ ] **Step 6: Add focused tests**
+- [x] **Step 6: Add focused tests**
 
 Add or update tests to freeze:
 
@@ -599,7 +610,7 @@ Add or update tests to freeze:
 
 Also run relevant integration tests for existing API behavior.
 
-- [ ] **Step 7: Verify**
+- [x] **Step 7: Verify**
 
 Run:
 
@@ -619,7 +630,7 @@ pnpm test:integration tests/integration/api/periods.test.ts
 pnpm test:integration tests/integration/api/days.test.ts
 ```
 
-- [ ] **Step 8: Spec review checkpoint**
+- [x] **Step 8: Spec review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -627,7 +638,7 @@ Ask a reviewer subagent:
 Review Task 5 only. Confirm Effect is limited to one API/error boundary, services/repositories were not broadly rewritten, existing error.code and HTTP status behavior is preserved, unknown errors are masked, and period-first / same-day spending behavior is untouched.
 ```
 
-- [ ] **Step 9: Code-quality review checkpoint**
+- [x] **Step 9: Code-quality review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -672,7 +683,7 @@ git commit -m "feat: add effect error boundary"
 - Modify: `CONTRIBUTING.md`
 - Optional test: schema-focused unit test
 
-- [ ] **Step 1: Add Drizzle dependencies**
+- [x] **Step 1: Add Drizzle dependencies**
 
 Run:
 
@@ -683,7 +694,7 @@ pnpm add -D drizzle-kit
 
 `drizzle-orm` is runtime. `drizzle-kit` is development tooling.
 
-- [ ] **Step 2: Mirror current SQL schema**
+- [x] **Step 2: Mirror current SQL schema**
 
 Use `migrations/0002_reset_to_budget_periods.sql` as the practical current schema. Create `src/lib/server/db/schema.ts` for:
 
@@ -693,7 +704,7 @@ Use `migrations/0002_reset_to_budget_periods.sql` as the practical current schem
 
 Keep DB names as snake_case in the Drizzle schema. Do not confuse them with existing camelCase record types.
 
-- [ ] **Step 3: Mirror constraints and indexes**
+- [x] **Step 3: Mirror constraints and indexes**
 
 Represent what Drizzle can represent for:
 
@@ -709,11 +720,11 @@ Represent what Drizzle can represent for:
 
 Document any SQL `CHECK` constraints that Drizzle cannot faithfully encode.
 
-- [ ] **Step 4: Add Drizzle config**
+- [x] **Step 4: Add Drizzle config**
 
 Create `drizzle.config.ts` for this repository. Do not change deploy scripts. Do not add a path that encourages bare `wrangler deploy`.
 
-- [ ] **Step 5: Document source-of-truth policy**
+- [x] **Step 5: Document source-of-truth policy**
 
 Update README / CONTRIBUTING:
 
@@ -722,7 +733,7 @@ Update README / CONTRIBUTING:
 - Generated migrations are not adopted yet.
 - Drift check policy is decided later.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run:
 
@@ -744,7 +755,7 @@ pnpm drizzle-kit check
 
 Do not make `drizzle-kit check` required if the migration workflow is not yet stable.
 
-- [ ] **Step 7: Spec review checkpoint**
+- [x] **Step 7: Spec review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -752,7 +763,7 @@ Ask a reviewer subagent:
 Review Task 6 only. Compare migrations/*.sql with src/lib/server/db/schema.ts. Confirm the 3 current tables, columns, nullability, defaults, primary keys, references, and indexes are mirrored; monthly_budgets is not revived; existing repositories are not migrated; SQL migrations remain documented as source of truth; and deploy scripts/wrangler config are unchanged.
 ```
 
-- [ ] **Step 8: Code-quality review checkpoint**
+- [x] **Step 8: Code-quality review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -800,7 +811,7 @@ git commit -m "feat: add drizzle schema mirror"
 - Test: `tests/unit/*`
 - Test: `tests/integration/*`
 
-- [ ] **Step 1: Freeze responsibility split**
+- [x] **Step 1: Freeze responsibility split**
 
 Use this split:
 
@@ -808,15 +819,15 @@ Use this split:
 - Effect owns failure modeling, dependency composition, and service-level control flow.
 - Domain/services own period state, same-day spend behavior, and recommendation calculations.
 
-- [ ] **Step 2: Preserve test-time in-memory path**
+- [x] **Step 2: Preserve test-time in-memory path**
 
 Keep the existing in-memory database/repository path usable for tests. Do not force every unit/integration test through real D1.
 
-- [ ] **Step 3: Add the smallest D1/Drizzle adapter if needed**
+- [x] **Step 3: Add the smallest D1/Drizzle adapter if needed**
 
 If a bridge is needed, make it accept the existing D1 binding `DB` and keep repository public contracts stable.
 
-- [ ] **Step 4: Keep Effect errors aligned with current behavior**
+- [x] **Step 4: Keep Effect errors aligned with current behavior**
 
 Use only existing behavior names:
 
@@ -827,11 +838,11 @@ Use only existing behavior names:
 
 Avoid a second, drifting taxonomy. Prefer thin mappers when existing error classes are already adequate.
 
-- [ ] **Step 5: Prove the boundary with one helper or one repository**
+- [x] **Step 5: Prove the boundary with one helper or one repository**
 
 Do not migrate all repositories in this task. Show the boundary with the smallest useful slice, preferably budget-period related.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run:
 
@@ -851,7 +862,7 @@ pnpm test:unit tests/unit/budget-period.test.ts
 pnpm test:integration tests/integration/api/periods.test.ts
 ```
 
-- [ ] **Step 7: Spec review checkpoint**
+- [x] **Step 7: Spec review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -859,7 +870,7 @@ Ask a reviewer subagent:
 Review Task 7. Confirm Drizzle is limited to query/row mapping, Effect is limited to failure/dependency boundary, domain decisions remain in services/domain modules, public repository interfaces are stable, API response shape is unchanged, in-memory tests still work, and period-first / budget_period_id contracts are maintained.
 ```
 
-- [ ] **Step 8: Code-quality review checkpoint**
+- [x] **Step 8: Code-quality review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -910,7 +921,7 @@ git commit -m "feat: define db effect boundary"
 - Test: `tests/integration/*`
 - Test if UI behavior is affected: `tests/e2e/*`
 
-- [ ] **Step 1: Migrate `budget-period-repository` first**
+- [x] **Step 1: Migrate `budget-period-repository` first**
 
 Replace runtime D1 query construction with Drizzle while preserving:
 
@@ -925,7 +936,7 @@ Replace runtime D1 query construction with Drizzle while preserving:
 
 Keep SQL migrations as source of truth.
 
-- [ ] **Step 2: Verify period repository behavior**
+- [x] **Step 2: Verify period repository behavior**
 
 Run:
 
@@ -936,7 +947,7 @@ pnpm test:integration tests/integration/api/periods.test.ts
 
 Review before moving on.
 
-- [ ] **Step 3: Migrate `daily-total-repository`**
+- [x] **Step 3: Migrate `daily-total-repository`**
 
 Preserve:
 
@@ -946,7 +957,7 @@ Preserve:
 - `year_month` persistence as existing compatibility data, not source of truth
 - same-day spend rule remaining outside DB layer
 
-- [ ] **Step 4: Verify day entry and summary behavior**
+- [x] **Step 4: Verify day entry and summary behavior**
 
 Run:
 
@@ -957,7 +968,7 @@ pnpm test:unit tests/unit/month-summary-service.test.ts
 
 Review before moving on.
 
-- [ ] **Step 5: Migrate `daily-history-repository`**
+- [x] **Step 5: Migrate `daily-history-repository`**
 
 Preserve:
 
@@ -967,7 +978,7 @@ Preserve:
 - any existing tie-breaker behavior, such as `id DESC`, if present in current SQL
 - all queries scoped by `budget_period_id`
 
-- [ ] **Step 6: Run full local gate**
+- [x] **Step 6: Run full local gate**
 
 Run:
 
@@ -993,7 +1004,7 @@ If D1 schema confidence is needed:
 pnpm run cf:migrate:local
 ```
 
-- [ ] **Step 7: Spec review checkpoint per repository**
+- [x] **Step 7: Spec review checkpoint per repository**
 
 Ask a reviewer subagent after each repository migration:
 
@@ -1001,7 +1012,7 @@ Ask a reviewer subagent after each repository migration:
 Review this repository migration only. Compare the previous SQL behavior to the Drizzle implementation. Check query conditions, ordering, upsert semantics, budget_period_id scoping, snake_case/camelCase mapping, validation preservation, and API-visible response stability.
 ```
 
-- [ ] **Step 8: Code-quality review checkpoint per repository**
+- [x] **Step 8: Code-quality review checkpoint per repository**
 
 Ask a reviewer subagent:
 
@@ -1054,7 +1065,7 @@ git commit -m "feat: migrate daily history repository to drizzle"
 - Modify: `README.md`
 - Modify: `CONTRIBUTING.md`
 
-- [ ] **Step 1: Decide final required PR gate**
+- [x] **Step 1: Decide final required PR gate**
 
 Default required PR gate:
 
@@ -1067,22 +1078,22 @@ pnpm test:integration
 pnpm build
 ```
 
-- [ ] **Step 2: Decide E2E policy**
+- [x] **Step 2: Decide E2E policy**
 
 Choose one and document it:
 
 - Preferred initial policy: PR optional/manual, `main` push or scheduled run for `pnpm test:e2e`.
 - Strict policy: required PR gate only if D1 seed/reset and Playwright runtime are stable in CI.
 
-- [ ] **Step 3: Decide Drizzle drift policy**
+- [x] **Step 3: Decide Drizzle drift policy**
 
 If generated migrations are adopted, add a drift check. If SQL migrations remain source of truth, do not force generated migration checks yet. At most ensure schema imports/typechecks.
 
-- [ ] **Step 4: Decide job layout**
+- [x] **Step 4: Decide job layout**
 
 Use a single job if runtime is acceptable. Split into `quality` and `test-build` only if the workflow is slow or hard to read.
 
-- [ ] **Step 5: Update docs**
+- [x] **Step 5: Update docs**
 
 README / CONTRIBUTING must state:
 
@@ -1091,7 +1102,7 @@ README / CONTRIBUTING must state:
 - Drizzle drift policy
 - no bare `wrangler deploy`
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run:
 
@@ -1116,7 +1127,7 @@ For local UI debugging with stale D1 state:
 XDG_CONFIG_HOME=/home/sh4869/ghq/github.com/sh4869221b/yosan-flow/.tmp-xdg-config YOSAN_FLOW_FORCE_IN_MEMORY_DEV=1 pnpm dev -- --host 127.0.0.1
 ```
 
-- [ ] **Step 7: Spec review checkpoint**
+- [x] **Step 7: Spec review checkpoint**
 
 Ask a reviewer subagent:
 
@@ -1124,7 +1135,7 @@ Ask a reviewer subagent:
 Review Task 9. Confirm README/CONTRIBUTING and CI workflow agree on command order, PR gate and E2E policy are clear, Drizzle drift policy matches whether generated migrations are adopted, no bare wrangler deploy or placeholder D1 path is introduced, and lockfile usage is compatible with pnpm install --frozen-lockfile.
 ```
 
-- [ ] **Step 8: Code-quality review checkpoint**
+- [x] **Step 8: Code-quality review checkpoint**
 
 Ask a reviewer subagent:
 
