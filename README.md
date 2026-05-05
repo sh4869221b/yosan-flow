@@ -142,6 +142,7 @@ pnpm wrangler tail yosan-flow --env production --status error --format pretty
 
 - D1 binding 名は全環境で `DB`（`wrangler.jsonc`）です。
 - deploy 前に `env.preview` / `env.production` の `database_id` がプレースホルダ (`00000000-0000-0000-0000-000000000000`) のままでないことを確認してください。
+- Cloudflare Workers Builds の Build Variable は `PNPM_VERSION=10.33.3` に固定してください。
 - Cloudflare dashboard の Deploy command 例:
   - preview: `pnpm run deploy:preview`
   - production: `pnpm run deploy:production`
