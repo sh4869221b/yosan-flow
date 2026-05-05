@@ -12,6 +12,7 @@ export default defineConfig(
       "node_modules/",
       ".wrangler/",
       ".tmp-*/",
+      "coverage/",
       "test-results/",
       "playwright-report/",
     ],

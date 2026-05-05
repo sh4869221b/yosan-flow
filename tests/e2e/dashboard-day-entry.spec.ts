@@ -112,3 +112,93 @@ test("shows save error and keeps input on failed period update", async ({
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page.getByLabel("期間予算 (円)")).toHaveValue("130000");
 });
+
+test("shows save error and keeps input on failed day entry update", async ({
+  page,
+  request,
+}) => {
+  const startDate = getCurrentJstDate();
+  const periodId = `p-${startDate}`;
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate,
+    endDate: addDays(startDate, 29),
+    budgetYen: 120000,
+  });
+
+  const summary = await fetchPeriodSummary(request, periodId);
+  const todayRow = summary.dailyRows.find((row) => row.label === "today");
+  expect(todayRow).toBeDefined();
+
+  await page.goto(`${getBaseUrl()}/`);
+  await page.route(
+    `**/api/periods/${periodId}/days/${todayRow?.date}/add`,
+    async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "TEMPORARY_SAVE_FAILURE",
+            message: "日次入力の保存に失敗しました。",
+          },
+        }),
+      });
+    },
+  );
+
+  await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
+  await expect(page.getByTestId("day-entry-modal")).toBeVisible();
+  await page.getByLabel("入力額 (円)").fill("2000");
+  await page.getByLabel("追加").check();
+  await page.getByRole("button", { name: "保存する" }).click();
+
+  await expect(page.getByRole("alert")).toContainText(
+    "日次入力の保存に失敗しました。",
+  );
+  await expect(page.getByTestId("day-entry-modal")).toBeVisible();
+  await expect(page.getByLabel("入力額 (円)")).toHaveValue("2000");
+});
+
+test("shows history load error while keeping the day entry modal usable", async ({
+  page,
+  request,
+}) => {
+  const startDate = getCurrentJstDate();
+  const periodId = `p-${startDate}`;
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate,
+    endDate: addDays(startDate, 29),
+    budgetYen: 120000,
+  });
+
+  const summary = await fetchPeriodSummary(request, periodId);
+  const todayRow = summary.dailyRows.find((row) => row.label === "today");
+  expect(todayRow).toBeDefined();
+
+  await page.goto(`${getBaseUrl()}/`);
+  await page.route(
+    `**/api/periods/${periodId}/days/${todayRow?.date}/history`,
+    async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "TEMPORARY_HISTORY_FAILURE",
+            message: "履歴の取得に失敗しました。",
+          },
+        }),
+      });
+    },
+  );
+
+  await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
+
+  await expect(page.getByTestId("day-entry-modal")).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText(
+    "履歴の取得に失敗しました。",
+  );
+  await expect(page.getByRole("button", { name: "保存する" })).toBeEnabled();
+});
