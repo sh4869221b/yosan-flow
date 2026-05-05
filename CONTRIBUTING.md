@@ -4,8 +4,8 @@
 
 Requirements:
 
-- Node.js 20.19 or newer
-- pnpm 9 or newer
+- Node.js 24.15 or newer
+- pnpm 10.33.3 or newer
 - Cloudflare account for D1/Workers checks
 
 Install dependencies and prepare local D1:

@@ -4,8 +4,8 @@ Yosan Flow は Cloudflare Workers 上で動く、SvelteKit 製の月予算管理
 
 ## 前提
 
-- Node.js 20.19 以上
-- pnpm 9 以上
+- Node.js 24.15 以上
+- pnpm 10.33.3 以上
 - Cloudflare アカウント（D1/Workers 利用時）
 
 ## セットアップ（ローカル）
