@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getJstDateParts, isFutureDateFromJstToday } from "$lib/server/time/jst";
+import {
+  getJstDateParts,
+  isFutureDateFromJstToday,
+} from "$lib/server/time/jst";
 
 describe("getJstDateParts", () => {
   it("converts UTC instant to JST year-month-day", () => {

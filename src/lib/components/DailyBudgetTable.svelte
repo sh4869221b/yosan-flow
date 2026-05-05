@@ -11,7 +11,9 @@
   export let rows: DailyRow[] = [];
   export let loading = false;
 
-  const dispatch = createEventDispatcher<{ "request-edit": { date: string } }>();
+  const dispatch = createEventDispatcher<{
+    "request-edit": { date: string };
+  }>();
 </script>
 
 <section>
@@ -30,7 +32,7 @@
       </tr>
     </thead>
     <tbody>
-      {#each rows as row}
+      {#each rows as row (row.date)}
         <tr class:today={row.label === "today"}>
           <td>{row.date}</td>
           <td>{row.label === "today" ? "今日" : "予定支出"}</td>

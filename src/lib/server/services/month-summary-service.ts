@@ -1,23 +1,34 @@
-import { createInMemoryDatabaseClient, type DatabaseClient } from "$lib/server/db/client";
+import {
+  createInMemoryDatabaseClient,
+  type DatabaseClient,
+} from "$lib/server/db/client";
 import type { D1Database } from "$lib/server/db/d1-types";
 import {
   createD1BudgetPeriodRepository,
   createInMemoryBudgetPeriodRepository,
   PeriodValidationError,
   type BudgetPeriodRecord,
-  type BudgetPeriodRepository
+  type BudgetPeriodRepository,
 } from "$lib/server/db/budget-period-repository";
 import {
+  createD1DailyHistoryRepository,
   createDailyHistoryRepository,
+  type D1DailyHistoryRepository,
   type DailyHistoryRecord,
-  type DailyHistoryRepository
+  type DailyHistoryRepository,
 } from "$lib/server/db/daily-history-repository";
 import {
+  createD1DailyTotalRepository,
   createDailyTotalRepository,
+  type D1DailyTotalRepository,
   type DailyTotalRecord,
-  type DailyTotalRepository
+  type DailyTotalRepository,
 } from "$lib/server/db/daily-total-repository";
-import { assertValidDate, assertValidInputYen, normalizeMemo } from "$lib/server/domain/daily-entry";
+import {
+  assertValidDate,
+  assertValidInputYen,
+  normalizeMemo,
+} from "$lib/server/domain/daily-entry";
 import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
 import { DayEntryService } from "$lib/server/services/day-entry-service";
 import { getJstDateParts } from "$lib/server/time/jst";
@@ -109,7 +120,9 @@ function toDateValue(date: string): number {
 }
 
 function nextDate(date: string): string {
-  return new Date(toDateValue(date) + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return new Date(toDateValue(date) + 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 }
 
 function buildDateRange(startDate: string, endDate: string): string[] {
@@ -130,7 +143,7 @@ function buildDailyTotalMap(
   periodId: string,
   startDate: string,
   endDate: string,
-  dailyTotals: PeriodSummaryDailyTotal[]
+  dailyTotals: PeriodSummaryDailyTotal[],
 ): Map<string, number> {
   const map = new Map<string, number>();
   for (const row of dailyTotals) {
@@ -145,7 +158,11 @@ function buildDailyTotalMap(
   return map;
 }
 
-function resolveDaysRemaining(startDate: string, endDate: string, jstToday: string): number {
+function resolveDaysRemaining(
+  startDate: string,
+  endDate: string,
+  jstToday: string,
+): number {
   if (jstToday < startDate) {
     return buildDateRange(startDate, endDate).length;
   }
@@ -163,7 +180,9 @@ function buildFoodPaceSummary(input: {
   remainingDates: string[];
 }): FoodPaceSummary {
   const baseDailyYen =
-    input.periodLengthDays === 0 ? 0 : Math.floor(input.budgetYen / input.periodLengthDays);
+    input.periodLengthDays === 0
+      ? 0
+      : Math.floor(input.budgetYen / input.periodLengthDays);
   const daysFromToday = input.remainingDates.length;
   if (daysFromToday === 0) {
     return {
@@ -173,28 +192,39 @@ function buildFoodPaceSummary(input: {
       usedTodayYen: input.usedTodayYen,
       todayRemainingYen: input.usedTodayYen === 0 ? 0 : -input.usedTodayYen,
       todayBonusYen: 0,
-      adjustmentYen: 0
+      adjustmentYen: 0,
     };
   }
 
   const remainingAtTodayStartYen = input.budgetYen - input.spentBeforeTodayYen;
   const expectedRemainingAtBasePaceYen = baseDailyYen * daysFromToday;
-  const paceDeltaYen = remainingAtTodayStartYen - expectedRemainingAtBasePaceYen;
+  const paceDeltaYen =
+    remainingAtTodayStartYen - expectedRemainingAtBasePaceYen;
   const todayBonusYen = paceDeltaYen > 0 ? paceDeltaYen : 0;
   const shortageYen = paceDeltaYen < 0 ? Math.abs(paceDeltaYen) : 0;
-  const adjustmentBaseYen = shortageYen > 0 ? Math.floor(shortageYen / daysFromToday) : 0;
+  const adjustmentBaseYen =
+    shortageYen > 0 ? Math.floor(shortageYen / daysFromToday) : 0;
   const adjustmentRemainderYen = shortageYen % daysFromToday;
-  const adjustmentYen = adjustmentBaseYen + (adjustmentRemainderYen > 0 ? 1 : 0);
-  const todayAllowanceYen = Math.max(0, baseDailyYen + todayBonusYen - adjustmentYen);
+  const adjustmentYen =
+    adjustmentBaseYen + (adjustmentRemainderYen > 0 ? 1 : 0);
+  const todayAllowanceYen = Math.max(
+    0,
+    baseDailyYen + todayBonusYen - adjustmentYen,
+  );
 
   return {
-    status: todayBonusYen > 0 ? "bonus" : adjustmentYen > 0 ? "adjustment" : "on_track",
+    status:
+      todayBonusYen > 0
+        ? "bonus"
+        : adjustmentYen > 0
+          ? "adjustment"
+          : "on_track",
     baseDailyYen,
     todayAllowanceYen,
     usedTodayYen: input.usedTodayYen,
     todayRemainingYen: todayAllowanceYen - input.usedTodayYen,
     todayBonusYen,
-    adjustmentYen
+    adjustmentYen,
   };
 }
 
@@ -203,23 +233,41 @@ function buildFoodPaceRecommendations(input: {
   remainingAtTodayYen: number;
   remainingDates: string[];
 }): Array<{ date: string; recommendedYen: number }> {
-  const expectedRemainingAtBasePaceYen = input.foodPace.baseDailyYen * input.remainingDates.length;
-  const surplusYen = Math.max(0, input.remainingAtTodayYen - expectedRemainingAtBasePaceYen);
-  const shortageYen = Math.max(0, expectedRemainingAtBasePaceYen - input.remainingAtTodayYen);
+  const expectedRemainingAtBasePaceYen =
+    input.foodPace.baseDailyYen * input.remainingDates.length;
+  const surplusYen = Math.max(
+    0,
+    input.remainingAtTodayYen - expectedRemainingAtBasePaceYen,
+  );
+  const shortageYen = Math.max(
+    0,
+    expectedRemainingAtBasePaceYen - input.remainingAtTodayYen,
+  );
   const surplusBaseYen =
-    input.remainingDates.length === 0 ? 0 : Math.floor(surplusYen / input.remainingDates.length);
+    input.remainingDates.length === 0
+      ? 0
+      : Math.floor(surplusYen / input.remainingDates.length);
   const surplusRemainderYen =
-    input.remainingDates.length === 0 ? 0 : surplusYen % input.remainingDates.length;
+    input.remainingDates.length === 0
+      ? 0
+      : surplusYen % input.remainingDates.length;
   const adjustmentBaseYen =
-    input.remainingDates.length === 0 ? 0 : Math.floor(shortageYen / input.remainingDates.length);
+    input.remainingDates.length === 0
+      ? 0
+      : Math.floor(shortageYen / input.remainingDates.length);
   const adjustmentRemainderYen =
-    input.remainingDates.length === 0 ? 0 : shortageYen % input.remainingDates.length;
+    input.remainingDates.length === 0
+      ? 0
+      : shortageYen % input.remainingDates.length;
 
   return input.remainingDates.map((date, index) => {
     if (input.foodPace.todayBonusYen > 0) {
       return {
         date,
-        recommendedYen: index === 0 ? input.foodPace.todayAllowanceYen : input.foodPace.baseDailyYen
+        recommendedYen:
+          index === 0
+            ? input.foodPace.todayAllowanceYen
+            : input.foodPace.baseDailyYen,
       };
     }
 
@@ -227,14 +275,15 @@ function buildFoodPaceRecommendations(input: {
       const extraYen = surplusBaseYen + (index < surplusRemainderYen ? 1 : 0);
       return {
         date,
-        recommendedYen: input.foodPace.baseDailyYen + extraYen
+        recommendedYen: input.foodPace.baseDailyYen + extraYen,
       };
     }
 
-    const adjustmentYen = adjustmentBaseYen + (index < adjustmentRemainderYen ? 1 : 0);
+    const adjustmentYen =
+      adjustmentBaseYen + (index < adjustmentRemainderYen ? 1 : 0);
     return {
       date,
-      recommendedYen: Math.max(0, input.foodPace.baseDailyYen - adjustmentYen)
+      recommendedYen: Math.max(0, input.foodPace.baseDailyYen - adjustmentYen),
     };
   });
 }
@@ -242,7 +291,7 @@ function buildFoodPaceRecommendations(input: {
 export async function buildPeriodSummary(
   budgetPeriodRepository: BudgetPeriodRepository,
   periodId: string,
-  options: BuildPeriodSummaryOptions = {}
+  options: BuildPeriodSummaryOptions = {},
 ): Promise<PeriodSummary> {
   const period = await budgetPeriodRepository.findById(periodId);
   if (!period) {
@@ -251,19 +300,37 @@ export async function buildPeriodSummary(
 
   const jstToday = options.jstToday ?? getJstDateParts(new Date()).date;
   const dailyTotals = options.dailyTotals ?? [];
-  const dailyTotalsByDate = buildDailyTotalMap(period.id, period.startDate, period.endDate, dailyTotals);
+  const dailyTotalsByDate = buildDailyTotalMap(
+    period.id,
+    period.startDate,
+    period.endDate,
+    dailyTotals,
+  );
   const periodDates = buildDateRange(period.startDate, period.endDate);
   const periodLengthDays = periodDates.length;
-  const plannedTotalYen = [...dailyTotalsByDate.values()].reduce((total, current) => total + current, 0);
-  const spentToDateYen = [...dailyTotalsByDate.entries()].reduce((total, [date, value]) => {
-    return date <= jstToday ? total + value : total;
-  }, 0);
-  const spentBeforeTodayYen = [...dailyTotalsByDate.entries()].reduce((total, [date, value]) => {
-    return date < jstToday ? total + value : total;
-  }, 0);
+  const plannedTotalYen = [...dailyTotalsByDate.values()].reduce(
+    (total, current) => total + current,
+    0,
+  );
+  const spentToDateYen = [...dailyTotalsByDate.entries()].reduce(
+    (total, [date, value]) => {
+      return date <= jstToday ? total + value : total;
+    },
+    0,
+  );
+  const spentBeforeTodayYen = [...dailyTotalsByDate.entries()].reduce(
+    (total, [date, value]) => {
+      return date < jstToday ? total + value : total;
+    },
+    0,
+  );
   const usedTodayYen = dailyTotalsByDate.get(jstToday) ?? 0;
   const remainingAtTodayYen = period.budgetYen - spentBeforeTodayYen;
-  const isTodayWithinPeriod = isDateWithinPeriod(jstToday, period.startDate, period.endDate);
+  const isTodayWithinPeriod = isDateWithinPeriod(
+    jstToday,
+    period.startDate,
+    period.endDate,
+  );
   const remainingDates =
     jstToday < period.startDate
       ? periodDates
@@ -279,24 +346,30 @@ export async function buildPeriodSummary(
     periodLengthDays,
     spentBeforeTodayYen,
     usedTodayYen,
-    remainingDates: paceDates
+    remainingDates: paceDates,
   });
   const recommendations = buildFoodPaceRecommendations({
     foodPace,
     remainingAtTodayYen,
-    remainingDates
+    remainingDates,
   });
-  const recommendationMap = new Map(recommendations.map((row) => [row.date, row.recommendedYen]));
+  const recommendationMap = new Map(
+    recommendations.map((row) => [row.date, row.recommendedYen]),
+  );
   const dailyRows: PeriodDailyRow[] = periodDates.map((date) => ({
     date,
     label: date === jstToday ? "today" : "planned",
     usedYen: dailyTotalsByDate.get(date) ?? 0,
-    recommendedYen: recommendationMap.get(date) ?? 0
+    recommendedYen: recommendationMap.get(date) ?? 0,
   }));
   const todayRecommendedYen = recommendationMap.get(jstToday) ?? 0;
   const varianceFromRecommendationYen = usedTodayYen - todayRecommendedYen;
   const remainingAfterDayYenPreview = remainingAtTodayYen - usedTodayYen;
-  const daysRemaining = resolveDaysRemaining(period.startDate, period.endDate, jstToday);
+  const daysRemaining = resolveDaysRemaining(
+    period.startDate,
+    period.endDate,
+    jstToday,
+  );
 
   return {
     periodId: period.id,
@@ -314,7 +387,7 @@ export async function buildPeriodSummary(
     remainingAfterDayYenPreview,
     daysRemaining,
     foodPace,
-    dailyRows
+    dailyRows,
   };
 }
 
@@ -335,14 +408,23 @@ export type InMemoryApiServices = {
     budgetYen: number;
   }) => Promise<BudgetPeriodRecord>;
   listPeriods: () => Promise<BudgetPeriodRecord[]>;
-  listDailyTotalsByPeriodId: (periodId: string) => Promise<PeriodSummaryDailyTotal[]>;
-  listHistoryByDate: (periodId: string, date: string) => Promise<DailyHistoryRecord[]>;
+  listDailyTotalsByPeriodId: (
+    periodId: string,
+  ) => Promise<PeriodSummaryDailyTotal[]>;
+  listHistoryByDate: (
+    periodId: string,
+    date: string,
+  ) => Promise<DailyHistoryRecord[]>;
   nowIso: () => string;
   jstToday: () => string;
 };
 
 export type InMemoryApiServicesWithInternals = InMemoryApiServices & {
-  databaseClient: DatabaseClient<BudgetPeriodRecord, DailyTotalRecord, DailyHistoryRecord>;
+  databaseClient: DatabaseClient<
+    BudgetPeriodRecord,
+    DailyTotalRecord,
+    DailyHistoryRecord
+  >;
   dailyTotalRepository: DailyTotalRepository;
   dailyHistoryRepository: DailyHistoryRepository;
 };
@@ -353,7 +435,7 @@ export type CreateInMemoryApiServicesInput = {
 };
 
 export function createInMemoryApiServices(
-  input: CreateInMemoryApiServicesInput = {}
+  input: CreateInMemoryApiServicesInput = {},
 ): InMemoryApiServicesWithInternals {
   const now = input.now ?? (() => new Date());
   const databaseClient = createInMemoryDatabaseClient<
@@ -386,19 +468,19 @@ export function createInMemoryApiServices(
     dailyTotalRepository,
     dailyHistoryRepository,
     now: () => now().toISOString(),
-    createHistoryId: input.createHistoryId
+    createHistoryId: input.createHistoryId,
   });
 
   async function assertNoOutOfRangePeriodEntries(
     periodId: string,
     startDate: string,
-    endDate: string
+    endDate: string,
   ): Promise<void> {
     const hasOutOfRangeEntries = await databaseClient.read(async (tx) => {
       const hasOutOfRangeTotal = [...tx.state.dailyTotals.values()].some(
         (row) =>
           row.budgetPeriodId === periodId &&
-          !isDateWithinPeriod(row.date, startDate, endDate)
+          !isDateWithinPeriod(row.date, startDate, endDate),
       );
       if (hasOutOfRangeTotal) {
         return true;
@@ -406,14 +488,14 @@ export function createInMemoryApiServices(
       return tx.state.dailyOperationHistories.some(
         (row) =>
           row.budgetPeriodId === periodId &&
-          !isDateWithinPeriod(row.date, startDate, endDate)
+          !isDateWithinPeriod(row.date, startDate, endDate),
       );
     });
 
     if (hasOutOfRangeEntries) {
       throw new PeriodValidationError(
         "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
-        `period ${periodId} has entries outside the updated range`
+        `period ${periodId} has entries outside the updated range`,
       );
     }
   }
@@ -424,27 +506,28 @@ export function createInMemoryApiServices(
     dailyTotalRepository,
     dailyHistoryRepository,
     dayEntryService: {
-      addDailyAmount: (command) => runSerialized(() => rawDayEntryService.addDailyAmount(command)),
+      addDailyAmount: (command) =>
+        runSerialized(() => rawDayEntryService.addDailyAmount(command)),
       overwriteDailyAmount: (command) =>
-        runSerialized(() => rawDayEntryService.overwriteDailyAmount(command))
+        runSerialized(() => rawDayEntryService.overwriteDailyAmount(command)),
     },
     createPeriod: async (periodInput) =>
       runSerialized(() =>
         budgetPeriodRepository.createPeriod({
           ...periodInput,
-          nowIso: now().toISOString()
-        })
+          nowIso: now().toISOString(),
+        }),
       ),
     updatePeriod: async (periodInput) => {
       return runSerialized(async () => {
         await assertNoOutOfRangePeriodEntries(
           periodInput.id,
           periodInput.startDate,
-          periodInput.endDate
+          periodInput.endDate,
         );
         return budgetPeriodRepository.updatePeriod({
           ...periodInput,
-          nowIso: now().toISOString()
+          nowIso: now().toISOString(),
         });
       });
     },
@@ -456,7 +539,7 @@ export function createInMemoryApiServices(
           .map((row) => ({
             date: row.date,
             budgetPeriodId: row.budgetPeriodId,
-            totalUsedYen: row.totalUsedYen
+            totalUsedYen: row.totalUsedYen,
           }))
           .sort((left, right) => left.date.localeCompare(right.date));
       });
@@ -466,10 +549,12 @@ export function createInMemoryApiServices(
       if (!period) {
         throw new PeriodNotFoundError(periodId);
       }
-      return databaseClient.read((tx) => dailyHistoryRepository.listHistoriesByDate(tx, date, periodId));
+      return databaseClient.read((tx) =>
+        dailyHistoryRepository.listHistoriesByDate(tx, date, periodId),
+      );
     },
     nowIso: () => now().toISOString(),
-    jstToday: () => getJstDateParts(now()).date
+    jstToday: () => getJstDateParts(now()).date,
   };
 }
 
@@ -485,7 +570,9 @@ function getApiServicesGlobalCache(): ApiServicesGlobalCache {
   const runtimeHost =
     (globalThis as { process?: unknown }).process ?? (globalThis as unknown);
   const cacheHost = runtimeHost as Record<string | symbol, unknown>;
-  const existing = cacheHost[apiServicesCacheKey] as ApiServicesGlobalCache | undefined;
+  const existing = cacheHost[apiServicesCacheKey] as
+    | ApiServicesGlobalCache
+    | undefined;
   if (existing) {
     return existing;
   }
@@ -531,7 +618,7 @@ const d1SchemaStatements = [
      created_at TEXT NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS idx_daily_histories_period_date_created_at
-     ON daily_operation_histories (budget_period_id, date, created_at DESC)`
+     ON daily_operation_histories (budget_period_id, date, created_at DESC)`,
 ];
 
 async function ensureD1Schema(db: D1Database): Promise<void> {
@@ -543,7 +630,9 @@ async function ensureD1Schema(db: D1Database): Promise<void> {
     return;
   }
 
-  const initializePromise = db.batch(d1SchemaStatements.map((sql) => db.prepare(sql))).then(() => {});
+  const initializePromise = db
+    .batch(d1SchemaStatements.map((sql) => db.prepare(sql)))
+    .then(() => {});
   cache.d1SchemaReadyByBinding.set(db, initializePromise);
 
   try {
@@ -567,43 +656,30 @@ export function getDefaultInMemoryApiServices(): InMemoryApiServices {
 }
 
 function defaultCreateHistoryId(): string {
-  const cryptoObject = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  const cryptoObject = globalThis.crypto as
+    | { randomUUID?: () => string }
+    | undefined;
   if (cryptoObject?.randomUUID) {
     return cryptoObject.randomUUID();
   }
   return `history-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function toPeriodRow(row: {
-  id: string;
-  start_date: string;
-  end_date: string;
-  budget_yen: number;
-  status: "active" | "closed";
-  predecessor_period_id: string | null;
-  created_at: string;
-  updated_at: string;
-}): BudgetPeriodRecord {
-  return {
-    id: row.id,
-    startDate: row.start_date,
-    endDate: row.end_date,
-    budgetYen: row.budget_yen,
-    status: row.status,
-    predecessorPeriodId: row.predecessor_period_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
-
 function createD1DayEntryService(
   db: D1Database,
+  dailyTotalRepository: D1DailyTotalRepository,
+  dailyHistoryRepository: D1DailyHistoryRepository,
   now: () => Date,
-  createHistoryId: () => string
+  createHistoryId: () => string,
 ): DayEntryServicePort {
   async function execute(
-    command: { periodId: string; date: string; inputYen: number; memo?: string | null },
-    operationType: "add" | "overwrite"
+    command: {
+      periodId: string;
+      date: string;
+      inputYen: number;
+      memo?: string | null;
+    },
+    operationType: "add" | "overwrite",
   ) {
     assertValidDate(command.date);
     assertValidInputYen(command.inputYen);
@@ -613,7 +689,7 @@ function createD1DayEntryService(
       .prepare(
         `SELECT id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
            FROM budget_periods
-          WHERE id = ?`
+          WHERE id = ?`,
       )
       .bind(command.periodId)
       .first<{
@@ -636,57 +712,37 @@ function createD1DayEntryService(
     const nowIso = now().toISOString();
     const memo = normalizeMemo(command.memo);
 
-    const existing = await db
-      .prepare(
-        `SELECT total_used_yen
-           FROM daily_totals
-          WHERE budget_period_id = ?
-            AND date = ?`
-      )
-      .bind(command.periodId, command.date)
-      .first<{ total_used_yen: number }>();
-    const beforeTotalYen = existing?.total_used_yen ?? 0;
+    const existing = await dailyTotalRepository.findByDate(
+      command.date,
+      command.periodId,
+    );
+    const beforeTotalYen = existing?.totalUsedYen ?? 0;
     const afterTotalYen =
-      operationType === "add" ? beforeTotalYen + command.inputYen : command.inputYen;
-    const totalMutation =
       operationType === "add"
-        ? db
-            .prepare(
-              `INSERT INTO daily_totals (budget_period_id, date, year_month, total_used_yen, updated_at)
-               VALUES (?, ?, ?, ?, ?)
-               ON CONFLICT(budget_period_id, date) DO UPDATE SET
-                 year_month = excluded.year_month,
-                 total_used_yen = daily_totals.total_used_yen + excluded.total_used_yen,
-                 updated_at = excluded.updated_at`
-            )
-            .bind(command.periodId, command.date, command.date.slice(0, 7), command.inputYen, nowIso)
-        : db
-            .prepare(
-              `INSERT INTO daily_totals (budget_period_id, date, year_month, total_used_yen, updated_at)
-               VALUES (?, ?, ?, ?, ?)
-               ON CONFLICT(budget_period_id, date) DO UPDATE SET
-                 year_month = excluded.year_month,
-                 total_used_yen = excluded.total_used_yen,
-                 updated_at = excluded.updated_at`
-            )
-            .bind(command.periodId, command.date, command.date.slice(0, 7), command.inputYen, nowIso);
-    const historyInsert = db
-      .prepare(
-        `INSERT INTO daily_operation_histories (
-           id, budget_period_id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .bind(
-        createHistoryId(),
-        command.periodId,
-        command.date,
-        operationType,
-        command.inputYen,
-        beforeTotalYen,
-        afterTotalYen,
-        memo,
-        nowIso
-      );
+        ? beforeTotalYen + command.inputYen
+        : command.inputYen;
+    const totalMutation = dailyTotalRepository.prepareUpsertDailyTotal(
+      {
+        budgetPeriodId: command.periodId,
+        date: command.date,
+        yearMonth: command.date.slice(0, 7),
+        totalUsedYen:
+          operationType === "add" ? command.inputYen : afterTotalYen,
+        nowIso,
+      },
+      operationType,
+    );
+    const historyInsert = dailyHistoryRepository.prepareInsertHistory({
+      id: createHistoryId(),
+      budgetPeriodId: command.periodId,
+      date: command.date,
+      operationType,
+      inputYen: command.inputYen,
+      beforeTotalYen,
+      afterTotalYen,
+      memo,
+      createdAt: nowIso,
+    });
 
     await db.batch([totalMutation, historyInsert]);
   }
@@ -699,56 +755,57 @@ function createD1DayEntryService(
     async overwriteDailyAmount(command) {
       await execute(command, "overwrite");
       return {};
-    }
+    },
   };
 }
 
 export function createD1ApiServices(
   db: D1Database,
-  input: CreateInMemoryApiServicesInput = {}
+  input: CreateInMemoryApiServicesInput = {},
 ): InMemoryApiServices {
   const now = input.now ?? (() => new Date());
   const budgetPeriodRepository = createD1BudgetPeriodRepository({
     db,
-    ensureSchema: () => ensureD1Schema(db)
+    ensureSchema: () => ensureD1Schema(db),
+  });
+  const dailyTotalRepository = createD1DailyTotalRepository({
+    db,
+    ensureSchema: () => ensureD1Schema(db),
+  });
+  const dailyHistoryRepository = createD1DailyHistoryRepository({
+    db,
+    ensureSchema: () => ensureD1Schema(db),
   });
   const dayEntryService = createD1DayEntryService(
     db,
+    dailyTotalRepository,
+    dailyHistoryRepository,
     now,
-    input.createHistoryId ?? defaultCreateHistoryId
+    input.createHistoryId ?? defaultCreateHistoryId,
   );
 
   async function assertNoOutOfRangePeriodEntries(
     periodId: string,
     startDate: string,
-    endDate: string
+    endDate: string,
   ): Promise<void> {
     await ensureD1Schema(db);
-    const outOfRangeTotal = await db
-      .prepare(
-        `SELECT 1
-           FROM daily_totals
-          WHERE budget_period_id = ?
-            AND (date < ? OR date > ?)
-          LIMIT 1`
-      )
-      .bind(periodId, startDate, endDate)
-      .first();
-    const outOfRangeHistory = await db
-      .prepare(
-        `SELECT 1
-           FROM daily_operation_histories
-          WHERE budget_period_id = ?
-            AND (date < ? OR date > ?)
-          LIMIT 1`
-      )
-      .bind(periodId, startDate, endDate)
-      .first();
+    const outOfRangeTotal = await dailyTotalRepository.hasEntriesOutsidePeriod(
+      periodId,
+      startDate,
+      endDate,
+    );
+    const outOfRangeHistory =
+      await dailyHistoryRepository.hasEntriesOutsidePeriod(
+        periodId,
+        startDate,
+        endDate,
+      );
 
     if (outOfRangeTotal || outOfRangeHistory) {
       throw new PeriodValidationError(
         "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
-        `period ${periodId} has entries outside the updated range`
+        `period ${periodId} has entries outside the updated range`,
       );
     }
   }
@@ -759,36 +816,26 @@ export function createD1ApiServices(
     createPeriod: (periodInput) =>
       budgetPeriodRepository.createPeriod({
         ...periodInput,
-        nowIso: now().toISOString()
+        nowIso: now().toISOString(),
       }),
     updatePeriod: async (periodInput) => {
       await assertNoOutOfRangePeriodEntries(
         periodInput.id,
         periodInput.startDate,
-        periodInput.endDate
+        periodInput.endDate,
       );
       return budgetPeriodRepository.updatePeriod({
         ...periodInput,
-        nowIso: now().toISOString()
+        nowIso: now().toISOString(),
       });
     },
     listPeriods: () => budgetPeriodRepository.listPeriods(),
     listDailyTotalsByPeriodId: async (periodId) => {
-      await ensureD1Schema(db);
-      const result = await db
-        .prepare(
-          `SELECT budget_period_id, date, total_used_yen
-             FROM daily_totals
-            WHERE budget_period_id = ?
-            ORDER BY date ASC`
-        )
-        .bind(periodId)
-        .all<{ budget_period_id: string; date: string; total_used_yen: number }>();
-      const rows = result.results ?? [];
+      const rows = await dailyTotalRepository.listByPeriodId(periodId);
       return rows.map((row) => ({
         date: row.date,
-        budgetPeriodId: row.budget_period_id,
-        totalUsedYen: row.total_used_yen
+        budgetPeriodId: row.budgetPeriodId,
+        totalUsedYen: row.totalUsedYen,
       }));
     },
     listHistoryByDate: async (periodId, date) => {
@@ -797,46 +844,19 @@ export function createD1ApiServices(
       if (!period) {
         throw new PeriodNotFoundError(periodId);
       }
-      const result = await db
-        .prepare(
-          `SELECT id, budget_period_id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at
-             FROM daily_operation_histories
-            WHERE budget_period_id = ?
-              AND date = ?
-            ORDER BY created_at DESC, id DESC`
-        )
-        .bind(periodId, date)
-        .all<{
-          id: string;
-          budget_period_id: string;
-          date: string;
-          operation_type: "add" | "overwrite";
-          input_yen: number;
-          before_total_yen: number;
-          after_total_yen: number;
-          memo: string | null;
-          created_at: string;
-        }>();
-      const rows = result.results ?? [];
-      return rows.map((row) => ({
-        id: row.id,
-        budgetPeriodId: row.budget_period_id,
-        date: row.date,
-        operationType: row.operation_type,
-        inputYen: row.input_yen,
-        beforeTotalYen: row.before_total_yen,
-        afterTotalYen: row.after_total_yen,
-        memo: row.memo,
-        createdAt: row.created_at
-      }));
+      return dailyHistoryRepository.listHistoriesByDate(date, periodId);
     },
     nowIso: () => now().toISOString(),
-    jstToday: () => getJstDateParts(now()).date
+    jstToday: () => getJstDateParts(now()).date,
   };
 }
 
-export function getApiServicesFromPlatform(platform?: App.Platform): InMemoryApiServices {
-  const runtimeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+export function getApiServicesFromPlatform(
+  platform?: App.Platform,
+): InMemoryApiServices {
+  const runtimeProcess = (
+    globalThis as { process?: { env?: Record<string, string | undefined> } }
+  ).process;
   if (runtimeProcess?.env?.YOSAN_FLOW_FORCE_IN_MEMORY_DEV === "1") {
     return getDefaultInMemoryApiServices();
   }
@@ -851,7 +871,8 @@ export function getApiServicesFromPlatform(platform?: App.Platform): InMemoryApi
 
   const cache = getApiServicesGlobalCache();
   const d1BindingScopedServices =
-    cache.d1BindingScopedServices ?? (cache.d1BindingScopedServices = new WeakMap());
+    cache.d1BindingScopedServices ??
+    (cache.d1BindingScopedServices = new WeakMap());
   const existing = d1BindingScopedServices.get(db);
   if (existing) {
     return existing;
@@ -864,10 +885,10 @@ export function getApiServicesFromPlatform(platform?: App.Platform): InMemoryApi
 
 export async function getPeriodSummaryFromServices(
   services: InMemoryApiServices,
-  periodId: string
+  periodId: string,
 ): Promise<PeriodSummary> {
   return buildPeriodSummary(services.budgetPeriodRepository, periodId, {
     jstToday: services.jstToday(),
-    dailyTotals: await services.listDailyTotalsByPeriodId(periodId)
+    dailyTotals: await services.listDailyTotalsByPeriodId(periodId),
   });
 }

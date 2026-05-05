@@ -2,7 +2,7 @@ const jstDateFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Tokyo",
   year: "numeric",
   month: "2-digit",
-  day: "2-digit"
+  day: "2-digit",
 });
 
 function formatJstDate(date: Date): string {
@@ -22,10 +22,13 @@ export function getJstDateParts(now: Date) {
   const date = formatJstDate(now);
   return {
     date,
-    yearMonth: date.slice(0, 7)
+    yearMonth: date.slice(0, 7),
   };
 }
 
-export function isFutureDateFromJstToday(targetDate: string, jstToday: string): boolean {
+export function isFutureDateFromJstToday(
+  targetDate: string,
+  jstToday: string,
+): boolean {
   return targetDate > jstToday;
 }

@@ -36,10 +36,12 @@
     </div>
   {:else}
     <ul>
-      {#each histories as history}
+      {#each histories as history (history.id)}
         <li>
           <div>
-            <strong>{history.operationType === "add" ? "追加" : "上書き"}</strong>
+            <strong
+              >{history.operationType === "add" ? "追加" : "上書き"}</strong
+            >
             <time datetime={history.createdAt}>{history.createdAt}</time>
           </div>
           <p>

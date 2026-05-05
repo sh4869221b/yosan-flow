@@ -20,7 +20,11 @@ export function assertValidDate(date: string): void {
   const normalizedMonth = utcDate.getUTCMonth() + 1;
   const normalizedDay = utcDate.getUTCDate();
 
-  if (year !== normalizedYear || month !== normalizedMonth || day !== normalizedDay) {
+  if (
+    year !== normalizedYear ||
+    month !== normalizedMonth ||
+    day !== normalizedDay
+  ) {
     throw new Error(`Invalid date: ${date}`);
   }
 }

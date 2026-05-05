@@ -4,7 +4,7 @@ Yosan Flow は Cloudflare Workers 上で動く、SvelteKit 製の月予算管理
 
 ## 前提
 
-- Node.js 20 以上
+- Node.js 20.19 以上
 - pnpm 9 以上
 - Cloudflare アカウント（D1/Workers 利用時）
 
@@ -25,11 +25,40 @@ pnpm dev
 
 ## ローカル検証コマンド
 
-- `pnpm check`
-- `pnpm test:unit`
-- `pnpm test:integration`
-- `pnpm test:e2e`
-- `pnpm build`
+コード整形:
+
+```bash
+pnpm format
+pnpm format:check
+```
+
+Lint:
+
+```bash
+pnpm lint
+```
+
+ローカルと CI の基本検証順:
+
+```bash
+pnpm format:check
+pnpm lint
+pnpm check
+pnpm test:unit
+pnpm test:integration
+pnpm build
+```
+
+CI gate policy:
+
+- Required on pull requests and `main` pushes: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
+- `pnpm test:e2e` is not a required PR gate for now. Run it manually when browser workflows/UI flows change.
+
+E2E を確認する場合:
+
+```bash
+pnpm test:e2e
+```
 
 ## 環境フロー（local / preview / production）
 
@@ -46,7 +75,7 @@ pnpm dev
 3. `pnpm run cf:migrate:local`
 4. UI 開発は `pnpm dev`
 5. Workers 実行系の確認は `pnpm wrangler dev`
-6. 必要に応じて `pnpm check && pnpm test:unit && pnpm test:integration`
+6. 必要に応じて `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
 
 ### preview
 
@@ -60,10 +89,9 @@ pnpm dev
 
 1. production 用 D1 を作成して `wrangler.jsonc` の `env.production.d1_databases[0].database_id` を実 UUID に置き換える
 2. `pnpm run cf:migrate:production`
-3. `pnpm check && pnpm test:unit && pnpm test:integration`
-4. `pnpm build`
-5. `pnpm run deploy:production`
-6. production ホストが Cloudflare Access 保護対象であることを確認
+3. `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
+4. `pnpm run deploy:production`
+5. production ホストが Cloudflare Access 保護対象であることを確認
 
 ## Cloudflare Access 保護メモ
 
@@ -93,6 +121,9 @@ pnpm wrangler tail yosan-flow --env production --status error --format pretty
 ## D1 migration 運用メモ
 
 - スキーマは `migrations/*.sql` で管理します。
+- `src/lib/server/db/schema.ts` は Drizzle 用の schema mirror です。現時点では SQL migrations が source of truth です。
+- Drizzle 生成 migration はまだ採用していません。migration drift check の運用は後続タスクで決めます。
+- Drizzle generated migration checks / drift checks are not required in CI at this stage. TypeScript import and type safety coverage through `pnpm check` is sufficient for now.
 - ローカル適用: `pnpm run cf:migrate:local`
 - preview 適用: `pnpm run cf:migrate:preview`
 - production 適用: `pnpm run cf:migrate:production`

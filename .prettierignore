@@ -1,0 +1,11 @@
+node_modules
+pnpm-lock.yaml
+.svelte-kit
+build
+.wrangler
+.tmp-*
+test-results
+playwright-report
+.env
+.env.*
+.dev.vars

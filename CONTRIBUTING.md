@@ -4,7 +4,7 @@
 
 Requirements:
 
-- Node.js 20 or newer
+- Node.js 20.19 or newer
 - pnpm 9 or newer
 - Cloudflare account for D1/Workers checks
 
@@ -34,6 +34,7 @@ pnpm wrangler dev
 - `src/lib/components/`: Svelte UI components.
 - `src/lib/server/`: server-side repositories, services, and validation.
 - `migrations/`: D1 schema migrations.
+- `src/lib/server/db/schema.ts`: Drizzle schema mirror for the current SQL migrations.
 - `tests/unit/`: domain and calculation tests.
 - `tests/integration/`: API/repository integration tests.
 - `tests/e2e/`: Playwright dashboard tests.
@@ -49,13 +50,38 @@ pnpm wrangler dev
 
 ## Verification
 
-Run focused checks while developing. Before merging a user-facing or data-model change, prefer:
+Format files before opening a review:
 
 ```bash
+pnpm format
+pnpm format:check
+```
+
+Lint source, test, and config files:
+
+```bash
+pnpm lint
+```
+
+Run focused checks while developing. CI runs the same quality baseline:
+
+```bash
+pnpm format:check
+pnpm lint
 pnpm check
 pnpm test:unit
 pnpm test:integration
 pnpm build
+```
+
+Required CI gate policy:
+
+- Pull request / `main` push required order: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
+- E2E is intentionally not a required PR gate yet. Run `pnpm test:e2e` manually when browser workflows change. If CI E2E is added later, keep it non-blocking (for example `workflow_dispatch`, scheduled, or main-only optional jobs).
+
+Run E2E separately when a change affects browser workflows:
+
+```bash
 pnpm test:e2e
 ```
 
@@ -64,6 +90,13 @@ For migration work:
 ```bash
 pnpm run cf:migrate:local
 ```
+
+Migration policy:
+
+- SQL files under `migrations/*.sql` remain the source of truth.
+- The Drizzle schema is a mirror only at this stage.
+- Generated Drizzle migrations are not adopted yet.
+- Generated Drizzle migration checks / drift checks are not required yet. For now, `pnpm check` type/import checks are the expected guard.
 
 If E2E needs an in-memory dev server because local D1 state is stale, start the app with:
 

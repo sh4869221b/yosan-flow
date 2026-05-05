@@ -62,6 +62,7 @@
 ### Task 1: Add budget period schema and repositories
 
 **Files:**
+
 - Create: `migrations/0002_budget_periods.sql`
 - Create: `src/lib/server/domain/budget-period.ts`
 - Create: `src/lib/server/db/budget-period-repository.ts`
@@ -77,7 +78,9 @@ it("treats the next period start as the day after previous end", () => {
 });
 
 it("rejects dates outside the period", () => {
-  expect(isDateWithinPeriod("2026-04-19", "2026-04-20", "2026-05-19")).toBe(false);
+  expect(isDateWithinPeriod("2026-04-19", "2026-04-20", "2026-05-19")).toBe(
+    false,
+  );
 });
 ```
 
@@ -115,6 +118,7 @@ git commit -m "feat: add budget period schema"
 ### Task 2: Replace month summary logic with period summary logic
 
 **Files:**
+
 - Modify: `src/lib/server/services/month-summary-service.ts`
 - Modify: `src/lib/server/domain/reallocation.ts`
 - Modify: `src/lib/server/domain/daily-entry.ts`
@@ -126,7 +130,7 @@ git commit -m "feat: add budget period schema"
 ```ts
 it("reallocates based on confirmed usage before today", () => {
   expect(buildDailyRecommendationsForPeriod(/* ... */)).toMatchObject({
-    todayRecommendedYen: 3000
+    todayRecommendedYen: 3000,
   });
 });
 
@@ -144,7 +148,10 @@ Expected: FAIL because period-based calculation is not implemented
 
 ```ts
 const remainingAtToday = budgetYen - spentBeforeTodayYen;
-const recommendations = buildDailyRecommendations({ remainingYen: remainingAtToday, dates: remainingDates });
+const recommendations = buildDailyRecommendations({
+  remainingYen: remainingAtToday,
+  dates: remainingDates,
+});
 ```
 
 - [ ] **Step 4: Re-run unit tests**
@@ -162,6 +169,7 @@ git commit -m "feat: add period-based reallocation"
 ### Task 3: Add periods API routes
 
 **Files:**
+
 - Create: `src/routes/api/periods/+server.ts`
 - Create: `src/routes/api/periods/[periodId]/+server.ts`
 - Create: `src/routes/api/periods/[periodId]/days/[date]/add/+server.ts`
@@ -210,6 +218,7 @@ git commit -m "feat: add budget period api"
 ### Task 4: Add Bits UI based period inputs and calendar
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `pnpm-lock.yaml`
 - Create: `src/lib/components/PeriodRangePicker.svelte`
@@ -252,6 +261,7 @@ git commit -m "feat: add period calendar ui"
 ### Task 5: Convert the day detail flow into a calendar-driven modal
 
 **Files:**
+
 - Modify: `src/lib/components/DayEntryModal.svelte`
 - Modify: `src/lib/components/HistoryPanel.svelte`
 - Modify: `src/routes/+page.svelte`
@@ -273,7 +283,7 @@ Expected: FAIL because calendar-driven modal flow is not wired
 - [ ] **Step 3: Refactor modal and history UI**
 
 ```svelte
-<DayEntryModal histories={histories} selectedDate={selectedDate} />
+<DayEntryModal {histories} {selectedDate} />
 ```
 
 - [ ] **Step 4: Re-run E2E**
@@ -291,6 +301,7 @@ git commit -m "feat: show day history from calendar"
 ### Task 6: Add coverage for end-date updates and next-period continuity
 
 **Files:**
+
 - Test: `tests/unit/budget-period.test.ts`
 - Test: `tests/integration/api/periods.test.ts`
 - Test: `tests/e2e/dashboard.spec.ts`
@@ -317,7 +328,8 @@ Expected: FAIL on update conflict handling
 - [ ] **Step 3: Implement update constraints**
 
 ```ts
-if (nextPeriod && updatedEndDate >= nextPeriod.startDate) throw new Error("PERIOD_OVERLAP");
+if (nextPeriod && updatedEndDate >= nextPeriod.startDate)
+  throw new Error("PERIOD_OVERLAP");
 ```
 
 - [ ] **Step 4: Re-run checks**
@@ -335,6 +347,7 @@ git commit -m "feat: enforce period continuity"
 ### Task 7: Remove or deprecate old month-centric UI paths and update docs
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `src/routes/+page.server.ts`
 - Modify: `src/routes/api/months/[yearMonth]/+server.ts`

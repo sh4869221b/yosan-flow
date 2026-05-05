@@ -18,12 +18,14 @@
   export let endDate = "";
   export let loading = false;
 
-  const dispatch = createEventDispatcher<{ "request-edit": { date: string } }>();
+  const dispatch = createEventDispatcher<{
+    "request-edit": { date: string };
+  }>();
 
   const jstFormatter = new Intl.DateTimeFormat("ja-JP", {
     timeZone: "Asia/Tokyo",
     year: "numeric",
-    month: "long"
+    month: "long",
   });
 
   $: rowsByDate = new Map(rows.map((row) => [row.date, row]));
@@ -45,7 +47,10 @@
     return jstFormatter.format(new Date(`${date}T00:00:00.000Z`));
   }
 
-  function buildMonths(periodStartDate: string, periodEndDate: string): CalendarMonth[] {
+  function buildMonths(
+    periodStartDate: string,
+    periodEndDate: string,
+  ): CalendarMonth[] {
     if (!periodStartDate || !periodEndDate || periodStartDate > periodEndDate) {
       return [];
     }
@@ -65,7 +70,10 @@
 
     return [...monthMap.entries()].map(([key, dates]) => {
       const firstWeekday = new Date(`${dates[0]}T00:00:00.000Z`).getUTCDay();
-      const cells: Array<string | null> = Array.from({ length: firstWeekday }, () => null);
+      const cells: Array<string | null> = Array.from(
+        { length: firstWeekday },
+        () => null,
+      );
       for (const date of dates) {
         cells.push(date);
       }
@@ -81,7 +89,7 @@
       return {
         key,
         label: buildMonthLabel(`${key}-01`),
-        weeks
+        weeks,
       };
     });
   }
@@ -93,7 +101,7 @@
     <p>読み込み中...</p>
   {/if}
 
-  {#each months as month}
+  {#each months as month (month.key)}
     <article>
       <h3>{month.label}</h3>
       <table>
@@ -109,9 +117,9 @@
           </tr>
         </thead>
         <tbody>
-          {#each month.weeks as week}
+          {#each month.weeks as week, weekIndex (`${month.key}-${weekIndex}`)}
             <tr>
-              {#each week as date}
+              {#each week as date, dayIndex (date ?? `${month.key}-empty-${weekIndex}-${dayIndex}`)}
                 <td>
                   {#if date}
                     <button
@@ -121,8 +129,12 @@
                       class:today={rowsByDate.get(date)?.label === "today"}
                       class:spent={(rowsByDate.get(date)?.usedYen ?? 0) > 0}
                     >
-                      <span class="date-number">{Number(date.slice(8, 10))}</span>
-                      <span class="used" data-testid={`used-${date}`}>{rowsByDate.get(date)?.usedYen ?? 0} 円</span>
+                      <span class="date-number"
+                        >{Number(date.slice(8, 10))}</span
+                      >
+                      <span class="used" data-testid={`used-${date}`}
+                        >{rowsByDate.get(date)?.usedYen ?? 0} 円</span
+                      >
                       <span class="hint">入力</span>
                     </button>
                   {:else}

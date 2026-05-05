@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 import {
   getApiServicesFromPlatform,
-  getPeriodSummaryFromServices
+  getPeriodSummaryFromServices,
 } from "$lib/server/services/month-summary-service";
 import { parsePeriodId } from "$lib/server/validation/month";
 
@@ -27,19 +27,19 @@ export const load: PageServerLoad = async ({ platform, url }) => {
       today,
       periods,
       selectedPeriodId: null,
-      summary: null
+      summary: null,
     };
   }
 
   const requestedPeriod = requestedPeriodId
-    ? periods.find((period) => period.id === requestedPeriodId) ?? null
+    ? (periods.find((period) => period.id === requestedPeriodId) ?? null)
     : null;
   const currentPeriod =
     periods.find(
       (period) =>
         period.status === "active" &&
         period.startDate <= today &&
-        today <= period.endDate
+        today <= period.endDate,
     ) ?? null;
   const latestPeriod = periods[periods.length - 1] ?? null;
   const selectedPeriod = requestedPeriod ?? currentPeriod ?? latestPeriod;
@@ -51,6 +51,6 @@ export const load: PageServerLoad = async ({ platform, url }) => {
     today,
     periods,
     selectedPeriodId: selectedPeriod?.id ?? null,
-    summary
+    summary,
   };
 };

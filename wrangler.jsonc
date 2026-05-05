@@ -8,15 +8,15 @@
   "preview_urls": false,
   "assets": {
     "binding": "ASSETS",
-    "directory": ".svelte-kit/cloudflare"
+    "directory": ".svelte-kit/cloudflare",
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "yosan-flow-local",
       // Local development DB placeholder.
-      "database_id": "00000000-0000-0000-0000-000000000000"
-    }
+      "database_id": "00000000-0000-0000-0000-000000000000",
+    },
   ],
   "env": {
     "preview": {
@@ -28,9 +28,9 @@
           "binding": "DB",
           "database_name": "yosan-flow-preview",
           // Replace with preview D1 database_id (UUID).
-          "database_id": "00000000-0000-0000-0000-000000000000"
-        }
-      ]
+          "database_id": "00000000-0000-0000-0000-000000000000",
+        },
+      ],
     },
     "production": {
       "name": "yosan-flow",
@@ -44,27 +44,27 @@
           "enabled": true,
           "head_sampling_rate": 1,
           "invocation_logs": true,
-          "persist": true
+          "persist": true,
         },
         "traces": {
           "enabled": true,
           "head_sampling_rate": 1,
-          "persist": true
-        }
+          "persist": true,
+        },
       },
       "routes": [
         {
           "pattern": "yosan.sh4869221b.work",
-          "custom_domain": true
-        }
+          "custom_domain": true,
+        },
       ],
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "yosan-flow-prod",
-          "database_id": "243d7022-5343-40d4-82dc-cef427eba406"
-        }
-      ]
-    }
-  }
+          "database_id": "243d7022-5343-40d4-82dc-cef427eba406",
+        },
+      ],
+    },
+  },
 }

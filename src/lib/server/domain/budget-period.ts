@@ -32,7 +32,11 @@ export function getNextPeriodStartDate(previousEndDate: string): string {
   return toDateString(previousEndDateValue + 24 * 60 * 60 * 1000);
 }
 
-export function isDateWithinPeriod(date: string, startDate: string, endDate: string): boolean {
+export function isDateWithinPeriod(
+  date: string,
+  startDate: string,
+  endDate: string,
+): boolean {
   const dateValue = toDateValue(date);
   const startDateValue = toDateValue(startDate);
   const endDateValue = toDateValue(endDate);

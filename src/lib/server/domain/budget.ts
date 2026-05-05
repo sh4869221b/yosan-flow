@@ -4,7 +4,9 @@ export type CalculateRemainingYenInput = {
   plannedYen: number;
 };
 
-export function calculateRemainingYen(input: CalculateRemainingYenInput): number {
+export function calculateRemainingYen(
+  input: CalculateRemainingYenInput,
+): number {
   return input.budgetYen - input.spentToDateYen - input.plannedYen;
 }
 
