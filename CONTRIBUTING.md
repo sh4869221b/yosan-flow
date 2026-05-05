@@ -74,6 +74,11 @@ pnpm test:integration
 pnpm build
 ```
 
+Required CI gate policy:
+
+- Pull request / `main` push required order: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
+- E2E is intentionally not a required PR gate yet. Run `pnpm test:e2e` manually when browser workflows change. If CI E2E is added later, keep it non-blocking (for example `workflow_dispatch`, scheduled, or main-only optional jobs).
+
 Run E2E separately when a change affects browser workflows:
 
 ```bash
@@ -91,7 +96,7 @@ Migration policy:
 - SQL files under `migrations/*.sql` remain the source of truth.
 - The Drizzle schema is a mirror only at this stage.
 - Generated Drizzle migrations are not adopted yet.
-- Drift check policy will be decided in a later tooling task.
+- Generated Drizzle migration checks / drift checks are not required yet. For now, `pnpm check` type/import checks are the expected guard.
 
 If E2E needs an in-memory dev server because local D1 state is stale, start the app with:
 

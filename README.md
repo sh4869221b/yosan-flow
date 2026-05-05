@@ -49,6 +49,11 @@ pnpm test:integration
 pnpm build
 ```
 
+CI gate policy:
+
+- Required on pull requests and `main` pushes: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
+- `pnpm test:e2e` is not a required PR gate for now. Run it manually when browser workflows/UI flows change.
+
 E2E を確認する場合:
 
 ```bash
@@ -118,6 +123,7 @@ pnpm wrangler tail yosan-flow --env production --status error --format pretty
 - スキーマは `migrations/*.sql` で管理します。
 - `src/lib/server/db/schema.ts` は Drizzle 用の schema mirror です。現時点では SQL migrations が source of truth です。
 - Drizzle 生成 migration はまだ採用していません。migration drift check の運用は後続タスクで決めます。
+- Drizzle generated migration checks / drift checks are not required in CI at this stage. TypeScript import and type safety coverage through `pnpm check` is sufficient for now.
 - ローカル適用: `pnpm run cf:migrate:local`
 - preview 適用: `pnpm run cf:migrate:preview`
 - production 適用: `pnpm run cf:migrate:production`
