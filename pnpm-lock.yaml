@@ -37,7 +37,7 @@ importers:
         specifier: ^7.1.0
         version: 7.1.0(svelte@5.55.5(@typescript-eslint/types@8.59.2))(vite@7.3.2(@types/node@24.12.2)(tsx@4.21.0))
       '@types/node':
-        specifier: ^24.0.0
+        specifier: ^24.12.2
         version: 24.12.2
       drizzle-kit:
         specifier: ^0.31.10
