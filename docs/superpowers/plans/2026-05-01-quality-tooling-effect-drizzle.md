@@ -1124,7 +1124,7 @@ pnpm test:e2e
 For local UI debugging with stale D1 state:
 
 ```bash
-XDG_CONFIG_HOME=/home/sh4869/ghq/github.com/sh4869221b/yosan-flow/.tmp-xdg-config YOSAN_FLOW_FORCE_IN_MEMORY_DEV=1 pnpm dev -- --host 127.0.0.1
+XDG_CONFIG_HOME="$PWD/.tmp-xdg-config" YOSAN_FLOW_FORCE_IN_MEMORY_DEV=1 pnpm dev -- --host 127.0.0.1
 ```
 
 - [x] **Step 7: Spec review checkpoint**
