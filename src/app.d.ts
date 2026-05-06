@@ -5,6 +5,7 @@ declare global {
     interface Platform {
       env: {
         DB: D1Database;
+        YOSAN_FLOW_E2E_RESET_TOKEN?: string;
       };
       cf: unknown;
       ctx: {

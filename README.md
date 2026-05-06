@@ -54,6 +54,8 @@ CI gate policy:
 - Required on pull requests and `main` pushes: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
 - Renovate update branches also run the same CI gate on `renovate/**` pushes, so Renovate can wait for a green branch before opening selected PRs.
 - `pnpm test:e2e` is not a required PR gate for now. Run it manually when browser workflows/UI flows change.
+- `pnpm test:coverage` reports server/API coverage for unit and integration tests. It is a visibility check, not a required PR gate.
+- The `E2E` GitHub Actions workflow is available through `workflow_dispatch` for optional Playwright checks.
 
 ## Dependency updates
 
@@ -68,6 +70,12 @@ E2E を確認する場合:
 
 ```bash
 pnpm test:e2e
+```
+
+Server/API coverage を確認する場合:
+
+```bash
+pnpm test:coverage
 ```
 
 ## 環境フロー（local / preview / production）

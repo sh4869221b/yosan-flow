@@ -78,7 +78,8 @@ Required CI gate policy:
 
 - Pull request / `main` push required order: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
 - Renovate branches use the same gate on `renovate/**` pushes. Keep this trigger in place because Renovate waits for successful branch CI before opening stable patch/minor PRs.
-- E2E is intentionally not a required PR gate yet. Run `pnpm test:e2e` manually when browser workflows change. If CI E2E is added later, keep it non-blocking (for example `workflow_dispatch`, scheduled, or main-only optional jobs).
+- E2E is intentionally not a required PR gate yet. Run `pnpm test:e2e` manually when browser workflows change, or dispatch the optional `E2E` GitHub Actions workflow.
+- Coverage is intentionally a visibility check, not a required PR gate. Run `pnpm test:coverage` when changing server-side domain, API, repository, or validation behavior.
 
 ## Dependency Updates
 
@@ -93,6 +94,14 @@ Run E2E separately when a change affects browser workflows:
 
 ```bash
 pnpm test:e2e
+```
+
+Playwright starts the local Wrangler server once per run and resets D1 state before each test through a guarded E2E-only endpoint.
+
+Check unit/integration coverage for server and API code:
+
+```bash
+pnpm test:coverage
 ```
 
 For migration work:
