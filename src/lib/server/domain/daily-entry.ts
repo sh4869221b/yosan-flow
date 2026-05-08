@@ -1,11 +1,3 @@
-export type DayEntryOperationType = "add" | "overwrite";
-
-export type DayEntryCommand = {
-  date: string;
-  inputYen: number;
-  memo?: string | null;
-};
-
 export function assertValidDate(date: string): void {
   const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   if (!matched) {
@@ -27,11 +19,6 @@ export function assertValidDate(date: string): void {
   ) {
     throw new Error(`Invalid date: ${date}`);
   }
-}
-
-export function toYearMonth(date: string): string {
-  assertValidDate(date);
-  return date.slice(0, 7);
 }
 
 export function assertValidInputYen(inputYen: number): void {

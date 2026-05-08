@@ -12,12 +12,6 @@ import {
 import { _createPeriodDayHistoryHandler } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
 import { POST as dayAddDefaultRoute } from "../../../src/routes/api/periods/[periodId]/days/[date]/add/+server";
 import { GET as dayHistoryDefaultRoute } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
-import { GET as legacyMonthGet } from "../../../src/routes/api/months/[yearMonth]/+server";
-import { POST as legacyMonthInitialize } from "../../../src/routes/api/months/[yearMonth]/initialize/+server";
-import { PUT as legacyMonthBudget } from "../../../src/routes/api/months/[yearMonth]/budget/+server";
-import { POST as legacyDayAdd } from "../../../src/routes/api/days/[date]/add/+server";
-import { PUT as legacyDayOverwrite } from "../../../src/routes/api/days/[date]/overwrite/+server";
-import { GET as legacyDayHistory } from "../../../src/routes/api/days/[date]/history/+server";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 
 describe("period API default routes", () => {
@@ -371,22 +365,6 @@ describe("period API default routes", () => {
       periodId: "p-a",
       budgetYen: 120000,
     });
-  });
-
-  it("legacy month/day endpoints return 410", async () => {
-    const monthRes = await legacyMonthGet({} as any);
-    const monthInitRes = await legacyMonthInitialize({} as any);
-    const monthBudgetRes = await legacyMonthBudget({} as any);
-    const addRes = await legacyDayAdd({} as any);
-    const overwriteRes = await legacyDayOverwrite({} as any);
-    const historyRes = await legacyDayHistory({} as any);
-
-    expect(monthRes.status).toBe(410);
-    expect(monthInitRes.status).toBe(410);
-    expect(monthBudgetRes.status).toBe(410);
-    expect(addRes.status).toBe(410);
-    expect(overwriteRes.status).toBe(410);
-    expect(historyRes.status).toBe(410);
   });
 });
 

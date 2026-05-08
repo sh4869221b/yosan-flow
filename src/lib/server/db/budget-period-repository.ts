@@ -7,7 +7,7 @@ import {
   isDateWithinPeriod,
 } from "$lib/server/domain/budget-period";
 
-export type BudgetPeriodStatus = "active" | "closed";
+type BudgetPeriodStatus = "active" | "closed";
 
 export type BudgetPeriodRecord = {
   id: string;
@@ -20,7 +20,7 @@ export type BudgetPeriodRecord = {
   updatedAt: string;
 };
 
-export type CreateBudgetPeriodInput = {
+type CreateBudgetPeriodInput = {
   id: string;
   startDate: string;
   endDate: string;
@@ -30,7 +30,7 @@ export type CreateBudgetPeriodInput = {
   nowIso: string;
 };
 
-export type UpdateBudgetPeriodInput = {
+type UpdateBudgetPeriodInput = {
   id: string;
   startDate: string;
   endDate: string;
@@ -48,7 +48,7 @@ export class PeriodValidationError extends Error {
   }
 }
 
-export class PeriodNotFoundError extends Error {
+class PeriodNotFoundError extends Error {
   readonly code = "PERIOD_NOT_FOUND";
 
   constructor(periodId: string) {

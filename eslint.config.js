@@ -90,7 +90,6 @@ export default defineConfig(
     files: [
       "src/lib/server/db/daily-history-repository.ts",
       "src/lib/server/db/daily-total-repository.ts",
-      "src/lib/server/db/month-repository.ts",
       "tests/e2e/helpers/db.ts",
       "tests/integration/**/*.test.ts",
     ],

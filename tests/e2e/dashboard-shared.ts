@@ -1,7 +1,7 @@
 import type { APIRequestContext, Browser } from "@playwright/test";
 
-export const DEFAULT_HOST = "127.0.0.1";
-export const DEFAULT_PORT = 4173;
+const DEFAULT_HOST = "127.0.0.1";
+const DEFAULT_PORT = 4173;
 const E2E_RESET_TOKEN = "local-e2e-reset-token";
 
 const baseUrl = `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
@@ -50,19 +50,6 @@ export async function resetTestData(request: APIRequestContext): Promise<void> {
   if (!response.ok()) {
     throw new Error(`Failed to reset test data: ${response.status()}`);
   }
-}
-
-export async function fetchPeriods(request: APIRequestContext) {
-  const response = await request.get(`${baseUrl}/api/periods`);
-  if (!response.ok()) {
-    throw new Error(`Failed to fetch periods: ${response.status()}`);
-  }
-  const body = await response.json();
-  return body.periods as Array<{
-    id: string;
-    startDate: string;
-    endDate: string;
-  }>;
 }
 
 export async function fetchPeriodSummary(

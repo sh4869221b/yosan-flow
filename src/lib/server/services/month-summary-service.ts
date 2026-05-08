@@ -33,7 +33,7 @@ import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
 import { DayEntryService } from "$lib/server/services/day-entry-service";
 import { getJstDateParts } from "$lib/server/time/jst";
 
-export class PeriodNotFoundError extends Error {
+class PeriodNotFoundError extends Error {
   readonly code = "PERIOD_NOT_FOUND";
 
   constructor(periodId: string) {
@@ -42,7 +42,7 @@ export class PeriodNotFoundError extends Error {
   }
 }
 
-export class DateOutOfPeriodError extends Error {
+class DateOutOfPeriodError extends Error {
   readonly code = "DATE_OUT_OF_PERIOD";
 
   constructor(date: string, periodId: string) {
@@ -51,22 +51,22 @@ export class DateOutOfPeriodError extends Error {
   }
 }
 
-export type PeriodDailyRow = {
+type PeriodDailyRow = {
   date: string;
   label: "today" | "planned";
   usedYen: number;
   recommendedYen: number;
 };
 
-export type PeriodSummaryDailyTotal = {
+type PeriodSummaryDailyTotal = {
   date: string;
   budgetPeriodId: string;
   totalUsedYen: number;
 };
 
-export type FoodPaceStatus = "bonus" | "adjustment" | "on_track";
+type FoodPaceStatus = "bonus" | "adjustment" | "on_track";
 
-export type FoodPaceSummary = {
+type FoodPaceSummary = {
   status: FoodPaceStatus;
   baseDailyYen: number;
   todayAllowanceYen: number;
@@ -95,7 +95,7 @@ export type PeriodSummary = {
   dailyRows: PeriodDailyRow[];
 };
 
-export type DayEntryServicePort = {
+type DayEntryServicePort = {
   addDailyAmount(command: {
     periodId: string;
     date: string;
@@ -643,7 +643,7 @@ async function ensureD1Schema(db: D1Database): Promise<void> {
   }
 }
 
-export function getDefaultInMemoryApiServices(): InMemoryApiServices {
+function getDefaultInMemoryApiServices(): InMemoryApiServices {
   const cache = getApiServicesGlobalCache();
   const existing = cache.defaultInMemoryApiServices;
   if (existing) {
