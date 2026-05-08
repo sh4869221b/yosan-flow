@@ -1,10 +1,5 @@
 import { json } from "@sveltejs/kit";
-import {
-  toApiErrorResponseResult,
-  type ErrorResponseBody,
-} from "$lib/server/effect/result";
-
-export type { ErrorResponseBody };
+import { toApiErrorResponseResult } from "$lib/server/effect/result";
 
 export class ApiRouteError extends Error {
   readonly status: number;
@@ -16,36 +11,6 @@ export class ApiRouteError extends Error {
     this.status = status;
     this.code = code;
   }
-}
-
-export function parseYearMonth(value: string | undefined): string {
-  if (!value) {
-    throw new ApiRouteError(
-      400,
-      "INVALID_YEAR_MONTH",
-      "yearMonth は yyyy-mm 形式で指定してください。",
-    );
-  }
-
-  const matched = /^(\d{4})-(\d{2})$/.exec(value);
-  if (!matched) {
-    throw new ApiRouteError(
-      400,
-      "INVALID_YEAR_MONTH",
-      "yearMonth は yyyy-mm 形式で指定してください。",
-    );
-  }
-
-  const month = Number(matched[2]);
-  if (!Number.isInteger(month) || month < 1 || month > 12) {
-    throw new ApiRouteError(
-      400,
-      "INVALID_YEAR_MONTH",
-      "yearMonth は yyyy-mm 形式で指定してください。",
-    );
-  }
-
-  return value;
 }
 
 export function parsePeriodId(value: string | undefined): string {
@@ -97,28 +62,6 @@ export async function parseRequestBodyObject(
       "リクエスト JSON が不正です。",
     );
   }
-}
-
-export function parseOptionalBudgetYen(
-  body: Record<string, unknown>,
-): number | undefined {
-  if (body.budgetYen == null) {
-    return undefined;
-  }
-
-  return parseNonNegativeIntegerYen(body.budgetYen, "budgetYen");
-}
-
-export function parseBudgetYen(body: Record<string, unknown>): number {
-  if (body.budgetYen == null) {
-    throw new ApiRouteError(
-      400,
-      "INVALID_AMOUNT",
-      "budgetYen は 0 以上の整数で指定してください。",
-    );
-  }
-
-  return parseNonNegativeIntegerYen(body.budgetYen, "budgetYen");
 }
 
 export function toApiErrorResponse(error: unknown): Response {

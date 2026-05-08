@@ -2,7 +2,7 @@ import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 import type { D1Database } from "$lib/server/db/d1-types";
 import * as schema from "$lib/server/db/schema";
 
-export type DatabaseState<P = unknown, D = unknown, H = unknown> = {
+type DatabaseState<P = unknown, D = unknown, H = unknown> = {
   budgetPeriods: Map<string, P>;
   dailyTotals: Map<string, D>;
   dailyOperationHistories: H[];

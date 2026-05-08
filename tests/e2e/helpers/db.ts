@@ -1,6 +1,6 @@
 import type { APIRequestContext } from "@playwright/test";
 
-export type DailySeed = {
+type DailySeed = {
   date: string;
   totalUsedYen: number;
 };
@@ -11,12 +11,6 @@ export type SeedPeriodInput = {
   endDate: string;
   budgetYen: number;
   dailyTotals?: DailySeed[];
-};
-
-export type SeedHistoryEntry = {
-  operation: "add" | "overwrite";
-  inputYen: number;
-  memo?: string;
 };
 
 async function requestJson(
@@ -80,27 +74,6 @@ export async function seedPeriod(
     );
     if (dayResponse.status !== 200) {
       throw new Error(`seedPeriod day add failed: ${dayResponse.status}`);
-    }
-  }
-}
-
-export async function seedHistory(
-  request: APIRequestContext,
-  baseUrl: string,
-  input: { periodId: string; date: string; entries: SeedHistoryEntry[] },
-): Promise<void> {
-  for (const entry of input.entries) {
-    const method = entry.operation === "add" ? "POST" : "PUT";
-    const path =
-      entry.operation === "add"
-        ? `/api/periods/${encodeURIComponent(input.periodId)}/days/${encodeURIComponent(input.date)}/add`
-        : `/api/periods/${encodeURIComponent(input.periodId)}/days/${encodeURIComponent(input.date)}/overwrite`;
-    const response = await requestJson(request, baseUrl, method, path, {
-      inputYen: entry.inputYen,
-      memo: entry.memo,
-    });
-    if (response.status !== 200) {
-      throw new Error(`seedHistory request failed: ${response.status}`);
     }
   }
 }

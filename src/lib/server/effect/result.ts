@@ -6,7 +6,7 @@ import {
   type ApiResponseError,
 } from "$lib/server/effect/errors";
 
-export type ErrorResponseBody = {
+type ErrorResponseBody = {
   error: {
     code: string;
     message: string;
@@ -114,7 +114,7 @@ function resolveKnownCode(error: unknown): string | null {
   );
 }
 
-export function toApiResponseError(error: unknown): ApiResponseError {
+function toApiResponseError(error: unknown): ApiResponseError {
   const routeStatus = readNumberProperty(error, "status");
   const routeCode = readStringProperty(error, "code");
   if (routeStatus != null && routeCode != null && error instanceof Error) {
@@ -140,7 +140,7 @@ export function toApiResponseError(error: unknown): ApiResponseError {
   return createInternalApiError();
 }
 
-export function toApiErrorResponseResultEffect(
+function toApiErrorResponseResultEffect(
   error: unknown,
 ): Effect.Effect<ApiErrorResponseResult> {
   return Effect.succeed(error).pipe(

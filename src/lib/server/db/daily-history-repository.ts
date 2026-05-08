@@ -7,7 +7,7 @@ import {
   type DailyOperationHistoryRow,
 } from "$lib/server/db/schema";
 
-export type DailyOperationType = "add" | "overwrite";
+type DailyOperationType = "add" | "overwrite";
 
 export type DailyHistoryRecord = {
   id: string;
@@ -21,7 +21,7 @@ export type DailyHistoryRecord = {
   createdAt: string;
 };
 
-export type InsertDailyHistoryInput = {
+type InsertDailyHistoryInput = {
   id: string;
   date: string;
   budgetPeriodId: string;
@@ -33,7 +33,7 @@ export type InsertDailyHistoryInput = {
   createdAt: string;
 };
 
-export type DailyHistoryTransaction = DatabaseTransaction<
+type DailyHistoryTransaction = DatabaseTransaction<
   any,
   any,
   DailyHistoryRecord

@@ -149,6 +149,7 @@
 
 - ユーザー指示により DB 再作成を許容するため、旧 month/day API の後方互換は提供しない
 - 旧 endpoint は移行期間の live path とせず、period API を唯一の更新経路とする
+- 旧 `/api/months/*` / `/api/days/*` route ファイルは保持せず、SvelteKit の未定義 route として扱う
 
 ### 6.1 期間 API
 

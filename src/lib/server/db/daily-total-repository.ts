@@ -12,7 +12,7 @@ export type DailyTotalRecord = {
   updatedAt: string;
 };
 
-export type DailyTotalUpsertInput = {
+type DailyTotalUpsertInput = {
   date: string;
   yearMonth: string;
   budgetPeriodId: string;
@@ -20,13 +20,9 @@ export type DailyTotalUpsertInput = {
   nowIso: string;
 };
 
-export type D1DailyTotalUpsertMode = "add" | "overwrite";
+type D1DailyTotalUpsertMode = "add" | "overwrite";
 
-export type DailyTotalTransaction = DatabaseTransaction<
-  any,
-  DailyTotalRecord,
-  any
->;
+type DailyTotalTransaction = DatabaseTransaction<any, DailyTotalRecord, any>;
 
 export interface DailyTotalRepository {
   findByDate(
