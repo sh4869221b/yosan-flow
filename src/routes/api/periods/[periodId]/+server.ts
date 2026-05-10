@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
+import { runApiEffect } from "$lib/server/effect/runtime";
 import {
   getApiServicesFromPlatform,
   getPeriodSummaryFromServices,
@@ -22,9 +23,8 @@ export function _createPeriodGetHandler(
   return async ({ params }) => {
     try {
       const periodId = parsePeriodId(params.periodId);
-      const summary = await getPeriodSummaryFromServices(
-        dependencies.services,
-        periodId,
+      const summary = await runApiEffect(
+        getPeriodSummaryFromServices(dependencies.services, periodId),
       );
       return json(summary);
     } catch (error) {
@@ -45,21 +45,22 @@ export function _createPeriodPutHandler(
   return async ({ params, request }) => {
     try {
       const periodId = parsePeriodId(params.periodId);
-      const body = await parseRequestBodyObject(request);
+      const body = await runApiEffect(parseRequestBodyObject(request));
       const startDate = parseDate(body.startDate as string | undefined);
       const endDate = parseDate(body.endDate as string | undefined);
       const budgetYen = parseNonNegativeIntegerYen(body.budgetYen, "budgetYen");
 
-      await dependencies.services.updatePeriod({
-        id: periodId,
-        startDate,
-        endDate,
-        budgetYen,
-      });
+      await runApiEffect(
+        dependencies.services.updatePeriod({
+          id: periodId,
+          startDate,
+          endDate,
+          budgetYen,
+        }),
+      );
 
-      const summary = await getPeriodSummaryFromServices(
-        dependencies.services,
-        periodId,
+      const summary = await runApiEffect(
+        getPeriodSummaryFromServices(dependencies.services, periodId),
       );
       return json(summary);
     } catch (error) {

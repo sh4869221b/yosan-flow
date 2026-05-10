@@ -1,7 +1,9 @@
 import { and, desc, eq, gt, lt, or } from "drizzle-orm";
+import { Effect } from "effect";
 import type { DatabaseTransaction } from "$lib/server/db/client";
 import { createDrizzleD1Database } from "$lib/server/db/client";
 import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
+import { toEffectError } from "$lib/server/effect/runtime";
 import {
   daily_operation_histories,
   type DailyOperationHistoryRow,
@@ -44,25 +46,27 @@ export interface DailyHistoryRepository {
     tx: DailyHistoryTransaction,
     date: string,
     budgetPeriodId: string,
-  ): Promise<DailyHistoryRecord[]>;
+  ): Effect.Effect<DailyHistoryRecord[], Error>;
   insertHistory(
     tx: DailyHistoryTransaction,
     input: InsertDailyHistoryInput,
-  ): Promise<DailyHistoryRecord>;
+  ): Effect.Effect<DailyHistoryRecord, Error>;
 }
 
 export interface D1DailyHistoryRepository {
   listHistoriesByDate(
     date: string,
     budgetPeriodId: string,
-  ): Promise<DailyHistoryRecord[]>;
-  insertHistory(input: InsertDailyHistoryInput): Promise<DailyHistoryRecord>;
+  ): Effect.Effect<DailyHistoryRecord[], Error>;
+  insertHistory(
+    input: InsertDailyHistoryInput,
+  ): Effect.Effect<DailyHistoryRecord, Error>;
   prepareInsertHistory(input: InsertDailyHistoryInput): D1PreparedStatement;
   hasEntriesOutsidePeriod(
     periodId: string,
     startDate: string,
     endDate: string,
-  ): Promise<boolean>;
+  ): Effect.Effect<boolean, Error>;
 }
 
 function cloneHistory(row: DailyHistoryRecord): DailyHistoryRecord {
@@ -87,41 +91,50 @@ function toDailyHistoryRecord(
 
 export function createDailyHistoryRepository(): DailyHistoryRepository {
   return {
-    async listHistoriesByDate(tx, date, budgetPeriodId) {
-      return tx.state.dailyOperationHistories
-        .filter((entry) => {
-          if (entry.date !== date) {
-            return false;
-          }
-          if (entry.budgetPeriodId !== budgetPeriodId) {
-            return false;
-          }
-          return true;
-        })
-        .slice()
-        .sort((left, right) => {
-          if (left.createdAt === right.createdAt) {
-            return right.id.localeCompare(left.id);
-          }
-          return right.createdAt.localeCompare(left.createdAt);
-        })
-        .map((entry) => cloneHistory(entry));
+    listHistoriesByDate(tx, date, budgetPeriodId) {
+      return Effect.try({
+        try: () =>
+          tx.state.dailyOperationHistories
+            .filter((entry) => {
+              if (entry.date !== date) {
+                return false;
+              }
+              if (entry.budgetPeriodId !== budgetPeriodId) {
+                return false;
+              }
+              return true;
+            })
+            .slice()
+            .sort((left, right) => {
+              if (left.createdAt === right.createdAt) {
+                return right.id.localeCompare(left.id);
+              }
+              return right.createdAt.localeCompare(left.createdAt);
+            })
+            .map((entry) => cloneHistory(entry)),
+        catch: toEffectError,
+      });
     },
 
-    async insertHistory(tx, input) {
-      const history: DailyHistoryRecord = {
-        id: input.id,
-        date: input.date,
-        budgetPeriodId: input.budgetPeriodId,
-        operationType: input.operationType,
-        inputYen: input.inputYen,
-        beforeTotalYen: input.beforeTotalYen,
-        afterTotalYen: input.afterTotalYen,
-        memo: input.memo,
-        createdAt: input.createdAt,
-      };
-      tx.state.dailyOperationHistories.push(history);
-      return cloneHistory(history);
+    insertHistory(tx, input) {
+      return Effect.try({
+        try: () => {
+          const history: DailyHistoryRecord = {
+            id: input.id,
+            date: input.date,
+            budgetPeriodId: input.budgetPeriodId,
+            operationType: input.operationType,
+            inputYen: input.inputYen,
+            beforeTotalYen: input.beforeTotalYen,
+            afterTotalYen: input.afterTotalYen,
+            memo: input.memo,
+            createdAt: input.createdAt,
+          };
+          tx.state.dailyOperationHistories.push(history);
+          return cloneHistory(history);
+        },
+        catch: toEffectError,
+      });
     },
   };
 }
@@ -180,23 +193,31 @@ export function createD1DailyHistoryRepository(
   };
 
   return {
-    async listHistoriesByDate(date, budgetPeriodId) {
-      return listHistoriesByDateInternal(date, budgetPeriodId);
+    listHistoriesByDate(date, budgetPeriodId) {
+      return Effect.tryPromise({
+        try: () => listHistoriesByDateInternal(date, budgetPeriodId),
+        catch: toEffectError,
+      });
     },
 
-    async insertHistory(inputRow) {
-      await ensureSchema();
-      await prepareInsertHistory(inputRow).run();
-      return cloneHistory({
-        id: inputRow.id,
-        date: inputRow.date,
-        budgetPeriodId: inputRow.budgetPeriodId,
-        operationType: inputRow.operationType,
-        inputYen: inputRow.inputYen,
-        beforeTotalYen: inputRow.beforeTotalYen,
-        afterTotalYen: inputRow.afterTotalYen,
-        memo: inputRow.memo,
-        createdAt: inputRow.createdAt,
+    insertHistory(inputRow) {
+      return Effect.tryPromise({
+        try: async () => {
+          await ensureSchema();
+          await prepareInsertHistory(inputRow).run();
+          return cloneHistory({
+            id: inputRow.id,
+            date: inputRow.date,
+            budgetPeriodId: inputRow.budgetPeriodId,
+            operationType: inputRow.operationType,
+            inputYen: inputRow.inputYen,
+            beforeTotalYen: inputRow.beforeTotalYen,
+            afterTotalYen: inputRow.afterTotalYen,
+            memo: inputRow.memo,
+            createdAt: inputRow.createdAt,
+          });
+        },
+        catch: toEffectError,
       });
     },
 
@@ -204,23 +225,28 @@ export function createD1DailyHistoryRepository(
       return prepareInsertHistory(inputRow);
     },
 
-    async hasEntriesOutsidePeriod(periodId, startDate, endDate) {
-      await ensureSchema();
-      const [row] = await database
-        .select({ id: daily_operation_histories.id })
-        .from(daily_operation_histories)
-        .where(
-          and(
-            eq(daily_operation_histories.budget_period_id, periodId),
-            or(
-              lt(daily_operation_histories.date, startDate),
-              gt(daily_operation_histories.date, endDate),
-            ),
-          ),
-        )
-        .limit(1)
-        .all();
-      return Boolean(row);
+    hasEntriesOutsidePeriod(periodId, startDate, endDate) {
+      return Effect.tryPromise({
+        try: async () => {
+          await ensureSchema();
+          const [row] = await database
+            .select({ id: daily_operation_histories.id })
+            .from(daily_operation_histories)
+            .where(
+              and(
+                eq(daily_operation_histories.budget_period_id, periodId),
+                or(
+                  lt(daily_operation_histories.date, startDate),
+                  gt(daily_operation_histories.date, endDate),
+                ),
+              ),
+            )
+            .limit(1)
+            .all();
+          return Boolean(row);
+        },
+        catch: toEffectError,
+      });
     },
   };
 }

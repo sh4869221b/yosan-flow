@@ -3,6 +3,7 @@ import {
   parseNonNegativeIntegerYen,
   parseRequestBodyObject,
 } from "./month";
+import { Effect } from "effect";
 
 export function parseDate(date: string | undefined): string {
   if (!date) {
@@ -47,23 +48,33 @@ export type DayMutationInput = {
   memo: string | null;
 };
 
-export async function parseDayMutationInput(
+export function parseDayMutationInput(
   request: Request,
-): Promise<DayMutationInput> {
-  const body = await parseRequestBodyObject(request);
-  const inputYen = parseNonNegativeIntegerYen(body.inputYen, "inputYen");
+): Effect.Effect<DayMutationInput, Error> {
+  return Effect.gen(function* () {
+    const body = yield* parseRequestBodyObject(request);
+    const inputYen = yield* Effect.try({
+      try: () => parseNonNegativeIntegerYen(body.inputYen, "inputYen"),
+      catch: (error) =>
+        error instanceof Error
+          ? error
+          : new Error("Invalid day mutation input"),
+    });
 
-  const memoValue = body.memo;
-  if (memoValue != null && typeof memoValue !== "string") {
-    throw new ApiRouteError(
-      400,
-      "INVALID_MEMO",
-      "memo は文字列で指定してください。",
-    );
-  }
+    const memoValue = body.memo;
+    if (memoValue != null && typeof memoValue !== "string") {
+      return yield* Effect.fail(
+        new ApiRouteError(
+          400,
+          "INVALID_MEMO",
+          "memo は文字列で指定してください。",
+        ),
+      );
+    }
 
-  return {
-    inputYen,
-    memo: memoValue == null ? null : memoValue.trim() || null,
-  };
+    return {
+      inputYen,
+      memo: memoValue == null ? null : memoValue.trim() || null,
+    };
+  });
 }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 import {
   getNextPeriodStartDate,
   isDateWithinPeriod,
 } from "$lib/server/domain/budget-period";
 import { createInMemoryBudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
+import { runApiEffect } from "$lib/server/effect/runtime";
 
 describe("budget period domain", () => {
   it("treats the next period start as the day after previous end", () => {
@@ -31,42 +33,50 @@ describe("budget period repository", () => {
     const repository = createInMemoryBudgetPeriodRepository();
 
     await expect(
-      repository.createPeriod({
-        id: "period-1",
-        startDate: "2026-05-20",
-        endDate: "2026-05-19",
-        budgetYen: 1000,
-        nowIso: "2026-05-01T00:00:00.000Z",
-      }),
+      runApiEffect(
+        repository.createPeriod({
+          id: "period-1",
+          startDate: "2026-05-20",
+          endDate: "2026-05-19",
+          budgetYen: 1000,
+          nowIso: "2026-05-01T00:00:00.000Z",
+        }),
+      ),
     ).rejects.toThrow("Invalid period");
   });
 
   it("rejects predecessor updates that would break successor continuity", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
-      id: "period-a",
-      startDate: "2026-04-20",
-      endDate: "2026-05-19",
-      budgetYen: 1000,
-      nowIso: "2026-04-01T00:00:00.000Z",
-    });
-    await repository.createPeriod({
-      id: "period-b",
-      startDate: "2026-05-20",
-      endDate: "2026-06-19",
-      budgetYen: 1000,
-      predecessorPeriodId: "period-a",
-      nowIso: "2026-05-01T00:00:00.000Z",
-    });
-
-    await expect(
-      repository.updatePeriod({
+    await Effect.runPromise(
+      repository.createPeriod({
         id: "period-a",
         startDate: "2026-04-20",
-        endDate: "2026-05-18",
+        endDate: "2026-05-19",
         budgetYen: 1000,
-        nowIso: "2026-05-02T00:00:00.000Z",
+        nowIso: "2026-04-01T00:00:00.000Z",
       }),
+    );
+    await Effect.runPromise(
+      repository.createPeriod({
+        id: "period-b",
+        startDate: "2026-05-20",
+        endDate: "2026-06-19",
+        budgetYen: 1000,
+        predecessorPeriodId: "period-a",
+        nowIso: "2026-05-01T00:00:00.000Z",
+      }),
+    );
+
+    await expect(
+      runApiEffect(
+        repository.updatePeriod({
+          id: "period-a",
+          startDate: "2026-04-20",
+          endDate: "2026-05-18",
+          budgetYen: 1000,
+          nowIso: "2026-05-02T00:00:00.000Z",
+        }),
+      ),
     ).rejects.toMatchObject({ code: "PERIOD_CONTINUITY_VIOLATION" });
   });
 });

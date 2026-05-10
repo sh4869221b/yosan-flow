@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
+import { Effect } from "effect";
 import {
   createDrizzleD1Database,
   createInMemoryDatabaseClient,
@@ -69,12 +70,18 @@ describe("database boundary", () => {
   it("keeps the in-memory database client path available", async () => {
     const client = createInMemoryDatabaseClient<{ id: string }>();
 
-    await client.transaction(async ({ state }) => {
-      state.budgetPeriods.set("period-1", { id: "period-1" });
-    });
+    await Effect.runPromise(
+      client.transaction(({ state }) =>
+        Effect.sync(() => {
+          state.budgetPeriods.set("period-1", { id: "period-1" });
+        }),
+      ),
+    );
 
-    const period = await client.read(async ({ state }) =>
-      state.budgetPeriods.get("period-1"),
+    const period = await Effect.runPromise(
+      client.read(({ state }) =>
+        Effect.succeed(state.budgetPeriods.get("period-1")),
+      ),
     );
 
     expect(period).toEqual({ id: "period-1" });

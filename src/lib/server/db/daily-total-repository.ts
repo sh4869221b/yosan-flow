@@ -1,8 +1,10 @@
 import { and, asc, eq, gt, lt, or, sql } from "drizzle-orm";
+import { Effect } from "effect";
 import type { DatabaseTransaction } from "$lib/server/db/client";
 import { createDrizzleD1Database } from "$lib/server/db/client";
 import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
 import { daily_totals, type DailyTotalRow } from "$lib/server/db/schema";
+import { toEffectError } from "$lib/server/effect/runtime";
 
 export type DailyTotalRecord = {
   date: string;
@@ -29,29 +31,31 @@ export interface DailyTotalRepository {
     tx: DailyTotalTransaction,
     date: string,
     budgetPeriodId: string,
-  ): Promise<DailyTotalRecord | null>;
+  ): Effect.Effect<DailyTotalRecord | null, Error>;
   upsertDailyTotal(
     tx: DailyTotalTransaction,
     input: DailyTotalUpsertInput,
-  ): Promise<DailyTotalRecord>;
+  ): Effect.Effect<DailyTotalRecord, Error>;
 }
 
 export interface D1DailyTotalRepository {
   findByDate(
     date: string,
     budgetPeriodId: string,
-  ): Promise<DailyTotalRecord | null>;
-  upsertDailyTotal(input: DailyTotalUpsertInput): Promise<DailyTotalRecord>;
+  ): Effect.Effect<DailyTotalRecord | null, Error>;
+  upsertDailyTotal(
+    input: DailyTotalUpsertInput,
+  ): Effect.Effect<DailyTotalRecord, Error>;
   prepareUpsertDailyTotal(
     input: DailyTotalUpsertInput,
     mode?: D1DailyTotalUpsertMode,
   ): D1PreparedStatement;
-  listByPeriodId(periodId: string): Promise<DailyTotalRecord[]>;
+  listByPeriodId(periodId: string): Effect.Effect<DailyTotalRecord[], Error>;
   hasEntriesOutsidePeriod(
     periodId: string,
     startDate: string,
     endDate: string,
-  ): Promise<boolean>;
+  ): Effect.Effect<boolean, Error>;
 }
 
 function cloneDailyTotal(row: DailyTotalRecord): DailyTotalRecord {
@@ -74,32 +78,42 @@ function toDailyTotalRecord(row: DailyTotalRow): DailyTotalRecord {
 
 export function createDailyTotalRepository(): DailyTotalRepository {
   return {
-    async findByDate(tx, date, budgetPeriodId) {
-      const found = tx.state.dailyTotals.get(
-        toDailyTotalKey(date, budgetPeriodId),
-      );
-      if (!found) {
-        return null;
-      }
-      if (found.budgetPeriodId !== budgetPeriodId) {
-        return null;
-      }
-      return cloneDailyTotal(found);
+    findByDate(tx, date, budgetPeriodId) {
+      return Effect.try({
+        try: () => {
+          const found = tx.state.dailyTotals.get(
+            toDailyTotalKey(date, budgetPeriodId),
+          );
+          if (!found) {
+            return null;
+          }
+          if (found.budgetPeriodId !== budgetPeriodId) {
+            return null;
+          }
+          return cloneDailyTotal(found);
+        },
+        catch: toEffectError,
+      });
     },
 
-    async upsertDailyTotal(tx, input) {
-      const next: DailyTotalRecord = {
-        date: input.date,
-        yearMonth: input.yearMonth,
-        budgetPeriodId: input.budgetPeriodId,
-        totalUsedYen: input.totalUsedYen,
-        updatedAt: input.nowIso,
-      };
-      tx.state.dailyTotals.set(
-        toDailyTotalKey(input.date, input.budgetPeriodId),
-        next,
-      );
-      return cloneDailyTotal(next);
+    upsertDailyTotal(tx, input) {
+      return Effect.try({
+        try: () => {
+          const next: DailyTotalRecord = {
+            date: input.date,
+            yearMonth: input.yearMonth,
+            budgetPeriodId: input.budgetPeriodId,
+            totalUsedYen: input.totalUsedYen,
+            updatedAt: input.nowIso,
+          };
+          tx.state.dailyTotals.set(
+            toDailyTotalKey(input.date, input.budgetPeriodId),
+            next,
+          );
+          return cloneDailyTotal(next);
+        },
+        catch: toEffectError,
+      });
     },
   };
 }
@@ -163,57 +177,75 @@ export function createD1DailyTotalRepository(
   };
 
   return {
-    async findByDate(date, budgetPeriodId) {
-      return findByDateInternal(date, budgetPeriodId);
+    findByDate(date, budgetPeriodId) {
+      return Effect.tryPromise({
+        try: () => findByDateInternal(date, budgetPeriodId),
+        catch: toEffectError,
+      });
     },
 
-    async upsertDailyTotal(inputRow) {
-      await ensureSchema();
-      await prepareUpsertDailyTotal(inputRow).run();
-      const updated = await findByDateInternal(
-        inputRow.date,
-        inputRow.budgetPeriodId,
-      );
-      if (!updated) {
-        throw new Error(
-          `daily total not found after upsert: ${inputRow.budgetPeriodId}:${inputRow.date}`,
-        );
-      }
-      return updated;
+    upsertDailyTotal(inputRow) {
+      return Effect.tryPromise({
+        try: async () => {
+          await ensureSchema();
+          await prepareUpsertDailyTotal(inputRow).run();
+          const updated = await findByDateInternal(
+            inputRow.date,
+            inputRow.budgetPeriodId,
+          );
+          if (!updated) {
+            throw new Error(
+              `daily total not found after upsert: ${inputRow.budgetPeriodId}:${inputRow.date}`,
+            );
+          }
+          return updated;
+        },
+        catch: toEffectError,
+      });
     },
 
     prepareUpsertDailyTotal(inputRow, mode) {
       return prepareUpsertDailyTotal(inputRow, mode);
     },
 
-    async listByPeriodId(periodId) {
-      await ensureSchema();
-      const rows = await database
-        .select()
-        .from(daily_totals)
-        .where(eq(daily_totals.budget_period_id, periodId))
-        .orderBy(asc(daily_totals.date))
-        .all();
-      return rows.map((row) => toDailyTotalRecord(row));
+    listByPeriodId(periodId) {
+      return Effect.tryPromise({
+        try: async () => {
+          await ensureSchema();
+          const rows = await database
+            .select()
+            .from(daily_totals)
+            .where(eq(daily_totals.budget_period_id, periodId))
+            .orderBy(asc(daily_totals.date))
+            .all();
+          return rows.map((row) => toDailyTotalRecord(row));
+        },
+        catch: toEffectError,
+      });
     },
 
-    async hasEntriesOutsidePeriod(periodId, startDate, endDate) {
-      await ensureSchema();
-      const [row] = await database
-        .select({ date: daily_totals.date })
-        .from(daily_totals)
-        .where(
-          and(
-            eq(daily_totals.budget_period_id, periodId),
-            or(
-              lt(daily_totals.date, startDate),
-              gt(daily_totals.date, endDate),
-            ),
-          ),
-        )
-        .limit(1)
-        .all();
-      return Boolean(row);
+    hasEntriesOutsidePeriod(periodId, startDate, endDate) {
+      return Effect.tryPromise({
+        try: async () => {
+          await ensureSchema();
+          const [row] = await database
+            .select({ date: daily_totals.date })
+            .from(daily_totals)
+            .where(
+              and(
+                eq(daily_totals.budget_period_id, periodId),
+                or(
+                  lt(daily_totals.date, startDate),
+                  gt(daily_totals.date, endDate),
+                ),
+              ),
+            )
+            .limit(1)
+            .all();
+          return Boolean(row);
+        },
+        catch: toEffectError,
+      });
     },
   };
 }

@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
+import { runApiEffect } from "$lib/server/effect/runtime";
 import {
   getApiServicesFromPlatform,
   getPeriodSummaryFromServices,
@@ -21,18 +22,19 @@ export function _createPeriodDayAddHandler(
     try {
       const periodId = parsePeriodId(params.periodId);
       const date = parseDate(params.date);
-      const input = await parseDayMutationInput(request);
+      const input = await runApiEffect(parseDayMutationInput(request));
 
-      await dependencies.services.dayEntryService.addDailyAmount({
-        periodId,
-        date,
-        inputYen: input.inputYen,
-        memo: input.memo,
-      });
+      await runApiEffect(
+        dependencies.services.dayEntryService.addDailyAmount({
+          periodId,
+          date,
+          inputYen: input.inputYen,
+          memo: input.memo,
+        }),
+      );
 
-      const summary = await getPeriodSummaryFromServices(
-        dependencies.services,
-        periodId,
+      const summary = await runApiEffect(
+        getPeriodSummaryFromServices(dependencies.services, periodId),
       );
       return json(summary);
     } catch (error) {

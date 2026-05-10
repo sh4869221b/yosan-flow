@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import { Effect } from "effect";
 import { toApiErrorResponseResult } from "$lib/server/effect/result";
 
 export class ApiRouteError extends Error {
@@ -39,29 +40,36 @@ export function parseNonNegativeIntegerYen(
   return value as number;
 }
 
-export async function parseRequestBodyObject(
+export function parseRequestBodyObject(
   request: Request,
-): Promise<Record<string, unknown>> {
-  try {
-    const parsed = await request.json();
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new ApiRouteError(
-        400,
-        "INVALID_BODY",
-        "リクエスト JSON が不正です。",
-      );
-    }
-    return parsed as Record<string, unknown>;
-  } catch (error) {
-    if (error instanceof ApiRouteError) {
-      throw error;
-    }
-    throw new ApiRouteError(
-      400,
-      "INVALID_BODY",
-      "リクエスト JSON が不正です。",
-    );
-  }
+): Effect.Effect<Record<string, unknown>, Error> {
+  return Effect.gen(function* () {
+    const parsed = yield* Effect.tryPromise({
+      try: () => request.json(),
+      catch: () =>
+        new ApiRouteError(400, "INVALID_BODY", "リクエスト JSON が不正です。"),
+    });
+    return yield* Effect.try({
+      try: () => {
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new ApiRouteError(
+            400,
+            "INVALID_BODY",
+            "リクエスト JSON が不正です。",
+          );
+        }
+        return parsed as Record<string, unknown>;
+      },
+      catch: (error) =>
+        error instanceof ApiRouteError
+          ? error
+          : new ApiRouteError(
+              400,
+              "INVALID_BODY",
+              "リクエスト JSON が不正です。",
+            ),
+    });
+  });
 }
 
 export function toApiErrorResponse(error: unknown): Response {

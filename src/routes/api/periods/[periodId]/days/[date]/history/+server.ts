@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
+import { runApiEffect } from "$lib/server/effect/runtime";
 import {
   getApiServicesFromPlatform,
   type InMemoryApiServices,
@@ -20,9 +21,8 @@ export function _createPeriodDayHistoryHandler(
     try {
       const periodId = parsePeriodId(params.periodId);
       const date = parseDate(params.date);
-      const histories = await dependencies.services.listHistoryByDate(
-        periodId,
-        date,
+      const histories = await runApiEffect(
+        dependencies.services.listHistoryByDate(periodId, date),
       );
 
       return json({
