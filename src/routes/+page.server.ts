@@ -1,4 +1,5 @@
 import type { PageServerLoad } from "./$types";
+import { runApiEffect } from "$lib/server/effect/runtime";
 import {
   getApiServicesFromPlatform,
   getPeriodSummaryFromServices,
@@ -20,7 +21,7 @@ function resolveRequestedPeriodId(url: URL): string | null {
 export const load: PageServerLoad = async ({ platform, url }) => {
   const services = getApiServicesFromPlatform(platform);
   const requestedPeriodId = resolveRequestedPeriodId(url);
-  const periods = await services.listPeriods();
+  const periods = await runApiEffect(services.listPeriods());
   const today = services.jstToday();
   if (periods.length === 0) {
     return {
@@ -44,7 +45,9 @@ export const load: PageServerLoad = async ({ platform, url }) => {
   const latestPeriod = periods[periods.length - 1] ?? null;
   const selectedPeriod = requestedPeriod ?? currentPeriod ?? latestPeriod;
   const summary = selectedPeriod
-    ? await getPeriodSummaryFromServices(services, selectedPeriod.id)
+    ? await runApiEffect(
+        getPeriodSummaryFromServices(services, selectedPeriod.id),
+      )
     : null;
 
   return {

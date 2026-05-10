@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Effect } from "effect";
   import { CalendarDays, CalendarPlus, Settings2 } from "lucide-svelte";
   import BudgetSummary from "$lib/components/BudgetSummary.svelte";
   import DayEntryModal from "$lib/components/DayEntryModal.svelte";
@@ -11,6 +12,15 @@
   type PeriodSummary = NonNullable<PageData["summary"]>;
   type PeriodOption = PageData["periods"][number];
   type DailyRow = PeriodSummary["dailyRows"][number];
+  type PeriodListResponse = {
+    periods?: PeriodOption[];
+  };
+  type PeriodCreateResponse = {
+    id: string;
+  };
+  type HistoryResponse = {
+    histories?: HistoryItem[];
+  };
   type HistoryItem = {
     id: string;
     date: string;
@@ -90,178 +100,235 @@
     return `p-${startDate}`;
   }
 
-  async function parseApiError(response: Response): Promise<string> {
-    const body = await response.json().catch(() => ({}));
-    return body?.error?.message ?? "保存に失敗しました。";
+  function runClientEffect(effect: Effect.Effect<void, never>): void {
+    void Effect.runPromise(effect);
   }
 
-  async function refreshPeriodList(preferredPeriodId?: string): Promise<void> {
-    const response = await fetch("/api/periods");
-    if (!response.ok) {
-      throw new Error(await parseApiError(response));
-    }
-    const body = await response.json();
-    periods = body.periods ?? [];
-    if (periods.length === 0) {
-      selectedPeriodId = null;
-      summary = null;
-      return;
-    }
-    const matched =
-      periods.find((period) => period.id === preferredPeriodId) ??
-      periods.find((period) => period.id === selectedPeriodId) ??
-      periods[periods.length - 1];
-    selectedPeriodId = matched.id;
-    await refreshSummary(matched.id);
+  function parseApiErrorEffect(
+    response: Response,
+    fallback: string,
+  ): Effect.Effect<string, never> {
+    return Effect.tryPromise({
+      try: () => response.json(),
+      catch: () => ({}),
+    }).pipe(
+      Effect.map((body) => {
+        const errorMessage =
+          typeof body === "object" &&
+          body != null &&
+          "error" in body &&
+          typeof (body as { error?: { message?: unknown } }).error?.message ===
+            "string"
+            ? (body as { error: { message: string } }).error.message
+            : null;
+        return errorMessage ?? fallback;
+      }),
+      Effect.catchAll(() => Effect.succeed(fallback)),
+    );
   }
 
-  async function refreshSummary(periodId: string): Promise<void> {
-    summaryLoading = true;
-    summaryError = null;
-    try {
-      const response = await fetch(
+  function fetchJsonEffect<T>(
+    url: string,
+    init: RequestInit | undefined,
+    fallbackError: string,
+  ): Effect.Effect<T, string> {
+    return Effect.gen(function* () {
+      const response = yield* Effect.tryPromise({
+        try: () => fetch(url, init),
+        catch: () => fallbackError,
+      });
+      if (!response.ok) {
+        return yield* Effect.fail(
+          yield* parseApiErrorEffect(response, fallbackError),
+        );
+      }
+      return yield* Effect.tryPromise({
+        try: () => response.json() as Promise<T>,
+        catch: () => fallbackError,
+      });
+    });
+  }
+
+  function refreshPeriodListEffect(
+    preferredPeriodId?: string,
+  ): Effect.Effect<void, string> {
+    return Effect.gen(function* () {
+      const body = yield* fetchJsonEffect<PeriodListResponse>(
+        "/api/periods",
+        undefined,
+        "保存に失敗しました。",
+      );
+      periods = body.periods ?? [];
+      if (periods.length === 0) {
+        selectedPeriodId = null;
+        summary = null;
+        return;
+      }
+      const matched =
+        periods.find((period) => period.id === preferredPeriodId) ??
+        periods.find((period) => period.id === selectedPeriodId) ??
+        periods[periods.length - 1];
+      selectedPeriodId = matched.id;
+      yield* refreshSummaryEffect(matched.id);
+    });
+  }
+
+  function refreshSummaryEffect(periodId: string): Effect.Effect<void, never> {
+    return Effect.gen(function* () {
+      summaryLoading = true;
+      summaryError = null;
+      const result = yield* fetchJsonEffect<PeriodSummary>(
         `/api/periods/${encodeURIComponent(periodId)}`,
-      );
-      if (!response.ok) {
-        summaryError = await parseApiError(response);
-        return;
+        undefined,
+        "再取得に失敗しました。",
+      ).pipe(Effect.either);
+      if (result._tag === "Left") {
+        summaryError = result.left;
+      } else {
+        summary = result.right;
       }
-      summary = await response.json();
-    } catch {
-      summaryError = "再取得に失敗しました。";
-    } finally {
       summaryLoading = false;
-    }
+    });
   }
 
-  async function loadHistory(date: string): Promise<void> {
+  function loadHistoryEffect(date: string): Effect.Effect<void, never> {
     if (!selectedPeriodId) {
-      return;
+      return Effect.void;
     }
-    historyLoading = true;
-    historyError = null;
-    try {
-      const response = await fetch(
-        `/api/periods/${encodeURIComponent(selectedPeriodId)}/days/${encodeURIComponent(date)}/history`,
-      );
-      if (!response.ok) {
-        historyError = await parseApiError(response);
-        return;
+    const periodId = selectedPeriodId;
+    return Effect.gen(function* () {
+      historyLoading = true;
+      historyError = null;
+      const result = yield* fetchJsonEffect<HistoryResponse>(
+        `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(date)}/history`,
+        undefined,
+        "履歴の取得に失敗しました。",
+      ).pipe(Effect.either);
+      if (result._tag === "Left") {
+        historyError = result.left;
+      } else {
+        histories = result.right.histories ?? [];
       }
-      const body = await response.json();
-      histories = body.histories ?? [];
-    } catch {
-      historyError = "履歴の取得に失敗しました。";
-    } finally {
       historyLoading = false;
-    }
+    });
   }
 
-  async function savePeriodUpdate(payload: {
+  function savePeriodUpdateEffect(payload: {
     budgetYen: number;
     startDate: string;
     endDate: string;
-  }): Promise<void> {
+  }): Effect.Effect<void, never> {
     if (!selectedPeriodId || summaryLoading) {
-      return;
+      return Effect.void;
     }
-
-    periodSaving = true;
-    periodError = null;
-    try {
-      const response = await fetch(
-        `/api/periods/${encodeURIComponent(selectedPeriodId)}`,
+    const periodId = selectedPeriodId;
+    return Effect.gen(function* () {
+      periodSaving = true;
+      periodError = null;
+      const result = yield* fetchJsonEffect<PeriodSummary>(
+        `/api/periods/${encodeURIComponent(periodId)}`,
         {
           method: "PUT",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(payload),
         },
-      );
-      if (!response.ok) {
-        periodError = await parseApiError(response);
-        return;
+        "保存に失敗しました。",
+      ).pipe(Effect.either);
+      if (result._tag === "Left") {
+        periodError = result.left;
+      } else {
+        summary = result.right;
+        const refreshResult = yield* refreshPeriodListEffect(
+          result.right.periodId,
+        ).pipe(Effect.either);
+        if (refreshResult._tag === "Left") {
+          periodError = refreshResult.left;
+        }
       }
-      const updatedSummary = (await response.json()) as PeriodSummary;
-      summary = updatedSummary;
-      await refreshPeriodList(updatedSummary.periodId);
-    } catch {
-      periodError = "保存に失敗しました。";
-    } finally {
       periodSaving = false;
-    }
-  }
-
-  async function handleSavePeriod(
-    event: CustomEvent<{ budgetYen: number }>,
-  ): Promise<void> {
-    if (!summary) {
-      return;
-    }
-    await savePeriodUpdate({
-      budgetYen: event.detail.budgetYen,
-      startDate: rangeStartDate,
-      endDate: rangeEndDate,
     });
   }
 
-  async function handleRangeChange(
+  function handleSavePeriod(event: CustomEvent<{ budgetYen: number }>): void {
+    if (!summary) {
+      return;
+    }
+    runClientEffect(
+      savePeriodUpdateEffect({
+        budgetYen: event.detail.budgetYen,
+        startDate: rangeStartDate,
+        endDate: rangeEndDate,
+      }),
+    );
+  }
+
+  function handleRangeChange(
     event: CustomEvent<{ startDate: string; endDate: string }>,
-  ): Promise<void> {
+  ): void {
     rangeStartDate = event.detail.startDate;
     rangeEndDate = event.detail.endDate;
     if (!summary) {
       return;
     }
-    await savePeriodUpdate({
-      budgetYen: summary.budgetYen,
-      startDate: event.detail.startDate,
-      endDate: event.detail.endDate,
-    });
+    runClientEffect(
+      savePeriodUpdateEffect({
+        budgetYen: summary.budgetYen,
+        startDate: event.detail.startDate,
+        endDate: event.detail.endDate,
+      }),
+    );
   }
 
-  async function handleSelectPeriod(
-    event: CustomEvent<{ periodId: string }>,
-  ): Promise<void> {
-    await refreshSummary(event.detail.periodId);
+  function handleSelectPeriod(event: CustomEvent<{ periodId: string }>): void {
+    runClientEffect(refreshSummaryEffect(event.detail.periodId));
   }
 
-  async function createInitialPeriod(): Promise<void> {
+  function createInitialPeriodEffect(): Effect.Effect<void, never> {
     const budgetYen = Number.parseInt(createBudgetInput, 10);
     if (!Number.isInteger(budgetYen) || budgetYen < 0) {
       periodError = "予算は 0 以上の整数で入力してください。";
-      return;
+      return Effect.void;
     }
 
-    periodSaving = true;
-    periodError = null;
-    try {
+    return Effect.gen(function* () {
+      periodSaving = true;
+      periodError = null;
       const latestPeriod = periods[periods.length - 1] ?? null;
       const predecessorPeriodId =
         latestPeriod && addDays(latestPeriod.endDate, 1) === createStartDate
           ? latestPeriod.id
           : null;
-      const response = await fetch("/api/periods", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: createPeriodId,
-          startDate: createStartDate,
-          endDate: createEndDate,
-          budgetYen,
-          predecessorPeriodId,
-        }),
-      });
-      if (!response.ok) {
-        periodError = await parseApiError(response);
-        return;
+      const result = yield* fetchJsonEffect<PeriodCreateResponse>(
+        "/api/periods",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            id: createPeriodId,
+            startDate: createStartDate,
+            endDate: createEndDate,
+            budgetYen,
+            predecessorPeriodId,
+          }),
+        },
+        "期間作成に失敗しました。",
+      ).pipe(Effect.either);
+      if (result._tag === "Left") {
+        periodError = result.left;
+      } else {
+        const refreshResult = yield* refreshPeriodListEffect(
+          result.right.id,
+        ).pipe(Effect.either);
+        if (refreshResult._tag === "Left") {
+          periodError = refreshResult.left;
+        }
       }
-      const created = await response.json();
-      await refreshPeriodList(created.id);
-    } catch {
-      periodError = "期間作成に失敗しました。";
-    } finally {
       periodSaving = false;
-    }
+    });
+  }
+
+  function createInitialPeriod(): void {
+    runClientEffect(createInitialPeriodEffect());
   }
 
   function openDayEntry(payload: { date: string }): void {
@@ -277,7 +344,7 @@
     modalMemo = "";
     modalOperation = "add";
     histories = [];
-    void loadHistory(payload.date);
+    runClientEffect(loadHistoryEffect(payload.date));
   }
 
   function closeDayEntry(): void {
@@ -285,52 +352,64 @@
     modalError = null;
   }
 
-  async function submitDayEntry(
+  function submitDayEntryEffect(
     event: CustomEvent<{
       date: string;
       inputYen: number;
       operation: "add" | "overwrite";
       memo: string;
     }>,
-  ): Promise<void> {
+  ): Effect.Effect<void, never> {
     if (!selectedPeriodId) {
-      return;
+      return Effect.void;
     }
+    const periodId = selectedPeriodId;
 
-    modalSaving = true;
-    modalError = null;
-    try {
+    return Effect.gen(function* () {
+      modalSaving = true;
+      modalError = null;
       const endpoint =
         event.detail.operation === "add"
-          ? `/api/periods/${encodeURIComponent(selectedPeriodId)}/days/${encodeURIComponent(event.detail.date)}/add`
-          : `/api/periods/${encodeURIComponent(selectedPeriodId)}/days/${encodeURIComponent(event.detail.date)}/overwrite`;
+          ? `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(event.detail.date)}/add`
+          : `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(event.detail.date)}/overwrite`;
       const method = event.detail.operation === "add" ? "POST" : "PUT";
-      const response = await fetch(endpoint, {
-        method,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          inputYen: event.detail.inputYen,
-          memo: event.detail.memo,
-        }),
-      });
-      if (!response.ok) {
-        modalError = await parseApiError(response);
-        return;
+      const result = yield* fetchJsonEffect<PeriodSummary>(
+        endpoint,
+        {
+          method,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            inputYen: event.detail.inputYen,
+            memo: event.detail.memo,
+          }),
+        },
+        "保存に失敗しました。",
+      ).pipe(Effect.either);
+      if (result._tag === "Left") {
+        modalError = result.left;
+      } else {
+        summary = result.right;
+        if (selectedDate) {
+          selectedRow =
+            result.right.dailyRows.find((row) => row.date === selectedDate) ??
+            null;
+          yield* loadHistoryEffect(selectedDate);
+        }
+        closeDayEntry();
       }
-      const updatedSummary = (await response.json()) as PeriodSummary;
-      summary = updatedSummary;
-      if (selectedDate) {
-        selectedRow =
-          updatedSummary.dailyRows.find((row) => row.date === selectedDate) ??
-          null;
-        await loadHistory(selectedDate);
-      }
-      closeDayEntry();
-    } catch {
-      modalError = "保存に失敗しました。";
-    } finally {
       modalSaving = false;
-    }
+    });
+  }
+
+  function submitDayEntry(
+    event: CustomEvent<{
+      date: string;
+      inputYen: number;
+      operation: "add" | "overwrite";
+      memo: string;
+    }>,
+  ): void {
+    runClientEffect(submitDayEntryEffect(event));
   }
 </script>
 

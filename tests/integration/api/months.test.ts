@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { D1Database } from "$lib/server/db/d1-types";
+import { runApiEffect } from "$lib/server/effect/runtime";
 import { createD1ApiServices } from "$lib/server/services/month-summary-service";
 import {
   GET as periodsGetDefaultRoute,
@@ -157,38 +158,48 @@ describe("period API default routes", () => {
       now: () => new Date("2026-04-20T00:00:00.000Z"),
       createHistoryId: () => historyIds.shift() ?? "history-fallback",
     });
-    await services.createPeriod({
-      id: "p-history",
-      startDate: "2026-04-20",
-      endDate: "2026-05-19",
-      budgetYen: 100000,
-    });
-    await services.createPeriod({
-      id: "p-history-other",
-      startDate: "2026-05-20",
-      endDate: "2026-06-19",
-      budgetYen: 100000,
-      predecessorPeriodId: "p-history",
-    });
+    await runApiEffect(
+      services.createPeriod({
+        id: "p-history",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
+    await runApiEffect(
+      services.createPeriod({
+        id: "p-history-other",
+        startDate: "2026-05-20",
+        endDate: "2026-06-19",
+        budgetYen: 100000,
+        predecessorPeriodId: "p-history",
+      }),
+    );
 
-    await services.dayEntryService.addDailyAmount({
-      periodId: "p-history",
-      date: "2026-04-20",
-      inputYen: 1000,
-      memo: "lunch",
-    });
-    await services.dayEntryService.overwriteDailyAmount({
-      periodId: "p-history",
-      date: "2026-04-20",
-      inputYen: 3000,
-      memo: null,
-    });
-    await services.dayEntryService.addDailyAmount({
-      periodId: "p-history-other",
-      date: "2026-05-20",
-      inputYen: 9999,
-      memo: "other period",
-    });
+    await runApiEffect(
+      services.dayEntryService.addDailyAmount({
+        periodId: "p-history",
+        date: "2026-04-20",
+        inputYen: 1000,
+        memo: "lunch",
+      }),
+    );
+    await runApiEffect(
+      services.dayEntryService.overwriteDailyAmount({
+        periodId: "p-history",
+        date: "2026-04-20",
+        inputYen: 3000,
+        memo: null,
+      }),
+    );
+    await runApiEffect(
+      services.dayEntryService.addDailyAmount({
+        periodId: "p-history-other",
+        date: "2026-05-20",
+        inputYen: 9999,
+        memo: "other period",
+      }),
+    );
 
     const getHistory = _createPeriodDayHistoryHandler({ services });
     const historyResponse = await dayHistoryDefaultRoute({
@@ -242,29 +253,35 @@ describe("period API default routes", () => {
       now: () => new Date("2026-04-20T00:00:00.000Z"),
       createHistoryId: () => historyIds.shift() ?? "history-fallback",
     });
-    await services.createPeriod({
-      id: "p-atomicity",
-      startDate: "2026-04-20",
-      endDate: "2026-05-19",
-      budgetYen: 100000,
-    });
+    await runApiEffect(
+      services.createPeriod({
+        id: "p-atomicity",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
 
     await expect(
-      services.dayEntryService.addDailyAmount({
-        periodId: "p-atomicity",
-        date: "2026-04-20",
-        inputYen: 1000,
-        memo: "first",
-      }),
+      runApiEffect(
+        services.dayEntryService.addDailyAmount({
+          periodId: "p-atomicity",
+          date: "2026-04-20",
+          inputYen: 1000,
+          memo: "first",
+        }),
+      ),
     ).resolves.toEqual({});
 
     await expect(
-      services.dayEntryService.addDailyAmount({
-        periodId: "p-atomicity",
-        date: "2026-04-20",
-        inputYen: 500,
-        memo: "second",
-      }),
+      runApiEffect(
+        services.dayEntryService.addDailyAmount({
+          periodId: "p-atomicity",
+          date: "2026-04-20",
+          inputYen: 500,
+          memo: "second",
+        }),
+      ),
     ).rejects.toThrow(/UNIQUE constraint failed/);
 
     const periodResponse = await periodGetDefaultRoute({

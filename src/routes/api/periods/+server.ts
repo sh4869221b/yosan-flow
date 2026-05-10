@@ -1,4 +1,5 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
+import { runApiEffect } from "$lib/server/effect/runtime";
 import {
   getApiServicesFromPlatform,
   type InMemoryApiServices,
@@ -20,7 +21,7 @@ export function _createPeriodsHandler(
 ): RequestHandler {
   return async ({ request }) => {
     try {
-      const body = await parseRequestBodyObject(request);
+      const body = await runApiEffect(parseRequestBodyObject(request));
       const id = parsePeriodId(body.id as string | undefined);
       const startDate = parseDate(body.startDate as string | undefined);
       const endDate = parseDate(body.endDate as string | undefined);
@@ -30,13 +31,15 @@ export function _createPeriodsHandler(
           ? null
           : parsePeriodId(body.predecessorPeriodId as string);
 
-      const period = await dependencies.services.createPeriod({
-        id,
-        startDate,
-        endDate,
-        budgetYen,
-        predecessorPeriodId,
-      });
+      const period = await runApiEffect(
+        dependencies.services.createPeriod({
+          id,
+          startDate,
+          endDate,
+          budgetYen,
+          predecessorPeriodId,
+        }),
+      );
 
       return json(period, { status: 201 });
     } catch (error) {
@@ -50,7 +53,7 @@ export function _createPeriodsListHandler(
 ): RequestHandler {
   return async () => {
     try {
-      const periods = await dependencies.services.listPeriods();
+      const periods = await runApiEffect(dependencies.services.listPeriods());
       return json({ periods });
     } catch (error) {
       return toApiErrorResponse(error);

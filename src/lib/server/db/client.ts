@@ -1,5 +1,7 @@
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
+import { Effect } from "effect";
 import type { D1Database } from "$lib/server/db/d1-types";
+import { toEffectError } from "$lib/server/effect/runtime";
 import * as schema from "$lib/server/db/schema";
 
 type DatabaseState<P = unknown, D = unknown, H = unknown> = {
@@ -14,9 +16,11 @@ export type DatabaseTransaction<P = unknown, D = unknown, H = unknown> = {
 
 export interface DatabaseClient<P = unknown, D = unknown, H = unknown> {
   transaction<T>(
-    work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>,
-  ): Promise<T>;
-  read<T>(work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>): Promise<T>;
+    work: (tx: DatabaseTransaction<P, D, H>) => Effect.Effect<T, Error>,
+  ): Effect.Effect<T, Error>;
+  read<T>(
+    work: (tx: DatabaseTransaction<P, D, H>) => Effect.Effect<T, Error>,
+  ): Effect.Effect<T, Error>;
   dumpState(): DatabaseState<P, D, H>;
 }
 
@@ -73,28 +77,41 @@ export function createInMemoryDatabaseClient<
   let transactionQueue: Promise<void> = Promise.resolve();
 
   return {
-    async transaction<T>(
-      work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>,
+    transaction<T>(
+      work: (tx: DatabaseTransaction<P, D, H>) => Effect.Effect<T, Error>,
     ) {
-      const pending = transactionQueue;
-      let releaseQueue: (() => void) | undefined;
-      transactionQueue = new Promise<void>((resolve) => {
-        releaseQueue = resolve;
-      });
+      return Effect.gen(function* () {
+        const pending = transactionQueue;
+        let releaseQueue: (() => void) | undefined;
+        transactionQueue = new Promise<void>((resolve) => {
+          releaseQueue = resolve;
+        });
 
-      await pending;
+        yield* Effect.tryPromise({
+          try: () => pending,
+          catch: toEffectError,
+        });
 
-      try {
         const txState = cloneState(currentState);
-        const result = await work({ state: txState });
-        currentState = txState;
-        return result;
-      } finally {
-        releaseQueue?.();
-      }
+        return yield* work({ state: txState }).pipe(
+          Effect.tap((result) =>
+            Effect.sync(() => {
+              currentState = txState;
+              return result;
+            }),
+          ),
+          Effect.ensuring(
+            Effect.sync(() => {
+              releaseQueue?.();
+            }),
+          ),
+        );
+      });
     },
 
-    async read<T>(work: (tx: DatabaseTransaction<P, D, H>) => Promise<T>) {
+    read<T>(
+      work: (tx: DatabaseTransaction<P, D, H>) => Effect.Effect<T, Error>,
+    ) {
       const readState = cloneState(currentState);
       return work({ state: readState });
     },

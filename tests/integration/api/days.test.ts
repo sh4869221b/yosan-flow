@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 import {
   createInMemoryDatabaseClient,
   type DatabaseClient,
@@ -18,6 +19,7 @@ import {
   type DailyHistoryRecord,
   type DailyHistoryRepository,
 } from "$lib/server/db/daily-history-repository";
+import { runApiEffect } from "$lib/server/effect/runtime";
 import {
   DateOutOfPeriodError,
   DayEntryService,
@@ -68,13 +70,15 @@ async function createFixture(): Promise<Fixture> {
 }
 
 async function seedPeriod(fixture: Fixture): Promise<void> {
-  await fixture.budgetPeriodRepository.createPeriod({
-    id: "period-2026-04",
-    startDate: "2026-04-20",
-    endDate: "2026-05-19",
-    budgetYen: 100000,
-    nowIso: "2026-04-01T00:00:00.000Z",
-  });
+  await Effect.runPromise(
+    fixture.budgetPeriodRepository.createPeriod({
+      id: "period-2026-04",
+      startDate: "2026-04-20",
+      endDate: "2026-05-19",
+      budgetYen: 100000,
+      nowIso: "2026-04-01T00:00:00.000Z",
+    }),
+  );
 }
 
 describe("day entry service", () => {
@@ -82,12 +86,14 @@ describe("day entry service", () => {
     const fixture = await createFixture();
     await seedPeriod(fixture);
 
-    const response = await fixture.service.addDailyAmount({
-      periodId: "period-2026-04",
-      date: "2026-04-20",
-      inputYen: 1000,
-      memo: "lunch",
-    });
+    const response = await Effect.runPromise(
+      fixture.service.addDailyAmount({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        inputYen: 1000,
+        memo: "lunch",
+      }),
+    );
 
     expect(response.dailyTotal.totalUsedYen).toBe(1000);
     expect(response.history.operationType).toBe("add");
@@ -95,22 +101,24 @@ describe("day entry service", () => {
     expect(response.history.afterTotalYen).toBe(1000);
     expect(response.history.memo).toBe("lunch");
 
-    const persistedDailyTotal = await fixture.databaseClient.read(
-      async (tx) => {
-        return fixture.dailyTotalRepository.findByDate(
+    const persistedDailyTotal = await Effect.runPromise(
+      fixture.databaseClient.read((tx) =>
+        fixture.dailyTotalRepository.findByDate(
           tx,
           "2026-04-20",
           "period-2026-04",
-        );
-      },
+        ),
+      ),
     );
-    const persistedHistories = await fixture.databaseClient.read(async (tx) => {
-      return fixture.dailyHistoryRepository.listHistoriesByDate(
-        tx,
-        "2026-04-20",
-        "period-2026-04",
-      );
-    });
+    const persistedHistories = await Effect.runPromise(
+      fixture.databaseClient.read((tx) =>
+        fixture.dailyHistoryRepository.listHistoriesByDate(
+          tx,
+          "2026-04-20",
+          "period-2026-04",
+        ),
+      ),
+    );
     expect(persistedDailyTotal?.totalUsedYen).toBe(1000);
     expect(persistedHistories).toHaveLength(1);
   });
@@ -118,12 +126,30 @@ describe("day entry service", () => {
   it("rejects updates when period does not exist", async () => {
     const fixture = await createFixture();
 
+    const error = await Effect.runPromise(
+      Effect.flip(
+        fixture.service.addDailyAmount({
+          periodId: "missing",
+          date: "2026-04-20",
+          inputYen: 1000,
+        }),
+      ),
+    );
+
+    expect(error).toBeInstanceOf(PeriodNotFoundError);
+  });
+
+  it("rejects through the API Effect runner with the original service error", async () => {
+    const fixture = await createFixture();
+
     await expect(
-      fixture.service.addDailyAmount({
-        periodId: "missing",
-        date: "2026-04-20",
-        inputYen: 1000,
-      }),
+      runApiEffect(
+        fixture.service.addDailyAmount({
+          periodId: "missing",
+          date: "2026-04-20",
+          inputYen: 1000,
+        }),
+      ),
     ).rejects.toBeInstanceOf(PeriodNotFoundError);
   });
 
@@ -131,29 +157,37 @@ describe("day entry service", () => {
     const fixture = await createFixture();
     await seedPeriod(fixture);
 
-    await expect(
-      fixture.service.addDailyAmount({
-        periodId: "period-2026-04",
-        date: "2026-04-19",
-        inputYen: 1000,
-      }),
-    ).rejects.toBeInstanceOf(DateOutOfPeriodError);
+    const error = await Effect.runPromise(
+      Effect.flip(
+        fixture.service.addDailyAmount({
+          periodId: "period-2026-04",
+          date: "2026-04-19",
+          inputYen: 1000,
+        }),
+      ),
+    );
+
+    expect(error).toBeInstanceOf(DateOutOfPeriodError);
   });
 
   it("overwrites the day's total atomically", async () => {
     const fixture = await createFixture();
     await seedPeriod(fixture);
 
-    await fixture.service.addDailyAmount({
-      periodId: "period-2026-04",
-      date: "2026-04-20",
-      inputYen: 1000,
-    });
-    const response = await fixture.service.overwriteDailyAmount({
-      periodId: "period-2026-04",
-      date: "2026-04-20",
-      inputYen: 3000,
-    });
+    await Effect.runPromise(
+      fixture.service.addDailyAmount({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        inputYen: 1000,
+      }),
+    );
+    const response = await Effect.runPromise(
+      fixture.service.overwriteDailyAmount({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        inputYen: 3000,
+      }),
+    );
 
     expect(response.dailyTotal.totalUsedYen).toBe(3000);
     expect(response.history.operationType).toBe("overwrite");

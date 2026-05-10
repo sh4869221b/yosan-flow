@@ -1,11 +1,31 @@
 import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 import { createInMemoryBudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
 import { buildPeriodSummary } from "$lib/server/services/month-summary-service";
+
+function runPeriodSummary(
+  ...input: Parameters<typeof buildPeriodSummary>
+): Promise<PeriodSummaryForTest> {
+  return Effect.runPromise(buildPeriodSummary(...input));
+}
+
+function createPeriod(
+  repository: ReturnType<typeof createInMemoryBudgetPeriodRepository>,
+  input: Parameters<
+    ReturnType<typeof createInMemoryBudgetPeriodRepository>["createPeriod"]
+  >[0],
+): Promise<void> {
+  return Effect.runPromise(repository.createPeriod(input)).then(() => {});
+}
+
+type PeriodSummaryForTest = Effect.Effect.Success<
+  ReturnType<typeof buildPeriodSummary>
+>;
 
 describe("period summary service", () => {
   it("builds summary fields for selected period with full calendar range", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "2026-04-main",
       startDate: "2026-04-20",
       endDate: "2026-05-19",
@@ -13,7 +33,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const result = await buildPeriodSummary(repository, "2026-04-main", {
+    const result = await runPeriodSummary(repository, "2026-04-main", {
       jstToday: "2026-04-20",
       dailyTotals: [
         {
@@ -63,7 +83,7 @@ describe("period summary service", () => {
 
   it("calculates today recommendation from spent before today only", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "period-rule",
       startDate: "2026-04-18",
       endDate: "2026-04-20",
@@ -71,7 +91,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const result = await buildPeriodSummary(repository, "period-rule", {
+    const result = await runPeriodSummary(repository, "period-rule", {
       jstToday: "2026-04-19",
       dailyTotals: [
         { date: "2026-04-18", budgetPeriodId: "period-rule", totalUsedYen: 30 },
@@ -93,7 +113,7 @@ describe("period summary service", () => {
 
   it("shows all saved pace surplus as today's bonus instead of spreading it over remaining days", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "period-bonus",
       startDate: "2026-04-01",
       endDate: "2026-04-10",
@@ -101,7 +121,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const result = await buildPeriodSummary(repository, "period-bonus", {
+    const result = await runPeriodSummary(repository, "period-bonus", {
       jstToday: "2026-04-06",
       dailyTotals: [
         {
@@ -139,7 +159,7 @@ describe("period summary service", () => {
 
   it("spreads only pace shortage across today and future days", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "period-shortage",
       startDate: "2026-04-01",
       endDate: "2026-04-10",
@@ -147,7 +167,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const result = await buildPeriodSummary(repository, "period-shortage", {
+    const result = await runPeriodSummary(repository, "period-shortage", {
       jstToday: "2026-04-06",
       dailyTotals: [
         {
@@ -185,7 +205,7 @@ describe("period summary service", () => {
 
   it("preserves shortage remainder across today and future recommendations", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "period-shortage-remainder",
       startDate: "2026-04-01",
       endDate: "2026-04-30",
@@ -193,7 +213,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const result = await buildPeriodSummary(
+    const result = await runPeriodSummary(
       repository,
       "period-shortage-remainder",
       {
@@ -228,7 +248,7 @@ describe("period summary service", () => {
 
   it("does not show today's food pace before the selected period starts", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "period-future",
       startDate: "2026-04-10",
       endDate: "2026-04-19",
@@ -236,7 +256,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const result = await buildPeriodSummary(repository, "period-future", {
+    const result = await runPeriodSummary(repository, "period-future", {
       jstToday: "2026-04-05",
     });
 
@@ -258,7 +278,7 @@ describe("period summary service", () => {
 
   it("keeps today's bonus and adjustment stable when today's spending changes", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "period-stable-today",
       startDate: "2026-04-01",
       endDate: "2026-04-10",
@@ -266,7 +286,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const beforeTodayInput = await buildPeriodSummary(
+    const beforeTodayInput = await runPeriodSummary(
       repository,
       "period-stable-today",
       {
@@ -285,7 +305,7 @@ describe("period summary service", () => {
         ],
       },
     );
-    const afterTodayInput = await buildPeriodSummary(
+    const afterTodayInput = await runPeriodSummary(
       repository,
       "period-stable-today",
       {
@@ -323,7 +343,7 @@ describe("period summary service", () => {
 
   it("reflects previous day's spending in the next day's pace calculation", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "period-next-day",
       startDate: "2026-04-01",
       endDate: "2026-04-10",
@@ -331,7 +351,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const today = await buildPeriodSummary(repository, "period-next-day", {
+    const today = await runPeriodSummary(repository, "period-next-day", {
       jstToday: "2026-04-06",
       dailyTotals: [
         {
@@ -351,7 +371,7 @@ describe("period summary service", () => {
         },
       ],
     });
-    const nextDay = await buildPeriodSummary(repository, "period-next-day", {
+    const nextDay = await runPeriodSummary(repository, "period-next-day", {
       jstToday: "2026-04-07",
       dailyTotals: [
         {
@@ -379,7 +399,7 @@ describe("period summary service", () => {
 
   it("shows zero recommendation when overspent", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "period-overspent",
       startDate: "2026-04-18",
       endDate: "2026-04-22",
@@ -387,7 +407,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const result = await buildPeriodSummary(repository, "period-overspent", {
+    const result = await runPeriodSummary(repository, "period-overspent", {
       jstToday: "2026-04-20",
       dailyTotals: [
         {
@@ -408,7 +428,7 @@ describe("period summary service", () => {
 
   it("ignores out-of-range daily totals when period bounds are narrower", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
-    await repository.createPeriod({
+    await createPeriod(repository, {
       id: "period-shrink",
       startDate: "2026-04-20",
       endDate: "2026-04-22",
@@ -416,7 +436,7 @@ describe("period summary service", () => {
       nowIso: "2026-04-01T00:00:00.000Z",
     });
 
-    const result = await buildPeriodSummary(repository, "period-shrink", {
+    const result = await runPeriodSummary(repository, "period-shrink", {
       jstToday: "2026-04-20",
       dailyTotals: [
         {

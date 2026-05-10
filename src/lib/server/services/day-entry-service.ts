@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import type { DatabaseClient } from "$lib/server/db/client";
 import type {
   BudgetPeriodRecord,
@@ -17,6 +18,7 @@ import {
   normalizeMemo,
 } from "$lib/server/domain/daily-entry";
 import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
+import { toEffectError } from "$lib/server/effect/runtime";
 
 type DayEntryServiceInput = {
   databaseClient: DatabaseClient<
@@ -41,6 +43,12 @@ export type PeriodDayEntryCommand = {
 type ExecuteEntryInput = {
   operationType: "add" | "overwrite";
   command: PeriodDayEntryCommand;
+};
+
+type PreparedEntryInput = ExecuteEntryInput & {
+  period: BudgetPeriodRecord;
+  memo: string | null;
+  nowIso: string;
 };
 
 export type DayEntryResult = {
@@ -102,79 +110,119 @@ export class DayEntryService {
     this.createHistoryId = input.createHistoryId ?? defaultCreateHistoryId;
   }
 
-  async addDailyAmount(
+  addDailyAmount(
     command: PeriodDayEntryCommand,
-  ): Promise<DayEntryResult> {
-    return this.executeEntry({
+  ): Effect.Effect<DayEntryResult, Error> {
+    return this.executeEntryEffect({
       operationType: "add",
       command,
     });
   }
 
-  async overwriteDailyAmount(
+  overwriteDailyAmount(
     command: PeriodDayEntryCommand,
-  ): Promise<DayEntryResult> {
-    return this.executeEntry({
+  ): Effect.Effect<DayEntryResult, Error> {
+    return this.executeEntryEffect({
       operationType: "overwrite",
       command,
     });
   }
 
-  private async executeEntry(
+  private executeEntryEffect(
     input: ExecuteEntryInput,
-  ): Promise<DayEntryResult> {
-    assertValidDate(input.command.date);
-    assertValidInputYen(input.command.inputYen);
-    const nowIso = this.now();
-    const memo = normalizeMemo(input.command.memo);
+  ): Effect.Effect<DayEntryResult, Error> {
+    return Effect.gen(this, function* () {
+      const prepared = yield* this.prepareEntryEffect(input);
+      return yield* this.persistEntryEffect(prepared);
+    });
+  }
 
-    const period = await this.budgetPeriodRepository.findById(
-      input.command.periodId,
-    );
-    if (!period) {
-      throw new PeriodNotFoundError(input.command.periodId);
-    }
-    if (
-      !isDateWithinPeriod(input.command.date, period.startDate, period.endDate)
-    ) {
-      throw new DateOutOfPeriodError(input.command.date, period.id);
-    }
+  private prepareEntryEffect(
+    input: ExecuteEntryInput,
+  ): Effect.Effect<PreparedEntryInput, Error> {
+    return Effect.gen(this, function* () {
+      const memo = yield* Effect.try({
+        try: () => {
+          assertValidDate(input.command.date);
+          assertValidInputYen(input.command.inputYen);
+          return normalizeMemo(input.command.memo);
+        },
+        catch: toEffectError,
+      });
+      const nowIso = this.now();
 
-    return this.databaseClient.transaction(async (tx) => {
-      const existingTotal = await this.dailyTotalRepository.findByDate(
-        tx,
-        input.command.date,
-        period.id,
+      const period = yield* this.budgetPeriodRepository.findById(
+        input.command.periodId,
       );
-      const beforeTotalYen = existingTotal?.totalUsedYen ?? 0;
-      const afterTotalYen =
-        input.operationType === "add"
-          ? beforeTotalYen + input.command.inputYen
-          : input.command.inputYen;
-
-      const dailyTotal = await this.dailyTotalRepository.upsertDailyTotal(tx, {
-        date: input.command.date,
-        yearMonth: input.command.date.slice(0, 7),
-        budgetPeriodId: period.id,
-        totalUsedYen: afterTotalYen,
-        nowIso,
-      });
-      const history = await this.dailyHistoryRepository.insertHistory(tx, {
-        id: this.createHistoryId(),
-        date: input.command.date,
-        budgetPeriodId: period.id,
-        operationType: input.operationType,
-        inputYen: input.command.inputYen,
-        beforeTotalYen,
-        afterTotalYen,
-        memo,
-        createdAt: nowIso,
-      });
+      if (!period) {
+        return yield* Effect.fail(
+          new PeriodNotFoundError(input.command.periodId),
+        );
+      }
+      if (
+        !isDateWithinPeriod(
+          input.command.date,
+          period.startDate,
+          period.endDate,
+        )
+      ) {
+        return yield* Effect.fail(
+          new DateOutOfPeriodError(input.command.date, period.id),
+        );
+      }
 
       return {
-        dailyTotal,
-        history,
+        ...input,
+        period,
+        memo,
+        nowIso,
       };
     });
+  }
+
+  private persistEntryEffect(
+    input: PreparedEntryInput,
+  ): Effect.Effect<DayEntryResult, Error> {
+    return this.databaseClient.transaction((tx) =>
+      Effect.gen(this, function* () {
+        const existingTotal = yield* this.dailyTotalRepository.findByDate(
+          tx,
+          input.command.date,
+          input.period.id,
+        );
+        const beforeTotalYen = existingTotal?.totalUsedYen ?? 0;
+        const afterTotalYen =
+          input.operationType === "add"
+            ? beforeTotalYen + input.command.inputYen
+            : input.command.inputYen;
+
+        const dailyTotal = yield* this.dailyTotalRepository.upsertDailyTotal(
+          tx,
+          {
+            date: input.command.date,
+            yearMonth: input.command.date.slice(0, 7),
+            budgetPeriodId: input.period.id,
+            totalUsedYen: afterTotalYen,
+            nowIso: input.nowIso,
+          },
+        );
+        const history = yield* this.dailyHistoryRepository.insertHistory(tx, {
+          id: this.createHistoryId(),
+          date: input.command.date,
+          budgetPeriodId: input.period.id,
+          operationType: input.operationType,
+          inputYen: input.command.inputYen,
+          beforeTotalYen,
+          afterTotalYen,
+          memo: input.memo,
+          createdAt: input.nowIso,
+        });
+
+        return {
+          dailyTotal,
+          history,
+        };
+      }),
+    );
   }
 }

@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import {
   createInMemoryDatabaseClient,
   type DatabaseClient,
@@ -30,6 +31,7 @@ import {
   normalizeMemo,
 } from "$lib/server/domain/daily-entry";
 import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
+import { toEffectError } from "$lib/server/effect/runtime";
 import { DayEntryService } from "$lib/server/services/day-entry-service";
 import { getJstDateParts } from "$lib/server/time/jst";
 
@@ -101,13 +103,13 @@ type DayEntryServicePort = {
     date: string;
     inputYen: number;
     memo?: string | null;
-  }): Promise<unknown>;
+  }): Effect.Effect<unknown, Error>;
   overwriteDailyAmount(command: {
     periodId: string;
     date: string;
     inputYen: number;
     memo?: string | null;
-  }): Promise<unknown>;
+  }): Effect.Effect<unknown, Error>;
 };
 
 export type BuildPeriodSummaryOptions = {
@@ -288,107 +290,109 @@ function buildFoodPaceRecommendations(input: {
   });
 }
 
-export async function buildPeriodSummary(
+export function buildPeriodSummary(
   budgetPeriodRepository: BudgetPeriodRepository,
   periodId: string,
   options: BuildPeriodSummaryOptions = {},
-): Promise<PeriodSummary> {
-  const period = await budgetPeriodRepository.findById(periodId);
-  if (!period) {
-    throw new PeriodNotFoundError(periodId);
-  }
+): Effect.Effect<PeriodSummary, Error> {
+  return Effect.gen(function* () {
+    const period = yield* budgetPeriodRepository.findById(periodId);
+    if (!period) {
+      return yield* Effect.fail(new PeriodNotFoundError(periodId));
+    }
 
-  const jstToday = options.jstToday ?? getJstDateParts(new Date()).date;
-  const dailyTotals = options.dailyTotals ?? [];
-  const dailyTotalsByDate = buildDailyTotalMap(
-    period.id,
-    period.startDate,
-    period.endDate,
-    dailyTotals,
-  );
-  const periodDates = buildDateRange(period.startDate, period.endDate);
-  const periodLengthDays = periodDates.length;
-  const plannedTotalYen = [...dailyTotalsByDate.values()].reduce(
-    (total, current) => total + current,
-    0,
-  );
-  const spentToDateYen = [...dailyTotalsByDate.entries()].reduce(
-    (total, [date, value]) => {
-      return date <= jstToday ? total + value : total;
-    },
-    0,
-  );
-  const spentBeforeTodayYen = [...dailyTotalsByDate.entries()].reduce(
-    (total, [date, value]) => {
-      return date < jstToday ? total + value : total;
-    },
-    0,
-  );
-  const usedTodayYen = dailyTotalsByDate.get(jstToday) ?? 0;
-  const remainingAtTodayYen = period.budgetYen - spentBeforeTodayYen;
-  const isTodayWithinPeriod = isDateWithinPeriod(
-    jstToday,
-    period.startDate,
-    period.endDate,
-  );
-  const remainingDates =
-    jstToday < period.startDate
-      ? periodDates
-      : jstToday > period.endDate
-        ? []
-        : buildDateRange(jstToday, period.endDate);
-  const paceDates = isTodayWithinPeriod ? remainingDates : [];
+    const jstToday = options.jstToday ?? getJstDateParts(new Date()).date;
+    const dailyTotals = options.dailyTotals ?? [];
+    const dailyTotalsByDate = buildDailyTotalMap(
+      period.id,
+      period.startDate,
+      period.endDate,
+      dailyTotals,
+    );
+    const periodDates = buildDateRange(period.startDate, period.endDate);
+    const periodLengthDays = periodDates.length;
+    const plannedTotalYen = [...dailyTotalsByDate.values()].reduce(
+      (total, current) => total + current,
+      0,
+    );
+    const spentToDateYen = [...dailyTotalsByDate.entries()].reduce(
+      (total, [date, value]) => {
+        return date <= jstToday ? total + value : total;
+      },
+      0,
+    );
+    const spentBeforeTodayYen = [...dailyTotalsByDate.entries()].reduce(
+      (total, [date, value]) => {
+        return date < jstToday ? total + value : total;
+      },
+      0,
+    );
+    const usedTodayYen = dailyTotalsByDate.get(jstToday) ?? 0;
+    const remainingAtTodayYen = period.budgetYen - spentBeforeTodayYen;
+    const isTodayWithinPeriod = isDateWithinPeriod(
+      jstToday,
+      period.startDate,
+      period.endDate,
+    );
+    const remainingDates =
+      jstToday < period.startDate
+        ? periodDates
+        : jstToday > period.endDate
+          ? []
+          : buildDateRange(jstToday, period.endDate);
+    const paceDates = isTodayWithinPeriod ? remainingDates : [];
 
-  const remainingYen = period.budgetYen - plannedTotalYen;
-  const overspentYen = remainingYen < 0 ? Math.abs(remainingYen) : 0;
-  const foodPace = buildFoodPaceSummary({
-    budgetYen: period.budgetYen,
-    periodLengthDays,
-    spentBeforeTodayYen,
-    usedTodayYen,
-    remainingDates: paceDates,
+    const remainingYen = period.budgetYen - plannedTotalYen;
+    const overspentYen = remainingYen < 0 ? Math.abs(remainingYen) : 0;
+    const foodPace = buildFoodPaceSummary({
+      budgetYen: period.budgetYen,
+      periodLengthDays,
+      spentBeforeTodayYen,
+      usedTodayYen,
+      remainingDates: paceDates,
+    });
+    const recommendations = buildFoodPaceRecommendations({
+      foodPace,
+      remainingAtTodayYen,
+      remainingDates,
+    });
+    const recommendationMap = new Map(
+      recommendations.map((row) => [row.date, row.recommendedYen]),
+    );
+    const dailyRows: PeriodDailyRow[] = periodDates.map((date) => ({
+      date,
+      label: date === jstToday ? "today" : "planned",
+      usedYen: dailyTotalsByDate.get(date) ?? 0,
+      recommendedYen: recommendationMap.get(date) ?? 0,
+    }));
+    const todayRecommendedYen = recommendationMap.get(jstToday) ?? 0;
+    const varianceFromRecommendationYen = usedTodayYen - todayRecommendedYen;
+    const remainingAfterDayYenPreview = remainingAtTodayYen - usedTodayYen;
+    const daysRemaining = resolveDaysRemaining(
+      period.startDate,
+      period.endDate,
+      jstToday,
+    );
+
+    return {
+      periodId: period.id,
+      startDate: period.startDate,
+      endDate: period.endDate,
+      budgetYen: period.budgetYen,
+      status: period.status,
+      periodLengthDays,
+      spentToDateYen,
+      plannedTotalYen,
+      remainingYen,
+      overspentYen,
+      todayRecommendedYen,
+      varianceFromRecommendationYen,
+      remainingAfterDayYenPreview,
+      daysRemaining,
+      foodPace,
+      dailyRows,
+    };
   });
-  const recommendations = buildFoodPaceRecommendations({
-    foodPace,
-    remainingAtTodayYen,
-    remainingDates,
-  });
-  const recommendationMap = new Map(
-    recommendations.map((row) => [row.date, row.recommendedYen]),
-  );
-  const dailyRows: PeriodDailyRow[] = periodDates.map((date) => ({
-    date,
-    label: date === jstToday ? "today" : "planned",
-    usedYen: dailyTotalsByDate.get(date) ?? 0,
-    recommendedYen: recommendationMap.get(date) ?? 0,
-  }));
-  const todayRecommendedYen = recommendationMap.get(jstToday) ?? 0;
-  const varianceFromRecommendationYen = usedTodayYen - todayRecommendedYen;
-  const remainingAfterDayYenPreview = remainingAtTodayYen - usedTodayYen;
-  const daysRemaining = resolveDaysRemaining(
-    period.startDate,
-    period.endDate,
-    jstToday,
-  );
-
-  return {
-    periodId: period.id,
-    startDate: period.startDate,
-    endDate: period.endDate,
-    budgetYen: period.budgetYen,
-    status: period.status,
-    periodLengthDays,
-    spentToDateYen,
-    plannedTotalYen,
-    remainingYen,
-    overspentYen,
-    todayRecommendedYen,
-    varianceFromRecommendationYen,
-    remainingAfterDayYenPreview,
-    daysRemaining,
-    foodPace,
-    dailyRows,
-  };
 }
 
 export type InMemoryApiServices = {
@@ -400,21 +404,21 @@ export type InMemoryApiServices = {
     endDate: string;
     budgetYen: number;
     predecessorPeriodId?: string | null;
-  }) => Promise<BudgetPeriodRecord>;
+  }) => Effect.Effect<BudgetPeriodRecord, Error>;
   updatePeriod: (input: {
     id: string;
     startDate: string;
     endDate: string;
     budgetYen: number;
-  }) => Promise<BudgetPeriodRecord>;
-  listPeriods: () => Promise<BudgetPeriodRecord[]>;
+  }) => Effect.Effect<BudgetPeriodRecord, Error>;
+  listPeriods: () => Effect.Effect<BudgetPeriodRecord[], Error>;
   listDailyTotalsByPeriodId: (
     periodId: string,
-  ) => Promise<PeriodSummaryDailyTotal[]>;
+  ) => Effect.Effect<PeriodSummaryDailyTotal[], Error>;
   listHistoryByDate: (
     periodId: string,
     date: string,
-  ) => Promise<DailyHistoryRecord[]>;
+  ) => Effect.Effect<DailyHistoryRecord[], Error>;
   nowIso: () => string;
   jstToday: () => string;
 };
@@ -448,18 +452,29 @@ export function createInMemoryApiServices(
   const budgetPeriodRepository = createInMemoryBudgetPeriodRepository();
 
   let mutationQueue: Promise<void> = Promise.resolve();
-  async function runSerialized<T>(work: () => Promise<T>): Promise<T> {
-    const pending = mutationQueue;
-    let releaseQueue: (() => void) | undefined;
-    mutationQueue = new Promise<void>((resolve) => {
-      releaseQueue = resolve;
+  function runSerializedEffect<T>(
+    work: () => Effect.Effect<T, Error>,
+  ): Effect.Effect<T, Error> {
+    return Effect.gen(function* () {
+      const pending = mutationQueue;
+      let releaseQueue: (() => void) | undefined;
+      mutationQueue = new Promise<void>((resolve) => {
+        releaseQueue = resolve;
+      });
+
+      yield* Effect.tryPromise({
+        try: () => pending,
+        catch: toEffectError,
+      });
+
+      return yield* work().pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            releaseQueue?.();
+          }),
+        ),
+      );
     });
-    await pending;
-    try {
-      return await work();
-    } finally {
-      releaseQueue?.();
-    }
   }
 
   const rawDayEntryService = new DayEntryService({
@@ -471,33 +486,36 @@ export function createInMemoryApiServices(
     createHistoryId: input.createHistoryId,
   });
 
-  async function assertNoOutOfRangePeriodEntries(
+  function assertNoOutOfRangePeriodEntries(
     periodId: string,
     startDate: string,
     endDate: string,
-  ): Promise<void> {
-    const hasOutOfRangeEntries = await databaseClient.read(async (tx) => {
-      const hasOutOfRangeTotal = [...tx.state.dailyTotals.values()].some(
-        (row) =>
-          row.budgetPeriodId === periodId &&
-          !isDateWithinPeriod(row.date, startDate, endDate),
+  ): Effect.Effect<void, Error> {
+    return Effect.gen(function* () {
+      const hasOutOfRangeEntries = yield* databaseClient.read((tx) =>
+        Effect.succeed(
+          [...tx.state.dailyTotals.values()].some(
+            (row) =>
+              row.budgetPeriodId === periodId &&
+              !isDateWithinPeriod(row.date, startDate, endDate),
+          ) ||
+            tx.state.dailyOperationHistories.some(
+              (row) =>
+                row.budgetPeriodId === periodId &&
+                !isDateWithinPeriod(row.date, startDate, endDate),
+            ),
+        ),
       );
-      if (hasOutOfRangeTotal) {
-        return true;
-      }
-      return tx.state.dailyOperationHistories.some(
-        (row) =>
-          row.budgetPeriodId === periodId &&
-          !isDateWithinPeriod(row.date, startDate, endDate),
-      );
-    });
 
-    if (hasOutOfRangeEntries) {
-      throw new PeriodValidationError(
-        "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
-        `period ${periodId} has entries outside the updated range`,
-      );
-    }
+      if (hasOutOfRangeEntries) {
+        return yield* Effect.fail(
+          new PeriodValidationError(
+            "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
+            `period ${periodId} has entries outside the updated range`,
+          ),
+        );
+      }
+    });
   }
 
   return {
@@ -507,52 +525,58 @@ export function createInMemoryApiServices(
     dailyHistoryRepository,
     dayEntryService: {
       addDailyAmount: (command) =>
-        runSerialized(() => rawDayEntryService.addDailyAmount(command)),
+        runSerializedEffect(() => rawDayEntryService.addDailyAmount(command)),
       overwriteDailyAmount: (command) =>
-        runSerialized(() => rawDayEntryService.overwriteDailyAmount(command)),
+        runSerializedEffect(() =>
+          rawDayEntryService.overwriteDailyAmount(command),
+        ),
     },
-    createPeriod: async (periodInput) =>
-      runSerialized(() =>
+    createPeriod: (periodInput) =>
+      runSerializedEffect(() =>
         budgetPeriodRepository.createPeriod({
           ...periodInput,
           nowIso: now().toISOString(),
         }),
       ),
-    updatePeriod: async (periodInput) => {
-      return runSerialized(async () => {
-        await assertNoOutOfRangePeriodEntries(
-          periodInput.id,
-          periodInput.startDate,
-          periodInput.endDate,
-        );
-        return budgetPeriodRepository.updatePeriod({
-          ...periodInput,
-          nowIso: now().toISOString(),
-        });
-      });
-    },
+    updatePeriod: (periodInput) =>
+      runSerializedEffect(() =>
+        Effect.gen(function* () {
+          yield* assertNoOutOfRangePeriodEntries(
+            periodInput.id,
+            periodInput.startDate,
+            periodInput.endDate,
+          );
+
+          return yield* budgetPeriodRepository.updatePeriod({
+            ...periodInput,
+            nowIso: now().toISOString(),
+          });
+        }),
+      ),
     listPeriods: () => budgetPeriodRepository.listPeriods(),
-    listDailyTotalsByPeriodId: async (periodId) => {
-      return databaseClient.read(async (tx) => {
-        return [...tx.state.dailyTotals.values()]
-          .filter((row) => row.budgetPeriodId === periodId)
-          .map((row) => ({
-            date: row.date,
-            budgetPeriodId: row.budgetPeriodId,
-            totalUsedYen: row.totalUsedYen,
-          }))
-          .sort((left, right) => left.date.localeCompare(right.date));
-      });
-    },
-    listHistoryByDate: async (periodId, date) => {
-      const period = await budgetPeriodRepository.findById(periodId);
-      if (!period) {
-        throw new PeriodNotFoundError(periodId);
-      }
-      return databaseClient.read((tx) =>
-        dailyHistoryRepository.listHistoriesByDate(tx, date, periodId),
-      );
-    },
+    listDailyTotalsByPeriodId: (periodId) =>
+      databaseClient.read((tx) =>
+        Effect.succeed(
+          [...tx.state.dailyTotals.values()]
+            .filter((row) => row.budgetPeriodId === periodId)
+            .map((row) => ({
+              date: row.date,
+              budgetPeriodId: row.budgetPeriodId,
+              totalUsedYen: row.totalUsedYen,
+            }))
+            .sort((left, right) => left.date.localeCompare(right.date)),
+        ),
+      ),
+    listHistoryByDate: (periodId, date) =>
+      Effect.gen(function* () {
+        const period = yield* budgetPeriodRepository.findById(periodId);
+        if (!period) {
+          return yield* Effect.fail(new PeriodNotFoundError(periodId));
+        }
+        return yield* databaseClient.read((tx) =>
+          dailyHistoryRepository.listHistoriesByDate(tx, date, periodId),
+        );
+      }),
     nowIso: () => now().toISOString(),
     jstToday: () => getJstDateParts(now()).date,
   };
@@ -672,7 +696,7 @@ function createD1DayEntryService(
   now: () => Date,
   createHistoryId: () => string,
 ): DayEntryServicePort {
-  async function execute(
+  function execute(
     command: {
       periodId: string;
       date: string;
@@ -680,82 +704,97 @@ function createD1DayEntryService(
       memo?: string | null;
     },
     operationType: "add" | "overwrite",
-  ) {
-    assertValidDate(command.date);
-    assertValidInputYen(command.inputYen);
-    await ensureD1Schema(db);
+  ): Effect.Effect<Record<string, never>, Error> {
+    return Effect.gen(function* () {
+      yield* Effect.try({
+        try: () => {
+          assertValidDate(command.date);
+          assertValidInputYen(command.inputYen);
+        },
+        catch: toEffectError,
+      });
+      yield* Effect.tryPromise({
+        try: () => ensureD1Schema(db),
+        catch: toEffectError,
+      });
 
-    const period = await db
-      .prepare(
-        `SELECT id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
+      const period = yield* Effect.tryPromise({
+        try: () =>
+          db
+            .prepare(
+              `SELECT id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
            FROM budget_periods
           WHERE id = ?`,
-      )
-      .bind(command.periodId)
-      .first<{
-        id: string;
-        start_date: string;
-        end_date: string;
-        budget_yen: number;
-        status: "active" | "closed";
-        predecessor_period_id: string | null;
-        created_at: string;
-        updated_at: string;
-      }>();
-    if (!period) {
-      throw new PeriodNotFoundError(command.periodId);
-    }
-    if (!isDateWithinPeriod(command.date, period.start_date, period.end_date)) {
-      throw new DateOutOfPeriodError(command.date, command.periodId);
-    }
+            )
+            .bind(command.periodId)
+            .first<{
+              id: string;
+              start_date: string;
+              end_date: string;
+              budget_yen: number;
+              status: "active" | "closed";
+              predecessor_period_id: string | null;
+              created_at: string;
+              updated_at: string;
+            }>(),
+        catch: toEffectError,
+      });
+      if (!period) {
+        return yield* Effect.fail(new PeriodNotFoundError(command.periodId));
+      }
+      if (
+        !isDateWithinPeriod(command.date, period.start_date, period.end_date)
+      ) {
+        return yield* Effect.fail(
+          new DateOutOfPeriodError(command.date, command.periodId),
+        );
+      }
 
-    const nowIso = now().toISOString();
-    const memo = normalizeMemo(command.memo);
-
-    const existing = await dailyTotalRepository.findByDate(
-      command.date,
-      command.periodId,
-    );
-    const beforeTotalYen = existing?.totalUsedYen ?? 0;
-    const afterTotalYen =
-      operationType === "add"
-        ? beforeTotalYen + command.inputYen
-        : command.inputYen;
-    const totalMutation = dailyTotalRepository.prepareUpsertDailyTotal(
-      {
+      const nowIso = now().toISOString();
+      const memo = normalizeMemo(command.memo);
+      const existing = yield* dailyTotalRepository.findByDate(
+        command.date,
+        command.periodId,
+      );
+      const beforeTotalYen = existing?.totalUsedYen ?? 0;
+      const afterTotalYen =
+        operationType === "add"
+          ? beforeTotalYen + command.inputYen
+          : command.inputYen;
+      const totalMutation = dailyTotalRepository.prepareUpsertDailyTotal(
+        {
+          budgetPeriodId: command.periodId,
+          date: command.date,
+          yearMonth: command.date.slice(0, 7),
+          totalUsedYen:
+            operationType === "add" ? command.inputYen : afterTotalYen,
+          nowIso,
+        },
+        operationType,
+      );
+      const historyInsert = dailyHistoryRepository.prepareInsertHistory({
+        id: createHistoryId(),
         budgetPeriodId: command.periodId,
         date: command.date,
-        yearMonth: command.date.slice(0, 7),
-        totalUsedYen:
-          operationType === "add" ? command.inputYen : afterTotalYen,
-        nowIso,
-      },
-      operationType,
-    );
-    const historyInsert = dailyHistoryRepository.prepareInsertHistory({
-      id: createHistoryId(),
-      budgetPeriodId: command.periodId,
-      date: command.date,
-      operationType,
-      inputYen: command.inputYen,
-      beforeTotalYen,
-      afterTotalYen,
-      memo,
-      createdAt: nowIso,
-    });
+        operationType,
+        inputYen: command.inputYen,
+        beforeTotalYen,
+        afterTotalYen,
+        memo,
+        createdAt: nowIso,
+      });
 
-    await db.batch([totalMutation, historyInsert]);
+      yield* Effect.tryPromise({
+        try: () => db.batch([totalMutation, historyInsert]),
+        catch: toEffectError,
+      });
+      return {};
+    });
   }
 
   return {
-    async addDailyAmount(command) {
-      await execute(command, "add");
-      return {};
-    },
-    async overwriteDailyAmount(command) {
-      await execute(command, "overwrite");
-      return {};
-    },
+    addDailyAmount: (command) => execute(command, "add"),
+    overwriteDailyAmount: (command) => execute(command, "overwrite"),
   };
 }
 
@@ -784,30 +823,38 @@ export function createD1ApiServices(
     input.createHistoryId ?? defaultCreateHistoryId,
   );
 
-  async function assertNoOutOfRangePeriodEntries(
+  function assertNoOutOfRangePeriodEntries(
     periodId: string,
     startDate: string,
     endDate: string,
-  ): Promise<void> {
-    await ensureD1Schema(db);
-    const outOfRangeTotal = await dailyTotalRepository.hasEntriesOutsidePeriod(
-      periodId,
-      startDate,
-      endDate,
-    );
-    const outOfRangeHistory =
-      await dailyHistoryRepository.hasEntriesOutsidePeriod(
-        periodId,
-        startDate,
-        endDate,
-      );
+  ): Effect.Effect<void, Error> {
+    return Effect.gen(function* () {
+      yield* Effect.tryPromise({
+        try: () => ensureD1Schema(db),
+        catch: toEffectError,
+      });
+      const outOfRangeTotal =
+        yield* dailyTotalRepository.hasEntriesOutsidePeriod(
+          periodId,
+          startDate,
+          endDate,
+        );
+      const outOfRangeHistory =
+        yield* dailyHistoryRepository.hasEntriesOutsidePeriod(
+          periodId,
+          startDate,
+          endDate,
+        );
 
-    if (outOfRangeTotal || outOfRangeHistory) {
-      throw new PeriodValidationError(
-        "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
-        `period ${periodId} has entries outside the updated range`,
-      );
-    }
+      if (outOfRangeTotal || outOfRangeHistory) {
+        return yield* Effect.fail(
+          new PeriodValidationError(
+            "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
+            `period ${periodId} has entries outside the updated range`,
+          ),
+        );
+      }
+    });
   }
 
   return {
@@ -818,34 +865,44 @@ export function createD1ApiServices(
         ...periodInput,
         nowIso: now().toISOString(),
       }),
-    updatePeriod: async (periodInput) => {
-      await assertNoOutOfRangePeriodEntries(
-        periodInput.id,
-        periodInput.startDate,
-        periodInput.endDate,
-      );
-      return budgetPeriodRepository.updatePeriod({
-        ...periodInput,
-        nowIso: now().toISOString(),
-      });
-    },
+    updatePeriod: (periodInput) =>
+      Effect.gen(function* () {
+        yield* assertNoOutOfRangePeriodEntries(
+          periodInput.id,
+          periodInput.startDate,
+          periodInput.endDate,
+        );
+        return yield* budgetPeriodRepository.updatePeriod({
+          ...periodInput,
+          nowIso: now().toISOString(),
+        });
+      }),
     listPeriods: () => budgetPeriodRepository.listPeriods(),
-    listDailyTotalsByPeriodId: async (periodId) => {
-      const rows = await dailyTotalRepository.listByPeriodId(periodId);
-      return rows.map((row) => ({
-        date: row.date,
-        budgetPeriodId: row.budgetPeriodId,
-        totalUsedYen: row.totalUsedYen,
-      }));
-    },
-    listHistoryByDate: async (periodId, date) => {
-      await ensureD1Schema(db);
-      const period = await budgetPeriodRepository.findById(periodId);
-      if (!period) {
-        throw new PeriodNotFoundError(periodId);
-      }
-      return dailyHistoryRepository.listHistoriesByDate(date, periodId);
-    },
+    listDailyTotalsByPeriodId: (periodId) =>
+      dailyTotalRepository.listByPeriodId(periodId).pipe(
+        Effect.map((rows) =>
+          rows.map((row) => ({
+            date: row.date,
+            budgetPeriodId: row.budgetPeriodId,
+            totalUsedYen: row.totalUsedYen,
+          })),
+        ),
+      ),
+    listHistoryByDate: (periodId, date) =>
+      Effect.gen(function* () {
+        yield* Effect.tryPromise({
+          try: () => ensureD1Schema(db),
+          catch: toEffectError,
+        });
+        const period = yield* budgetPeriodRepository.findById(periodId);
+        if (!period) {
+          return yield* Effect.fail(new PeriodNotFoundError(periodId));
+        }
+        return yield* dailyHistoryRepository.listHistoriesByDate(
+          date,
+          periodId,
+        );
+      }),
     nowIso: () => now().toISOString(),
     jstToday: () => getJstDateParts(now()).date,
   };
@@ -883,12 +940,19 @@ export function getApiServicesFromPlatform(
   return created;
 }
 
-export async function getPeriodSummaryFromServices(
+export function getPeriodSummaryFromServices(
   services: InMemoryApiServices,
   periodId: string,
-): Promise<PeriodSummary> {
-  return buildPeriodSummary(services.budgetPeriodRepository, periodId, {
-    jstToday: services.jstToday(),
-    dailyTotals: await services.listDailyTotalsByPeriodId(periodId),
+): Effect.Effect<PeriodSummary, Error> {
+  return Effect.gen(function* () {
+    const dailyTotals = yield* services.listDailyTotalsByPeriodId(periodId);
+    return yield* buildPeriodSummary(
+      services.budgetPeriodRepository,
+      periodId,
+      {
+        jstToday: services.jstToday(),
+        dailyTotals,
+      },
+    );
   });
 }

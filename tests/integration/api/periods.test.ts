@@ -3,6 +3,7 @@ import {
   createInMemoryApiServices,
   type InMemoryApiServices,
 } from "$lib/server/services/month-summary-service";
+import { runApiEffect } from "$lib/server/effect/runtime";
 import {
   _createPeriodsHandler,
   _createPeriodsListHandler,
@@ -74,12 +75,14 @@ describe("period APIs", () => {
 
   it("returns summary and day histories under period path", async () => {
     const fixture = createFixture();
-    await fixture.services.createPeriod({
-      id: "p-2026-04",
-      startDate: "2026-04-20",
-      endDate: "2026-05-19",
-      budgetYen: 100000,
-    });
+    await runApiEffect(
+      fixture.services.createPeriod({
+        id: "p-2026-04",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
 
     const addResponse = await fixture.addDay({
       params: { periodId: "p-2026-04", date: "2026-04-20" },
@@ -157,12 +160,14 @@ describe("period APIs", () => {
 
   it("updates period by PUT /api/periods/:periodId", async () => {
     const fixture = createFixture();
-    await fixture.services.createPeriod({
-      id: "p-put",
-      startDate: "2026-04-20",
-      endDate: "2026-05-19",
-      budgetYen: 100000,
-    });
+    await runApiEffect(
+      fixture.services.createPeriod({
+        id: "p-put",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
 
     const putResponse = await fixture.updatePeriod({
       params: { periodId: "p-put" },
@@ -207,19 +212,23 @@ describe("period APIs", () => {
 
   it("returns 400 for overlap / continuity validation errors", async () => {
     const fixture = createFixture();
-    await fixture.services.createPeriod({
-      id: "p-a",
-      startDate: "2026-04-20",
-      endDate: "2026-05-19",
-      budgetYen: 100000,
-    });
-    await fixture.services.createPeriod({
-      id: "p-b",
-      startDate: "2026-05-20",
-      endDate: "2026-06-19",
-      budgetYen: 100000,
-      predecessorPeriodId: "p-a",
-    });
+    await runApiEffect(
+      fixture.services.createPeriod({
+        id: "p-a",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
+    await runApiEffect(
+      fixture.services.createPeriod({
+        id: "p-b",
+        startDate: "2026-05-20",
+        endDate: "2026-06-19",
+        budgetYen: 100000,
+        predecessorPeriodId: "p-a",
+      }),
+    );
 
     const overlapResponse = await fixture.createPeriod({
       request: new Request("http://localhost/api/periods", {
@@ -256,12 +265,14 @@ describe("period APIs", () => {
 
   it("rejects shrinking a period when entries would fall outside the new range", async () => {
     const fixture = createFixture();
-    await fixture.services.createPeriod({
-      id: "p-shrink",
-      startDate: "2026-04-20",
-      endDate: "2026-05-19",
-      budgetYen: 100000,
-    });
+    await runApiEffect(
+      fixture.services.createPeriod({
+        id: "p-shrink",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
 
     const addResponse = await fixture.addDay({
       params: { periodId: "p-shrink", date: "2026-05-19" },
