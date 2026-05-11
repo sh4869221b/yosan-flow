@@ -5,6 +5,10 @@ import {
 } from "$lib/server/db/client";
 import type { D1Database } from "$lib/server/db/d1-types";
 import {
+  createD1DayEntryWriter,
+  type D1DayEntryWriter,
+} from "$lib/server/db/day-entry-writer";
+import {
   createD1BudgetPeriodRepository,
   createInMemoryBudgetPeriodRepository,
   PeriodValidationError,
@@ -14,7 +18,6 @@ import {
 import {
   createD1DailyHistoryRepository,
   createDailyHistoryRepository,
-  type D1DailyHistoryRepository,
   type DailyHistoryRecord,
   type DailyHistoryRepository,
 } from "$lib/server/db/daily-history-repository";
@@ -690,9 +693,9 @@ function defaultCreateHistoryId(): string {
 }
 
 function createD1DayEntryService(
-  db: D1Database,
   dailyTotalRepository: D1DailyTotalRepository,
-  dailyHistoryRepository: D1DailyHistoryRepository,
+  budgetPeriodRepository: BudgetPeriodRepository,
+  dayEntryWriter: D1DayEntryWriter,
   now: () => Date,
   createHistoryId: () => string,
 ): DayEntryServicePort {
@@ -713,38 +716,12 @@ function createD1DayEntryService(
         },
         catch: toEffectError,
       });
-      yield* Effect.tryPromise({
-        try: () => ensureD1Schema(db),
-        catch: toEffectError,
-      });
 
-      const period = yield* Effect.tryPromise({
-        try: () =>
-          db
-            .prepare(
-              `SELECT id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
-           FROM budget_periods
-          WHERE id = ?`,
-            )
-            .bind(command.periodId)
-            .first<{
-              id: string;
-              start_date: string;
-              end_date: string;
-              budget_yen: number;
-              status: "active" | "closed";
-              predecessor_period_id: string | null;
-              created_at: string;
-              updated_at: string;
-            }>(),
-        catch: toEffectError,
-      });
+      const period = yield* budgetPeriodRepository.findById(command.periodId);
       if (!period) {
         return yield* Effect.fail(new PeriodNotFoundError(command.periodId));
       }
-      if (
-        !isDateWithinPeriod(command.date, period.start_date, period.end_date)
-      ) {
+      if (!isDateWithinPeriod(command.date, period.startDate, period.endDate)) {
         return yield* Effect.fail(
           new DateOutOfPeriodError(command.date, command.periodId),
         );
@@ -761,8 +738,8 @@ function createD1DayEntryService(
         operationType === "add"
           ? beforeTotalYen + command.inputYen
           : command.inputYen;
-      const totalMutation = dailyTotalRepository.prepareUpsertDailyTotal(
-        {
+      yield* dayEntryWriter.writeDailyEntry({
+        total: {
           budgetPeriodId: command.periodId,
           date: command.date,
           yearMonth: command.date.slice(0, 7),
@@ -770,23 +747,18 @@ function createD1DayEntryService(
             operationType === "add" ? command.inputYen : afterTotalYen,
           nowIso,
         },
-        operationType,
-      );
-      const historyInsert = dailyHistoryRepository.prepareInsertHistory({
-        id: createHistoryId(),
-        budgetPeriodId: command.periodId,
-        date: command.date,
-        operationType,
-        inputYen: command.inputYen,
-        beforeTotalYen,
-        afterTotalYen,
-        memo,
-        createdAt: nowIso,
-      });
-
-      yield* Effect.tryPromise({
-        try: () => db.batch([totalMutation, historyInsert]),
-        catch: toEffectError,
+        history: {
+          id: createHistoryId(),
+          budgetPeriodId: command.periodId,
+          date: command.date,
+          operationType,
+          inputYen: command.inputYen,
+          beforeTotalYen,
+          afterTotalYen,
+          memo,
+          createdAt: nowIso,
+        },
+        mode: operationType,
       });
       return {};
     });
@@ -815,10 +787,14 @@ export function createD1ApiServices(
     db,
     ensureSchema: () => ensureD1Schema(db),
   });
-  const dayEntryService = createD1DayEntryService(
+  const dayEntryWriter = createD1DayEntryWriter({
     db,
+    ensureSchema: () => ensureD1Schema(db),
+  });
+  const dayEntryService = createD1DayEntryService(
     dailyTotalRepository,
-    dailyHistoryRepository,
+    budgetPeriodRepository,
+    dayEntryWriter,
     now,
     input.createHistoryId ?? defaultCreateHistoryId,
   );

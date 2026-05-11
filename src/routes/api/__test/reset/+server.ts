@@ -1,4 +1,10 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
+import { createDrizzleD1Database } from "$lib/server/db/client";
+import {
+  budget_periods,
+  daily_operation_histories,
+  daily_totals,
+} from "$lib/server/db/schema";
 
 const RESET_HEADER = "x-yosan-flow-e2e-reset-token";
 
@@ -30,11 +36,10 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     );
   }
 
-  await db.batch([
-    db.prepare("DELETE FROM daily_operation_histories"),
-    db.prepare("DELETE FROM daily_totals"),
-    db.prepare("DELETE FROM budget_periods"),
-  ]);
+  const database = createDrizzleD1Database(db);
+  await database.delete(daily_operation_histories).run();
+  await database.delete(daily_totals).run();
+  await database.delete(budget_periods).run();
 
   return json({ ok: true });
 };

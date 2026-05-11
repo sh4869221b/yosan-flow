@@ -140,6 +140,7 @@ pnpm wrangler tail yosan-flow --env production --status error --format pretty
 
 - スキーマは `migrations/*.sql` で管理します。
 - `src/lib/server/db/schema.ts` は Drizzle 用の schema mirror です。現時点では SQL migrations が source of truth です。
+- migration 以外のアプリケーション DB query path は Drizzle 境界・repository 経由に寄せます。runtime schema bootstrap の raw SQL は別扱いで、アプリ query へ広げないでください。
 - Drizzle 生成 migration はまだ採用していません。migration drift check の運用は後続タスクで決めます。
 - Drizzle generated migration checks / drift checks are not required in CI at this stage. TypeScript import and type safety coverage through `pnpm check` is sufficient for now.
 - ローカル適用: `pnpm run cf:migrate:local`
