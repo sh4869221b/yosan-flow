@@ -150,19 +150,17 @@ export function createD1DailyHistoryRepository(
   const database = createDrizzleD1Database(input.db);
 
   const buildInsertHistoryQuery = (inputRow: InsertDailyHistoryInput) =>
-    database
-      .insert(daily_operation_histories)
-      .values({
-        id: inputRow.id,
-        budget_period_id: inputRow.budgetPeriodId,
-        date: inputRow.date,
-        operation_type: inputRow.operationType,
-        input_yen: inputRow.inputYen,
-        before_total_yen: inputRow.beforeTotalYen,
-        after_total_yen: inputRow.afterTotalYen,
-        memo: inputRow.memo,
-        created_at: inputRow.createdAt,
-      });
+    database.insert(daily_operation_histories).values({
+      id: inputRow.id,
+      budget_period_id: inputRow.budgetPeriodId,
+      date: inputRow.date,
+      operation_type: inputRow.operationType,
+      input_yen: inputRow.inputYen,
+      before_total_yen: inputRow.beforeTotalYen,
+      after_total_yen: inputRow.afterTotalYen,
+      memo: inputRow.memo,
+      created_at: inputRow.createdAt,
+    });
 
   const listHistoriesByDateInternal = async (
     date: string,

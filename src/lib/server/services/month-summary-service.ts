@@ -18,7 +18,6 @@ import {
 import {
   createD1DailyHistoryRepository,
   createDailyHistoryRepository,
-  type D1DailyHistoryRepository,
   type DailyHistoryRecord,
   type DailyHistoryRepository,
 } from "$lib/server/db/daily-history-repository";

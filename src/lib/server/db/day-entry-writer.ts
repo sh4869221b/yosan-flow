@@ -2,10 +2,7 @@ import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 import { createDrizzleD1Database } from "$lib/server/db/client";
 import type { D1Database } from "$lib/server/db/d1-types";
-import {
-  daily_operation_histories,
-  daily_totals,
-} from "$lib/server/db/schema";
+import { daily_operation_histories, daily_totals } from "$lib/server/db/schema";
 import { toEffectError } from "$lib/server/effect/runtime";
 
 type D1DayEntryWriteMode = "add" | "overwrite";
