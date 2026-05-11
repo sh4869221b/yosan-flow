@@ -41,9 +41,12 @@ function createD1BindingStub(input: {
       };
       return statement;
     },
-    async batch(statements) {
+    async batch<T = unknown>(statements: D1PreparedStatement[]): Promise<T[]> {
       input.onBatch?.(statements);
-      return Promise.all(statements.map((statement) => statement.run()));
+      const results = await Promise.all(
+        statements.map((statement) => statement.run()),
+      );
+      return results as T[];
     },
   };
 }

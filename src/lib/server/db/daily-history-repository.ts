@@ -2,7 +2,7 @@ import { and, desc, eq, gt, lt, or } from "drizzle-orm";
 import { Effect } from "effect";
 import type { DatabaseTransaction } from "$lib/server/db/client";
 import { createDrizzleD1Database } from "$lib/server/db/client";
-import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
+import type { D1Database } from "$lib/server/db/d1-types";
 import { toEffectError } from "$lib/server/effect/runtime";
 import {
   daily_operation_histories,
@@ -61,7 +61,6 @@ export interface D1DailyHistoryRepository {
   insertHistory(
     input: InsertDailyHistoryInput,
   ): Effect.Effect<DailyHistoryRecord, Error>;
-  prepareInsertHistory(input: InsertDailyHistoryInput): D1PreparedStatement;
   hasEntriesOutsidePeriod(
     periodId: string,
     startDate: string,
@@ -150,10 +149,8 @@ export function createD1DailyHistoryRepository(
   const ensureSchema = input.ensureSchema ?? (async () => {});
   const database = createDrizzleD1Database(input.db);
 
-  const prepareInsertHistory = (
-    inputRow: InsertDailyHistoryInput,
-  ): D1PreparedStatement => {
-    const query = database
+  const buildInsertHistoryQuery = (inputRow: InsertDailyHistoryInput) =>
+    database
       .insert(daily_operation_histories)
       .values({
         id: inputRow.id,
@@ -165,10 +162,7 @@ export function createD1DailyHistoryRepository(
         after_total_yen: inputRow.afterTotalYen,
         memo: inputRow.memo,
         created_at: inputRow.createdAt,
-      })
-      .toSQL();
-    return input.db.prepare(query.sql).bind(...query.params);
-  };
+      });
 
   const listHistoriesByDateInternal = async (
     date: string,
@@ -204,7 +198,7 @@ export function createD1DailyHistoryRepository(
       return Effect.tryPromise({
         try: async () => {
           await ensureSchema();
-          await prepareInsertHistory(inputRow).run();
+          await buildInsertHistoryQuery(inputRow).run();
           return cloneHistory({
             id: inputRow.id,
             date: inputRow.date,
@@ -219,10 +213,6 @@ export function createD1DailyHistoryRepository(
         },
         catch: toEffectError,
       });
-    },
-
-    prepareInsertHistory(inputRow) {
-      return prepareInsertHistory(inputRow);
     },
 
     hasEntriesOutsidePeriod(periodId, startDate, endDate) {

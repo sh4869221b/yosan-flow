@@ -5,6 +5,10 @@ import {
 } from "$lib/server/db/client";
 import type { D1Database } from "$lib/server/db/d1-types";
 import {
+  createD1DayEntryWriter,
+  type D1DayEntryWriter,
+} from "$lib/server/db/day-entry-writer";
+import {
   createD1BudgetPeriodRepository,
   createInMemoryBudgetPeriodRepository,
   PeriodValidationError,
@@ -690,10 +694,9 @@ function defaultCreateHistoryId(): string {
 }
 
 function createD1DayEntryService(
-  db: D1Database,
   dailyTotalRepository: D1DailyTotalRepository,
-  dailyHistoryRepository: D1DailyHistoryRepository,
   budgetPeriodRepository: BudgetPeriodRepository,
+  dayEntryWriter: D1DayEntryWriter,
   now: () => Date,
   createHistoryId: () => string,
 ): DayEntryServicePort {
@@ -712,10 +715,6 @@ function createD1DayEntryService(
           assertValidDate(command.date);
           assertValidInputYen(command.inputYen);
         },
-        catch: toEffectError,
-      });
-      yield* Effect.tryPromise({
-        try: () => ensureD1Schema(db),
         catch: toEffectError,
       });
 
@@ -740,8 +739,8 @@ function createD1DayEntryService(
         operationType === "add"
           ? beforeTotalYen + command.inputYen
           : command.inputYen;
-      const totalMutation = dailyTotalRepository.prepareUpsertDailyTotal(
-        {
+      yield* dayEntryWriter.writeDailyEntry({
+        total: {
           budgetPeriodId: command.periodId,
           date: command.date,
           yearMonth: command.date.slice(0, 7),
@@ -749,23 +748,18 @@ function createD1DayEntryService(
             operationType === "add" ? command.inputYen : afterTotalYen,
           nowIso,
         },
-        operationType,
-      );
-      const historyInsert = dailyHistoryRepository.prepareInsertHistory({
-        id: createHistoryId(),
-        budgetPeriodId: command.periodId,
-        date: command.date,
-        operationType,
-        inputYen: command.inputYen,
-        beforeTotalYen,
-        afterTotalYen,
-        memo,
-        createdAt: nowIso,
-      });
-
-      yield* Effect.tryPromise({
-        try: () => db.batch([totalMutation, historyInsert]),
-        catch: toEffectError,
+        history: {
+          id: createHistoryId(),
+          budgetPeriodId: command.periodId,
+          date: command.date,
+          operationType,
+          inputYen: command.inputYen,
+          beforeTotalYen,
+          afterTotalYen,
+          memo,
+          createdAt: nowIso,
+        },
+        mode: operationType,
       });
       return {};
     });
@@ -794,11 +788,14 @@ export function createD1ApiServices(
     db,
     ensureSchema: () => ensureD1Schema(db),
   });
-  const dayEntryService = createD1DayEntryService(
+  const dayEntryWriter = createD1DayEntryWriter({
     db,
+    ensureSchema: () => ensureD1Schema(db),
+  });
+  const dayEntryService = createD1DayEntryService(
     dailyTotalRepository,
-    dailyHistoryRepository,
     budgetPeriodRepository,
+    dayEntryWriter,
     now,
     input.createHistoryId ?? defaultCreateHistoryId,
   );

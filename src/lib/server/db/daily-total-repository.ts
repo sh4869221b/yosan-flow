@@ -2,7 +2,7 @@ import { and, asc, eq, gt, lt, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 import type { DatabaseTransaction } from "$lib/server/db/client";
 import { createDrizzleD1Database } from "$lib/server/db/client";
-import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
+import type { D1Database } from "$lib/server/db/d1-types";
 import { daily_totals, type DailyTotalRow } from "$lib/server/db/schema";
 import { toEffectError } from "$lib/server/effect/runtime";
 
@@ -21,8 +21,6 @@ type DailyTotalUpsertInput = {
   totalUsedYen: number;
   nowIso: string;
 };
-
-type D1DailyTotalUpsertMode = "add" | "overwrite";
 
 type DailyTotalTransaction = DatabaseTransaction<any, DailyTotalRecord, any>;
 
@@ -46,10 +44,6 @@ export interface D1DailyTotalRepository {
   upsertDailyTotal(
     input: DailyTotalUpsertInput,
   ): Effect.Effect<DailyTotalRecord, Error>;
-  prepareUpsertDailyTotal(
-    input: DailyTotalUpsertInput,
-    mode?: D1DailyTotalUpsertMode,
-  ): D1PreparedStatement;
   listByPeriodId(periodId: string): Effect.Effect<DailyTotalRecord[], Error>;
   hasEntriesOutsidePeriod(
     periodId: string,
@@ -147,15 +141,8 @@ export function createD1DailyTotalRepository(
       .all();
     return row ? toDailyTotalRecord(row) : null;
   };
-  const prepareUpsertDailyTotal = (
-    inputRow: DailyTotalUpsertInput,
-    mode: D1DailyTotalUpsertMode = "overwrite",
-  ): D1PreparedStatement => {
-    const nextTotal =
-      mode === "add"
-        ? sql`${daily_totals.total_used_yen} + excluded.total_used_yen`
-        : sql`excluded.total_used_yen`;
-    const query = database
+  const buildUpsertDailyTotalQuery = (inputRow: DailyTotalUpsertInput) =>
+    database
       .insert(daily_totals)
       .values({
         budget_period_id: inputRow.budgetPeriodId,
@@ -168,13 +155,10 @@ export function createD1DailyTotalRepository(
         target: [daily_totals.budget_period_id, daily_totals.date],
         set: {
           year_month: sql`excluded.year_month`,
-          total_used_yen: nextTotal,
+          total_used_yen: sql`excluded.total_used_yen`,
           updated_at: sql`excluded.updated_at`,
         },
-      })
-      .toSQL();
-    return input.db.prepare(query.sql).bind(...query.params);
-  };
+      });
 
   return {
     findByDate(date, budgetPeriodId) {
@@ -188,7 +172,7 @@ export function createD1DailyTotalRepository(
       return Effect.tryPromise({
         try: async () => {
           await ensureSchema();
-          await prepareUpsertDailyTotal(inputRow).run();
+          await buildUpsertDailyTotalQuery(inputRow).run();
           const updated = await findByDateInternal(
             inputRow.date,
             inputRow.budgetPeriodId,
@@ -202,10 +186,6 @@ export function createD1DailyTotalRepository(
         },
         catch: toEffectError,
       });
-    },
-
-    prepareUpsertDailyTotal(inputRow, mode) {
-      return prepareUpsertDailyTotal(inputRow, mode);
     },
 
     listByPeriodId(periodId) {
