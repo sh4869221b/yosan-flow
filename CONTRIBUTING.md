@@ -114,6 +114,7 @@ Migration policy:
 
 - SQL files under `migrations/*.sql` remain the source of truth.
 - The Drizzle schema is a mirror only at this stage.
+- Non-migration application DB query paths should stay behind the Drizzle boundary and repositories. Raw SQL for runtime schema bootstrap is separate and must not expand back into application queries.
 - Generated Drizzle migrations are not adopted yet.
 - Generated Drizzle migration checks / drift checks are not required yet. For now, `pnpm check` type/import checks are the expected guard.
 
