@@ -693,6 +693,7 @@ function createD1DayEntryService(
   db: D1Database,
   dailyTotalRepository: D1DailyTotalRepository,
   dailyHistoryRepository: D1DailyHistoryRepository,
+  budgetPeriodRepository: BudgetPeriodRepository,
   now: () => Date,
   createHistoryId: () => string,
 ): DayEntryServicePort {
@@ -718,33 +719,11 @@ function createD1DayEntryService(
         catch: toEffectError,
       });
 
-      const period = yield* Effect.tryPromise({
-        try: () =>
-          db
-            .prepare(
-              `SELECT id, start_date, end_date, budget_yen, status, predecessor_period_id, created_at, updated_at
-           FROM budget_periods
-          WHERE id = ?`,
-            )
-            .bind(command.periodId)
-            .first<{
-              id: string;
-              start_date: string;
-              end_date: string;
-              budget_yen: number;
-              status: "active" | "closed";
-              predecessor_period_id: string | null;
-              created_at: string;
-              updated_at: string;
-            }>(),
-        catch: toEffectError,
-      });
+      const period = yield* budgetPeriodRepository.findById(command.periodId);
       if (!period) {
         return yield* Effect.fail(new PeriodNotFoundError(command.periodId));
       }
-      if (
-        !isDateWithinPeriod(command.date, period.start_date, period.end_date)
-      ) {
+      if (!isDateWithinPeriod(command.date, period.startDate, period.endDate)) {
         return yield* Effect.fail(
           new DateOutOfPeriodError(command.date, command.periodId),
         );
@@ -819,6 +798,7 @@ export function createD1ApiServices(
     db,
     dailyTotalRepository,
     dailyHistoryRepository,
+    budgetPeriodRepository,
     now,
     input.createHistoryId ?? defaultCreateHistoryId,
   );
