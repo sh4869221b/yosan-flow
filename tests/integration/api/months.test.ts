@@ -67,7 +67,10 @@ describe("period API default routes", () => {
       preparedSql.some((sql) =>
         sql.includes("CREATE TABLE IF NOT EXISTS budget_periods"),
       ),
-    ).toBe(true);
+    ).toBe(false);
+    expect(preparedSql.some((sql) => sql.includes("budget_periods"))).toBe(
+      true,
+    );
   });
 
   it("creates period then can read summary and add day in D1 path", async () => {
@@ -305,7 +308,9 @@ describe("period API default routes", () => {
       ),
     } as any);
     expect(historyResponse.status).toBe(200);
-    const historyJson = await historyResponse.json();
+    const historyJson = (await historyResponse.json()) as {
+      histories: unknown[];
+    };
     expect(historyJson.histories).toHaveLength(1);
     expect(historyJson).toMatchObject({
       histories: [{ id: "history-dup", inputYen: 1000 }],

@@ -302,18 +302,15 @@ export function createInMemoryBudgetPeriodRepository(
 
 type CreateD1BudgetPeriodRepositoryInput = {
   db: D1Database;
-  ensureSchema?: () => Promise<void>;
 };
 
 export function createD1BudgetPeriodRepository(
   input: CreateD1BudgetPeriodRepositoryInput,
 ): BudgetPeriodRepository {
-  const ensureSchema = input.ensureSchema ?? (async () => {});
   const database = createDrizzleD1Database(input.db);
   const findByIdInternal = async (
     id: string,
   ): Promise<BudgetPeriodRecord | null> => {
-    await ensureSchema();
     const [row] = await database
       .select()
       .from(budget_periods)
@@ -334,7 +331,6 @@ export function createD1BudgetPeriodRepository(
     findByDate(date) {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           const [row] = await database
             .select()
             .from(budget_periods)
@@ -356,7 +352,6 @@ export function createD1BudgetPeriodRepository(
     listPeriods() {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           const rows = await database
             .select()
             .from(budget_periods)
@@ -371,7 +366,6 @@ export function createD1BudgetPeriodRepository(
     createPeriod(inputRow) {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           assertValidBudgetYen(inputRow.budgetYen);
           assertValidPeriodRange(inputRow.startDate, inputRow.endDate);
 
@@ -451,7 +445,6 @@ export function createD1BudgetPeriodRepository(
     updatePeriod(inputRow) {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           assertValidBudgetYen(inputRow.budgetYen);
           assertValidPeriodRange(inputRow.startDate, inputRow.endDate);
 

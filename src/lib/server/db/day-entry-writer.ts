@@ -37,20 +37,17 @@ export interface D1DayEntryWriter {
 
 type CreateD1DayEntryWriterInput = {
   db: D1Database;
-  ensureSchema?: () => Promise<void>;
 };
 
 export function createD1DayEntryWriter(
   input: CreateD1DayEntryWriterInput,
 ): D1DayEntryWriter {
-  const ensureSchema = input.ensureSchema ?? (async () => {});
   const database = createDrizzleD1Database(input.db);
 
   return {
     writeDailyEntry({ total, history, mode }) {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           const nextTotal =
             mode === "add"
               ? sql`${daily_totals.total_used_yen} + excluded.total_used_yen`

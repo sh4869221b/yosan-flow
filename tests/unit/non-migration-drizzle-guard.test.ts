@@ -21,6 +21,14 @@ const forbiddenPatterns: Array<{ label: string; pattern: RegExp }> = [
     label: "D1PreparedStatement outside D1 type boundary",
     pattern: /\bD1PreparedStatement\b/g,
   },
+  {
+    label: "runtime schema table creation",
+    pattern: /\bCREATE\s+TABLE\b/gi,
+  },
+  {
+    label: "runtime schema index creation",
+    pattern: /\bCREATE\s+INDEX\b/gi,
+  },
 ];
 
 function listTypeScriptFiles(directory: string): string[] {
@@ -34,20 +42,6 @@ function listTypeScriptFiles(directory: string): string[] {
   });
 }
 
-function removeAllowedSchemaBootstrap(relativePath: string, source: string) {
-  if (relativePath !== "src/lib/server/services/month-summary-service.ts") {
-    return source;
-  }
-
-  const start = source.indexOf("const d1SchemaStatements = [");
-  const end = source.indexOf("function getDefaultInMemoryApiServices");
-  if (start === -1 || end === -1 || end <= start) {
-    return source;
-  }
-
-  return `${source.slice(0, start)}${source.slice(end)}`;
-}
-
 describe("non-migration Drizzle guard", () => {
   it("keeps production application queries behind Drizzle", () => {
     const violations = listTypeScriptFiles(sourceRoot).flatMap((filePath) => {
@@ -56,10 +50,7 @@ describe("non-migration Drizzle guard", () => {
         return [];
       }
 
-      const source = removeAllowedSchemaBootstrap(
-        relativePath,
-        readFileSync(filePath, "utf8"),
-      );
+      const source = readFileSync(filePath, "utf8");
 
       return forbiddenPatterns.flatMap(({ label, pattern }) => {
         const matches = [...source.matchAll(pattern)];

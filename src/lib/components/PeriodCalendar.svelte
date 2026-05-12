@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
-
   type DailyRow = {
     date: string;
     label: "today" | "planned";
@@ -13,14 +11,21 @@
     weeks: Array<Array<string | null>>;
   };
 
-  export let rows: DailyRow[] = [];
-  export let startDate = "";
-  export let endDate = "";
-  export let loading = false;
+  type Props = {
+    rows?: DailyRow[];
+    startDate?: string;
+    endDate?: string;
+    loading?: boolean;
+    requestEdit?: (_payload: { date: string }) => void;
+  };
 
-  const dispatch = createEventDispatcher<{
-    "request-edit": { date: string };
-  }>();
+  let {
+    rows = [],
+    startDate = "",
+    endDate = "",
+    loading = false,
+    requestEdit = () => {},
+  }: Props = $props();
 
   const jstFormatter = new Intl.DateTimeFormat("ja-JP", {
     timeZone: "Asia/Tokyo",
@@ -28,8 +33,8 @@
     month: "long",
   });
 
-  $: rowsByDate = new Map(rows.map((row) => [row.date, row]));
-  $: months = buildMonths(startDate, endDate);
+  const rowsByDate = $derived(new Map(rows.map((row) => [row.date, row])));
+  const months = $derived(buildMonths(startDate, endDate));
 
   function toDateValue(date: string): number {
     return Date.parse(`${date}T00:00:00.000Z`);
@@ -125,7 +130,7 @@
                     <button
                       type="button"
                       data-testid={`calendar-day-${date}`}
-                      on:click={() => dispatch("request-edit", { date })}
+                      onclick={() => requestEdit({ date })}
                       class:today={rowsByDate.get(date)?.label === "today"}
                       class:spent={(rowsByDate.get(date)?.usedYen ?? 0) > 0}
                     >

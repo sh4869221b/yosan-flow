@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import {
     CheckCircle2,
     CircleDollarSign,
@@ -23,33 +22,54 @@
     createdAt: string;
   };
 
-  export let isOpen = false;
-  export let date: string | null = null;
-  export let currentUsedYen = 0;
-  export let isPlanned = false;
-  export let saving = false;
-  export let errorMessage: string | null = null;
-  export let historyErrorMessage: string | null = null;
-  export let historyLoading = false;
-  export let histories: HistoryItem[] = [];
-  export let inputYen = "";
-  export let memo = "";
-  export let operation: "add" | "overwrite" = "add";
-  export let previewAfterYen = 0;
-  export let previewRemainingYen: number | null = null;
-  export let previewRecommendedYen: number | null = null;
+  type SavePayload = {
+    date: string;
+    inputYen: number;
+    operation: "add" | "overwrite";
+    memo: string;
+  };
 
-  const dispatch = createEventDispatcher<{
-    close: undefined;
-    save: {
-      date: string;
-      inputYen: number;
-      operation: "add" | "overwrite";
-      memo: string;
-    };
-  }>();
+  type Props = {
+    isOpen?: boolean;
+    date?: string | null;
+    currentUsedYen?: number;
+    isPlanned?: boolean;
+    saving?: boolean;
+    errorMessage?: string | null;
+    historyErrorMessage?: string | null;
+    historyLoading?: boolean;
+    histories?: HistoryItem[];
+    inputYen?: string;
+    memo?: string;
+    operation?: "add" | "overwrite";
+    previewAfterYen?: number;
+    previewRemainingYen?: number | null;
+    previewRecommendedYen?: number | null;
+    close?: () => void;
+    save?: (_payload: SavePayload) => void;
+  };
 
-  function save(): void {
+  let {
+    isOpen = false,
+    date = null,
+    currentUsedYen = 0,
+    isPlanned = false,
+    saving = false,
+    errorMessage = null,
+    historyErrorMessage = null,
+    historyLoading = false,
+    histories = [],
+    inputYen = $bindable(""),
+    memo = $bindable(""),
+    operation = $bindable<"add" | "overwrite">("add"),
+    previewAfterYen = 0,
+    previewRemainingYen = null,
+    previewRecommendedYen = null,
+    close = () => {},
+    save = () => {},
+  }: Props = $props();
+
+  function submitEntry(): void {
     if (!date) {
       return;
     }
@@ -58,12 +78,17 @@
       return;
     }
 
-    dispatch("save", {
+    save({
       date,
       inputYen: parsed,
       operation,
       memo,
     });
+  }
+
+  function handleSubmit(event: SubmitEvent): void {
+    event.preventDefault();
+    submitEntry();
   }
 
   function formatYen(value: number): string {
@@ -135,7 +160,7 @@
     {/if}
 
     <div class="entry-layout">
-      <form class="entry-form" on:submit|preventDefault={save}>
+      <form class="entry-form" onsubmit={handleSubmit}>
         <h3>入力内容</h3>
         <label>
           入力額 (円)
@@ -195,7 +220,7 @@
           <button
             class="secondary-button"
             type="button"
-            on:click={() => dispatch("close")}
+            onclick={close}
             disabled={saving}
           >
             <X size={18} strokeWidth={2.4} aria-hidden="true" />

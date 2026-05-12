@@ -114,20 +114,17 @@ export function createDailyTotalRepository(): DailyTotalRepository {
 
 type CreateD1DailyTotalRepositoryInput = {
   db: D1Database;
-  ensureSchema?: () => Promise<void>;
 };
 
 export function createD1DailyTotalRepository(
   input: CreateD1DailyTotalRepositoryInput,
 ): D1DailyTotalRepository {
-  const ensureSchema = input.ensureSchema ?? (async () => {});
   const database = createDrizzleD1Database(input.db);
 
   const findByDateInternal = async (
     date: string,
     budgetPeriodId: string,
   ): Promise<DailyTotalRecord | null> => {
-    await ensureSchema();
     const [row] = await database
       .select()
       .from(daily_totals)
@@ -171,7 +168,6 @@ export function createD1DailyTotalRepository(
     upsertDailyTotal(inputRow) {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           await buildUpsertDailyTotalQuery(inputRow).run();
           const updated = await findByDateInternal(
             inputRow.date,
@@ -191,7 +187,6 @@ export function createD1DailyTotalRepository(
     listByPeriodId(periodId) {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           const rows = await database
             .select()
             .from(daily_totals)
@@ -207,7 +202,6 @@ export function createD1DailyTotalRepository(
     hasEntriesOutsidePeriod(periodId, startDate, endDate) {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           const [row] = await database
             .select({ date: daily_totals.date })
             .from(daily_totals)

@@ -15,6 +15,8 @@ export default defineConfig(
       "coverage/",
       "test-results/",
       "playwright-report/",
+      "worker-configuration.d.ts",
+      "worker-runtime.d.ts",
     ],
   },
   ...ts.configs.recommended,

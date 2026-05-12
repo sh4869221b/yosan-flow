@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import {
     CalendarDays,
     JapaneseYen,
@@ -39,25 +38,38 @@
     status: "active" | "closed";
   };
 
-  export let summary: PeriodSummary | null = null;
-  export let periods: PeriodOption[] = [];
-  export let selectedPeriodId: string | null = null;
-  export let saving = false;
-  export let loading = false;
-  export let errorMessage: string | null = null;
+  type Props = {
+    summary?: PeriodSummary | null;
+    periods?: PeriodOption[];
+    selectedPeriodId?: string | null;
+    saving?: boolean;
+    loading?: boolean;
+    errorMessage?: string | null;
+    savePeriod?: (_payload: { budgetYen: number }) => void;
+    selectPeriod?: (_payload: { periodId: string }) => void;
+  };
 
-  const dispatch = createEventDispatcher<{
-    savePeriod: { budgetYen: number };
-    selectPeriod: { periodId: string };
-  }>();
+  let {
+    summary = null,
+    periods = [],
+    selectedPeriodId = null,
+    saving = false,
+    loading = false,
+    errorMessage = null,
+    savePeriod = () => {},
+    selectPeriod = () => {},
+  }: Props = $props();
 
-  let budgetInput = "";
-  let budgetInputPeriodId: string | null = null;
+  let budgetInput = $state("");
+  let budgetInputPeriodId = $state<string | null>(null);
 
-  $: if (summary && budgetInputPeriodId !== summary.periodId) {
+  $effect(() => {
+    if (!summary || budgetInputPeriodId === summary.periodId) {
+      return;
+    }
     budgetInput = String(summary.budgetYen);
     budgetInputPeriodId = summary.periodId;
-  }
+  });
 
   function submitPeriod(event: Event): void {
     event.preventDefault();
@@ -65,20 +77,27 @@
     if (!Number.isInteger(budgetYen) || budgetYen < 0) {
       return;
     }
-    dispatch("savePeriod", { budgetYen });
+    savePeriod({ budgetYen });
+  }
+
+  function handleSelectPeriod(event: Event): void {
+    selectPeriod({
+      periodId: (event.currentTarget as HTMLSelectElement).value,
+    });
   }
 
   function formatYen(value: number): string {
     return `${value.toLocaleString("ja-JP")} 円`;
   }
 
-  $: pace = summary?.foodPace ?? null;
-  $: paceStatusLabel =
+  const pace = $derived(summary?.foodPace ?? null);
+  const paceStatusLabel = $derived(
     pace?.status === "bonus"
       ? "ボーナス"
       : pace?.status === "adjustment"
         ? "マイナス調整"
-        : "基準どおり";
+        : "基準どおり",
+  );
 </script>
 
 <section>
@@ -97,10 +116,7 @@
       <select
         data-testid="period-select"
         value={selectedPeriodId ?? ""}
-        on:change={(event) =>
-          dispatch("selectPeriod", {
-            periodId: (event.currentTarget as HTMLSelectElement).value,
-          })}
+        onchange={handleSelectPeriod}
         disabled={saving || loading}
       >
         {#each periods as period (period.id)}
@@ -203,7 +219,7 @@
 
     <details class="budget-disclosure" open>
       <summary>予算だけ変更</summary>
-      <form class="budget-form" on:submit={submitPeriod}>
+      <form class="budget-form" onsubmit={submitPeriod}>
         <label>
           期間予算 (円)
           <input
