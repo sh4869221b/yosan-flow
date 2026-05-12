@@ -19,6 +19,7 @@ import {
 } from "$lib/server/domain/daily-entry";
 import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
 import { toEffectError } from "$lib/server/effect/runtime";
+import { createHistoryId as createDefaultHistoryId } from "$lib/server/services/history-id";
 
 type DayEntryServiceInput = {
   databaseClient: DatabaseClient<
@@ -78,17 +79,6 @@ function defaultNow(): string {
   return new Date().toISOString();
 }
 
-function defaultCreateHistoryId(): string {
-  const cryptoObject = globalThis.crypto as
-    | { randomUUID?: () => string }
-    | undefined;
-  if (cryptoObject?.randomUUID) {
-    return cryptoObject.randomUUID();
-  }
-
-  return `history-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 export class DayEntryService {
   private readonly databaseClient: DatabaseClient<
     BudgetPeriodRecord,
@@ -107,7 +97,7 @@ export class DayEntryService {
     this.dailyTotalRepository = input.dailyTotalRepository;
     this.dailyHistoryRepository = input.dailyHistoryRepository;
     this.now = input.now ?? defaultNow;
-    this.createHistoryId = input.createHistoryId ?? defaultCreateHistoryId;
+    this.createHistoryId = input.createHistoryId ?? createDefaultHistoryId;
   }
 
   addDailyAmount(

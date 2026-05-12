@@ -10,10 +10,19 @@
     createdAt: string;
   };
 
-  export let date: string | null = null;
-  export let histories: HistoryItem[] = [];
-  export let loading = false;
-  export let errorMessage: string | null = null;
+  type Props = {
+    date?: string | null;
+    histories?: HistoryItem[];
+    loading?: boolean;
+    errorMessage?: string | null;
+  };
+
+  let {
+    date = null,
+    histories = [],
+    loading = false,
+    errorMessage = null,
+  }: Props = $props();
 </script>
 
 <section class="history-panel">

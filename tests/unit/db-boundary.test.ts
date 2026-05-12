@@ -8,6 +8,22 @@ import {
 import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
 import { budget_periods, daily_totals } from "$lib/server/db/schema";
 
+function createD1Result<T>(results: T[]): D1Result<T> {
+  return {
+    success: true,
+    meta: {
+      duration: 0,
+      size_after: 0,
+      rows_read: 0,
+      rows_written: 0,
+      last_row_id: 0,
+      changed_db: false,
+      changes: 0,
+    },
+    results,
+  };
+}
+
 function createD1BindingStub(input: {
   rawRows?: unknown[][];
   onPrepare?: (query: string) => void;
@@ -19,6 +35,21 @@ function createD1BindingStub(input: {
     prepare(query) {
       input.onPrepare?.(query);
       let boundArgs: unknown[] = [];
+      function rawRows<T = unknown[]>(_options: {
+        columnNames: true;
+      }): Promise<[string[], ...T[]]>;
+      function rawRows<T = unknown[]>(_options?: {
+        columnNames?: false;
+      }): Promise<T[]>;
+      async function rawRows<T = unknown[]>(options?: {
+        columnNames?: boolean;
+      }) {
+        const rows = (input.rawRows ?? []) as T[];
+        if (options?.columnNames) {
+          return [[], ...rows] as [string[], ...T[]];
+        }
+        return rows;
+      }
       const statement: D1PreparedStatement = {
         bind(...args) {
           boundArgs = args;
@@ -29,24 +60,33 @@ function createD1BindingStub(input: {
           return null;
         },
         async all() {
-          return { results: [] };
+          return createD1Result([]);
         },
-        async raw<T extends unknown[] = unknown[]>() {
-          return (input.rawRows ?? []) as T[];
-        },
+        raw: rawRows,
         async run() {
           input.onRun?.(query, boundArgs);
-          return { results: [] };
+          return createD1Result([]);
         },
       };
       return statement;
     },
-    async batch<T = unknown>(statements: D1PreparedStatement[]): Promise<T[]> {
+    async batch<T = unknown>(
+      statements: D1PreparedStatement[],
+    ): Promise<D1Result<T>[]> {
       input.onBatch?.(statements);
       const results = await Promise.all(
         statements.map((statement) => statement.run()),
       );
-      return results as T[];
+      return results as D1Result<T>[];
+    },
+    async exec() {
+      return { count: 0, duration: 0 };
+    },
+    withSession() {
+      throw new Error("D1 sessions are not implemented in this test stub");
+    },
+    async dump() {
+      return new ArrayBuffer(0);
     },
   };
 }

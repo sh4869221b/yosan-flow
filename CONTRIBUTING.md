@@ -5,7 +5,7 @@
 Requirements:
 
 - Node.js 24.15 or newer
-- pnpm 10.33.3 or newer
+- pnpm 10.33.4 or newer
 - Cloudflare account for D1/Workers checks
 
 Install dependencies and prepare local D1:
@@ -26,6 +26,13 @@ For Workers-like local execution, use Wrangler:
 
 ```bash
 pnpm wrangler dev
+```
+
+When `wrangler.jsonc` bindings change, regenerate checked-in Worker types:
+
+```bash
+XDG_CONFIG_HOME="$PWD/.tmp-xdg-config" pnpm wrangler types
+XDG_CONFIG_HOME="$PWD/.tmp-xdg-config" pnpm wrangler types worker-runtime.d.ts --include-env false
 ```
 
 ## Project Shape
@@ -96,7 +103,7 @@ Run E2E separately when a change affects browser workflows:
 pnpm test:e2e
 ```
 
-Playwright starts the local Wrangler server once per run and resets D1 state before each test through a guarded E2E-only endpoint.
+Playwright applies local D1 migrations before starting the local Wrangler server, then resets D1 data before each test through a guarded E2E-only endpoint.
 
 Check unit/integration coverage for server and API code:
 
@@ -114,7 +121,7 @@ Migration policy:
 
 - SQL files under `migrations/*.sql` remain the source of truth.
 - The Drizzle schema is a mirror only at this stage.
-- Non-migration application DB query paths should stay behind the Drizzle boundary and repositories. Raw SQL for runtime schema bootstrap is separate and must not expand back into application queries.
+- Non-migration application DB query paths should stay behind the Drizzle boundary and repositories. Runtime schema bootstrap is not part of the request path; apply migrations before using a D1-backed environment.
 - Generated Drizzle migrations are not adopted yet.
 - Generated Drizzle migration checks / drift checks are not required yet. For now, `pnpm check` type/import checks are the expected guard.
 

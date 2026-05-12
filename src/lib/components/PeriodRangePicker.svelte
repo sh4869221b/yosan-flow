@@ -1,46 +1,59 @@
 <script lang="ts">
   import { RangeCalendar } from "bits-ui";
   import { parseDate, type DateValue } from "@internationalized/date";
-  import { createEventDispatcher } from "svelte";
 
   type DateRange = {
     start: DateValue | undefined;
     end: DateValue | undefined;
   };
 
-  export let startDate = "";
-  export let endDate = "";
-  export let saving = false;
-  export let testIdPrefix = "period-range";
-
-  const dispatch = createEventDispatcher<{
-    change: { startDate: string; endDate: string };
-  }>();
-
-  let range: DateRange = {
-    start: toDateValue(startDate),
-    end: toDateValue(endDate),
+  type Props = {
+    startDate?: string;
+    endDate?: string;
+    saving?: boolean;
+    testIdPrefix?: string;
+    change?: (_payload: { startDate: string; endDate: string }) => void;
   };
-  let syncedStartDate = startDate;
-  let syncedEndDate = endDate;
 
-  $: {
-    if (startDate !== syncedStartDate || endDate !== syncedEndDate) {
-      syncedStartDate = startDate;
-      syncedEndDate = endDate;
-      range = {
-        start: toDateValue(startDate),
-        end: toDateValue(endDate),
-      };
-    }
+  let {
+    startDate = "",
+    endDate = "",
+    saving = false,
+    testIdPrefix = "period-range",
+    change = () => {},
+  }: Props = $props();
+
+  function getInitialRangeProps(): { startDate: string; endDate: string } {
+    return { startDate, endDate };
   }
 
-  $: selectedStartDate = range.start?.toString() ?? "";
-  $: selectedEndDate = range.end?.toString() ?? "";
-  $: isRangeValid = Boolean(
+  const initialRangeProps = getInitialRangeProps();
+
+  let range = $state<DateRange>({
+    start: toDateValue(initialRangeProps.startDate),
+    end: toDateValue(initialRangeProps.endDate),
+  });
+  let syncedStartDate = $state(initialRangeProps.startDate);
+  let syncedEndDate = $state(initialRangeProps.endDate);
+
+  $effect(() => {
+    if (startDate === syncedStartDate && endDate === syncedEndDate) {
+      return;
+    }
+    syncedStartDate = startDate;
+    syncedEndDate = endDate;
+    range = {
+      start: toDateValue(startDate),
+      end: toDateValue(endDate),
+    };
+  });
+
+  const selectedStartDate = $derived(range.start?.toString() ?? "");
+  const selectedEndDate = $derived(range.end?.toString() ?? "");
+  const isRangeValid = $derived(
     selectedStartDate &&
-    selectedEndDate &&
-    selectedStartDate <= selectedEndDate,
+      selectedEndDate &&
+      selectedStartDate <= selectedEndDate,
   );
 
   function toDateValue(value: string): DateValue | undefined {
@@ -69,7 +82,7 @@
     if (!isRangeValid) {
       return;
     }
-    dispatch("change", {
+    change({
       startDate: selectedStartDate,
       endDate: selectedEndDate,
     });
@@ -87,8 +100,7 @@
         value={selectedStartDate}
         max={selectedEndDate || undefined}
         disabled={saving}
-        on:input={(event) =>
-          handleDateInput("start", event.currentTarget.value)}
+        oninput={(event) => handleDateInput("start", event.currentTarget.value)}
       />
     </label>
     <label>
@@ -99,7 +111,7 @@
         value={selectedEndDate}
         min={selectedStartDate || undefined}
         disabled={saving}
-        on:input={(event) => handleDateInput("end", event.currentTarget.value)}
+        oninput={(event) => handleDateInput("end", event.currentTarget.value)}
       />
     </label>
   </p>
@@ -152,7 +164,7 @@
     type="button"
     data-testid={`${testIdPrefix}-apply`}
     disabled={saving || !isRangeValid}
-    on:click={submitPeriodRange}
+    onclick={submitPeriodRange}
   >
     {saving ? "保存中..." : "期間を反映"}
   </button>

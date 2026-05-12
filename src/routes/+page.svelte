@@ -7,7 +7,7 @@
   import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
   import type { PageData } from "./$types";
 
-  export let data: PageData;
+  let { data }: { data: PageData } = $props();
 
   type PeriodSummary = NonNullable<PageData["summary"]>;
   type PeriodOption = PageData["periods"][number];
@@ -32,62 +32,95 @@
     createdAt: string;
   };
 
-  let periods: PeriodOption[] = data.periods ?? [];
-  let selectedPeriodId: string | null = data.selectedPeriodId;
-  let summary: PeriodSummary | null = data.summary;
-  let summaryLoading = false;
-  let summaryError: string | null = null;
+  function getInitialPageState(): {
+    periods: PeriodOption[];
+    selectedPeriodId: string | null;
+    summary: PeriodSummary | null;
+    today: string;
+    createStartDate: string;
+  } {
+    const initialPeriods = data.periods ?? [];
+    const today = data.today;
+    return {
+      periods: initialPeriods,
+      selectedPeriodId: data.selectedPeriodId,
+      summary: data.summary,
+      today,
+      createStartDate:
+        initialPeriods.length > 0
+          ? addDays(initialPeriods[initialPeriods.length - 1].endDate, 1)
+          : today,
+    };
+  }
 
-  let periodSaving = false;
-  let periodError: string | null = null;
-  let rangeStartDate = summary?.startDate ?? data.today;
-  let rangeEndDate = summary?.endDate ?? addDays(data.today, 29);
-  let createStartDate =
-    periods.length > 0
-      ? addDays(periods[periods.length - 1].endDate, 1)
-      : data.today;
-  let createEndDate = addDays(createStartDate, 29);
-  let createPeriodId = toPeriodId(createStartDate);
-  let createBudgetInput = "120000";
+  const initialPageState = getInitialPageState();
 
-  let modalOpen = false;
-  let modalSaving = false;
-  let modalError: string | null = null;
-  let selectedDate: string | null = null;
-  let selectedRow: DailyRow | null = null;
-  let historyLoading = false;
-  let historyError: string | null = null;
-  let histories: HistoryItem[] = [];
-  let modalInputYen = "";
-  let modalMemo = "";
-  let modalOperation: "add" | "overwrite" = "add";
+  let periods = $state<PeriodOption[]>(initialPageState.periods);
+  let selectedPeriodId = $state<string | null>(
+    initialPageState.selectedPeriodId,
+  );
+  let summary = $state<PeriodSummary | null>(initialPageState.summary);
+  let summaryLoading = $state(false);
+  let summaryError = $state<string | null>(null);
 
-  $: modalPreviewAfterYen =
+  let periodSaving = $state(false);
+  let periodError = $state<string | null>(null);
+  let rangeStartDate = $state(
+    initialPageState.summary?.startDate ?? initialPageState.today,
+  );
+  let rangeEndDate = $state(
+    initialPageState.summary?.endDate ?? addDays(initialPageState.today, 29),
+  );
+  let createStartDate = $state(initialPageState.createStartDate);
+  let createEndDate = $state(addDays(initialPageState.createStartDate, 29));
+  let createPeriodId = $state(toPeriodId(initialPageState.createStartDate));
+  let createBudgetInput = $state("120000");
+
+  let modalOpen = $state(false);
+  let modalSaving = $state(false);
+  let modalError = $state<string | null>(null);
+  let selectedDate = $state<string | null>(null);
+  let selectedRow = $state<DailyRow | null>(null);
+  let historyLoading = $state(false);
+  let historyError = $state<string | null>(null);
+  let histories = $state<HistoryItem[]>([]);
+  let modalInputYen = $state("");
+  let modalMemo = $state("");
+  let modalOperation = $state<"add" | "overwrite">("add");
+
+  const modalPreviewAfterYen = $derived(
     modalOperation === "add"
       ? (selectedRow?.usedYen ?? 0) +
-        (Number.parseInt(modalInputYen || "0", 10) || 0)
-      : Number.parseInt(modalInputYen || "0", 10) || 0;
-  $: modalRemainingRows =
+          (Number.parseInt(modalInputYen || "0", 10) || 0)
+      : Number.parseInt(modalInputYen || "0", 10) || 0,
+  );
+  const modalRemainingRows = $derived(
     summary == null || selectedDate == null
       ? 0
       : summary.dailyRows.filter((row) => row.date >= (selectedDate ?? ""))
-          .length;
-  $: modalPreviewRemainingYen =
+          .length,
+  );
+  const modalPreviewRemainingYen = $derived(
     summary == null
       ? null
       : summary.remainingYen +
-        (selectedRow?.usedYen ?? 0) -
-        modalPreviewAfterYen;
-  $: modalPreviewRecommendedYen =
+          (selectedRow?.usedYen ?? 0) -
+          modalPreviewAfterYen,
+  );
+  const modalPreviewRecommendedYen = $derived(
     modalPreviewRemainingYen == null || modalRemainingRows === 0
       ? null
-      : Math.max(0, Math.floor(modalPreviewRemainingYen / modalRemainingRows));
+      : Math.max(0, Math.floor(modalPreviewRemainingYen / modalRemainingRows)),
+  );
 
-  $: if (summary) {
+  $effect(() => {
+    if (!summary) {
+      return;
+    }
     selectedPeriodId = summary.periodId;
     rangeStartDate = summary.startDate;
     rangeEndDate = summary.endDate;
-  }
+  });
 
   function addDays(date: string, days: number): string {
     const current = Date.parse(`${date}T00:00:00.000Z`);
@@ -249,38 +282,39 @@
     });
   }
 
-  function handleSavePeriod(event: CustomEvent<{ budgetYen: number }>): void {
+  function handleSavePeriod(payload: { budgetYen: number }): void {
     if (!summary) {
       return;
     }
     runClientEffect(
       savePeriodUpdateEffect({
-        budgetYen: event.detail.budgetYen,
+        budgetYen: payload.budgetYen,
         startDate: rangeStartDate,
         endDate: rangeEndDate,
       }),
     );
   }
 
-  function handleRangeChange(
-    event: CustomEvent<{ startDate: string; endDate: string }>,
-  ): void {
-    rangeStartDate = event.detail.startDate;
-    rangeEndDate = event.detail.endDate;
+  function handleRangeChange(payload: {
+    startDate: string;
+    endDate: string;
+  }): void {
+    rangeStartDate = payload.startDate;
+    rangeEndDate = payload.endDate;
     if (!summary) {
       return;
     }
     runClientEffect(
       savePeriodUpdateEffect({
         budgetYen: summary.budgetYen,
-        startDate: event.detail.startDate,
-        endDate: event.detail.endDate,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
       }),
     );
   }
 
-  function handleSelectPeriod(event: CustomEvent<{ periodId: string }>): void {
-    runClientEffect(refreshSummaryEffect(event.detail.periodId));
+  function handleSelectPeriod(payload: { periodId: string }): void {
+    runClientEffect(refreshSummaryEffect(payload.periodId));
   }
 
   function createInitialPeriodEffect(): Effect.Effect<void, never> {
@@ -352,14 +386,12 @@
     modalError = null;
   }
 
-  function submitDayEntryEffect(
-    event: CustomEvent<{
-      date: string;
-      inputYen: number;
-      operation: "add" | "overwrite";
-      memo: string;
-    }>,
-  ): Effect.Effect<void, never> {
+  function submitDayEntryEffect(payload: {
+    date: string;
+    inputYen: number;
+    operation: "add" | "overwrite";
+    memo: string;
+  }): Effect.Effect<void, never> {
     if (!selectedPeriodId) {
       return Effect.void;
     }
@@ -369,18 +401,18 @@
       modalSaving = true;
       modalError = null;
       const endpoint =
-        event.detail.operation === "add"
-          ? `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(event.detail.date)}/add`
-          : `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(event.detail.date)}/overwrite`;
-      const method = event.detail.operation === "add" ? "POST" : "PUT";
+        payload.operation === "add"
+          ? `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(payload.date)}/add`
+          : `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(payload.date)}/overwrite`;
+      const method = payload.operation === "add" ? "POST" : "PUT";
       const result = yield* fetchJsonEffect<PeriodSummary>(
         endpoint,
         {
           method,
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            inputYen: event.detail.inputYen,
-            memo: event.detail.memo,
+            inputYen: payload.inputYen,
+            memo: payload.memo,
           }),
         },
         "保存に失敗しました。",
@@ -401,15 +433,13 @@
     });
   }
 
-  function submitDayEntry(
-    event: CustomEvent<{
-      date: string;
-      inputYen: number;
-      operation: "add" | "overwrite";
-      memo: string;
-    }>,
-  ): void {
-    runClientEffect(submitDayEntryEffect(event));
+  function submitDayEntry(payload: {
+    date: string;
+    inputYen: number;
+    operation: "add" | "overwrite";
+    memo: string;
+  }): void {
+    runClientEffect(submitDayEntryEffect(payload));
   }
 </script>
 
@@ -423,8 +453,8 @@
         saving={periodSaving}
         loading={summaryLoading}
         errorMessage={periodError}
-        on:savePeriod={handleSavePeriod}
-        on:selectPeriod={handleSelectPeriod}
+        savePeriod={handleSavePeriod}
+        selectPeriod={handleSelectPeriod}
       />
 
       <section class="primary-workspace" aria-label="日別入力">
@@ -451,7 +481,7 @@
           startDate={summary.startDate}
           endDate={summary.endDate}
           loading={summaryLoading}
-          on:request-edit={(event) => openDayEntry(event.detail)}
+          requestEdit={openDayEntry}
         />
       </section>
 
@@ -467,7 +497,7 @@
               endDate={rangeEndDate}
               saving={periodSaving}
               testIdPrefix="current-period-range"
-              on:change={handleRangeChange}
+              change={handleRangeChange}
             />
           </div>
         </details>
@@ -495,10 +525,10 @@
               endDate={createEndDate}
               saving={periodSaving}
               testIdPrefix="create-period-range"
-              on:change={(event) => {
-                createStartDate = event.detail.startDate;
-                createEndDate = event.detail.endDate;
-                createPeriodId = toPeriodId(event.detail.startDate);
+              change={(payload) => {
+                createStartDate = payload.startDate;
+                createEndDate = payload.endDate;
+                createPeriodId = toPeriodId(payload.startDate);
               }}
             />
             <label>
@@ -512,7 +542,7 @@
             </label>
             <button
               type="button"
-              on:click={createInitialPeriod}
+              onclick={createInitialPeriod}
               disabled={periodSaving}
             >
               {periodSaving ? "作成中..." : "期間を作成"}
@@ -548,10 +578,10 @@
         endDate={createEndDate}
         saving={periodSaving}
         testIdPrefix="initial-period-range"
-        on:change={(event) => {
-          createStartDate = event.detail.startDate;
-          createEndDate = event.detail.endDate;
-          createPeriodId = toPeriodId(event.detail.startDate);
+        change={(payload) => {
+          createStartDate = payload.startDate;
+          createEndDate = payload.endDate;
+          createPeriodId = toPeriodId(payload.startDate);
         }}
       />
       <label>
@@ -565,7 +595,7 @@
       </label>
       <button
         type="button"
-        on:click={createInitialPeriod}
+        onclick={createInitialPeriod}
         disabled={periodSaving}
       >
         {periodSaving ? "作成中..." : "期間を作成"}
@@ -589,8 +619,8 @@
     previewAfterYen={modalPreviewAfterYen}
     previewRemainingYen={modalPreviewRemainingYen}
     previewRecommendedYen={modalPreviewRecommendedYen}
-    on:close={closeDayEntry}
-    on:save={submitDayEntry}
+    close={closeDayEntry}
+    save={submitDayEntry}
   />
 </main>
 

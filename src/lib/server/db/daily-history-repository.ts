@@ -140,13 +140,11 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
 
 type CreateD1DailyHistoryRepositoryInput = {
   db: D1Database;
-  ensureSchema?: () => Promise<void>;
 };
 
 export function createD1DailyHistoryRepository(
   input: CreateD1DailyHistoryRepositoryInput,
 ): D1DailyHistoryRepository {
-  const ensureSchema = input.ensureSchema ?? (async () => {});
   const database = createDrizzleD1Database(input.db);
 
   const buildInsertHistoryQuery = (inputRow: InsertDailyHistoryInput) =>
@@ -166,7 +164,6 @@ export function createD1DailyHistoryRepository(
     date: string,
     budgetPeriodId: string,
   ): Promise<DailyHistoryRecord[]> => {
-    await ensureSchema();
     const rows = await database
       .select()
       .from(daily_operation_histories)
@@ -195,7 +192,6 @@ export function createD1DailyHistoryRepository(
     insertHistory(inputRow) {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           await buildInsertHistoryQuery(inputRow).run();
           return cloneHistory({
             id: inputRow.id,
@@ -216,7 +212,6 @@ export function createD1DailyHistoryRepository(
     hasEntriesOutsidePeriod(periodId, startDate, endDate) {
       return Effect.tryPromise({
         try: async () => {
-          await ensureSchema();
           const [row] = await database
             .select({ id: daily_operation_histories.id })
             .from(daily_operation_histories)

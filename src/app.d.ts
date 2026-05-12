@@ -1,3 +1,4 @@
+import "../worker-runtime.d.ts";
 import type { D1Database } from "$lib/server/db/d1-types";
 
 declare global {

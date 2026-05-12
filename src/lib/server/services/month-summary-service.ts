@@ -36,6 +36,7 @@ import {
 import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
 import { toEffectError } from "$lib/server/effect/runtime";
 import { DayEntryService } from "$lib/server/services/day-entry-service";
+import { createHistoryId as createDefaultHistoryId } from "$lib/server/services/history-id";
 import { getJstDateParts } from "$lib/server/time/jst";
 
 class PeriodNotFoundError extends Error {
@@ -588,7 +589,6 @@ export function createInMemoryApiServices(
 type ApiServicesGlobalCache = {
   defaultInMemoryApiServices?: InMemoryApiServices;
   d1BindingScopedServices?: WeakMap<D1Database, InMemoryApiServices>;
-  d1SchemaReadyByBinding?: WeakMap<D1Database, Promise<void>>;
 };
 
 const apiServicesCacheKey = Symbol.for("yosan-flow.api-services-cache");
@@ -609,67 +609,6 @@ function getApiServicesGlobalCache(): ApiServicesGlobalCache {
   return created;
 }
 
-const d1SchemaStatements = [
-  `CREATE TABLE IF NOT EXISTS budget_periods (
-     id TEXT PRIMARY KEY,
-     start_date TEXT NOT NULL,
-     end_date TEXT NOT NULL,
-     budget_yen INTEGER NOT NULL CHECK (budget_yen >= 0),
-     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed')),
-     predecessor_period_id TEXT NULL REFERENCES budget_periods (id),
-     created_at TEXT NOT NULL,
-     updated_at TEXT NOT NULL,
-     CHECK (start_date <= end_date)
-   )`,
-  `CREATE INDEX IF NOT EXISTS idx_budget_periods_start_end
-     ON budget_periods (start_date, end_date)`,
-  `CREATE TABLE IF NOT EXISTS daily_totals (
-     budget_period_id TEXT NOT NULL REFERENCES budget_periods (id),
-     date TEXT NOT NULL,
-     year_month TEXT NOT NULL,
-     total_used_yen INTEGER NOT NULL CHECK (total_used_yen >= 0),
-     updated_at TEXT NOT NULL,
-     PRIMARY KEY (budget_period_id, date)
-   )`,
-  `CREATE INDEX IF NOT EXISTS idx_daily_totals_period_date
-     ON daily_totals (budget_period_id, date)`,
-  `CREATE TABLE IF NOT EXISTS daily_operation_histories (
-     id TEXT PRIMARY KEY,
-     budget_period_id TEXT NOT NULL REFERENCES budget_periods (id),
-     date TEXT NOT NULL,
-     operation_type TEXT NOT NULL CHECK (operation_type IN ('add', 'overwrite')),
-     input_yen INTEGER NOT NULL CHECK (input_yen >= 0),
-     before_total_yen INTEGER NOT NULL CHECK (before_total_yen >= 0),
-     after_total_yen INTEGER NOT NULL CHECK (after_total_yen >= 0),
-     memo TEXT NULL,
-     created_at TEXT NOT NULL
-   )`,
-  `CREATE INDEX IF NOT EXISTS idx_daily_histories_period_date_created_at
-     ON daily_operation_histories (budget_period_id, date, created_at DESC)`,
-];
-
-async function ensureD1Schema(db: D1Database): Promise<void> {
-  const cache = getApiServicesGlobalCache();
-  cache.d1SchemaReadyByBinding ??= new WeakMap<D1Database, Promise<void>>();
-  const existing = cache.d1SchemaReadyByBinding.get(db);
-  if (existing) {
-    await existing;
-    return;
-  }
-
-  const initializePromise = db
-    .batch(d1SchemaStatements.map((sql) => db.prepare(sql)))
-    .then(() => {});
-  cache.d1SchemaReadyByBinding.set(db, initializePromise);
-
-  try {
-    await initializePromise;
-  } catch (error) {
-    cache.d1SchemaReadyByBinding.delete(db);
-    throw error;
-  }
-}
-
 function getDefaultInMemoryApiServices(): InMemoryApiServices {
   const cache = getApiServicesGlobalCache();
   const existing = cache.defaultInMemoryApiServices;
@@ -680,16 +619,6 @@ function getDefaultInMemoryApiServices(): InMemoryApiServices {
   const created = createInMemoryApiServices();
   cache.defaultInMemoryApiServices = created;
   return created;
-}
-
-function defaultCreateHistoryId(): string {
-  const cryptoObject = globalThis.crypto as
-    | { randomUUID?: () => string }
-    | undefined;
-  if (cryptoObject?.randomUUID) {
-    return cryptoObject.randomUUID();
-  }
-  return `history-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function createD1DayEntryService(
@@ -777,26 +706,22 @@ export function createD1ApiServices(
   const now = input.now ?? (() => new Date());
   const budgetPeriodRepository = createD1BudgetPeriodRepository({
     db,
-    ensureSchema: () => ensureD1Schema(db),
   });
   const dailyTotalRepository = createD1DailyTotalRepository({
     db,
-    ensureSchema: () => ensureD1Schema(db),
   });
   const dailyHistoryRepository = createD1DailyHistoryRepository({
     db,
-    ensureSchema: () => ensureD1Schema(db),
   });
   const dayEntryWriter = createD1DayEntryWriter({
     db,
-    ensureSchema: () => ensureD1Schema(db),
   });
   const dayEntryService = createD1DayEntryService(
     dailyTotalRepository,
     budgetPeriodRepository,
     dayEntryWriter,
     now,
-    input.createHistoryId ?? defaultCreateHistoryId,
+    input.createHistoryId ?? createDefaultHistoryId,
   );
 
   function assertNoOutOfRangePeriodEntries(
@@ -805,10 +730,6 @@ export function createD1ApiServices(
     endDate: string,
   ): Effect.Effect<void, Error> {
     return Effect.gen(function* () {
-      yield* Effect.tryPromise({
-        try: () => ensureD1Schema(db),
-        catch: toEffectError,
-      });
       const outOfRangeTotal =
         yield* dailyTotalRepository.hasEntriesOutsidePeriod(
           periodId,
@@ -866,10 +787,6 @@ export function createD1ApiServices(
       ),
     listHistoryByDate: (periodId, date) =>
       Effect.gen(function* () {
-        yield* Effect.tryPromise({
-          try: () => ensureD1Schema(db),
-          catch: toEffectError,
-        });
         const period = yield* budgetPeriodRepository.findById(periodId);
         if (!period) {
           return yield* Effect.fail(new PeriodNotFoundError(periodId));

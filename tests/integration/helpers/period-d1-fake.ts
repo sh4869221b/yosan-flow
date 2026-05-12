@@ -31,6 +31,22 @@ type DailyOperationHistoryRow = {
   created_at: string;
 };
 
+function createD1Result<T>(results: T[]): D1Result<T> {
+  return {
+    success: true,
+    meta: {
+      duration: 0,
+      size_after: 0,
+      rows_read: 0,
+      rows_written: 0,
+      last_row_id: 0,
+      changed_db: false,
+      changes: 0,
+    },
+    results,
+  };
+}
+
 function toBudgetPeriodRawRow(sql: string, row: BudgetPeriodRow): unknown[] {
   const normalizedSql = sql.toLowerCase();
   if (normalizedSql.includes('select "end_date" from "budget_periods"')) {
@@ -394,6 +410,40 @@ export function createPeriodAwareD1Fake(
     prepare(sql: string) {
       preparedSql.push(sql);
       let boundArgs: unknown[] = [];
+      function rawRows<T = unknown[]>(_options: {
+        columnNames: true;
+      }): Promise<[string[], ...T[]]>;
+      function rawRows<T = unknown[]>(_options?: {
+        columnNames?: false;
+      }): Promise<T[]>;
+      async function rawRows<T = unknown[]>(options?: {
+        columnNames?: boolean;
+      }) {
+        const budgetPeriodRows = queryBudgetPeriods(
+          sql,
+          boundArgs,
+          periods,
+        ).map((row) => toBudgetPeriodRawRow(sql, row));
+        const dailyTotalRows = queryDailyTotals(
+          sql,
+          boundArgs,
+          dailyTotals,
+        ).map((row) => toDailyTotalRawRow(sql, row));
+        const dailyOperationHistoryRows = queryDailyOperationHistories(
+          sql,
+          boundArgs,
+          dailyOperationHistories,
+        ).map((row) => toDailyOperationHistoryRawRow(sql, row));
+        const rows = [
+          ...budgetPeriodRows,
+          ...dailyTotalRows,
+          ...dailyOperationHistoryRows,
+        ] as T[];
+        if (options?.columnNames) {
+          return [[], ...rows] as [string[], ...T[]];
+        }
+        return rows;
+      }
       const statement: D1PreparedStatement = {
         bind(...args: unknown[]) {
           boundArgs = args;
@@ -421,30 +471,9 @@ export function createPeriodAwareD1Fake(
           return null;
         },
         async all<T = unknown>() {
-          return { results: [] as T[] };
+          return createD1Result([] as T[]);
         },
-        async raw<T extends unknown[] = unknown[]>() {
-          const budgetPeriodRows = queryBudgetPeriods(
-            sql,
-            boundArgs,
-            periods,
-          ).map((row) => toBudgetPeriodRawRow(sql, row));
-          const dailyTotalRows = queryDailyTotals(
-            sql,
-            boundArgs,
-            dailyTotals,
-          ).map((row) => toDailyTotalRawRow(sql, row));
-          const dailyOperationHistoryRows = queryDailyOperationHistories(
-            sql,
-            boundArgs,
-            dailyOperationHistories,
-          ).map((row) => toDailyOperationHistoryRawRow(sql, row));
-          return [
-            ...budgetPeriodRows,
-            ...dailyTotalRows,
-            ...dailyOperationHistoryRows,
-          ] as T[];
-        },
+        raw: rawRows,
         async run() {
           applyBudgetPeriodMutation(sql, boundArgs, periods);
           applyDailyTotalMutation(sql, boundArgs, dailyTotals);
@@ -453,12 +482,14 @@ export function createPeriodAwareD1Fake(
             boundArgs,
             dailyOperationHistories,
           );
-          return {};
+          return createD1Result([]);
         },
       };
       return statement;
     },
-    async batch(statements) {
+    async batch<T = unknown>(
+      statements: D1PreparedStatement[],
+    ): Promise<D1Result<T>[]> {
       const snapshot = snapshotState();
       try {
         for (const statement of statements) {
@@ -469,6 +500,15 @@ export function createPeriodAwareD1Fake(
         throw error;
       }
       return [];
+    },
+    async exec() {
+      return { count: 0, duration: 0 };
+    },
+    withSession() {
+      throw new Error("D1 sessions are not implemented in this test fake");
+    },
+    async dump() {
+      return new ArrayBuffer(0);
     },
   };
 }
