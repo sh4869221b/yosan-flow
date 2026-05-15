@@ -95,6 +95,7 @@ Required CI gate policy:
 Renovate is configured by `renovate.json`.
 
 - The Dependency Dashboard Issue is enabled for visibility and manual approval.
+- npm package updates wait until the released version is at least 3 days old before Renovate creates an update branch or PR. `pnpm-workspace.yaml` also enforces the same 3-day minimum release age for direct and transitive dependencies during install.
 - Stable patch/minor updates use immediate PR creation, so CI runs on the pull request instead of a temporary Renovate branch.
 - Major updates, current `0.x` dependencies, and core dependencies require Dependency Dashboard approval before Renovate creates the branch or PR.
 - Core dependencies are framework/runtime/deployment/database/UI and quality-gate dependencies that can change app behavior, build output, Cloudflare deployment, DB access, or the main dashboard component surface.

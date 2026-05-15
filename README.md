@@ -63,6 +63,7 @@ CI gate policy:
 Renovate is configured in `renovate.json`.
 
 - Dependency Dashboard Issue is enabled as `Dependency Dashboard`.
+- npm package updates wait until the released version is at least 3 days old before Renovate creates an update branch or PR. Local and CI `pnpm install` also enforce the same 3-day minimum release age for direct and transitive dependencies.
 - Stable patch/minor updates create PRs immediately, and PR CI is the validation gate.
 - Major updates, current `0.x` dependencies, and core framework/runtime/deployment/database/UI dependencies require manual approval from the Dependency Dashboard before Renovate creates the update branch or PR.
 - Core dependencies are the SvelteKit/Svelte/Vite stack, Cloudflare/Wrangler deployment path, Drizzle/Effect server boundary, TypeScript/check/test tooling, and primary Bits UI/date UI dependencies.
