@@ -1,20 +1,23 @@
 # Renovate Dependency Automation Plan
 
-**Goal:** Renovate を導入し、通常の patch/minor は CI 成功後に PR 化し、major / 0.x / 中核依存は Dependency Dashboard Issue で手動承認する。
+**Goal:** Renovate を導入し、npm package updates は公開後 3 日の minimum release age を満たしてから PR 化し、major / 0.x / 中核依存は Dependency Dashboard Issue で手動承認する。PR CI を依存更新の authoritative validation gate にする。
 
 **Scope:**
 
 - Add `renovate.json`.
-- Update `.github/workflows/ci.yml` so `renovate/**` branch pushes run the existing CI gate.
+- Update `.github/workflows/ci.yml` so pull requests and `main` pushes run the existing CI gate plus E2E in parallel, while `renovate/**` branch pushes do not run duplicate CI.
+- Add a matching `pnpm-workspace.yaml` install-time minimum release age so local and CI installs also avoid newly published direct and transitive npm package versions.
 - Document the dependency update policy in `README.md` and `CONTRIBUTING.md`.
 
 **Policy:**
 
 - Dependency Dashboard Issue is enabled.
-- Stable patch/minor updates use `prCreation: "status-success"`.
+- npm package updates use a 3-day minimum release age before Renovate creates a branch or PR.
+- Stable patch/minor updates use immediate PR creation after minimum release age and any required approval checks pass.
 - Major updates require `dependencyDashboardApproval`.
 - Current `0.x` dependencies require `dependencyDashboardApproval`.
 - Core dependencies require `dependencyDashboardApproval`.
+- Pull request CI is the authoritative validation gate; the aggregate `Quality checks` job depends on all parallel CI jobs, and automerge remains disabled.
 
 **Core dependencies for this repository:**
 
