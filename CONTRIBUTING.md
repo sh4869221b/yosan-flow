@@ -79,13 +79,15 @@ pnpm check
 pnpm test:unit
 pnpm test:integration
 pnpm build
+pnpm test:e2e
 ```
 
 Required CI gate policy:
 
-- Pull request / `main` push required order: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
-- Renovate branches use the same gate on `renovate/**` pushes. Keep this trigger in place because Renovate waits for successful branch CI before opening stable patch/minor PRs.
-- E2E is intentionally not a required PR gate yet. Run `pnpm test:e2e` manually when browser workflows change, or dispatch the optional `E2E` GitHub Actions workflow.
+- Pull request / `main` push CI runs `pnpm format:check`, `pnpm lint`, `pnpm check`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
+- CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed.
+- Renovate update branch pushes do not run CI directly. Renovate creates PRs immediately after any required Dependency Dashboard approval, and pull request CI is the authoritative validation gate.
+- The optional `E2E` GitHub Actions workflow remains available through `workflow_dispatch` for manual Playwright checks.
 - Coverage is intentionally a visibility check, not a required PR gate. Run `pnpm test:coverage` when changing server-side domain, API, repository, or validation behavior.
 
 ## Dependency Updates
@@ -93,11 +95,11 @@ Required CI gate policy:
 Renovate is configured by `renovate.json`.
 
 - The Dependency Dashboard Issue is enabled for visibility and manual approval.
-- Stable patch/minor updates use `prCreation: "status-success"` so PRs are opened only after CI succeeds on the Renovate branch.
+- Stable patch/minor updates use immediate PR creation, so CI runs on the pull request instead of a temporary Renovate branch.
 - Major updates, current `0.x` dependencies, and core dependencies require Dependency Dashboard approval before Renovate creates the branch or PR.
 - Core dependencies are framework/runtime/deployment/database/UI and quality-gate dependencies that can change app behavior, build output, Cloudflare deployment, DB access, or the main dashboard component surface.
 
-Run E2E separately when a change affects browser workflows:
+Run E2E locally when a change affects browser workflows:
 
 ```bash
 pnpm test:e2e

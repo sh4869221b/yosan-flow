@@ -47,22 +47,23 @@ pnpm check
 pnpm test:unit
 pnpm test:integration
 pnpm build
+pnpm test:e2e
 ```
 
 CI gate policy:
 
-- Required on pull requests and `main` pushes: `pnpm format:check` → `pnpm lint` → `pnpm check` → `pnpm test:unit` → `pnpm test:integration` → `pnpm build`
-- Renovate update branches also run the same CI gate on `renovate/**` pushes, so Renovate can wait for a green branch before opening selected PRs.
-- `pnpm test:e2e` is not a required PR gate for now. Run it manually when browser workflows/UI flows change.
+- Pull request and `main` push CI runs `pnpm format:check`, `pnpm lint`, `pnpm check`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
+- CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed.
+- Renovate update branch pushes do not run CI directly. Renovate creates PRs immediately after any required Dependency Dashboard approval, and pull request CI is the authoritative validation gate.
+- The `E2E` GitHub Actions workflow is still available through `workflow_dispatch` for manual Playwright checks.
 - `pnpm test:coverage` reports server/API coverage for unit and integration tests. It is a visibility check, not a required PR gate.
-- The `E2E` GitHub Actions workflow is available through `workflow_dispatch` for optional Playwright checks.
 
 ## Dependency updates
 
 Renovate is configured in `renovate.json`.
 
 - Dependency Dashboard Issue is enabled as `Dependency Dashboard`.
-- Stable patch/minor updates create PRs only after CI succeeds on the `renovate/**` branch.
+- Stable patch/minor updates create PRs immediately, and PR CI is the validation gate.
 - Major updates, current `0.x` dependencies, and core framework/runtime/deployment/database/UI dependencies require manual approval from the Dependency Dashboard before Renovate creates the update branch or PR.
 - Core dependencies are the SvelteKit/Svelte/Vite stack, Cloudflare/Wrangler deployment path, Drizzle/Effect server boundary, TypeScript/check/test tooling, and primary Bits UI/date UI dependencies.
 
@@ -93,7 +94,7 @@ pnpm test:coverage
 3. `pnpm run cf:migrate:local`
 4. UI 開発は `pnpm dev`
 5. Workers 実行系の確認は `pnpm wrangler dev`
-6. 必要に応じて `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
+6. 必要に応じて `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build && pnpm test:e2e`
 
 ### preview
 
@@ -107,7 +108,7 @@ pnpm test:coverage
 
 1. production 用 D1 を作成して `wrangler.jsonc` の `env.production.d1_databases[0].database_id` を実 UUID に置き換える
 2. `pnpm run cf:migrate:production`
-3. `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build`
+3. `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build && pnpm test:e2e`
 4. `pnpm run deploy:production`
 5. production ホストが Cloudflare Access 保護対象であることを確認
 

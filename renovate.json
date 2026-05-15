@@ -8,18 +8,17 @@
   "branchPrefix": "renovate/",
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
+  "prCreation": "immediate",
   "rangeStrategy": "bump",
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 8am on monday"],
-    "prCreation": "status-success"
+    "schedule": ["before 8am on monday"]
   },
   "packageRules": [
     {
-      "description": "Create stable patch/minor PRs only after CI succeeds on the Renovate branch.",
+      "description": "Create stable patch/minor PRs immediately; pull request CI is the authoritative validation gate.",
       "matchUpdateTypes": ["patch", "minor"],
-      "matchCurrentVersion": "!/^0\\./",
-      "prCreation": "status-success"
+      "matchCurrentVersion": "!/^0\\./"
     },
     {
       "description": "Require Dependency Dashboard approval for major updates.",
