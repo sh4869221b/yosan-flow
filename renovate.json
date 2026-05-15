@@ -31,7 +31,7 @@
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Require Dependency Dashboard approval for core framework, runtime, deployment, database, and primary UI dependencies.",
+      "description": "Require Dependency Dashboard approval for major updates to core framework, runtime, deployment, database, and primary UI dependencies.",
       "matchPackageNames": [
         "@internationalized/date",
         "@playwright/test",
@@ -49,6 +49,7 @@
         "vitest",
         "wrangler"
       ],
+      "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true
     }
   ]

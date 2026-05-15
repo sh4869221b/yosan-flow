@@ -16,7 +16,7 @@
 - Stable patch/minor updates use immediate PR creation after minimum release age and any required approval checks pass.
 - Major updates require `dependencyDashboardApproval`.
 - Current `0.x` dependencies require `dependencyDashboardApproval`.
-- Core dependencies require `dependencyDashboardApproval`.
+- Core dependencies require `dependencyDashboardApproval` only for major updates.
 - Pull request CI is the authoritative validation gate; the aggregate `Quality checks` job depends on all parallel CI jobs, and automerge remains disabled.
 
 **Core dependencies for this repository:**
