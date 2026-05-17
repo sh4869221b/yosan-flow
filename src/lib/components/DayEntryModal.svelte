@@ -8,7 +8,7 @@
     Save,
     Wallet,
     X,
-  } from "lucide-svelte";
+  } from "@lucide/svelte";
   import HistoryPanel from "$lib/components/HistoryPanel.svelte";
 
   type HistoryItem = {

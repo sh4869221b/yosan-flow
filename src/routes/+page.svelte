@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Effect } from "effect";
-  import { CalendarDays, CalendarPlus, Settings2 } from "lucide-svelte";
+  import { CalendarDays, CalendarPlus, Settings2 } from "@lucide/svelte";
   import BudgetSummary from "$lib/components/BudgetSummary.svelte";
   import DayEntryModal from "$lib/components/DayEntryModal.svelte";
   import PeriodCalendar from "$lib/components/PeriodCalendar.svelte";
