@@ -4,7 +4,7 @@
     JapaneseYen,
     Utensils,
     WalletCards,
-  } from "lucide-svelte";
+  } from "@lucide/svelte";
 
   type PeriodSummary = {
     periodId: string;
