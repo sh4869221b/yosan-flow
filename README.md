@@ -5,7 +5,7 @@ Yosan Flow は Cloudflare Workers 上で動く、SvelteKit 製の月予算管理
 ## 前提
 
 - Node.js 24.15 以上
-- pnpm 10.33.4 以上
+- pnpm 11.2.0 以上
 - Cloudflare アカウント（D1/Workers 利用時）
 
 ## セットアップ（ローカル）
@@ -155,7 +155,7 @@ pnpm wrangler tail yosan-flow --env production --status error --format pretty
 - D1 binding 名は全環境で `DB`（`wrangler.jsonc`）です。
 - `wrangler.jsonc` の binding を変更したら、`XDG_CONFIG_HOME="$PWD/.tmp-xdg-config" pnpm wrangler types` と `XDG_CONFIG_HOME="$PWD/.tmp-xdg-config" pnpm wrangler types worker-runtime.d.ts --include-env false` を再実行してください。
 - deploy 前に `env.preview` / `env.production` の `database_id` がプレースホルダ (`00000000-0000-0000-0000-000000000000`) のままでないことを確認してください。
-- Cloudflare Workers Builds の Build Variable は `PNPM_VERSION=10.33.4` に固定してください。
+- Cloudflare Workers Builds の Build Variable は `PNPM_VERSION=11.2.0` に固定してください。
 - Cloudflare dashboard の Deploy command 例:
   - preview: `pnpm run deploy:preview`
   - production: `pnpm run deploy:production`
