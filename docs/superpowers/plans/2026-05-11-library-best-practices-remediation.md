@@ -42,9 +42,9 @@ Out of scope:
 
 **Steps:**
 
-- [ ] Confirm the intended pnpm version is `10.33.4`, matching `package.json` and CI.
-- [ ] Update docs that still mention `10.33.3`, including Cloudflare Workers Builds `PNPM_VERSION`.
-- [ ] Keep `pnpm-workspace.yaml` `onlyBuiltDependencies` / `ignoredBuiltDependencies` unchanged unless install output proves it is stale.
+- [ ] Confirm the intended pnpm version is `11.2.0`, matching `package.json` and CI.
+- [ ] Update docs that still mention older pnpm versions, including Cloudflare Workers Builds `PNPM_VERSION`.
+- [ ] Keep `pnpm-workspace.yaml` build-script approvals aligned with pnpm 11 `allowBuilds` unless install output proves it is stale.
 
 **Verification:**
 
