@@ -41,7 +41,7 @@
     "typescript-eslint": "^8.59.4",
     "vite": "^8.0.14",
     "vitest": "^4.1.7",
-    "wrangler": "^4.93.1"
+    "wrangler": "^4.94.0"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.1",
