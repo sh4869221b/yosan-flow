@@ -59,20 +59,20 @@ test("supports add and history row edit in day modal, and keeps values after rel
   const historyRow = modal.locator("li").filter({ hasText: longMemo });
   await historyRow.getByRole("button", { name: "編集" }).click();
   const editingRow = modal.locator("li.editing");
-  await editingRow.getByLabel("入力額 (円)").fill("500");
+  await editingRow.getByLabel("入力額 (円)").fill("1e3");
   await editingRow.getByRole("button", { name: "保存", exact: true }).click();
   await expect(
     page
       .getByTestId(`calendar-day-${todayRow?.date}`)
       .getByTestId(`used-${todayRow?.date}`),
-  ).toHaveText("500 円");
+  ).toHaveText("1000 円");
 
   await page.reload();
   await expect(
     page
       .getByTestId(`calendar-day-${todayRow?.date}`)
       .getByTestId(`used-${todayRow?.date}`),
-  ).toHaveText("500 円");
+  ).toHaveText("1000 円");
 });
 
 test("deletes history rows and keeps recalculated values after reload", async ({

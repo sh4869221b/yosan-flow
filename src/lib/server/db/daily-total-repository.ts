@@ -34,6 +34,10 @@ export interface DailyTotalRepository {
     tx: DailyTotalTransaction,
     input: DailyTotalUpsertInput,
   ): Effect.Effect<DailyTotalRecord, Error>;
+  deleteDailyTotal(
+    tx: DailyTotalTransaction,
+    input: { date: string; budgetPeriodId: string },
+  ): Effect.Effect<void, Error>;
   upsertDailyTotal(
     tx: DailyTotalTransaction,
     input: DailyTotalUpsertInput,
@@ -115,6 +119,17 @@ export function createDailyTotalRepository(): DailyTotalRepository {
     setDailyTotal(tx, input) {
       return Effect.try({
         try: () => setDailyTotalRecord(tx, input),
+        catch: toEffectError,
+      });
+    },
+
+    deleteDailyTotal(tx, input) {
+      return Effect.try({
+        try: () => {
+          tx.state.dailyTotals.delete(
+            toDailyTotalKey(input.date, input.budgetPeriodId),
+          );
+        },
         catch: toEffectError,
       });
     },

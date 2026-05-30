@@ -354,6 +354,23 @@ describe("period APIs", () => {
     const body = await parseJson(deleteResponse);
     expect(body.summary.plannedTotalYen).toBe(0);
     expect(body.histories).toHaveLength(0);
+
+    const shrinkResponse = await fixture.updatePeriod({
+      params: { periodId: "p-history-delete-last" },
+      request: new Request(
+        "http://localhost/api/periods/p-history-delete-last",
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            startDate: "2026-04-21",
+            endDate: "2026-05-19",
+            budgetYen: 100000,
+          }),
+        },
+      ),
+    } as any);
+    expect(shrinkResponse.status).toBe(200);
   });
 
   it("updates period by PUT /api/periods/:periodId", async () => {

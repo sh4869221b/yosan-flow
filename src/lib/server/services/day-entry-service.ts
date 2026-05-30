@@ -363,6 +363,23 @@ export class DayEntryService {
           date: command.date,
           histories: replayed.histories,
         });
+        if (replayed.histories.length === 0) {
+          yield* this.dailyTotalRepository.deleteDailyTotal(tx, {
+            date: command.date,
+            budgetPeriodId: period.id,
+          });
+          return {
+            dailyTotal: {
+              date: command.date,
+              yearMonth: command.date.slice(0, 7),
+              budgetPeriodId: period.id,
+              totalUsedYen: 0,
+              updatedAt: this.now(),
+            },
+            histories: replayed.histories,
+          };
+        }
+
         const dailyTotal = yield* this.dailyTotalRepository.setDailyTotal(tx, {
           date: command.date,
           yearMonth: command.date.slice(0, 7),

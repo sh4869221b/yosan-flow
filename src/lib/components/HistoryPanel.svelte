@@ -76,7 +76,7 @@
   }
 
   function saveEdit(historyId: string): void {
-    const parsed = Number.parseInt(editInputYen, 10);
+    const parsed = Number(editInputYen);
     if (!Number.isInteger(parsed) || parsed < 0) {
       return;
     }
