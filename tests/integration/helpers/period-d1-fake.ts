@@ -20,6 +20,7 @@ type DailyTotalRow = {
 };
 
 type DailyOperationHistoryRow = {
+  rowid: number;
   id: string;
   budget_period_id: string;
   date: string;
@@ -230,7 +231,7 @@ function replayDailyHistoryRows(
     .filter((row) => row.budget_period_id === periodId && row.date === date)
     .sort((left, right) => {
       if (left.created_at === right.created_at) {
-        return left.id.localeCompare(right.id);
+        return left.rowid - right.rowid;
       }
       return left.created_at.localeCompare(right.created_at);
     });
@@ -298,7 +299,23 @@ function applyDailyTotalMutation(
   dailyOperationHistories: DailyOperationHistoryRow[],
 ): void {
   const normalizedSql = sql.toLowerCase();
-  if (!normalizedSql.includes("daily_totals") || args.length < 5) {
+  if (!normalizedSql.includes("daily_totals")) {
+    return;
+  }
+
+  if (normalizedSql.includes("delete from daily_totals")) {
+    const periodId = String(args[0]);
+    const date = String(args[1]);
+    const hasHistories = dailyOperationHistories.some(
+      (row) => row.budget_period_id === periodId && row.date === date,
+    );
+    if (!hasHistories) {
+      dailyTotals.delete(toDailyTotalKey(date, periodId));
+    }
+    return;
+  }
+
+  if (args.length < 5) {
     return;
   }
 
@@ -309,12 +326,25 @@ function applyDailyTotalMutation(
   const date = String(isReplayTotal ? args[3] : args[1]);
   const key = toDailyTotalKey(date, periodId);
   const existing = dailyTotals.get(key);
-  const isAtomicAdd = normalizedSql.includes(
-    '"daily_totals"."total_used_yen" + excluded.total_used_yen',
-  );
+  const isAtomicAdd =
+    normalizedSql.includes(
+      '"daily_totals"."total_used_yen" + excluded.total_used_yen',
+    ) ||
+    normalizedSql.includes(
+      "daily_totals.total_used_yen + excluded.total_used_yen",
+    );
   const replayTotalYen = isReplayTotal
     ? replayDailyHistoryRows(periodId, date, dailyOperationHistories)
     : 0;
+  if (
+    isReplayTotal &&
+    dailyOperationHistories.every(
+      (row) => row.budget_period_id !== periodId || row.date !== date,
+    )
+  ) {
+    return;
+  }
+
   const row: DailyTotalRow = {
     budget_period_id: periodId,
     date,
@@ -352,7 +382,7 @@ function queryDailyOperationHistories(
       .filter((row) => row.budget_period_id === periodId && row.date === date)
       .sort((left, right) => {
         if (left.created_at === right.created_at) {
-          return right.id.localeCompare(left.id);
+          return right.rowid - left.rowid;
         }
         return right.created_at.localeCompare(left.created_at);
       });
@@ -381,6 +411,8 @@ function applyDailyOperationHistoryMutation(
   sql: string,
   args: unknown[],
   dailyOperationHistories: DailyOperationHistoryRow[],
+  dailyTotals: Map<string, DailyTotalRow>,
+  nextHistoryRowId: () => number,
 ): void {
   const normalizedSql = sql.toLowerCase();
   if (!normalizedSql.includes("daily_operation_histories")) {
@@ -455,16 +487,40 @@ function applyDailyOperationHistoryMutation(
     );
   }
 
+  const budgetPeriodId = String(args[1]);
+  const date = String(args[2]);
+  const operationType = args[3] === "overwrite" ? "overwrite" : "add";
+  const inputYen = Number(args[4]);
+  const total = dailyTotals.get(toDailyTotalKey(date, budgetPeriodId));
+  const computesTotalsFromDailyTotals =
+    normalizedSql.includes("select total_used_yen") &&
+    normalizedSql.includes("from daily_totals");
+  const beforeTotalYen = computesTotalsFromDailyTotals
+    ? (total?.total_used_yen ?? 0)
+    : Number(args[5]);
+  const afterTotalYen = computesTotalsFromDailyTotals
+    ? operationType === "add"
+      ? beforeTotalYen + inputYen
+      : inputYen
+    : Number(args[6]);
+  const memoIndex = computesTotalsFromDailyTotals
+    ? operationType === "add"
+      ? 10
+      : 8
+    : 7;
+  const createdAtIndex = memoIndex + 1;
+
   dailyOperationHistories.push({
+    rowid: nextHistoryRowId(),
     id,
-    budget_period_id: String(args[1]),
-    date: String(args[2]),
-    operation_type: args[3] === "overwrite" ? "overwrite" : "add",
-    input_yen: Number(args[4]),
-    before_total_yen: Number(args[5]),
-    after_total_yen: Number(args[6]),
-    memo: args[7] === null ? null : String(args[7]),
-    created_at: String(args[8]),
+    budget_period_id: budgetPeriodId,
+    date,
+    operation_type: operationType,
+    input_yen: inputYen,
+    before_total_yen: beforeTotalYen,
+    after_total_yen: afterTotalYen,
+    memo: args[memoIndex] === null ? null : String(args[memoIndex]),
+    created_at: String(args[createdAtIndex]),
   });
 }
 
@@ -474,11 +530,13 @@ export function createPeriodAwareD1Fake(
   let periods = new Map<string, BudgetPeriodRow>();
   let dailyTotals = new Map<string, DailyTotalRow>();
   let dailyOperationHistories: DailyOperationHistoryRow[] = [];
+  let nextRowId = 1;
 
   function snapshotState(): {
     periods: Map<string, BudgetPeriodRow>;
     dailyTotals: Map<string, DailyTotalRow>;
     dailyOperationHistories: DailyOperationHistoryRow[];
+    nextRowId: number;
   } {
     return {
       periods: new Map(
@@ -490,6 +548,7 @@ export function createPeriodAwareD1Fake(
       dailyOperationHistories: dailyOperationHistories.map((row) => ({
         ...row,
       })),
+      nextRowId,
     };
   }
 
@@ -497,6 +556,7 @@ export function createPeriodAwareD1Fake(
     periods = snapshot.periods;
     dailyTotals = snapshot.dailyTotals;
     dailyOperationHistories = snapshot.dailyOperationHistories;
+    nextRowId = snapshot.nextRowId;
   }
 
   return {
@@ -579,6 +639,8 @@ export function createPeriodAwareD1Fake(
             sql,
             boundArgs,
             dailyOperationHistories,
+            dailyTotals,
+            () => nextRowId++,
           );
           return createD1Result([]);
         },

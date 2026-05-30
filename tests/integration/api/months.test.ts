@@ -253,6 +253,74 @@ describe("period API default routes", () => {
     });
   });
 
+  it("uses insertion order instead of UUID order for same-timestamp D1 history replay", async () => {
+    const fakeDb = createPeriodAwareD1Fake();
+    const historyIds = ["history-z", "history-a"];
+    const services = createD1ApiServices(fakeDb, {
+      now: () => new Date("2026-04-20T00:00:00.000Z"),
+      createHistoryId: () => historyIds.shift() ?? "history-fallback",
+    });
+    await runApiEffect(
+      services.createPeriod({
+        id: "p-history-rowid",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
+
+    await runApiEffect(
+      services.dayEntryService.addDailyAmount({
+        periodId: "p-history-rowid",
+        date: "2026-04-20",
+        inputYen: 1000,
+      }),
+    );
+    await runApiEffect(
+      services.dayEntryService.overwriteDailyAmount({
+        periodId: "p-history-rowid",
+        date: "2026-04-20",
+        inputYen: 500,
+      }),
+    );
+
+    const patchResponse = await dayHistoryPatchDefaultRoute({
+      params: {
+        periodId: "p-history-rowid",
+        date: "2026-04-20",
+        historyId: "history-z",
+      },
+      request: new Request(
+        "http://localhost/api/periods/p-history-rowid/days/2026-04-20/history/history-z",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ inputYen: 1200 }),
+        },
+      ),
+      platform: { env: { DB: fakeDb } },
+    } as any);
+
+    expect(patchResponse.status).toBe(200);
+    await expect(patchResponse.json()).resolves.toMatchObject({
+      summary: { plannedTotalYen: 500 },
+      histories: [
+        {
+          id: "history-a",
+          operationType: "overwrite",
+          beforeTotalYen: 1200,
+          afterTotalYen: 500,
+        },
+        {
+          id: "history-z",
+          operationType: "add",
+          beforeTotalYen: 0,
+          afterTotalYen: 1200,
+        },
+      ],
+    });
+  });
+
   it("rolls back daily total when batch history insert fails with duplicate id", async () => {
     const fakeDb = createPeriodAwareD1Fake();
     const historyIds = ["history-dup", "history-dup"];
@@ -441,6 +509,21 @@ describe("period API default routes", () => {
       summary: { plannedTotalYen: 0 },
       histories: [],
     });
+
+    const shrinkResponse = await periodPutDefaultRoute({
+      params: { periodId: "p-history-last-d1" },
+      request: new Request("http://localhost/api/periods/p-history-last-d1", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2026-04-21",
+          endDate: "2026-05-19",
+          budgetYen: 100000,
+        }),
+      }),
+      platform: { env: { DB: fakeDb } },
+    } as any);
+    expect(shrinkResponse.status).toBe(200);
   });
 
   it("updates periods and preserves validation errors in D1 path", async () => {

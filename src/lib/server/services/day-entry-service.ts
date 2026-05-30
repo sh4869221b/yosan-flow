@@ -109,7 +109,7 @@ function compareHistoryChronological(
   right: DailyHistoryRecord,
 ): number {
   if (left.createdAt === right.createdAt) {
-    return left.id.localeCompare(right.id);
+    return 0;
   }
   return left.createdAt.localeCompare(right.createdAt);
 }

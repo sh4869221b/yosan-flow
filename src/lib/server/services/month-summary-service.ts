@@ -646,39 +646,12 @@ function getDefaultInMemoryApiServices(): InMemoryApiServices {
 }
 
 function createD1DayEntryService(
-  dailyTotalRepository: D1DailyTotalRepository,
   dailyHistoryRepository: D1DailyHistoryRepository,
   budgetPeriodRepository: BudgetPeriodRepository,
   dayEntryWriter: D1DayEntryWriter,
   now: () => Date,
   createHistoryId: () => string,
 ): DayEntryServicePort {
-  let mutationQueue: Promise<void> = Promise.resolve();
-  function runSerializedEffect<T>(
-    work: () => Effect.Effect<T, Error>,
-  ): Effect.Effect<T, Error> {
-    return Effect.gen(function* () {
-      const pending = mutationQueue;
-      let releaseQueue: (() => void) | undefined;
-      mutationQueue = new Promise<void>((resolve) => {
-        releaseQueue = resolve;
-      });
-
-      yield* Effect.tryPromise({
-        try: () => pending,
-        catch: toEffectError,
-      });
-
-      return yield* work().pipe(
-        Effect.ensuring(
-          Effect.sync(() => {
-            releaseQueue?.();
-          }),
-        ),
-      );
-    });
-  }
-
   function validatePeriodDate(
     periodId: string,
     date: string,
@@ -724,22 +697,12 @@ function createD1DayEntryService(
 
       const nowIso = now().toISOString();
       const memo = normalizeMemo(command.memo);
-      const existing = yield* dailyTotalRepository.findByDate(
-        command.date,
-        command.periodId,
-      );
-      const beforeTotalYen = existing?.totalUsedYen ?? 0;
-      const afterTotalYen =
-        operationType === "add"
-          ? beforeTotalYen + command.inputYen
-          : command.inputYen;
       yield* dayEntryWriter.writeDailyEntry({
         total: {
           budgetPeriodId: command.periodId,
           date: command.date,
           yearMonth: command.date.slice(0, 7),
-          totalUsedYen:
-            operationType === "add" ? command.inputYen : afterTotalYen,
+          totalUsedYen: command.inputYen,
           nowIso,
         },
         history: {
@@ -748,8 +711,8 @@ function createD1DayEntryService(
           date: command.date,
           operationType,
           inputYen: command.inputYen,
-          beforeTotalYen,
-          afterTotalYen,
+          beforeTotalYen: 0,
+          afterTotalYen: command.inputYen,
           memo,
           createdAt: nowIso,
         },
@@ -813,31 +776,25 @@ function createD1DayEntryService(
   }
 
   return {
-    addDailyAmount: (command) =>
-      runSerializedEffect(() => execute(command, "add")),
-    overwriteDailyAmount: (command) =>
-      runSerializedEffect(() => execute(command, "overwrite")),
+    addDailyAmount: (command) => execute(command, "add"),
+    overwriteDailyAmount: (command) => execute(command, "overwrite"),
     updateHistoryEntry: (command) =>
-      runSerializedEffect(() =>
-        Effect.gen(function* () {
-          const memo = yield* Effect.try({
-            try: () => {
-              assertValidInputYen(command.inputYen);
-              return normalizeMemo(command.memo);
-            },
-            catch: toEffectError,
-          });
-          return yield* replayHistoryMutation(command, () => ({
-            kind: "update",
-            inputYen: command.inputYen,
-            memo,
-          }));
-        }),
-      ),
+      Effect.gen(function* () {
+        const memo = yield* Effect.try({
+          try: () => {
+            assertValidInputYen(command.inputYen);
+            return normalizeMemo(command.memo);
+          },
+          catch: toEffectError,
+        });
+        return yield* replayHistoryMutation(command, () => ({
+          kind: "update",
+          inputYen: command.inputYen,
+          memo,
+        }));
+      }),
     deleteHistoryEntry: (command) =>
-      runSerializedEffect(() =>
-        replayHistoryMutation(command, () => ({ kind: "delete" })),
-      ),
+      replayHistoryMutation(command, () => ({ kind: "delete" })),
   };
 }
 
@@ -859,7 +816,6 @@ export function createD1ApiServices(
     db,
   });
   const dayEntryService = createD1DayEntryService(
-    dailyTotalRepository,
     dailyHistoryRepository,
     budgetPeriodRepository,
     dayEntryWriter,

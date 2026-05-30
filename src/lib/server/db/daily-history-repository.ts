@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt, or } from "drizzle-orm";
+import { and, desc, eq, gt, lt, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 import type { DatabaseTransaction } from "$lib/server/db/client";
 import { createDrizzleD1Database } from "$lib/server/db/client";
@@ -142,14 +142,14 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
       return Effect.try({
         try: () =>
           findHistories(tx, date, budgetPeriodId)
-            .slice()
+            .map((entry, index) => ({ entry, index }))
             .sort((left, right) => {
-              if (left.createdAt === right.createdAt) {
-                return right.id.localeCompare(left.id);
+              if (left.entry.createdAt === right.entry.createdAt) {
+                return right.index - left.index;
               }
-              return right.createdAt.localeCompare(left.createdAt);
+              return right.entry.createdAt.localeCompare(left.entry.createdAt);
             })
-            .map((entry) => cloneHistory(entry)),
+            .map(({ entry }) => cloneHistory(entry)),
         catch: toEffectError,
       });
     },
@@ -158,14 +158,14 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
       return Effect.try({
         try: () =>
           findHistories(tx, date, budgetPeriodId)
-            .slice()
+            .map((entry, index) => ({ entry, index }))
             .sort((left, right) => {
-              if (left.createdAt === right.createdAt) {
-                return left.id.localeCompare(right.id);
+              if (left.entry.createdAt === right.entry.createdAt) {
+                return left.index - right.index;
               }
-              return left.createdAt.localeCompare(right.createdAt);
+              return left.entry.createdAt.localeCompare(right.entry.createdAt);
             })
-            .map((entry) => cloneHistory(entry)),
+            .map(({ entry }) => cloneHistory(entry)),
         catch: toEffectError,
       });
     },
@@ -245,10 +245,7 @@ export function createD1DailyHistoryRepository(
           eq(daily_operation_histories.date, date),
         ),
       )
-      .orderBy(
-        desc(daily_operation_histories.created_at),
-        desc(daily_operation_histories.id),
-      )
+      .orderBy(desc(daily_operation_histories.created_at), sql`rowid DESC`)
       .all();
     return rows.map((row) => toDailyHistoryRecord(row));
   };
