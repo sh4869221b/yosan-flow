@@ -25,7 +25,6 @@ import {
 import {
   createD1DailyTotalRepository,
   createDailyTotalRepository,
-  type D1DailyTotalRepository,
   type DailyTotalRecord,
   type DailyTotalRepository,
 } from "$lib/server/db/daily-total-repository";
