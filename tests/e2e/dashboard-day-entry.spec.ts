@@ -195,6 +195,11 @@ test("clears history edit state when the modal is closed", async ({
   await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
   await modal.getByLabel("入力額 (円)").fill("1200");
   await modal.getByRole("button", { name: "保存する" }).click();
+  await expect(
+    page
+      .getByTestId(`calendar-day-${todayRow?.date}`)
+      .getByTestId(`used-${todayRow?.date}`),
+  ).toHaveText("1200 円");
 
   await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
   await modal.getByRole("button", { name: "編集" }).click();
