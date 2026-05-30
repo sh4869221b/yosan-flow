@@ -76,7 +76,11 @@
   }
 
   function saveEdit(historyId: string): void {
-    const parsed = Number(editInputYen);
+    const trimmedInputYen = String(editInputYen ?? "").trim();
+    if (trimmedInputYen === "") {
+      return;
+    }
+    const parsed = Number(trimmedInputYen);
     if (!Number.isInteger(parsed) || parsed < 0) {
       return;
     }
