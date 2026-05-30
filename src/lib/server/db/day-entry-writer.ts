@@ -33,6 +33,27 @@ export interface D1DayEntryWriter {
     history: D1DayEntryHistoryWriteInput;
     mode: D1DayEntryWriteMode;
   }): Effect.Effect<void, Error>;
+  writeHistoryReplay(
+    input:
+      | {
+          kind: "update";
+          budgetPeriodId: string;
+          date: string;
+          yearMonth: string;
+          nowIso: string;
+          historyId: string;
+          inputYen: number;
+          memo: string | null;
+        }
+      | {
+          kind: "delete";
+          budgetPeriodId: string;
+          date: string;
+          yearMonth: string;
+          nowIso: string;
+          historyId: string;
+        },
+  ): Effect.Effect<void, Error>;
 }
 
 type CreateD1DayEntryWriterInput = {
@@ -82,6 +103,173 @@ export function createD1DayEntryWriter(
               memo: history.memo,
               created_at: history.createdAt,
             }),
+          ]);
+        },
+        catch: toEffectError,
+      });
+    },
+
+    writeHistoryReplay(command) {
+      return Effect.tryPromise({
+        try: async () => {
+          const targetMutation =
+            command.kind === "update"
+              ? input.db
+                  .prepare(
+                    `
+                    UPDATE daily_operation_histories
+                    SET input_yen = ?, memo = ?
+                    WHERE budget_period_id = ? AND date = ? AND id = ?
+                    `,
+                  )
+                  .bind(
+                    command.inputYen,
+                    command.memo,
+                    command.budgetPeriodId,
+                    command.date,
+                    command.historyId,
+                  )
+              : input.db
+                  .prepare(
+                    `
+                    DELETE FROM daily_operation_histories
+                    WHERE budget_period_id = ? AND date = ? AND id = ?
+                    `,
+                  )
+                  .bind(
+                    command.budgetPeriodId,
+                    command.date,
+                    command.historyId,
+                  );
+
+          await input.db.batch([
+            targetMutation,
+            input.db
+              .prepare(
+                `
+                WITH RECURSIVE
+                  ordered AS (
+                    SELECT
+                      id,
+                      operation_type,
+                      input_yen,
+                      row_number() OVER (ORDER BY created_at ASC, id ASC) AS rn
+                    FROM daily_operation_histories
+                    WHERE budget_period_id = ? AND date = ?
+                  ),
+                  replay(rn, id, before_total_yen, after_total_yen) AS (
+                    SELECT
+                      rn,
+                      id,
+                      0,
+                      input_yen
+                    FROM ordered
+                    WHERE rn = 1
+                    UNION ALL
+                    SELECT
+                      ordered.rn,
+                      ordered.id,
+                      replay.after_total_yen,
+                      CASE
+                        WHEN ordered.operation_type = 'add'
+                          THEN replay.after_total_yen + ordered.input_yen
+                        ELSE ordered.input_yen
+                      END
+                    FROM replay
+                    JOIN ordered ON ordered.rn = replay.rn + 1
+                  )
+                UPDATE daily_operation_histories
+                SET
+                  before_total_yen = (
+                    SELECT before_total_yen
+                    FROM replay
+                    WHERE replay.id = daily_operation_histories.id
+                  ),
+                  after_total_yen = (
+                    SELECT after_total_yen
+                    FROM replay
+                    WHERE replay.id = daily_operation_histories.id
+                  )
+                WHERE budget_period_id = ?
+                  AND date = ?
+                  AND id IN (SELECT id FROM replay)
+                `,
+              )
+              .bind(
+                command.budgetPeriodId,
+                command.date,
+                command.budgetPeriodId,
+                command.date,
+              ),
+            input.db
+              .prepare(
+                `
+                WITH RECURSIVE
+                  ordered AS (
+                    SELECT
+                      id,
+                      operation_type,
+                      input_yen,
+                      row_number() OVER (ORDER BY created_at ASC, id ASC) AS rn
+                    FROM daily_operation_histories
+                    WHERE budget_period_id = ? AND date = ?
+                  ),
+                  replay(rn, id, before_total_yen, after_total_yen) AS (
+                    SELECT
+                      rn,
+                      id,
+                      0,
+                      input_yen
+                    FROM ordered
+                    WHERE rn = 1
+                    UNION ALL
+                    SELECT
+                      ordered.rn,
+                      ordered.id,
+                      replay.after_total_yen,
+                      CASE
+                        WHEN ordered.operation_type = 'add'
+                          THEN replay.after_total_yen + ordered.input_yen
+                        ELSE ordered.input_yen
+                      END
+                    FROM replay
+                    JOIN ordered ON ordered.rn = replay.rn + 1
+                  )
+                INSERT INTO daily_totals (
+                  budget_period_id,
+                  date,
+                  year_month,
+                  total_used_yen,
+                  updated_at
+                )
+                SELECT
+                  ?,
+                  ?,
+                  ?,
+                  COALESCE(
+                    (
+                      SELECT after_total_yen
+                      FROM replay
+                      ORDER BY rn DESC
+                      LIMIT 1
+                    ),
+                    0
+                  ),
+                  ?
+                ON CONFLICT (budget_period_id, date) DO UPDATE SET
+                  year_month = excluded.year_month,
+                  total_used_yen = excluded.total_used_yen,
+                  updated_at = excluded.updated_at
+                `,
+              )
+              .bind(
+                command.budgetPeriodId,
+                command.date,
+                command.budgetPeriodId,
+                command.date,
+                command.yearMonth,
+                command.nowIso,
+              ),
           ]);
         },
         catch: toEffectError,

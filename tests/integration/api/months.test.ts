@@ -13,6 +13,10 @@ import {
 import { _createPeriodDayHistoryHandler } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
 import { POST as dayAddDefaultRoute } from "../../../src/routes/api/periods/[periodId]/days/[date]/add/+server";
 import { GET as dayHistoryDefaultRoute } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
+import {
+  DELETE as dayHistoryDeleteDefaultRoute,
+  PATCH as dayHistoryPatchDefaultRoute,
+} from "../../../src/routes/api/periods/[periodId]/days/[date]/history/[historyId]/+server";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 
 describe("period API default routes", () => {
@@ -314,6 +318,128 @@ describe("period API default routes", () => {
     expect(historyJson.histories).toHaveLength(1);
     expect(historyJson).toMatchObject({
       histories: [{ id: "history-dup", inputYen: 1000 }],
+    });
+  });
+
+  it("edits and deletes daily history rows in D1 path", async () => {
+    const fakeDb = createPeriodAwareD1Fake();
+    const historyIds = ["history-a", "history-b"];
+    const services = createD1ApiServices(fakeDb, {
+      now: () => new Date("2026-04-20T00:00:00.000Z"),
+      createHistoryId: () => historyIds.shift() ?? "history-fallback",
+    });
+    await runApiEffect(
+      services.createPeriod({
+        id: "p-history-mutation-d1",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
+    await runApiEffect(
+      services.dayEntryService.addDailyAmount({
+        periodId: "p-history-mutation-d1",
+        date: "2026-04-20",
+        inputYen: 1000,
+      }),
+    );
+    await runApiEffect(
+      services.dayEntryService.addDailyAmount({
+        periodId: "p-history-mutation-d1",
+        date: "2026-04-20",
+        inputYen: 2000,
+      }),
+    );
+
+    const patchResponse = await dayHistoryPatchDefaultRoute({
+      params: {
+        periodId: "p-history-mutation-d1",
+        date: "2026-04-20",
+        historyId: "history-a",
+      },
+      request: new Request(
+        "http://localhost/api/periods/p-history-mutation-d1/days/2026-04-20/history/history-a",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ inputYen: 1500, memo: "edited" }),
+        },
+      ),
+      platform: { env: { DB: fakeDb } },
+    } as any);
+    expect(patchResponse.status).toBe(200);
+    await expect(patchResponse.json()).resolves.toMatchObject({
+      summary: { plannedTotalYen: 3500 },
+      histories: [
+        { id: "history-b", beforeTotalYen: 1500, afterTotalYen: 3500 },
+        {
+          id: "history-a",
+          inputYen: 1500,
+          beforeTotalYen: 0,
+          afterTotalYen: 1500,
+          memo: "edited",
+        },
+      ],
+    });
+
+    const deleteResponse = await dayHistoryDeleteDefaultRoute({
+      params: {
+        periodId: "p-history-mutation-d1",
+        date: "2026-04-20",
+        historyId: "history-a",
+      },
+      request: new Request(
+        "http://localhost/api/periods/p-history-mutation-d1/days/2026-04-20/history/history-a",
+        { method: "DELETE" },
+      ),
+      platform: { env: { DB: fakeDb } },
+    } as any);
+    expect(deleteResponse.status).toBe(200);
+    await expect(deleteResponse.json()).resolves.toMatchObject({
+      summary: { plannedTotalYen: 2000 },
+      histories: [{ id: "history-b", beforeTotalYen: 0, afterTotalYen: 2000 }],
+    });
+  });
+
+  it("deletes the last daily history row in D1 path", async () => {
+    const fakeDb = createPeriodAwareD1Fake();
+    const services = createD1ApiServices(fakeDb, {
+      now: () => new Date("2026-04-20T00:00:00.000Z"),
+      createHistoryId: () => "history-last",
+    });
+    await runApiEffect(
+      services.createPeriod({
+        id: "p-history-last-d1",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
+    await runApiEffect(
+      services.dayEntryService.addDailyAmount({
+        periodId: "p-history-last-d1",
+        date: "2026-04-20",
+        inputYen: 1000,
+      }),
+    );
+
+    const deleteResponse = await dayHistoryDeleteDefaultRoute({
+      params: {
+        periodId: "p-history-last-d1",
+        date: "2026-04-20",
+        historyId: "history-last",
+      },
+      request: new Request(
+        "http://localhost/api/periods/p-history-last-d1/days/2026-04-20/history/history-last",
+        { method: "DELETE" },
+      ),
+      platform: { env: { DB: fakeDb } },
+    } as any);
+
+    expect(deleteResponse.status).toBe(200);
+    await expect(deleteResponse.json()).resolves.toMatchObject({
+      summary: { plannedTotalYen: 0 },
+      histories: [],
     });
   });
 

@@ -18,6 +18,7 @@ import {
 import {
   createD1DailyHistoryRepository,
   createDailyHistoryRepository,
+  type D1DailyHistoryRepository,
   type DailyHistoryRecord,
   type DailyHistoryRepository,
 } from "$lib/server/db/daily-history-repository";
@@ -35,7 +36,10 @@ import {
 } from "$lib/server/domain/daily-entry";
 import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
 import { toEffectError } from "$lib/server/effect/runtime";
-import { DayEntryService } from "$lib/server/services/day-entry-service";
+import {
+  DayEntryService,
+  HistoryNotFoundError,
+} from "$lib/server/services/day-entry-service";
 import { createHistoryId as createDefaultHistoryId } from "$lib/server/services/history-id";
 import { getJstDateParts } from "$lib/server/time/jst";
 
@@ -113,6 +117,18 @@ type DayEntryServicePort = {
     date: string;
     inputYen: number;
     memo?: string | null;
+  }): Effect.Effect<unknown, Error>;
+  updateHistoryEntry(command: {
+    periodId: string;
+    date: string;
+    historyId: string;
+    inputYen: number;
+    memo?: string | null;
+  }): Effect.Effect<unknown, Error>;
+  deleteHistoryEntry(command: {
+    periodId: string;
+    date: string;
+    historyId: string;
   }): Effect.Effect<unknown, Error>;
 };
 
@@ -534,6 +550,14 @@ export function createInMemoryApiServices(
         runSerializedEffect(() =>
           rawDayEntryService.overwriteDailyAmount(command),
         ),
+      updateHistoryEntry: (command) =>
+        runSerializedEffect(() =>
+          rawDayEntryService.updateHistoryEntry(command),
+        ),
+      deleteHistoryEntry: (command) =>
+        runSerializedEffect(() =>
+          rawDayEntryService.deleteHistoryEntry(command),
+        ),
     },
     createPeriod: (periodInput) =>
       runSerializedEffect(() =>
@@ -623,11 +647,61 @@ function getDefaultInMemoryApiServices(): InMemoryApiServices {
 
 function createD1DayEntryService(
   dailyTotalRepository: D1DailyTotalRepository,
+  dailyHistoryRepository: D1DailyHistoryRepository,
   budgetPeriodRepository: BudgetPeriodRepository,
   dayEntryWriter: D1DayEntryWriter,
   now: () => Date,
   createHistoryId: () => string,
 ): DayEntryServicePort {
+  let mutationQueue: Promise<void> = Promise.resolve();
+  function runSerializedEffect<T>(
+    work: () => Effect.Effect<T, Error>,
+  ): Effect.Effect<T, Error> {
+    return Effect.gen(function* () {
+      const pending = mutationQueue;
+      let releaseQueue: (() => void) | undefined;
+      mutationQueue = new Promise<void>((resolve) => {
+        releaseQueue = resolve;
+      });
+
+      yield* Effect.tryPromise({
+        try: () => pending,
+        catch: toEffectError,
+      });
+
+      return yield* work().pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            releaseQueue?.();
+          }),
+        ),
+      );
+    });
+  }
+
+  function validatePeriodDate(
+    periodId: string,
+    date: string,
+  ): Effect.Effect<BudgetPeriodRecord, Error> {
+    return Effect.gen(function* () {
+      yield* Effect.try({
+        try: () => {
+          assertValidDate(date);
+        },
+        catch: toEffectError,
+      });
+
+      const period = yield* budgetPeriodRepository.findById(periodId);
+      if (!period) {
+        return yield* Effect.fail(new PeriodNotFoundError(periodId));
+      }
+      if (!isDateWithinPeriod(date, period.startDate, period.endDate)) {
+        return yield* Effect.fail(new DateOutOfPeriodError(date, periodId));
+      }
+      return period;
+    });
+  }
+
   function execute(
     command: {
       periodId: string;
@@ -646,15 +720,7 @@ function createD1DayEntryService(
         catch: toEffectError,
       });
 
-      const period = yield* budgetPeriodRepository.findById(command.periodId);
-      if (!period) {
-        return yield* Effect.fail(new PeriodNotFoundError(command.periodId));
-      }
-      if (!isDateWithinPeriod(command.date, period.startDate, period.endDate)) {
-        return yield* Effect.fail(
-          new DateOutOfPeriodError(command.date, command.periodId),
-        );
-      }
+      yield* validatePeriodDate(command.periodId, command.date);
 
       const nowIso = now().toISOString();
       const memo = normalizeMemo(command.memo);
@@ -693,9 +759,85 @@ function createD1DayEntryService(
     });
   }
 
+  function replayHistoryMutation(
+    command: {
+      periodId: string;
+      date: string;
+      historyId: string;
+    },
+    mutateTarget: (history: DailyHistoryRecord) =>
+      | {
+          kind: "update";
+          inputYen: number;
+          memo: string | null;
+        }
+      | { kind: "delete" },
+  ): Effect.Effect<Record<string, never>, Error> {
+    return Effect.gen(function* () {
+      yield* validatePeriodDate(command.periodId, command.date);
+      const histories = yield* dailyHistoryRepository.listHistoriesByDate(
+        command.date,
+        command.periodId,
+      );
+      const target = histories.find(
+        (history) => history.id === command.historyId,
+      );
+      if (!target) {
+        return yield* Effect.fail(new HistoryNotFoundError(command.historyId));
+      }
+
+      const mutation = mutateTarget(target);
+      if (mutation.kind === "update") {
+        yield* dayEntryWriter.writeHistoryReplay({
+          kind: "update",
+          budgetPeriodId: command.periodId,
+          date: command.date,
+          yearMonth: command.date.slice(0, 7),
+          nowIso: now().toISOString(),
+          historyId: command.historyId,
+          inputYen: mutation.inputYen,
+          memo: mutation.memo,
+        });
+      } else {
+        yield* dayEntryWriter.writeHistoryReplay({
+          kind: "delete",
+          budgetPeriodId: command.periodId,
+          date: command.date,
+          yearMonth: command.date.slice(0, 7),
+          nowIso: now().toISOString(),
+          historyId: command.historyId,
+        });
+      }
+      return {};
+    });
+  }
+
   return {
-    addDailyAmount: (command) => execute(command, "add"),
-    overwriteDailyAmount: (command) => execute(command, "overwrite"),
+    addDailyAmount: (command) =>
+      runSerializedEffect(() => execute(command, "add")),
+    overwriteDailyAmount: (command) =>
+      runSerializedEffect(() => execute(command, "overwrite")),
+    updateHistoryEntry: (command) =>
+      runSerializedEffect(() =>
+        Effect.gen(function* () {
+          const memo = yield* Effect.try({
+            try: () => {
+              assertValidInputYen(command.inputYen);
+              return normalizeMemo(command.memo);
+            },
+            catch: toEffectError,
+          });
+          return yield* replayHistoryMutation(command, () => ({
+            kind: "update",
+            inputYen: command.inputYen,
+            memo,
+          }));
+        }),
+      ),
+    deleteHistoryEntry: (command) =>
+      runSerializedEffect(() =>
+        replayHistoryMutation(command, () => ({ kind: "delete" })),
+      ),
   };
 }
 
@@ -718,6 +860,7 @@ export function createD1ApiServices(
   });
   const dayEntryService = createD1DayEntryService(
     dailyTotalRepository,
+    dailyHistoryRepository,
     budgetPeriodRepository,
     dayEntryWriter,
     now,

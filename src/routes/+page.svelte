@@ -21,6 +21,10 @@
   type HistoryResponse = {
     histories?: HistoryItem[];
   };
+  type HistoryMutationResponse = {
+    summary: PeriodSummary;
+    histories: HistoryItem[];
+  };
   type HistoryItem = {
     id: string;
     date: string;
@@ -83,16 +87,14 @@
   let selectedRow = $state<DailyRow | null>(null);
   let historyLoading = $state(false);
   let historyError = $state<string | null>(null);
+  let historyMutatingId = $state<string | null>(null);
   let histories = $state<HistoryItem[]>([]);
   let modalInputYen = $state("");
   let modalMemo = $state("");
-  let modalOperation = $state<"add" | "overwrite">("add");
 
   const modalPreviewAfterYen = $derived(
-    modalOperation === "add"
-      ? (selectedRow?.usedYen ?? 0) +
-          (Number.parseInt(modalInputYen || "0", 10) || 0)
-      : Number.parseInt(modalInputYen || "0", 10) || 0,
+    (selectedRow?.usedYen ?? 0) +
+      (Number.parseInt(modalInputYen || "0", 10) || 0),
   );
   const modalRemainingRows = $derived(
     summary == null || selectedDate == null
@@ -376,7 +378,6 @@
     modalOpen = true;
     modalInputYen = "";
     modalMemo = "";
-    modalOperation = "add";
     histories = [];
     runClientEffect(loadHistoryEffect(payload.date));
   }
@@ -389,7 +390,6 @@
   function submitDayEntryEffect(payload: {
     date: string;
     inputYen: number;
-    operation: "add" | "overwrite";
     memo: string;
   }): Effect.Effect<void, never> {
     if (!selectedPeriodId) {
@@ -400,15 +400,10 @@
     return Effect.gen(function* () {
       modalSaving = true;
       modalError = null;
-      const endpoint =
-        payload.operation === "add"
-          ? `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(payload.date)}/add`
-          : `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(payload.date)}/overwrite`;
-      const method = payload.operation === "add" ? "POST" : "PUT";
       const result = yield* fetchJsonEffect<PeriodSummary>(
-        endpoint,
+        `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(payload.date)}/add`,
         {
-          method,
+          method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             inputYen: payload.inputYen,
@@ -436,10 +431,91 @@
   function submitDayEntry(payload: {
     date: string;
     inputYen: number;
-    operation: "add" | "overwrite";
     memo: string;
   }): void {
     runClientEffect(submitDayEntryEffect(payload));
+  }
+
+  function applyHistoryMutationResult(body: HistoryMutationResponse): void {
+    summary = body.summary;
+    histories = body.histories;
+    if (selectedDate) {
+      selectedRow =
+        body.summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
+    }
+  }
+
+  function updateHistoryEffect(payload: {
+    historyId: string;
+    inputYen: number;
+    memo: string;
+  }): Effect.Effect<void, never> {
+    if (!selectedPeriodId || !selectedDate) {
+      return Effect.void;
+    }
+    const periodId = selectedPeriodId;
+    const date = selectedDate;
+    return Effect.gen(function* () {
+      historyMutatingId = payload.historyId;
+      historyError = null;
+      const result = yield* fetchJsonEffect<HistoryMutationResponse>(
+        `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(date)}/history/${encodeURIComponent(payload.historyId)}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            inputYen: payload.inputYen,
+            memo: payload.memo,
+          }),
+        },
+        "履歴の更新に失敗しました。",
+      ).pipe(Effect.either);
+      if (result._tag === "Left") {
+        historyError = result.left;
+      } else {
+        applyHistoryMutationResult(result.right);
+      }
+      historyMutatingId = null;
+    });
+  }
+
+  function deleteHistoryEffect(payload: {
+    historyId: string;
+  }): Effect.Effect<void, never> {
+    if (!selectedPeriodId || !selectedDate) {
+      return Effect.void;
+    }
+    const periodId = selectedPeriodId;
+    const date = selectedDate;
+    return Effect.gen(function* () {
+      historyMutatingId = payload.historyId;
+      historyError = null;
+      const result = yield* fetchJsonEffect<HistoryMutationResponse>(
+        `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(date)}/history/${encodeURIComponent(payload.historyId)}`,
+        {
+          method: "DELETE",
+        },
+        "履歴の削除に失敗しました。",
+      ).pipe(Effect.either);
+      if (result._tag === "Left") {
+        historyError = result.left;
+      } else {
+        applyHistoryMutationResult(result.right);
+      }
+      historyMutatingId = null;
+    });
+  }
+
+  function updateHistory(payload: {
+    historyId: string;
+    inputYen: number;
+    memo: string;
+  }): void {
+    runClientEffect(updateHistoryEffect(payload));
+  }
+
+  function deleteHistory(payload: { historyId: string }): void {
+    runClientEffect(deleteHistoryEffect(payload));
   }
 </script>
 
@@ -612,15 +688,17 @@
     errorMessage={modalError}
     historyErrorMessage={historyError}
     {historyLoading}
+    {historyMutatingId}
     {histories}
     bind:inputYen={modalInputYen}
     bind:memo={modalMemo}
-    bind:operation={modalOperation}
     previewAfterYen={modalPreviewAfterYen}
     previewRemainingYen={modalPreviewRemainingYen}
     previewRecommendedYen={modalPreviewRecommendedYen}
     close={closeDayEntry}
     save={submitDayEntry}
+    {updateHistory}
+    {deleteHistory}
   />
 </main>
 

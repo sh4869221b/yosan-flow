@@ -42,7 +42,16 @@ type DailyHistoryTransaction = DatabaseTransaction<
 >;
 
 export interface DailyHistoryRepository {
+  findHistoryById(
+    tx: DailyHistoryTransaction,
+    input: { budgetPeriodId: string; date: string; historyId: string },
+  ): Effect.Effect<DailyHistoryRecord | null, Error>;
   listHistoriesByDate(
+    tx: DailyHistoryTransaction,
+    date: string,
+    budgetPeriodId: string,
+  ): Effect.Effect<DailyHistoryRecord[], Error>;
+  listHistoriesByDateChronological(
     tx: DailyHistoryTransaction,
     date: string,
     budgetPeriodId: string,
@@ -51,6 +60,14 @@ export interface DailyHistoryRepository {
     tx: DailyHistoryTransaction,
     input: InsertDailyHistoryInput,
   ): Effect.Effect<DailyHistoryRecord, Error>;
+  replaceHistoriesForDate(
+    tx: DailyHistoryTransaction,
+    input: {
+      budgetPeriodId: string;
+      date: string;
+      histories: DailyHistoryRecord[];
+    },
+  ): Effect.Effect<void, Error>;
 }
 
 export interface D1DailyHistoryRepository {
@@ -89,26 +106,64 @@ function toDailyHistoryRecord(
 }
 
 export function createDailyHistoryRepository(): DailyHistoryRepository {
+  function findHistories(
+    tx: DailyHistoryTransaction,
+    date: string,
+    budgetPeriodId: string,
+  ): DailyHistoryRecord[] {
+    return tx.state.dailyOperationHistories.filter((entry) => {
+      if (entry.date !== date) {
+        return false;
+      }
+      if (entry.budgetPeriodId !== budgetPeriodId) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   return {
+    findHistoryById(tx, input) {
+      return Effect.try({
+        try: () => {
+          const found = tx.state.dailyOperationHistories.find(
+            (entry) =>
+              entry.budgetPeriodId === input.budgetPeriodId &&
+              entry.date === input.date &&
+              entry.id === input.historyId,
+          );
+          return found ? cloneHistory(found) : null;
+        },
+        catch: toEffectError,
+      });
+    },
+
     listHistoriesByDate(tx, date, budgetPeriodId) {
       return Effect.try({
         try: () =>
-          tx.state.dailyOperationHistories
-            .filter((entry) => {
-              if (entry.date !== date) {
-                return false;
-              }
-              if (entry.budgetPeriodId !== budgetPeriodId) {
-                return false;
-              }
-              return true;
-            })
+          findHistories(tx, date, budgetPeriodId)
             .slice()
             .sort((left, right) => {
               if (left.createdAt === right.createdAt) {
                 return right.id.localeCompare(left.id);
               }
               return right.createdAt.localeCompare(left.createdAt);
+            })
+            .map((entry) => cloneHistory(entry)),
+        catch: toEffectError,
+      });
+    },
+
+    listHistoriesByDateChronological(tx, date, budgetPeriodId) {
+      return Effect.try({
+        try: () =>
+          findHistories(tx, date, budgetPeriodId)
+            .slice()
+            .sort((left, right) => {
+              if (left.createdAt === right.createdAt) {
+                return left.id.localeCompare(right.id);
+              }
+              return left.createdAt.localeCompare(right.createdAt);
             })
             .map((entry) => cloneHistory(entry)),
         catch: toEffectError,
@@ -131,6 +186,23 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
           };
           tx.state.dailyOperationHistories.push(history);
           return cloneHistory(history);
+        },
+        catch: toEffectError,
+      });
+    },
+
+    replaceHistoriesForDate(tx, input) {
+      return Effect.try({
+        try: () => {
+          tx.state.dailyOperationHistories =
+            tx.state.dailyOperationHistories.filter(
+              (entry) =>
+                entry.budgetPeriodId !== input.budgetPeriodId ||
+                entry.date !== input.date,
+            );
+          tx.state.dailyOperationHistories.push(
+            ...input.histories.map((history) => cloneHistory(history)),
+          );
         },
         catch: toEffectError,
       });

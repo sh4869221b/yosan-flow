@@ -220,6 +220,33 @@ function toDailyTotalKey(date: string, budgetPeriodId: string): string {
   return `${budgetPeriodId}:${date}`;
 }
 
+function replayDailyHistoryRows(
+  periodId: string,
+  date: string,
+  dailyOperationHistories: DailyOperationHistoryRow[],
+): number {
+  let totalUsedYen = 0;
+  const rows = dailyOperationHistories
+    .filter((row) => row.budget_period_id === periodId && row.date === date)
+    .sort((left, right) => {
+      if (left.created_at === right.created_at) {
+        return left.id.localeCompare(right.id);
+      }
+      return left.created_at.localeCompare(right.created_at);
+    });
+
+  for (const row of rows) {
+    row.before_total_yen = totalUsedYen;
+    totalUsedYen =
+      row.operation_type === "add"
+        ? totalUsedYen + row.input_yen
+        : row.input_yen;
+    row.after_total_yen = totalUsedYen;
+  }
+
+  return totalUsedYen;
+}
+
 function queryDailyTotals(
   sql: string,
   args: unknown[],
@@ -268,26 +295,36 @@ function applyDailyTotalMutation(
   sql: string,
   args: unknown[],
   dailyTotals: Map<string, DailyTotalRow>,
+  dailyOperationHistories: DailyOperationHistoryRow[],
 ): void {
   const normalizedSql = sql.toLowerCase();
   if (!normalizedSql.includes("daily_totals") || args.length < 5) {
     return;
   }
 
-  const key = toDailyTotalKey(String(args[1]), String(args[0]));
+  const isReplayTotal =
+    normalizedSql.includes("with recursive") &&
+    normalizedSql.includes("daily_operation_histories");
+  const periodId = String(isReplayTotal ? args[2] : args[0]);
+  const date = String(isReplayTotal ? args[3] : args[1]);
+  const key = toDailyTotalKey(date, periodId);
   const existing = dailyTotals.get(key);
   const isAtomicAdd = normalizedSql.includes(
     '"daily_totals"."total_used_yen" + excluded.total_used_yen',
   );
+  const replayTotalYen = isReplayTotal
+    ? replayDailyHistoryRows(periodId, date, dailyOperationHistories)
+    : 0;
   const row: DailyTotalRow = {
-    budget_period_id: String(args[0]),
-    date: String(args[1]),
-    year_month: String(args[2]),
-    total_used_yen:
-      isAtomicAdd && existing
+    budget_period_id: periodId,
+    date,
+    year_month: String(isReplayTotal ? args[4] : args[2]),
+    total_used_yen: isReplayTotal
+      ? replayTotalYen
+      : isAtomicAdd && existing
         ? existing.total_used_yen + Number(args[3])
         : Number(args[3]),
-    updated_at: String(args[4]),
+    updated_at: String(isReplayTotal ? args[5] : args[4]),
   };
   dailyTotals.set(key, row);
 }
@@ -346,11 +383,67 @@ function applyDailyOperationHistoryMutation(
   dailyOperationHistories: DailyOperationHistoryRow[],
 ): void {
   const normalizedSql = sql.toLowerCase();
+  if (!normalizedSql.includes("daily_operation_histories")) {
+    return;
+  }
   if (
-    !normalizedSql.includes("daily_operation_histories") ||
-    !normalizedSql.includes("insert into") ||
-    args.length < 9
+    normalizedSql.includes("with recursive") &&
+    normalizedSql.includes("update daily_operation_histories") &&
+    args.length >= 4
   ) {
+    replayDailyHistoryRows(
+      String(args[0]),
+      String(args[1]),
+      dailyOperationHistories,
+    );
+    return;
+  }
+  if (normalizedSql.includes("update") && args.length >= 7) {
+    const periodId = String(args[4]);
+    const date = String(args[5]);
+    const id = String(args[6]);
+    const existing = dailyOperationHistories.find(
+      (row) =>
+        row.budget_period_id === periodId && row.date === date && row.id === id,
+    );
+    if (!existing) {
+      return;
+    }
+    existing.input_yen = Number(args[0]);
+    existing.before_total_yen = Number(args[1]);
+    existing.after_total_yen = Number(args[2]);
+    existing.memo = args[3] === null ? null : String(args[3]);
+    return;
+  }
+  if (normalizedSql.includes("update") && args.length >= 5) {
+    const periodId = String(args[2]);
+    const date = String(args[3]);
+    const id = String(args[4]);
+    const existing = dailyOperationHistories.find(
+      (row) =>
+        row.budget_period_id === periodId && row.date === date && row.id === id,
+    );
+    if (!existing) {
+      return;
+    }
+    existing.input_yen = Number(args[0]);
+    existing.memo = args[1] === null ? null : String(args[1]);
+    return;
+  }
+  if (normalizedSql.includes("delete from") && args.length >= 3) {
+    const periodId = String(args[0]);
+    const date = String(args[1]);
+    const id = String(args[2]);
+    const index = dailyOperationHistories.findIndex(
+      (row) =>
+        row.budget_period_id === periodId && row.date === date && row.id === id,
+    );
+    if (index >= 0) {
+      dailyOperationHistories.splice(index, 1);
+    }
+    return;
+  }
+  if (!normalizedSql.includes("insert into") || args.length < 9) {
     return;
   }
 
@@ -476,7 +569,12 @@ export function createPeriodAwareD1Fake(
         raw: rawRows,
         async run() {
           applyBudgetPeriodMutation(sql, boundArgs, periods);
-          applyDailyTotalMutation(sql, boundArgs, dailyTotals);
+          applyDailyTotalMutation(
+            sql,
+            boundArgs,
+            dailyTotals,
+            dailyOperationHistories,
+          );
           applyDailyOperationHistoryMutation(
             sql,
             boundArgs,

@@ -30,6 +30,10 @@ export interface DailyTotalRepository {
     date: string,
     budgetPeriodId: string,
   ): Effect.Effect<DailyTotalRecord | null, Error>;
+  setDailyTotal(
+    tx: DailyTotalTransaction,
+    input: DailyTotalUpsertInput,
+  ): Effect.Effect<DailyTotalRecord, Error>;
   upsertDailyTotal(
     tx: DailyTotalTransaction,
     input: DailyTotalUpsertInput,
@@ -71,6 +75,24 @@ function toDailyTotalRecord(row: DailyTotalRow): DailyTotalRecord {
 }
 
 export function createDailyTotalRepository(): DailyTotalRepository {
+  function setDailyTotalRecord(
+    tx: DailyTotalTransaction,
+    input: DailyTotalUpsertInput,
+  ): DailyTotalRecord {
+    const next: DailyTotalRecord = {
+      date: input.date,
+      yearMonth: input.yearMonth,
+      budgetPeriodId: input.budgetPeriodId,
+      totalUsedYen: input.totalUsedYen,
+      updatedAt: input.nowIso,
+    };
+    tx.state.dailyTotals.set(
+      toDailyTotalKey(input.date, input.budgetPeriodId),
+      next,
+    );
+    return cloneDailyTotal(next);
+  }
+
   return {
     findByDate(tx, date, budgetPeriodId) {
       return Effect.try({
@@ -90,22 +112,16 @@ export function createDailyTotalRepository(): DailyTotalRepository {
       });
     },
 
+    setDailyTotal(tx, input) {
+      return Effect.try({
+        try: () => setDailyTotalRecord(tx, input),
+        catch: toEffectError,
+      });
+    },
+
     upsertDailyTotal(tx, input) {
       return Effect.try({
-        try: () => {
-          const next: DailyTotalRecord = {
-            date: input.date,
-            yearMonth: input.yearMonth,
-            budgetPeriodId: input.budgetPeriodId,
-            totalUsedYen: input.totalUsedYen,
-            updatedAt: input.nowIso,
-          };
-          tx.state.dailyTotals.set(
-            toDailyTotalKey(input.date, input.budgetPeriodId),
-            next,
-          );
-          return cloneDailyTotal(next);
-        },
+        try: () => setDailyTotalRecord(tx, input),
         catch: toEffectError,
       });
     },
