@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "packageManager": "pnpm@11.2.0",
+  "packageManager": "pnpm@11.4.0",
   "scripts": {
     "dev": "vite dev",
     "format": "prettier --write .",
@@ -25,29 +25,29 @@
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "@sveltejs/adapter-cloudflare": "^7.2.8",
-    "@sveltejs/kit": "^2.60.1",
+    "@sveltejs/kit": "^2.61.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@types/node": "^24.12.4",
-    "@vitest/coverage-v8": "^4.1.6",
+    "@vitest/coverage-v8": "^4.1.7",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.4.0",
-    "eslint-plugin-svelte": "^3.17.1",
+    "eslint-plugin-svelte": "^3.18.0",
     "globals": "^17.6.0",
     "prettier": "^3.8.3",
-    "prettier-plugin-svelte": "^3.5.2",
-    "svelte": "^5.55.9",
+    "prettier-plugin-svelte": "^4.0.1",
+    "svelte": "^5.55.10",
     "svelte-check": "^4.4.8",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.4",
-    "vite": "^8.0.13",
-    "vitest": "^4.1.6",
-    "wrangler": "^4.93.0"
+    "typescript-eslint": "^8.60.0",
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7",
+    "wrangler": "^4.95.0"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.1",
     "bits-ui": "^2.18.1",
     "drizzle-orm": "^0.45.2",
     "effect": "^3.21.2",
-    "@lucide/svelte": "^1.16.0"
+    "@lucide/svelte": "^1.17.0"
   }
 }
