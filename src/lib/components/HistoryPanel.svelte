@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Pencil, Save, Trash2, X } from "@lucide/svelte";
+  import HistoryRow from "./day-entry/HistoryRow.svelte";
 
   type HistoryItem = {
     id: string;
@@ -121,92 +121,20 @@
   {:else}
     <ul>
       {#each histories as history (history.id)}
-        <li class:editing={editingHistoryId === history.id}>
-          <div class="history-row-header">
-            <div class="history-meta">
-              <strong
-                >{history.operationType === "add" ? "追加" : "調整"}</strong
-              >
-              <time datetime={history.createdAt}>{history.createdAt}</time>
-            </div>
-            <div class="row-actions" aria-label="履歴操作">
-              <button
-                class="icon-button"
-                type="button"
-                onclick={() => startEdit(history)}
-                disabled={historyMutatingId != null ||
-                  (editingHistoryId != null && editingHistoryId !== history.id)}
-              >
-                <Pencil size={16} strokeWidth={2.4} aria-hidden="true" />
-                編集
-              </button>
-              <button
-                class="icon-button danger"
-                type="button"
-                onclick={() => removeHistory(history.id)}
-                disabled={historyMutatingId != null || editingHistoryId != null}
-              >
-                <Trash2 size={16} strokeWidth={2.4} aria-hidden="true" />
-                削除
-              </button>
-            </div>
-          </div>
-          {#if editingHistoryId === history.id}
-            <form
-              class="inline-edit"
-              onsubmit={(event) => {
-                event.preventDefault();
-                saveEdit(history.id);
-              }}
-            >
-              <label>
-                入力額 (円)
-                <input
-                  type="number"
-                  min="0"
-                  inputmode="numeric"
-                  bind:value={editInputYen}
-                  disabled={historyMutatingId === history.id}
-                />
-              </label>
-              <label>
-                メモ
-                <textarea
-                  rows="2"
-                  bind:value={editMemo}
-                  disabled={historyMutatingId === history.id}
-                ></textarea>
-              </label>
-              <div class="edit-actions">
-                <button
-                  class="save-button"
-                  type="submit"
-                  disabled={historyMutatingId === history.id}
-                >
-                  <Save size={16} strokeWidth={2.4} aria-hidden="true" />
-                  保存
-                </button>
-                <button
-                  class="cancel-button"
-                  type="button"
-                  onclick={cancelEdit}
-                  disabled={historyMutatingId === history.id}
-                >
-                  <X size={16} strokeWidth={2.4} aria-hidden="true" />
-                  キャンセル
-                </button>
-              </div>
-            </form>
-          {:else}
-            <p>
-              入力 {history.inputYen} 円 / 変更前 {history.beforeTotalYen} 円 / 変更後
-              {history.afterTotalYen} 円
-            </p>
-            {#if history.memo}
-              <small>{history.memo}</small>
-            {/if}
-          {/if}
-        </li>
+        <HistoryRow
+          {history}
+          isEditing={editingHistoryId === history.id}
+          isMutating={historyMutatingId === history.id}
+          canStartEdit={historyMutatingId == null &&
+            (editingHistoryId == null || editingHistoryId === history.id)}
+          canDelete={historyMutatingId == null && editingHistoryId == null}
+          bind:editInputYen
+          bind:editMemo
+          onStartEdit={startEdit}
+          onCancelEdit={cancelEdit}
+          onSaveEdit={saveEdit}
+          onDelete={removeHistory}
+        />
       {/each}
     </ul>
   {/if}
@@ -241,8 +169,7 @@
 
   .history-heading p,
   .status,
-  small,
-  time {
+  small {
     color: #76675b;
     font-size: 0.84rem;
   }
@@ -281,112 +208,6 @@
     padding: 0;
   }
 
-  li {
-    background: #fffaf0;
-    border: 1px solid #eadcc9;
-    border-radius: 10px;
-    display: grid;
-    gap: 0.35rem;
-    padding: 0.75rem;
-  }
-
-  .history-row-header {
-    align-items: baseline;
-    display: flex;
-    gap: 0.75rem;
-    justify-content: space-between;
-  }
-
-  .history-meta {
-    align-items: baseline;
-    display: flex;
-    gap: 0.75rem;
-    min-width: 0;
-  }
-
-  strong {
-    color: #397d3d;
-  }
-
-  button,
-  input,
-  textarea {
-    box-sizing: border-box;
-    font: inherit;
-    max-width: 100%;
-  }
-
-  .row-actions,
-  .edit-actions {
-    display: flex;
-    gap: 0.45rem;
-  }
-
-  button {
-    align-items: center;
-    border-radius: 8px;
-    cursor: pointer;
-    display: inline-flex;
-    font-weight: 900;
-    gap: 0.35rem;
-    justify-content: center;
-    min-height: 2.45rem;
-    padding: 0 0.75rem;
-  }
-
-  button:disabled {
-    cursor: wait;
-    opacity: 0.65;
-  }
-
-  .icon-button,
-  .cancel-button {
-    background: #fffdf8;
-    border: 1px solid #d9cdbc;
-    color: #2f2219;
-  }
-
-  .icon-button.danger {
-    border-color: #efc3bd;
-    color: #9b2c22;
-  }
-
-  .save-button {
-    background: #2f6d3b;
-    border: 1px solid #2f6d3b;
-    color: #fff;
-  }
-
-  .inline-edit {
-    display: grid;
-    gap: 0.7rem;
-  }
-
-  .inline-edit label {
-    display: grid;
-    font-weight: 800;
-    gap: 0.35rem;
-  }
-
-  input,
-  textarea {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
-    color: #2f2219;
-    padding: 0.65rem 0.75rem;
-    width: 100%;
-  }
-
-  textarea {
-    resize: vertical;
-  }
-
-  li.editing {
-    background: #f2fbf0;
-    border-color: #b8d8af;
-  }
-
   @media (max-width: 760px) {
     .history-panel {
       padding: 0.8rem;
@@ -396,20 +217,6 @@
       align-items: flex-start;
       display: grid;
       gap: 0.25rem;
-    }
-
-    .history-row-header,
-    .history-meta,
-    .row-actions,
-    .edit-actions {
-      align-items: stretch;
-      display: grid;
-      gap: 0.45rem;
-    }
-
-    button {
-      min-height: 2.75rem;
-      width: 100%;
     }
 
     .empty-history {
