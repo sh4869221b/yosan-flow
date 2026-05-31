@@ -13,13 +13,17 @@ import type {
   DailyTotalRepository,
 } from "$lib/server/db/daily-total-repository";
 import {
-  assertValidDate,
-  assertValidInputYen,
-  normalizeMemo,
-} from "$lib/server/domain/daily-entry";
-import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
+  assertDateInPeriod,
+  assertHistoryMutationDate,
+  createPreparedEntryInput,
+  normalizeEntryMemo,
+  normalizeUpdatedHistoryMemo,
+  type ExecuteEntryInput,
+  type PreparedEntryInput,
+} from "$lib/server/services/day-entry/commands";
 import { toEffectError } from "$lib/server/effect/runtime";
 import { createHistoryId as createDefaultHistoryId } from "$lib/server/services/history-id";
+import { replayDailyHistories } from "$lib/server/services/day-entry/replay";
 
 type DayEntryServiceInput = {
   databaseClient: DatabaseClient<
@@ -50,17 +54,6 @@ export type HistoryMutationCommand = {
 export type UpdateHistoryCommand = HistoryMutationCommand & {
   inputYen: number;
   memo?: string | null;
-};
-
-type ExecuteEntryInput = {
-  operationType: "add" | "overwrite";
-  command: PeriodDayEntryCommand;
-};
-
-type PreparedEntryInput = ExecuteEntryInput & {
-  period: BudgetPeriodRecord;
-  memo: string | null;
-  nowIso: string;
 };
 
 export type DayEntryResult = {
@@ -104,42 +97,7 @@ function defaultNow(): string {
   return new Date().toISOString();
 }
 
-function compareHistoryChronological(
-  left: DailyHistoryRecord,
-  right: DailyHistoryRecord,
-): number {
-  if (left.createdAt === right.createdAt) {
-    return 0;
-  }
-  return left.createdAt.localeCompare(right.createdAt);
-}
-
-export function replayDailyHistories(histories: DailyHistoryRecord[]): {
-  histories: DailyHistoryRecord[];
-  finalTotalYen: number;
-} {
-  let currentTotalYen = 0;
-  const replayed = [...histories]
-    .sort(compareHistoryChronological)
-    .map((history) => {
-      const beforeTotalYen = currentTotalYen;
-      const afterTotalYen =
-        history.operationType === "add"
-          ? beforeTotalYen + history.inputYen
-          : history.inputYen;
-      currentTotalYen = afterTotalYen;
-      return {
-        ...history,
-        beforeTotalYen,
-        afterTotalYen,
-      };
-    });
-
-  return {
-    histories: replayed,
-    finalTotalYen: currentTotalYen,
-  };
-}
+export { replayDailyHistories } from "$lib/server/services/day-entry/replay";
 
 export class DayEntryService {
   private readonly databaseClient: DatabaseClient<
@@ -185,11 +143,7 @@ export class DayEntryService {
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen(this, function* () {
       const memo = yield* Effect.try({
-        try: () => {
-          assertValidDate(command.date);
-          assertValidInputYen(command.inputYen);
-          return normalizeMemo(command.memo);
-        },
+        try: () => normalizeUpdatedHistoryMemo(command),
         catch: toEffectError,
       });
       return yield* this.replayHistoryMutationEffect(command, (history) => ({
@@ -205,9 +159,7 @@ export class DayEntryService {
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen(this, function* () {
       yield* Effect.try({
-        try: () => {
-          assertValidDate(command.date);
-        },
+        try: () => assertHistoryMutationDate(command.date),
         catch: toEffectError,
       });
       return yield* this.replayHistoryMutationEffect(command, () => null);
@@ -228,11 +180,7 @@ export class DayEntryService {
   ): Effect.Effect<PreparedEntryInput, Error> {
     return Effect.gen(this, function* () {
       const memo = yield* Effect.try({
-        try: () => {
-          assertValidDate(input.command.date);
-          assertValidInputYen(input.command.inputYen);
-          return normalizeMemo(input.command.memo);
-        },
+        try: () => normalizeEntryMemo(input.command),
         catch: toEffectError,
       });
       const nowIso = this.now();
@@ -245,24 +193,22 @@ export class DayEntryService {
           new PeriodNotFoundError(input.command.periodId),
         );
       }
-      if (
-        !isDateWithinPeriod(
-          input.command.date,
-          period.startDate,
-          period.endDate,
-        )
-      ) {
-        return yield* Effect.fail(
-          new DateOutOfPeriodError(input.command.date, period.id),
-        );
-      }
+      yield* Effect.try({
+        try: () =>
+          assertDateInPeriod(
+            input.command.date,
+            period,
+            (date, periodId) => new DateOutOfPeriodError(date, periodId),
+          ),
+        catch: toEffectError,
+      });
 
-      return {
-        ...input,
+      return createPreparedEntryInput({
+        execute: input,
         period,
         memo,
         nowIso,
-      };
+      });
     });
   }
 
@@ -324,13 +270,15 @@ export class DayEntryService {
         if (!period) {
           return yield* Effect.fail(new PeriodNotFoundError(command.periodId));
         }
-        if (
-          !isDateWithinPeriod(command.date, period.startDate, period.endDate)
-        ) {
-          return yield* Effect.fail(
-            new DateOutOfPeriodError(command.date, period.id),
-          );
-        }
+        yield* Effect.try({
+          try: () =>
+            assertDateInPeriod(
+              command.date,
+              period,
+              (date, periodId) => new DateOutOfPeriodError(date, periodId),
+            ),
+          catch: toEffectError,
+        });
 
         const target = yield* this.dailyHistoryRepository.findHistoryById(tx, {
           budgetPeriodId: period.id,
