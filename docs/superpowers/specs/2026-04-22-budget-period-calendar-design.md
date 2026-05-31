@@ -28,7 +28,8 @@
 - 期間に含まれる日を月カレンダーで表示する
 - 各日のセルには、その日の入力合計を表示する
 - 履歴はセル内に直接列挙せず、日セルクリックで詳細モーダルを開いて表示する
-- 日次入力機能としての `add / overwrite` は維持する
+- 新規の日次入力は追加操作として登録する
+- 既存履歴には `add` / `overwrite` が残り得るため、履歴編集・削除時の再計算では両方の `operation_type` を扱う
 - ただし旧 month/day API の後方互換は維持しない。日次入力は period API 配下へ一本化する
 
 ### 2.3 終了日
@@ -120,7 +121,7 @@
 ### 5.1 日付所属
 
 - 日次入力対象日は必ず対象期間の `start_date <= date <= end_date` を満たす
-- 期間外日付の add / overwrite は拒否する
+- 期間外日付の新規入力・履歴編集・履歴削除は拒否する
 
 ### 5.2 再按分計算
 
@@ -138,8 +139,8 @@
 ### 5.3 履歴表示
 
 - カレンダーセルでは日合計のみ表示する
-- 日詳細モーダルでは、その日の履歴を新しい順で表示する
-- 履歴削除は今回の対象外とする
+- 日詳細モーダルでは、その日の履歴を新しい順で表示し、各履歴行を編集・削除できる
+- 履歴編集・削除後は、その日の履歴チェーンと日次合計を再計算する
 
 ## 6. API 設計
 
@@ -167,6 +168,8 @@
 - `POST /api/periods/:periodId/days/:date/add`
 - `PUT /api/periods/:periodId/days/:date/overwrite`
 - `GET /api/periods/:periodId/days/:date/history`
+- `PATCH /api/periods/:periodId/days/:date/history/:historyId`
+- `DELETE /api/periods/:periodId/days/:date/history/:historyId`
 
 ## 7. UI 設計
 
@@ -190,7 +193,9 @@
 3. 日詳細モーダル
 
 - 日別履歴一覧
-- add / overwrite 入力
+- 新規入力は追加のみ
+- 履歴行ごとのインライン編集
+- 履歴行ごとの削除
 - 当日推奨との差分
 - 保存後プレビュー
 

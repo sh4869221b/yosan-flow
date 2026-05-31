@@ -1,10 +1,8 @@
 <script lang="ts">
   import {
-    CheckCircle2,
     CircleDollarSign,
     ClipboardList,
     PencilLine,
-    RotateCcw,
     Save,
     Wallet,
     X,
@@ -25,7 +23,12 @@
   type SavePayload = {
     date: string;
     inputYen: number;
-    operation: "add" | "overwrite";
+    memo: string;
+  };
+
+  type UpdateHistoryPayload = {
+    historyId: string;
+    inputYen: number;
     memo: string;
   };
 
@@ -38,15 +41,17 @@
     errorMessage?: string | null;
     historyErrorMessage?: string | null;
     historyLoading?: boolean;
+    historyMutatingId?: string | null;
     histories?: HistoryItem[];
     inputYen?: string;
     memo?: string;
-    operation?: "add" | "overwrite";
     previewAfterYen?: number;
     previewRemainingYen?: number | null;
     previewRecommendedYen?: number | null;
     close?: () => void;
     save?: (_payload: SavePayload) => void;
+    updateHistory?: (_payload: UpdateHistoryPayload) => void;
+    deleteHistory?: (_payload: { historyId: string }) => void;
   };
 
   let {
@@ -58,15 +63,17 @@
     errorMessage = null,
     historyErrorMessage = null,
     historyLoading = false,
+    historyMutatingId = null,
     histories = [],
     inputYen = $bindable(""),
     memo = $bindable(""),
-    operation = $bindable<"add" | "overwrite">("add"),
     previewAfterYen = 0,
     previewRemainingYen = null,
     previewRecommendedYen = null,
     close = () => {},
     save = () => {},
+    updateHistory = () => {},
+    deleteHistory = () => {},
   }: Props = $props();
 
   function submitEntry(): void {
@@ -81,7 +88,6 @@
     save({
       date,
       inputYen: parsed,
-      operation,
       memo,
     });
   }
@@ -175,38 +181,6 @@
           </span>
         </label>
 
-        <fieldset>
-          <legend>操作種別</legend>
-          <div class="operation-grid">
-            <label class:active={operation === "add"}>
-              <input
-                type="radio"
-                name="operation"
-                value="add"
-                bind:group={operation}
-              />
-              <CheckCircle2 size={18} strokeWidth={2.4} aria-hidden="true" />
-              <span>
-                <strong>追加</strong>
-                <small>現在の金額に加算します</small>
-              </span>
-            </label>
-            <label class:active={operation === "overwrite"}>
-              <input
-                type="radio"
-                name="operation"
-                value="overwrite"
-                bind:group={operation}
-              />
-              <RotateCcw size={18} strokeWidth={2.4} aria-hidden="true" />
-              <span>
-                <strong>上書き</strong>
-                <small>現在の金額に置き換えます</small>
-              </span>
-            </label>
-          </div>
-        </fieldset>
-
         <label>
           メモ
           <textarea
@@ -234,10 +208,14 @@
       </form>
 
       <HistoryPanel
+        {isOpen}
         {date}
         {histories}
         loading={historyLoading}
         errorMessage={historyErrorMessage}
+        {historyMutatingId}
+        {updateHistory}
+        {deleteHistory}
       />
     </div>
   </section>
@@ -418,25 +396,12 @@
     padding: 1rem;
   }
 
-  label,
-  fieldset {
+  label {
     display: grid;
     font-weight: 800;
     gap: 0.45rem;
     margin: 0;
     min-width: 0;
-  }
-
-  fieldset {
-    border: 0;
-    padding: 0;
-  }
-
-  legend {
-    color: #2f2219;
-    font-weight: 800;
-    margin-bottom: 0.45rem;
-    padding: 0;
   }
 
   .money-input {
@@ -491,44 +456,6 @@
     min-height: 5.2rem;
     padding: 0.75rem 0.85rem;
     resize: vertical;
-  }
-
-  .operation-grid {
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .operation-grid label {
-    align-items: center;
-    border: 1px solid #e2d7c4;
-    border-radius: 10px;
-    cursor: pointer;
-    display: grid;
-    gap: 0.7rem;
-    grid-template-columns: auto 1fr;
-    padding: 0.8rem;
-  }
-
-  .operation-grid label.active {
-    background: #f2fbf0;
-    border-color: #3b8a46;
-    color: #245d2f;
-  }
-
-  .operation-grid input {
-    height: 1rem;
-    margin: 0;
-    width: 1rem;
-  }
-
-  .operation-grid span {
-    display: grid;
-    gap: 0.1rem;
-  }
-
-  .operation-grid strong {
-    color: inherit;
   }
 
   .actions {
@@ -603,7 +530,6 @@
       padding: 0.75rem;
     }
 
-    .operation-grid,
     .actions {
       grid-template-columns: 1fr;
     }

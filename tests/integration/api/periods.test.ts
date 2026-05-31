@@ -15,12 +15,16 @@ import {
 import { _createPeriodDayAddHandler } from "../../../src/routes/api/periods/[periodId]/days/[date]/add/+server";
 import { _createPeriodDayOverwriteHandler } from "../../../src/routes/api/periods/[periodId]/days/[date]/overwrite/+server";
 import { _createPeriodDayHistoryHandler } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
+import { _createPeriodDayHistoryMutationHandler } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/[historyId]/+server";
 
 async function parseJson(response: Response): Promise<any> {
   return response.json();
 }
 
-function createFixture(now = new Date("2026-04-20T00:00:00.000Z")): {
+function createFixture(
+  now = new Date("2026-04-20T00:00:00.000Z"),
+  createHistoryId?: () => string,
+): {
   services: InMemoryApiServices;
   createPeriod: ReturnType<typeof _createPeriodsHandler>;
   listPeriods: ReturnType<typeof _createPeriodsListHandler>;
@@ -29,9 +33,11 @@ function createFixture(now = new Date("2026-04-20T00:00:00.000Z")): {
   addDay: ReturnType<typeof _createPeriodDayAddHandler>;
   overwriteDay: ReturnType<typeof _createPeriodDayOverwriteHandler>;
   getHistory: ReturnType<typeof _createPeriodDayHistoryHandler>;
+  mutateHistory: ReturnType<typeof _createPeriodDayHistoryMutationHandler>;
 } {
   const services = createInMemoryApiServices({
     now: () => now,
+    createHistoryId,
   });
 
   return {
@@ -43,6 +49,7 @@ function createFixture(now = new Date("2026-04-20T00:00:00.000Z")): {
     addDay: _createPeriodDayAddHandler({ services }),
     overwriteDay: _createPeriodDayOverwriteHandler({ services }),
     getHistory: _createPeriodDayHistoryHandler({ services }),
+    mutateHistory: _createPeriodDayHistoryMutationHandler({ services }),
   };
 }
 
@@ -156,6 +163,214 @@ describe("period APIs", () => {
       ),
     } as any);
     expect(missingHistoryResponse.status).toBe(404);
+  });
+
+  it("edits and deletes period day history rows", async () => {
+    const historyIds = ["history-a", "history-b"];
+    const fixture = createFixture(
+      new Date("2026-04-20T00:00:00.000Z"),
+      () => historyIds.shift() ?? "history-fallback",
+    );
+    await runApiEffect(
+      fixture.services.createPeriod({
+        id: "p-history-mutation",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
+
+    for (const inputYen of [1000, 2000]) {
+      const response = await fixture.addDay({
+        params: { periodId: "p-history-mutation", date: "2026-04-20" },
+        request: new Request(
+          "http://localhost/api/periods/p-history-mutation/days/2026-04-20/add",
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ inputYen }),
+          },
+        ),
+      } as any);
+      expect(response.status).toBe(200);
+    }
+
+    const initialHistoryResponse = await fixture.getHistory({
+      params: { periodId: "p-history-mutation", date: "2026-04-20" },
+      request: new Request(
+        "http://localhost/api/periods/p-history-mutation/days/2026-04-20/history",
+        { method: "GET" },
+      ),
+    } as any);
+    expect(initialHistoryResponse.status).toBe(200);
+    const firstHistoryId = "history-a";
+
+    const patchResponse = await fixture.mutateHistory.PATCH({
+      params: {
+        periodId: "p-history-mutation",
+        date: "2026-04-20",
+        historyId: firstHistoryId,
+      },
+      request: new Request(
+        `http://localhost/api/periods/p-history-mutation/days/2026-04-20/history/${firstHistoryId}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ inputYen: 1500, memo: "edited" }),
+        },
+      ),
+    } as any);
+    expect(patchResponse.status).toBe(200);
+    const patchBody = await parseJson(patchResponse);
+    expect(patchBody.summary.plannedTotalYen).toBe(3500);
+    expect(patchBody.histories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: firstHistoryId,
+          inputYen: 1500,
+          afterTotalYen: 1500,
+          memo: "edited",
+        }),
+        expect.objectContaining({
+          inputYen: 2000,
+          beforeTotalYen: 1500,
+          afterTotalYen: 3500,
+        }),
+      ]),
+    );
+
+    const deleteResponse = await fixture.mutateHistory.DELETE({
+      params: {
+        periodId: "p-history-mutation",
+        date: "2026-04-20",
+        historyId: firstHistoryId,
+      },
+      request: new Request(
+        `http://localhost/api/periods/p-history-mutation/days/2026-04-20/history/${firstHistoryId}`,
+        { method: "DELETE" },
+      ),
+    } as any);
+    expect(deleteResponse.status).toBe(200);
+    const deleteBody = await parseJson(deleteResponse);
+    expect(deleteBody.summary.plannedTotalYen).toBe(2000);
+    expect(deleteBody.histories).toHaveLength(1);
+    expect(deleteBody.histories[0]).toMatchObject({
+      inputYen: 2000,
+      beforeTotalYen: 0,
+      afterTotalYen: 2000,
+    });
+  });
+
+  it("returns errors for invalid or missing history mutations", async () => {
+    const fixture = createFixture();
+    await runApiEffect(
+      fixture.services.createPeriod({
+        id: "p-history-errors",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
+
+    const invalidAmountResponse = await fixture.mutateHistory.PATCH({
+      params: {
+        periodId: "p-history-errors",
+        date: "2026-04-20",
+        historyId: "missing-history",
+      },
+      request: new Request(
+        "http://localhost/api/periods/p-history-errors/days/2026-04-20/history/missing-history",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ inputYen: -1 }),
+        },
+      ),
+    } as any);
+    expect(invalidAmountResponse.status).toBe(400);
+
+    const missingResponse = await fixture.mutateHistory.DELETE({
+      params: {
+        periodId: "p-history-errors",
+        date: "2026-04-20",
+        historyId: "missing-history",
+      },
+      request: new Request(
+        "http://localhost/api/periods/p-history-errors/days/2026-04-20/history/missing-history",
+        { method: "DELETE" },
+      ),
+    } as any);
+    expect(missingResponse.status).toBe(404);
+    await expect(missingResponse.json()).resolves.toMatchObject({
+      error: { code: "HISTORY_NOT_FOUND" },
+    });
+  });
+
+  it("deletes the last history row through the period API", async () => {
+    const fixture = createFixture();
+    await runApiEffect(
+      fixture.services.createPeriod({
+        id: "p-history-delete-last",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 100000,
+      }),
+    );
+
+    await fixture.addDay({
+      params: { periodId: "p-history-delete-last", date: "2026-04-20" },
+      request: new Request(
+        "http://localhost/api/periods/p-history-delete-last/days/2026-04-20/add",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ inputYen: 1000 }),
+        },
+      ),
+    } as any);
+    const historyResponse = await fixture.getHistory({
+      params: { periodId: "p-history-delete-last", date: "2026-04-20" },
+      request: new Request(
+        "http://localhost/api/periods/p-history-delete-last/days/2026-04-20/history",
+        { method: "GET" },
+      ),
+    } as any);
+    const historyBody = await parseJson(historyResponse);
+    const historyId = historyBody.histories[0].id;
+
+    const deleteResponse = await fixture.mutateHistory.DELETE({
+      params: {
+        periodId: "p-history-delete-last",
+        date: "2026-04-20",
+        historyId,
+      },
+      request: new Request(
+        `http://localhost/api/periods/p-history-delete-last/days/2026-04-20/history/${historyId}`,
+        { method: "DELETE" },
+      ),
+    } as any);
+
+    expect(deleteResponse.status).toBe(200);
+    const body = await parseJson(deleteResponse);
+    expect(body.summary.plannedTotalYen).toBe(0);
+    expect(body.histories).toHaveLength(0);
+
+    const shrinkResponse = await fixture.updatePeriod({
+      params: { periodId: "p-history-delete-last" },
+      request: new Request(
+        "http://localhost/api/periods/p-history-delete-last",
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            startDate: "2026-04-21",
+            endDate: "2026-05-19",
+            budgetYen: 100000,
+          }),
+        },
+      ),
+    } as any);
+    expect(shrinkResponse.status).toBe(200);
   });
 
   it("updates period by PUT /api/periods/:periodId", async () => {

@@ -41,6 +41,17 @@ export type PeriodDayEntryCommand = {
   memo?: string | null;
 };
 
+export type HistoryMutationCommand = {
+  periodId: string;
+  date: string;
+  historyId: string;
+};
+
+export type UpdateHistoryCommand = HistoryMutationCommand & {
+  inputYen: number;
+  memo?: string | null;
+};
+
 type ExecuteEntryInput = {
   operationType: "add" | "overwrite";
   command: PeriodDayEntryCommand;
@@ -55,6 +66,11 @@ type PreparedEntryInput = ExecuteEntryInput & {
 export type DayEntryResult = {
   dailyTotal: DailyTotalRecord;
   history: DailyHistoryRecord;
+};
+
+export type HistoryReplayResult = {
+  dailyTotal: DailyTotalRecord;
+  histories: DailyHistoryRecord[];
 };
 
 export class PeriodNotFoundError extends Error {
@@ -75,8 +91,54 @@ export class DateOutOfPeriodError extends Error {
   }
 }
 
+export class HistoryNotFoundError extends Error {
+  readonly code = "HISTORY_NOT_FOUND";
+
+  constructor(historyId: string) {
+    super(`History not found: ${historyId}`);
+    this.name = "HistoryNotFoundError";
+  }
+}
+
 function defaultNow(): string {
   return new Date().toISOString();
+}
+
+function compareHistoryChronological(
+  left: DailyHistoryRecord,
+  right: DailyHistoryRecord,
+): number {
+  if (left.createdAt === right.createdAt) {
+    return 0;
+  }
+  return left.createdAt.localeCompare(right.createdAt);
+}
+
+export function replayDailyHistories(histories: DailyHistoryRecord[]): {
+  histories: DailyHistoryRecord[];
+  finalTotalYen: number;
+} {
+  let currentTotalYen = 0;
+  const replayed = [...histories]
+    .sort(compareHistoryChronological)
+    .map((history) => {
+      const beforeTotalYen = currentTotalYen;
+      const afterTotalYen =
+        history.operationType === "add"
+          ? beforeTotalYen + history.inputYen
+          : history.inputYen;
+      currentTotalYen = afterTotalYen;
+      return {
+        ...history,
+        beforeTotalYen,
+        afterTotalYen,
+      };
+    });
+
+  return {
+    histories: replayed,
+    finalTotalYen: currentTotalYen,
+  };
 }
 
 export class DayEntryService {
@@ -115,6 +177,40 @@ export class DayEntryService {
     return this.executeEntryEffect({
       operationType: "overwrite",
       command,
+    });
+  }
+
+  updateHistoryEntry(
+    command: UpdateHistoryCommand,
+  ): Effect.Effect<HistoryReplayResult, Error> {
+    return Effect.gen(this, function* () {
+      const memo = yield* Effect.try({
+        try: () => {
+          assertValidDate(command.date);
+          assertValidInputYen(command.inputYen);
+          return normalizeMemo(command.memo);
+        },
+        catch: toEffectError,
+      });
+      return yield* this.replayHistoryMutationEffect(command, (history) => ({
+        ...history,
+        inputYen: command.inputYen,
+        memo,
+      }));
+    });
+  }
+
+  deleteHistoryEntry(
+    command: HistoryMutationCommand,
+  ): Effect.Effect<HistoryReplayResult, Error> {
+    return Effect.gen(this, function* () {
+      yield* Effect.try({
+        try: () => {
+          assertValidDate(command.date);
+        },
+        catch: toEffectError,
+      });
+      return yield* this.replayHistoryMutationEffect(command, () => null);
     });
   }
 
@@ -211,6 +307,90 @@ export class DayEntryService {
         return {
           dailyTotal,
           history,
+        };
+      }),
+    );
+  }
+
+  private replayHistoryMutationEffect(
+    command: HistoryMutationCommand,
+    mutateTarget: (history: DailyHistoryRecord) => DailyHistoryRecord | null,
+  ): Effect.Effect<HistoryReplayResult, Error> {
+    return this.databaseClient.transaction((tx) =>
+      Effect.gen(this, function* () {
+        const period = yield* this.budgetPeriodRepository.findById(
+          command.periodId,
+        );
+        if (!period) {
+          return yield* Effect.fail(new PeriodNotFoundError(command.periodId));
+        }
+        if (
+          !isDateWithinPeriod(command.date, period.startDate, period.endDate)
+        ) {
+          return yield* Effect.fail(
+            new DateOutOfPeriodError(command.date, period.id),
+          );
+        }
+
+        const target = yield* this.dailyHistoryRepository.findHistoryById(tx, {
+          budgetPeriodId: period.id,
+          date: command.date,
+          historyId: command.historyId,
+        });
+        if (!target) {
+          return yield* Effect.fail(
+            new HistoryNotFoundError(command.historyId),
+          );
+        }
+
+        const existingHistories =
+          yield* this.dailyHistoryRepository.listHistoriesByDateChronological(
+            tx,
+            command.date,
+            period.id,
+          );
+        const mutatedHistories = existingHistories.flatMap((history) => {
+          if (history.id !== command.historyId) {
+            return [history];
+          }
+          const next = mutateTarget(history);
+          return next ? [next] : [];
+        });
+        const replayed = replayDailyHistories(mutatedHistories);
+
+        yield* this.dailyHistoryRepository.replaceHistoriesForDate(tx, {
+          budgetPeriodId: period.id,
+          date: command.date,
+          histories: replayed.histories,
+        });
+        if (replayed.histories.length === 0) {
+          yield* this.dailyTotalRepository.deleteDailyTotal(tx, {
+            date: command.date,
+            budgetPeriodId: period.id,
+          });
+          return {
+            dailyTotal: {
+              date: command.date,
+              yearMonth: command.date.slice(0, 7),
+              budgetPeriodId: period.id,
+              totalUsedYen: 0,
+              updatedAt: this.now(),
+            },
+            histories: replayed.histories,
+          };
+        }
+
+        const dailyTotal = yield* this.dailyTotalRepository.setDailyTotal(tx, {
+          date: command.date,
+          yearMonth: command.date.slice(0, 7),
+          budgetPeriodId: period.id,
+          totalUsedYen: replayed.finalTotalYen,
+          nowIso: this.now(),
+        });
+
+        return {
+          dailyTotal,
+          histories: replayed.histories,
         };
       }),
     );

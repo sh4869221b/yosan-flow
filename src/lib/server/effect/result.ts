@@ -36,6 +36,11 @@ const KNOWN_ERROR_RESPONSES: Record<
     status: 400,
     message: "指定された date は予算期間の範囲外です。",
   },
+  HISTORY_NOT_FOUND: {
+    kind: "not_found",
+    status: 404,
+    message: "対象の履歴が見つかりません。",
+  },
   PERIOD_OVERLAP: {
     kind: "conflict",
     status: 400,

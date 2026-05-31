@@ -81,6 +81,41 @@ async function seedPeriod(fixture: Fixture): Promise<void> {
   );
 }
 
+async function getDailyTotal(
+  fixture: Fixture,
+  date = "2026-04-20",
+): Promise<DailyTotalRecord | null> {
+  return Effect.runPromise(
+    fixture.databaseClient.read((tx) =>
+      fixture.dailyTotalRepository.findByDate(tx, date, "period-2026-04"),
+    ),
+  );
+}
+
+async function getHistories(
+  fixture: Fixture,
+  date = "2026-04-20",
+): Promise<DailyHistoryRecord[]> {
+  return Effect.runPromise(
+    fixture.databaseClient.read((tx) =>
+      fixture.dailyHistoryRepository.listHistoriesByDate(
+        tx,
+        date,
+        "period-2026-04",
+      ),
+    ),
+  );
+}
+
+function oldestFirst(histories: DailyHistoryRecord[]): DailyHistoryRecord[] {
+  return [...histories].sort((left, right) => {
+    if (left.createdAt === right.createdAt) {
+      return left.id.localeCompare(right.id);
+    }
+    return left.createdAt.localeCompare(right.createdAt);
+  });
+}
+
 describe("day entry service", () => {
   it("adds to the day's total and records history", async () => {
     const fixture = await createFixture();
@@ -193,5 +228,180 @@ describe("day entry service", () => {
     expect(response.history.operationType).toBe("overwrite");
     expect(response.history.beforeTotalYen).toBe(1000);
     expect(response.history.afterTotalYen).toBe(3000);
+  });
+
+  it("edits a history row and replays later rows", async () => {
+    const fixture = await createFixture();
+    await seedPeriod(fixture);
+
+    await Effect.runPromise(
+      fixture.service.addDailyAmount({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        inputYen: 1000,
+        memo: "first",
+      }),
+    );
+    await Effect.runPromise(
+      fixture.service.addDailyAmount({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        inputYen: 2000,
+        memo: "second",
+      }),
+    );
+
+    await Effect.runPromise(
+      fixture.service.updateHistoryEntry({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        historyId: "history-id-1",
+        inputYen: 1500,
+        memo: "first edited",
+      }),
+    );
+
+    const persistedDailyTotal = await getDailyTotal(fixture);
+    const histories = oldestFirst(await getHistories(fixture));
+    expect(persistedDailyTotal?.totalUsedYen).toBe(3500);
+    expect(histories).toMatchObject([
+      {
+        id: "history-id-1",
+        inputYen: 1500,
+        beforeTotalYen: 0,
+        afterTotalYen: 1500,
+        memo: "first edited",
+      },
+      {
+        id: "history-id-2",
+        inputYen: 2000,
+        beforeTotalYen: 1500,
+        afterTotalYen: 3500,
+        memo: "second",
+      },
+    ]);
+  });
+
+  it("deletes a middle history row and replays the remaining chain", async () => {
+    const fixture = await createFixture();
+    await seedPeriod(fixture);
+
+    for (const inputYen of [1000, 2000, 3000]) {
+      await Effect.runPromise(
+        fixture.service.addDailyAmount({
+          periodId: "period-2026-04",
+          date: "2026-04-20",
+          inputYen,
+        }),
+      );
+    }
+
+    await Effect.runPromise(
+      fixture.service.deleteHistoryEntry({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        historyId: "history-id-2",
+      }),
+    );
+
+    const persistedDailyTotal = await getDailyTotal(fixture);
+    const histories = oldestFirst(await getHistories(fixture));
+    expect(persistedDailyTotal?.totalUsedYen).toBe(4000);
+    expect(histories).toMatchObject([
+      {
+        id: "history-id-1",
+        inputYen: 1000,
+        beforeTotalYen: 0,
+        afterTotalYen: 1000,
+      },
+      {
+        id: "history-id-3",
+        inputYen: 3000,
+        beforeTotalYen: 1000,
+        afterTotalYen: 4000,
+      },
+    ]);
+  });
+
+  it("preserves overwrite semantics while replaying history edits", async () => {
+    const fixture = await createFixture();
+    await seedPeriod(fixture);
+
+    await Effect.runPromise(
+      fixture.service.addDailyAmount({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        inputYen: 1000,
+      }),
+    );
+    await Effect.runPromise(
+      fixture.service.overwriteDailyAmount({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        inputYen: 500,
+      }),
+    );
+    await Effect.runPromise(
+      fixture.service.addDailyAmount({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        inputYen: 200,
+      }),
+    );
+
+    await Effect.runPromise(
+      fixture.service.updateHistoryEntry({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        historyId: "history-id-2",
+        inputYen: 700,
+      }),
+    );
+
+    const persistedDailyTotal = await getDailyTotal(fixture);
+    const histories = oldestFirst(await getHistories(fixture));
+    expect(persistedDailyTotal?.totalUsedYen).toBe(900);
+    expect(histories).toMatchObject([
+      { id: "history-id-1", afterTotalYen: 1000 },
+      {
+        id: "history-id-2",
+        operationType: "overwrite",
+        inputYen: 700,
+        beforeTotalYen: 1000,
+        afterTotalYen: 700,
+      },
+      {
+        id: "history-id-3",
+        operationType: "add",
+        beforeTotalYen: 700,
+        afterTotalYen: 900,
+      },
+    ]);
+  });
+
+  it("deletes the last history row and clears the day's total", async () => {
+    const fixture = await createFixture();
+    await seedPeriod(fixture);
+
+    await Effect.runPromise(
+      fixture.service.addDailyAmount({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        inputYen: 1000,
+      }),
+    );
+
+    await Effect.runPromise(
+      fixture.service.deleteHistoryEntry({
+        periodId: "period-2026-04",
+        date: "2026-04-20",
+        historyId: "history-id-1",
+      }),
+    );
+
+    const persistedDailyTotal = await getDailyTotal(fixture);
+    const histories = await getHistories(fixture);
+    expect(histories).toHaveLength(0);
+    expect(persistedDailyTotal?.totalUsedYen ?? 0).toBe(0);
   });
 });

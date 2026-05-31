@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 
 const sourceRoot = join(process.cwd(), "src");
 
-const allowedRawD1TypeFiles = new Set(["src/lib/server/db/d1-types.ts"]);
+// D1 batch is used only where the write must remain atomic across multiple
+// replay statements that Drizzle cannot express as one query builder operation.
+const allowedRawD1Files = new Set([
+  "src/lib/server/db/d1-types.ts",
+  "src/lib/server/db/day-entry-writer.ts",
+]);
 
 const forbiddenPatterns: Array<{ label: string; pattern: RegExp }> = [
   { label: "raw D1 prepare", pattern: /\.prepare\s*\(/g },
@@ -46,7 +51,7 @@ describe("non-migration Drizzle guard", () => {
   it("keeps production application queries behind Drizzle", () => {
     const violations = listTypeScriptFiles(sourceRoot).flatMap((filePath) => {
       const relativePath = relative(process.cwd(), filePath);
-      if (allowedRawD1TypeFiles.has(relativePath)) {
+      if (allowedRawD1Files.has(relativePath)) {
         return [];
       }
 

@@ -43,6 +43,17 @@ export function parseDate(date: string | undefined): string {
   return date;
 }
 
+export function parseHistoryId(value: string | undefined): string {
+  if (!value || typeof value !== "string" || value.trim().length === 0) {
+    throw new ApiRouteError(
+      400,
+      "INVALID_HISTORY_ID",
+      "historyId を指定してください。",
+    );
+  }
+  return value;
+}
+
 export type DayMutationInput = {
   inputYen: number;
   memo: string | null;

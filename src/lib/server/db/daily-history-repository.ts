@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt, or } from "drizzle-orm";
+import { and, desc, eq, gt, lt, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 import type { DatabaseTransaction } from "$lib/server/db/client";
 import { createDrizzleD1Database } from "$lib/server/db/client";
@@ -42,7 +42,16 @@ type DailyHistoryTransaction = DatabaseTransaction<
 >;
 
 export interface DailyHistoryRepository {
+  findHistoryById(
+    tx: DailyHistoryTransaction,
+    input: { budgetPeriodId: string; date: string; historyId: string },
+  ): Effect.Effect<DailyHistoryRecord | null, Error>;
   listHistoriesByDate(
+    tx: DailyHistoryTransaction,
+    date: string,
+    budgetPeriodId: string,
+  ): Effect.Effect<DailyHistoryRecord[], Error>;
+  listHistoriesByDateChronological(
     tx: DailyHistoryTransaction,
     date: string,
     budgetPeriodId: string,
@@ -51,6 +60,14 @@ export interface DailyHistoryRepository {
     tx: DailyHistoryTransaction,
     input: InsertDailyHistoryInput,
   ): Effect.Effect<DailyHistoryRecord, Error>;
+  replaceHistoriesForDate(
+    tx: DailyHistoryTransaction,
+    input: {
+      budgetPeriodId: string;
+      date: string;
+      histories: DailyHistoryRecord[];
+    },
+  ): Effect.Effect<void, Error>;
 }
 
 export interface D1DailyHistoryRepository {
@@ -89,28 +106,66 @@ function toDailyHistoryRecord(
 }
 
 export function createDailyHistoryRepository(): DailyHistoryRepository {
+  function findHistories(
+    tx: DailyHistoryTransaction,
+    date: string,
+    budgetPeriodId: string,
+  ): DailyHistoryRecord[] {
+    return tx.state.dailyOperationHistories.filter((entry) => {
+      if (entry.date !== date) {
+        return false;
+      }
+      if (entry.budgetPeriodId !== budgetPeriodId) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   return {
+    findHistoryById(tx, input) {
+      return Effect.try({
+        try: () => {
+          const found = tx.state.dailyOperationHistories.find(
+            (entry) =>
+              entry.budgetPeriodId === input.budgetPeriodId &&
+              entry.date === input.date &&
+              entry.id === input.historyId,
+          );
+          return found ? cloneHistory(found) : null;
+        },
+        catch: toEffectError,
+      });
+    },
+
     listHistoriesByDate(tx, date, budgetPeriodId) {
       return Effect.try({
         try: () =>
-          tx.state.dailyOperationHistories
-            .filter((entry) => {
-              if (entry.date !== date) {
-                return false;
-              }
-              if (entry.budgetPeriodId !== budgetPeriodId) {
-                return false;
-              }
-              return true;
-            })
-            .slice()
+          findHistories(tx, date, budgetPeriodId)
+            .map((entry, index) => ({ entry, index }))
             .sort((left, right) => {
-              if (left.createdAt === right.createdAt) {
-                return right.id.localeCompare(left.id);
+              if (left.entry.createdAt === right.entry.createdAt) {
+                return right.index - left.index;
               }
-              return right.createdAt.localeCompare(left.createdAt);
+              return right.entry.createdAt.localeCompare(left.entry.createdAt);
             })
-            .map((entry) => cloneHistory(entry)),
+            .map(({ entry }) => cloneHistory(entry)),
+        catch: toEffectError,
+      });
+    },
+
+    listHistoriesByDateChronological(tx, date, budgetPeriodId) {
+      return Effect.try({
+        try: () =>
+          findHistories(tx, date, budgetPeriodId)
+            .map((entry, index) => ({ entry, index }))
+            .sort((left, right) => {
+              if (left.entry.createdAt === right.entry.createdAt) {
+                return left.index - right.index;
+              }
+              return left.entry.createdAt.localeCompare(right.entry.createdAt);
+            })
+            .map(({ entry }) => cloneHistory(entry)),
         catch: toEffectError,
       });
     },
@@ -131,6 +186,23 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
           };
           tx.state.dailyOperationHistories.push(history);
           return cloneHistory(history);
+        },
+        catch: toEffectError,
+      });
+    },
+
+    replaceHistoriesForDate(tx, input) {
+      return Effect.try({
+        try: () => {
+          tx.state.dailyOperationHistories =
+            tx.state.dailyOperationHistories.filter(
+              (entry) =>
+                entry.budgetPeriodId !== input.budgetPeriodId ||
+                entry.date !== input.date,
+            );
+          tx.state.dailyOperationHistories.push(
+            ...input.histories.map((history) => cloneHistory(history)),
+          );
         },
         catch: toEffectError,
       });
@@ -173,10 +245,7 @@ export function createD1DailyHistoryRepository(
           eq(daily_operation_histories.date, date),
         ),
       )
-      .orderBy(
-        desc(daily_operation_histories.created_at),
-        desc(daily_operation_histories.id),
-      )
+      .orderBy(desc(daily_operation_histories.created_at), sql`rowid DESC`)
       .all();
     return rows.map((row) => toDailyHistoryRecord(row));
   };
