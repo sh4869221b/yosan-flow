@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Effect } from "effect";
 import { createInMemoryBudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
 import { buildPeriodSummary } from "$lib/server/services/month-summary-service";
+import { buildPeriodSummary as buildPeriodSummaryFromCalculator } from "$lib/server/services/period-summary/period-summary-calculator";
 
 function runPeriodSummary(
   ...input: Parameters<typeof buildPeriodSummary>
@@ -23,6 +24,33 @@ type PeriodSummaryForTest = Effect.Effect.Success<
 >;
 
 describe("period summary service", () => {
+  it("exposes the period summary calculator from the focused module", async () => {
+    const repository = createInMemoryBudgetPeriodRepository();
+    await createPeriod(repository, {
+      id: "period-calculator-module",
+      startDate: "2026-04-20",
+      endDate: "2026-04-22",
+      budgetYen: 9000,
+      nowIso: "2026-04-01T00:00:00.000Z",
+    });
+
+    const result = await Effect.runPromise(
+      buildPeriodSummaryFromCalculator(repository, "period-calculator-module", {
+        jstToday: "2026-04-21",
+        dailyTotals: [
+          {
+            date: "2026-04-20",
+            budgetPeriodId: "period-calculator-module",
+            totalUsedYen: 3000,
+          },
+        ],
+      }),
+    );
+
+    expect(result.periodId).toBe("period-calculator-module");
+    expect(result.todayRecommendedYen).toBe(3000);
+  });
+
   it("builds summary fields for selected period with full calendar range", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
     await createPeriod(repository, {
@@ -336,6 +364,12 @@ describe("period summary service", () => {
     expect(afterTodayInput.foodPace.adjustmentYen).toBe(
       beforeTodayInput.foodPace.adjustmentYen,
     );
+    expect(afterTodayInput.foodPace.baseDailyYen).toBe(
+      beforeTodayInput.foodPace.baseDailyYen,
+    );
+    expect(afterTodayInput.foodPace.todayAllowanceYen).toBe(
+      beforeTodayInput.foodPace.todayAllowanceYen,
+    );
     expect(afterTodayInput.foodPace.todayRemainingYen).toBe(
       beforeTodayInput.foodPace.todayRemainingYen - 800,
     );
@@ -448,6 +482,11 @@ describe("period summary service", () => {
           date: "2026-04-20",
           budgetPeriodId: "period-shrink",
           totalUsedYen: 1000,
+        },
+        {
+          date: "2026-04-20",
+          budgetPeriodId: "other-period",
+          totalUsedYen: 5000,
         },
         {
           date: "2026-04-23",

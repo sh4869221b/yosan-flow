@@ -3,11 +3,15 @@ import { Effect } from "effect";
 import { createDrizzleD1Database } from "$lib/server/db/client";
 import type { D1Database } from "$lib/server/db/d1-types";
 import { budget_periods, type BudgetPeriodRow } from "$lib/server/db/schema";
-import { toEffectError } from "$lib/server/effect/runtime";
 import {
-  getNextPeriodStartDate,
-  isDateWithinPeriod,
-} from "$lib/server/domain/budget-period";
+  assertNoOverlap,
+  assertPredecessorContinuity,
+  assertSuccessorContinuity,
+  assertValidBudgetYen,
+  assertValidPeriodRange,
+} from "$lib/server/db/budget-period-validation";
+import { toEffectError } from "$lib/server/effect/runtime";
+import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
 
 type BudgetPeriodStatus = "active" | "closed";
 
@@ -75,94 +79,6 @@ function clonePeriod(record: BudgetPeriodRecord): BudgetPeriodRecord {
   return { ...record };
 }
 
-function assertNoOverlap(
-  store: Map<string, BudgetPeriodRecord>,
-  target: BudgetPeriodRecord,
-): void {
-  for (const current of store.values()) {
-    if (current.id === target.id) {
-      continue;
-    }
-
-    const overlaps =
-      isDateWithinPeriod(
-        target.startDate,
-        current.startDate,
-        current.endDate,
-      ) ||
-      isDateWithinPeriod(target.endDate, current.startDate, current.endDate) ||
-      isDateWithinPeriod(current.startDate, target.startDate, target.endDate) ||
-      isDateWithinPeriod(current.endDate, target.startDate, target.endDate);
-    if (overlaps) {
-      throw new PeriodValidationError(
-        "PERIOD_OVERLAP",
-        `budget period overlap: ${target.id} overlaps ${current.id}`,
-      );
-    }
-  }
-}
-
-function assertValidBudgetYen(budgetYen: number): void {
-  if (!Number.isInteger(budgetYen) || budgetYen < 0) {
-    throw new Error(`Invalid budgetYen: ${budgetYen}`);
-  }
-}
-
-function assertPredecessorContinuity(
-  store: Map<string, BudgetPeriodRecord>,
-  input: CreateBudgetPeriodInput,
-): void {
-  if (!input.predecessorPeriodId) {
-    return;
-  }
-
-  const predecessor = store.get(input.predecessorPeriodId);
-  if (!predecessor) {
-    throw new PeriodValidationError(
-      "PERIOD_PREDECESSOR_NOT_FOUND",
-      `predecessor period not found: ${input.predecessorPeriodId}`,
-    );
-  }
-
-  const expectedStartDate = getNextPeriodStartDate(predecessor.endDate);
-  if (input.startDate !== expectedStartDate) {
-    throw new PeriodValidationError(
-      "PERIOD_CONTINUITY_VIOLATION",
-      `period must start on ${expectedStartDate} after predecessor`,
-    );
-  }
-}
-
-function assertValidPeriodRange(startDate: string, endDate: string): void {
-  try {
-    isDateWithinPeriod(startDate, startDate, endDate);
-  } catch {
-    throw new PeriodValidationError(
-      "INVALID_PERIOD_RANGE",
-      `Invalid period: ${startDate}..${endDate}`,
-    );
-  }
-}
-
-function assertSuccessorContinuity(
-  store: Map<string, BudgetPeriodRecord>,
-  periodId: string,
-  updatedEndDate: string,
-): void {
-  const expectedStartDate = getNextPeriodStartDate(updatedEndDate);
-  for (const candidate of store.values()) {
-    if (candidate.predecessorPeriodId !== periodId) {
-      continue;
-    }
-    if (candidate.startDate !== expectedStartDate) {
-      throw new PeriodValidationError(
-        "PERIOD_CONTINUITY_VIOLATION",
-        `successor period ${candidate.id} must start on ${expectedStartDate}`,
-      );
-    }
-  }
-}
-
 function toBudgetPeriodRecord(row: BudgetPeriodRow): BudgetPeriodRecord {
   return {
     id: row.id,
@@ -179,6 +95,8 @@ function toBudgetPeriodRecord(row: BudgetPeriodRow): BudgetPeriodRecord {
 export function createInMemoryBudgetPeriodRepository(
   initialPeriods: BudgetPeriodRecord[] = [],
 ): BudgetPeriodRepository {
+  const createValidationError = (code: string, message: string) =>
+    new PeriodValidationError(code, message);
   const store = new Map<string, BudgetPeriodRecord>();
   for (const period of initialPeriods) {
     store.set(period.id, clonePeriod(period));
@@ -225,8 +143,19 @@ export function createInMemoryBudgetPeriodRepository(
       return Effect.try({
         try: () => {
           assertValidBudgetYen(input.budgetYen);
-          assertValidPeriodRange(input.startDate, input.endDate);
-          assertPredecessorContinuity(store, input);
+          assertValidPeriodRange(
+            input.startDate,
+            input.endDate,
+            createValidationError,
+          );
+          assertPredecessorContinuity(
+            input.predecessorPeriodId,
+            input.predecessorPeriodId
+              ? (store.get(input.predecessorPeriodId)?.endDate ?? null)
+              : null,
+            input.startDate,
+            createValidationError,
+          );
 
           const existing = store.get(input.id);
           if (existing) {
@@ -244,7 +173,7 @@ export function createInMemoryBudgetPeriodRepository(
             updatedAt: input.nowIso,
           };
 
-          assertNoOverlap(store, next);
+          assertNoOverlap(store.values(), next, createValidationError);
           store.set(next.id, next);
           return clonePeriod(next);
         },
@@ -256,7 +185,11 @@ export function createInMemoryBudgetPeriodRepository(
       return Effect.try({
         try: () => {
           assertValidBudgetYen(input.budgetYen);
-          assertValidPeriodRange(input.startDate, input.endDate);
+          assertValidPeriodRange(
+            input.startDate,
+            input.endDate,
+            createValidationError,
+          );
           const existing = store.get(input.id);
           if (!existing) {
             throw new PeriodNotFoundError(input.id);
@@ -270,26 +203,27 @@ export function createInMemoryBudgetPeriodRepository(
             updatedAt: input.nowIso,
           };
 
-          assertNoOverlap(store, updated);
-          if (updated.predecessorPeriodId) {
-            const predecessor = store.get(updated.predecessorPeriodId);
-            if (!predecessor) {
-              throw new PeriodValidationError(
-                "PERIOD_PREDECESSOR_NOT_FOUND",
-                `predecessor period not found: ${updated.predecessorPeriodId}`,
-              );
-            }
-            const expectedStartDate = getNextPeriodStartDate(
-              predecessor.endDate,
-            );
-            if (updated.startDate !== expectedStartDate) {
-              throw new PeriodValidationError(
-                "PERIOD_CONTINUITY_VIOLATION",
-                `period must start on ${expectedStartDate} after predecessor`,
-              );
-            }
-          }
-          assertSuccessorContinuity(store, updated.id, updated.endDate);
+          assertNoOverlap(store.values(), updated, createValidationError);
+          assertPredecessorContinuity(
+            updated.predecessorPeriodId,
+            updated.predecessorPeriodId
+              ? (store.get(updated.predecessorPeriodId)?.endDate ?? null)
+              : null,
+            updated.startDate,
+            createValidationError,
+          );
+          assertSuccessorContinuity(
+            updated.endDate,
+            [...store.values()]
+              .filter(
+                (candidate) => candidate.predecessorPeriodId === updated.id,
+              )
+              .map((candidate) => ({
+                id: candidate.id,
+                startDate: candidate.startDate,
+              })),
+            createValidationError,
+          );
 
           store.set(updated.id, updated);
           return clonePeriod(updated);
@@ -307,6 +241,8 @@ type CreateD1BudgetPeriodRepositoryInput = {
 export function createD1BudgetPeriodRepository(
   input: CreateD1BudgetPeriodRepositoryInput,
 ): BudgetPeriodRepository {
+  const createValidationError = (code: string, message: string) =>
+    new PeriodValidationError(code, message);
   const database = createDrizzleD1Database(input.db);
   const findByIdInternal = async (
     id: string,
@@ -367,13 +303,18 @@ export function createD1BudgetPeriodRepository(
       return Effect.tryPromise({
         try: async () => {
           assertValidBudgetYen(inputRow.budgetYen);
-          assertValidPeriodRange(inputRow.startDate, inputRow.endDate);
+          assertValidPeriodRange(
+            inputRow.startDate,
+            inputRow.endDate,
+            createValidationError,
+          );
 
           const existing = await findByIdInternal(inputRow.id);
           if (existing) {
             return existing;
           }
 
+          let predecessorEndDate: string | null = null;
           if (inputRow.predecessorPeriodId) {
             const [predecessor] = await database
               .select({ end_date: budget_periods.end_date })
@@ -381,22 +322,14 @@ export function createD1BudgetPeriodRepository(
               .where(eq(budget_periods.id, inputRow.predecessorPeriodId))
               .limit(1)
               .all();
-            if (!predecessor) {
-              throw new PeriodValidationError(
-                "PERIOD_PREDECESSOR_NOT_FOUND",
-                `predecessor period not found: ${inputRow.predecessorPeriodId}`,
-              );
-            }
-            const expectedStartDate = getNextPeriodStartDate(
-              predecessor.end_date,
-            );
-            if (inputRow.startDate !== expectedStartDate) {
-              throw new PeriodValidationError(
-                "PERIOD_CONTINUITY_VIOLATION",
-                `period must start on ${expectedStartDate} after predecessor`,
-              );
-            }
+            predecessorEndDate = predecessor?.end_date ?? null;
           }
+          assertPredecessorContinuity(
+            inputRow.predecessorPeriodId,
+            predecessorEndDate,
+            inputRow.startDate,
+            createValidationError,
+          );
 
           const [overlapped] = await database
             .select({ id: budget_periods.id })
@@ -410,9 +343,20 @@ export function createD1BudgetPeriodRepository(
             .limit(1)
             .all();
           if (overlapped) {
-            throw new PeriodValidationError(
-              "PERIOD_OVERLAP",
-              `budget period overlap: ${inputRow.id} overlaps ${overlapped.id}`,
+            assertNoOverlap(
+              [
+                {
+                  id: overlapped.id,
+                  startDate: inputRow.startDate,
+                  endDate: inputRow.endDate,
+                },
+              ],
+              {
+                id: inputRow.id,
+                startDate: inputRow.startDate,
+                endDate: inputRow.endDate,
+              },
+              createValidationError,
             );
           }
 
@@ -446,12 +390,17 @@ export function createD1BudgetPeriodRepository(
       return Effect.tryPromise({
         try: async () => {
           assertValidBudgetYen(inputRow.budgetYen);
-          assertValidPeriodRange(inputRow.startDate, inputRow.endDate);
+          assertValidPeriodRange(
+            inputRow.startDate,
+            inputRow.endDate,
+            createValidationError,
+          );
 
           const existing = await findByIdInternal(inputRow.id);
           if (!existing) {
             throw new PeriodNotFoundError(inputRow.id);
           }
+          let predecessorEndDate: string | null = null;
           if (existing.predecessorPeriodId) {
             const [predecessor] = await database
               .select({ end_date: budget_periods.end_date })
@@ -459,22 +408,14 @@ export function createD1BudgetPeriodRepository(
               .where(eq(budget_periods.id, existing.predecessorPeriodId))
               .limit(1)
               .all();
-            if (!predecessor) {
-              throw new PeriodValidationError(
-                "PERIOD_PREDECESSOR_NOT_FOUND",
-                `predecessor period not found: ${existing.predecessorPeriodId}`,
-              );
-            }
-            const expectedStartDate = getNextPeriodStartDate(
-              predecessor.end_date,
-            );
-            if (inputRow.startDate !== expectedStartDate) {
-              throw new PeriodValidationError(
-                "PERIOD_CONTINUITY_VIOLATION",
-                `period must start on ${expectedStartDate} after predecessor`,
-              );
-            }
+            predecessorEndDate = predecessor?.end_date ?? null;
           }
+          assertPredecessorContinuity(
+            existing.predecessorPeriodId,
+            predecessorEndDate,
+            inputRow.startDate,
+            createValidationError,
+          );
 
           const successors = await database
             .select({
@@ -484,17 +425,14 @@ export function createD1BudgetPeriodRepository(
             .from(budget_periods)
             .where(eq(budget_periods.predecessor_period_id, inputRow.id))
             .all();
-          const expectedSuccessorStartDate = getNextPeriodStartDate(
+          assertSuccessorContinuity(
             inputRow.endDate,
+            successors.map((row) => ({
+              id: row.id,
+              startDate: row.start_date,
+            })),
+            createValidationError,
           );
-          for (const row of successors) {
-            if (row.start_date !== expectedSuccessorStartDate) {
-              throw new PeriodValidationError(
-                "PERIOD_CONTINUITY_VIOLATION",
-                `successor period ${row.id} must start on ${expectedSuccessorStartDate}`,
-              );
-            }
-          }
 
           const [overlapped] = await database
             .select({ id: budget_periods.id })
@@ -509,9 +447,20 @@ export function createD1BudgetPeriodRepository(
             .limit(1)
             .all();
           if (overlapped) {
-            throw new PeriodValidationError(
-              "PERIOD_OVERLAP",
-              `budget period overlap: ${inputRow.id} overlaps ${overlapped.id}`,
+            assertNoOverlap(
+              [
+                {
+                  id: overlapped.id,
+                  startDate: inputRow.startDate,
+                  endDate: inputRow.endDate,
+                },
+              ],
+              {
+                id: inputRow.id,
+                startDate: inputRow.startDate,
+                endDate: inputRow.endDate,
+              },
+              createValidationError,
             );
           }
 

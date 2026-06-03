@@ -8,6 +8,7 @@ dist
 .dev.vars
 .DS_Store
 .codex
+.omo
 .tmp-*
 coverage
 test-results
