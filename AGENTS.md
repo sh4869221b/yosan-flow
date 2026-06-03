@@ -1,4 +1,6 @@
-# AGENTS.md
+# yosan-flow Agent Knowledge Base
+
+Last analyzed: 2026-06-03 JST at commit `7333ef8` on `main`.
 
 ## Scope
 
@@ -10,6 +12,18 @@ This file applies to the entire `yosan-flow` repository.
 - The product focus is not detailed household-account category analysis. Keep the main UX centered on making the current period budget and "how much can be spent today" easy to understand.
 - The budget period model is the source of truth. Avoid reintroducing month-first behavior unless a task explicitly asks for it.
 
+## Where To Look
+
+- `src/routes/+page.server.ts` selects the requested/current/latest period and returns the dashboard page data.
+- `src/routes/+page.svelte` wires the dashboard controller to Svelte components.
+- `src/routes/api/periods/**` contains the period-first API surface.
+- `src/lib/dashboard/` contains client-side API URL builders, date helpers, controller state, and dashboard DTO types.
+- `src/lib/components/` contains Svelte UI components for the budget summary, calendar, dashboard panels, and day-entry modal/history rows.
+- `src/lib/server/` contains server repositories, domain rules, Effect runtime helpers, services, validation, and JST date utilities.
+- `migrations/*.sql` are the D1 schema source of truth. `src/lib/server/db/schema.ts` is a Drizzle mirror.
+- `tests/unit/`, `tests/integration/`, and `tests/e2e/` map to pure/domain tests, route/API tests, and browser workflow tests.
+- `docs/superpowers/specs/` and `docs/superpowers/plans/` hold behavior specs and implementation plans.
+
 ## Required Reading
 
 Before making changes, read:
@@ -17,8 +31,18 @@ Before making changes, read:
 - `README.md`
 - `CONTRIBUTING.md`
 - Relevant specs/plans under `docs/superpowers/`
+- Any deeper `AGENTS.md` under the files you will edit.
 
 For behavior changes, update or confirm the relevant spec/plan first so the path remains traceable from spec to implementation to tests.
+
+## Local AGENTS.md Map
+
+- `src/lib/server/AGENTS.md`: D1, repositories, services, validation, Effect runtime, and domain invariants.
+- `src/routes/AGENTS.md`: SvelteKit page/API routes and request/response boundaries.
+- `src/lib/dashboard/AGENTS.md`: client controller, dashboard DTOs, API URLs, and date helpers.
+- `src/lib/components/AGENTS.md`: Svelte component and dashboard UI conventions.
+- `tests/AGENTS.md`: unit/integration/E2E test patterns and reset helpers.
+- `docs/superpowers/AGENTS.md`: spec and plan traceability.
 
 ## Development Rules
 
@@ -27,6 +51,7 @@ For behavior changes, update or confirm the relevant spec/plan first so the path
 - Do not add runtime dependencies without explicit user approval.
 - Keep code comments and docs consistent with nearby files. This repository currently uses English in code and Japanese in product/docs where appropriate.
 - Do not commit secrets or local runtime state. Treat `.env`, `.dev.vars`, `.wrangler`, `.tmp-*`, `test-results`, and Cloudflare credentials as sensitive/local artifacts.
+- `package.json` pins `pnpm@11.5.0`. README/CONTRIBUTING mention minimum `pnpm 11.2.0+`; prefer the exact package-manager pin for local/CI parity.
 
 ## Domain Rules
 
@@ -40,6 +65,7 @@ For behavior changes, update or confirm the relevant spec/plan first so the path
 
 - The D1 binding name is `DB`.
 - The top-level `wrangler.jsonc` D1 `database_id` is a local placeholder. Do not deploy with bare `wrangler deploy`.
+- `workers_dev` and `preview_urls` are intentionally disabled; preview/production hosts are expected to be Cloudflare Access protected.
 - Deploy preview/production only with environment-specific scripts:
   - `pnpm run deploy:preview`
   - `pnpm run deploy:production`
