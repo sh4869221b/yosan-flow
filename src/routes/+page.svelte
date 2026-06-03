@@ -6,7 +6,7 @@
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
-  const controller = createDashboardPageController(data);
+  const controller = createDashboardPageController(() => data);
 </script>
 
 <main>

@@ -47,8 +47,8 @@ function getInitialPageState(data: PageData): {
   };
 }
 
-export function createDashboardPageController(data: PageData) {
-  const initialPageState = getInitialPageState(data);
+export function createDashboardPageController(getData: () => PageData) {
+  const initialPageState = getInitialPageState(getData());
 
   let periods = $state<PeriodOption[]>(initialPageState.periods);
   let selectedPeriodId = $state<string | null>(
