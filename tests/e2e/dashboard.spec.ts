@@ -184,3 +184,88 @@ test("shows an error when shrinking a period would exclude saved entries", async
     page.getByText(`期間: ${startDate} - ${originalEndDate}`),
   ).toBeVisible();
 });
+
+test("shows total negative adjustment on desktop and hides it when on track", async ({
+  page,
+  request,
+}) => {
+  const today = getCurrentJstDate();
+  const startDate = addDays(today, -3);
+  const endDate = addDays(today, 26);
+  const periodId = "p-adjustment-total";
+  const budgetYen = 120000;
+  const periodLengthDays = 30;
+  const daysFromToday = 27;
+  const priorSpendingYen = 21800;
+  const baseDailyYen = Math.floor(budgetYen / periodLengthDays);
+  const expectedRemainingAtBasePaceYen = baseDailyYen * daysFromToday;
+  const remainingAtTodayStartYen = budgetYen - priorSpendingYen;
+  const totalAdjustmentYen =
+    expectedRemainingAtBasePaceYen - remainingAtTodayStartYen;
+  const dailyAdjustmentYen = Math.ceil(totalAdjustmentYen / daysFromToday);
+
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate,
+    endDate,
+    budgetYen,
+    dailyTotals: [
+      { date: startDate, totalUsedYen: 12000 },
+      { date: addDays(startDate, 1), totalUsedYen: 9800 },
+    ],
+  });
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+
+  await expect(page.getByTestId("food-pace-status")).toContainText(
+    "マイナス調整",
+  );
+  await expect(page.getByTestId("today-food-adjustment")).toContainText(
+    `-${dailyAdjustmentYen.toLocaleString("ja-JP")} 円`,
+  );
+  await expect(page.getByTestId("total-negative-adjustment")).toContainText(
+    `-${totalAdjustmentYen.toLocaleString("ja-JP")} 円`,
+  );
+
+  const onTrackPeriodId = "p-adjustment-total-on-track";
+  const onTrackStartDate = addDays(today, 30);
+  await seedPeriod(request, getBaseUrl(), {
+    periodId: onTrackPeriodId,
+    startDate: onTrackStartDate,
+    endDate: addDays(onTrackStartDate, 29),
+    budgetYen,
+  });
+
+  await page.goto(
+    `${getBaseUrl()}/?periodId=${encodeURIComponent(onTrackPeriodId)}`,
+  );
+
+  await expect(page.getByTestId("food-pace-status")).toContainText(
+    "基準どおり",
+  );
+  await expect(page.getByTestId("total-negative-adjustment")).toHaveCount(0);
+});
+
+test("shows total negative adjustment on mobile", async ({ page, request }) => {
+  const today = getCurrentJstDate();
+  const startDate = addDays(today, -3);
+  const periodId = "p-adjustment-total-mobile";
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate,
+    endDate: addDays(today, 26),
+    budgetYen: 120000,
+    dailyTotals: [
+      { date: startDate, totalUsedYen: 12000 },
+      { date: addDays(startDate, 1), totalUsedYen: 9800 },
+    ],
+  });
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+
+  await expect(page.getByTestId("total-negative-adjustment")).toContainText(
+    "-9,800 円",
+  );
+});

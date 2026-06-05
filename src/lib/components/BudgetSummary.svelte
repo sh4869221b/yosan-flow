@@ -26,6 +26,7 @@
       todayRemainingYen: number;
       todayBonusYen: number;
       adjustmentYen: number;
+      totalAdjustmentYen: number;
     };
   };
   type PeriodOption = {
