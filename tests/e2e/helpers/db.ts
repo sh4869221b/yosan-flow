@@ -21,7 +21,6 @@ async function requestJson(
   body?: unknown,
 ): Promise<{
   status: number;
-  json: any;
 }> {
   const response = await request.fetch(
     new URL(path, `${baseUrl}/`).toString(),
@@ -32,10 +31,8 @@ async function requestJson(
       data: body,
     },
   );
-  const json = await response.json().catch(() => ({}));
   return {
     status: response.status(),
-    json,
   };
 }
 
