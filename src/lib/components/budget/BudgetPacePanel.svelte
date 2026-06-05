@@ -8,6 +8,7 @@
     todayRemainingYen: number;
     todayBonusYen: number;
     adjustmentYen: number;
+    totalAdjustmentYen: number;
   };
 
   type Props = {
@@ -45,7 +46,7 @@
   </p>
 </div>
 
-<div class="pace-details">
+<div class="pace-details" class:with-total={pace.totalAdjustmentYen > 0}>
   <p data-testid="food-pace-status">
     <span>状態</span>
     <strong>{paceStatusLabel}</strong>
@@ -67,6 +68,14 @@
       >-{formatYen(pace.adjustmentYen)}</strong
     >
   </p>
+  {#if pace.totalAdjustmentYen > 0}
+    <p class="total-adjustment">
+      <span>合計マイナス額</span>
+      <strong data-testid="total-negative-adjustment">
+        -{formatYen(pace.totalAdjustmentYen)}
+      </strong>
+    </p>
+  {/if}
 </div>
 
 <style>
@@ -89,6 +98,10 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     margin-top: 0.95rem;
     padding-top: 0.95rem;
+  }
+
+  .pace-details.with-total {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .today-pace p,
@@ -162,6 +175,10 @@
     color: #3e8445;
   }
 
+  .total-adjustment strong {
+    color: #b4473e;
+  }
+
   @media (max-width: 760px) {
     .today-pace {
       border-radius: 14px;
@@ -195,12 +212,21 @@
       row-gap: 0.7rem;
     }
 
+    .pace-details.with-total {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .pace-details p {
       padding: 0 0.55rem;
     }
 
     .pace-details p:nth-child(odd) {
       border-left: 0;
+    }
+
+    .total-adjustment {
+      border-left: 0;
+      grid-column: 1 / -1;
     }
 
     .food-icon {

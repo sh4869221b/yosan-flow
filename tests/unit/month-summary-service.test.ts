@@ -135,6 +135,7 @@ describe("period summary service", () => {
       baseDailyYen: 30,
       todayBonusYen: 0,
       adjustmentYen: 0,
+      totalAdjustmentYen: 0,
       todayAllowanceYen: 30,
     });
   });
@@ -175,6 +176,7 @@ describe("period summary service", () => {
       baseDailyYen: 1500,
       todayBonusYen: 5500,
       adjustmentYen: 0,
+      totalAdjustmentYen: 0,
       todayAllowanceYen: 7000,
       usedTodayYen: 800,
       todayRemainingYen: 6200,
@@ -221,6 +223,7 @@ describe("period summary service", () => {
       baseDailyYen: 1500,
       todayBonusYen: 0,
       adjustmentYen: 400,
+      totalAdjustmentYen: 2000,
       todayAllowanceYen: 1100,
       usedTodayYen: 800,
       todayRemainingYen: 300,
@@ -263,6 +266,7 @@ describe("period summary service", () => {
       status: "adjustment",
       baseDailyYen: 100,
       adjustmentYen: 1,
+      totalAdjustmentYen: 1,
       todayAllowanceYen: 99,
     });
     expect(futureRecommendations).toHaveLength(29);
@@ -301,6 +305,7 @@ describe("period summary service", () => {
       todayRemainingYen: 0,
       todayBonusYen: 0,
       adjustmentYen: 0,
+      totalAdjustmentYen: 0,
     });
   });
 
@@ -363,6 +368,9 @@ describe("period summary service", () => {
     );
     expect(afterTodayInput.foodPace.adjustmentYen).toBe(
       beforeTodayInput.foodPace.adjustmentYen,
+    );
+    expect(afterTodayInput.foodPace.totalAdjustmentYen).toBe(
+      beforeTodayInput.foodPace.totalAdjustmentYen,
     );
     expect(afterTodayInput.foodPace.baseDailyYen).toBe(
       beforeTodayInput.foodPace.baseDailyYen,

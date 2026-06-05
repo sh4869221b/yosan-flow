@@ -35,6 +35,7 @@ type FoodPaceSummary = {
   todayRemainingYen: number;
   todayBonusYen: number;
   adjustmentYen: number;
+  totalAdjustmentYen: number;
 };
 
 export type PeriodSummary = {
@@ -139,6 +140,7 @@ function buildFoodPaceSummary(input: {
       todayRemainingYen: input.usedTodayYen === 0 ? 0 : -input.usedTodayYen,
       todayBonusYen: 0,
       adjustmentYen: 0,
+      totalAdjustmentYen: 0,
     };
   }
 
@@ -171,6 +173,7 @@ function buildFoodPaceSummary(input: {
     todayRemainingYen: todayAllowanceYen - input.usedTodayYen,
     todayBonusYen,
     adjustmentYen,
+    totalAdjustmentYen: shortageYen,
   };
 }
 

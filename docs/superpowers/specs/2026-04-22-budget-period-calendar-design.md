@@ -115,6 +115,7 @@
 - `todayRecommendedYen`
 - `varianceFromRecommendationYen`
 - `remainingAfterDayYenPreview`
+- `foodPace.totalAdjustmentYen`
 
 ## 5. ドメインルール
 
@@ -129,8 +130,13 @@
 
 - `remaining_at_T = B - S_before`
 - 残日数 `D = end_date - T + 1`
+- `base_daily_yen = floor(B / periodLengthDays)`
+- `expected_remaining_at_base_pace = base_daily_yen * D`
+- `totalAdjustmentYen = max(0, expected_remaining_at_base_pace - remaining_at_T)`
 - 当日推奨額は `remaining_at_T / D` の端数前倒し配分で求める
 - 当日に入力された `used_at_T` は、当日セルでは推奨額との差分として表示する
+- `totalAdjustmentYen` は API では正数として保持し、UI で `合計マイナス額` として表示するときだけ `-9,800 円` のようにマイナス符号を付ける
+- 当日に入力された `used_at_T` は、`totalAdjustmentYen` / `adjustmentYen` / `todayBonusYen` / `baseDailyYen` の再計算には翌日まで含めない
 - 翌日 `T+1` では `S_before` に `used_at_T` を含めて再計算する
 
 このため、未来日に入力済みの金額は履歴・セル表示には反映するが、
