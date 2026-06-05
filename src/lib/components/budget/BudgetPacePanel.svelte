@@ -212,6 +212,10 @@
       row-gap: 0.7rem;
     }
 
+    .pace-details.with-total {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .pace-details p {
       padding: 0 0.55rem;
     }
