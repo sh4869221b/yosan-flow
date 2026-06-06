@@ -52,6 +52,38 @@ test("creates period and updates budget", async ({ page }) => {
   await expect(page.getByTestId("budget-value")).toContainText("150,000");
 });
 
+test("rejects malformed period budget values before requests", async ({
+  page,
+  request,
+}) => {
+  const today = getCurrentJstDate();
+  const periodId = `p-${today}`;
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate: today,
+    endDate: addDays(today, 29),
+    budgetYen: 120000,
+  });
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  let updateRequestCount = 0;
+  await page.route(`**/api/periods/${periodId}`, async (route) => {
+    updateRequestCount += 1;
+    await route.continue();
+  });
+
+  for (const input of ["", "1e3", "1000abc", "10.5", "-1"]) {
+    await page.getByLabel("期間予算 (円)").fill(input);
+    await page.getByRole("button", { name: "期間を更新" }).click();
+    await expect(page.getByRole("alert")).toContainText(
+      "予算は 0 以上の整数で入力してください。",
+    );
+    await expect(page.getByTestId("budget-value")).toContainText("120,000");
+  }
+
+  expect(updateRequestCount).toBe(0);
+});
+
 test("updates period start and end dates from settings inputs", async ({
   page,
   request,

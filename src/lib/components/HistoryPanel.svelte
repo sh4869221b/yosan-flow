@@ -1,5 +1,6 @@
 <script lang="ts">
   import HistoryRow from "./day-entry/HistoryRow.svelte";
+  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
 
   type HistoryItem = {
     id: string;
@@ -42,6 +43,7 @@
   let editInputYen = $state("");
   let editMemo = $state("");
   let pendingSaveHistoryId = $state<string | null>(null);
+  let inputError = $state<string | null>(null);
 
   $effect(() => {
     if (
@@ -66,6 +68,7 @@
     editingHistoryId = history.id;
     editInputYen = String(history.inputYen);
     editMemo = history.memo ?? "";
+    inputError = null;
   }
 
   function cancelEdit(): void {
@@ -73,17 +76,16 @@
     editInputYen = "";
     editMemo = "";
     pendingSaveHistoryId = null;
+    inputError = null;
   }
 
   function saveEdit(historyId: string): void {
-    const trimmedInputYen = String(editInputYen ?? "").trim();
-    if (trimmedInputYen === "") {
+    const parsed = parseNonNegativeIntegerYenInput(editInputYen);
+    if (parsed == null) {
+      inputError = "入力額は 0 以上の整数で入力してください。";
       return;
     }
-    const parsed = Number(trimmedInputYen);
-    if (!Number.isInteger(parsed) || parsed < 0) {
-      return;
-    }
+    inputError = null;
     updateHistory({
       historyId,
       inputYen: parsed,
@@ -112,6 +114,9 @@
   {/if}
   {#if errorMessage}
     <p class="error-message" role="alert">{errorMessage}</p>
+  {/if}
+  {#if inputError}
+    <p class="error-message" role="alert">{inputError}</p>
   {/if}
   {#if histories.length === 0}
     <div class="empty-history">
