@@ -27,8 +27,8 @@
       期間予算 (円)
       <input
         aria-label="期間予算 (円)"
-        type="number"
-        min="0"
+        type="text"
+        inputmode="numeric"
         bind:value={budgetInput}
         disabled={saving || loading}
       />

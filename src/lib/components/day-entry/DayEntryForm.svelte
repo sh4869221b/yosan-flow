@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Save, X } from "@lucide/svelte";
+  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
 
   type Props = {
     inputYen?: string;
@@ -19,15 +20,19 @@
     date = null,
   }: Props = $props();
 
+  let inputError = $state<string | null>(null);
+
   function handleSubmit(event: SubmitEvent): void {
     event.preventDefault();
     if (!date) {
       return;
     }
-    const parsed = Number.parseInt(inputYen, 10);
-    if (!Number.isInteger(parsed) || parsed < 0) {
+    const parsed = parseNonNegativeIntegerYenInput(inputYen);
+    if (parsed == null) {
+      inputError = "入力額は 0 以上の整数で入力してください。";
       return;
     }
+    inputError = null;
 
     save({
       date,
@@ -43,9 +48,12 @@
     入力額 (円)
     <span class="money-input">
       <span aria-hidden="true">¥</span>
-      <input type="number" min="0" inputmode="numeric" bind:value={inputYen} />
+      <input type="text" inputmode="numeric" bind:value={inputYen} />
     </span>
   </label>
+  {#if inputError}
+    <p class="error-message" role="alert">{inputError}</p>
+  {/if}
 
   <label>
     メモ
@@ -143,6 +151,16 @@
     font-weight: 800;
     min-height: 3.15rem;
     padding: 0 0.85rem;
+  }
+
+  .error-message {
+    background: #fff1f0;
+    border: 1px solid #efc3bd;
+    border-radius: 10px;
+    color: #9b2c22;
+    font-weight: 800;
+    margin: 0;
+    padding: 0.75rem 0.85rem;
   }
 
   textarea {

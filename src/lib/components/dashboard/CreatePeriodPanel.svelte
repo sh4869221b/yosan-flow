@@ -46,8 +46,8 @@
       新規予算額 (円)
       <input
         aria-label="新規予算額 (円)"
-        type="number"
-        min="0"
+        type="text"
+        inputmode="numeric"
         bind:value={controller.createBudgetInput}
       />
     </label>
@@ -89,8 +89,8 @@
         新規予算額 (円)
         <input
           aria-label="新規予算額 (円)"
-          type="number"
-          min="0"
+          type="text"
+          inputmode="numeric"
           bind:value={controller.createBudgetInput}
         />
       </label>

@@ -9,6 +9,7 @@ import {
   runClientEffect,
 } from "$lib/dashboard/api";
 import { addDays, toPeriodId } from "$lib/dashboard/date";
+import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
 import type {
   DeleteHistoryPayload,
   HistoryItem,
@@ -85,7 +86,7 @@ export function createDashboardPageController(getData: () => PageData) {
 
   const modalPreviewAfterYen = $derived(
     (selectedRow?.usedYen ?? 0) +
-      (Number.parseInt(modalInputYen || "0", 10) || 0),
+      (parseNonNegativeIntegerYenInput(modalInputYen) ?? 0),
   );
   const modalRemainingRows = $derived(
     summary == null || selectedDate == null
@@ -214,8 +215,8 @@ export function createDashboardPageController(getData: () => PageData) {
   }
 
   function createInitialPeriodEffect(): Effect.Effect<void, never> {
-    const budgetYen = Number.parseInt(createBudgetInput, 10);
-    if (!Number.isInteger(budgetYen) || budgetYen < 0) {
+    const budgetYen = parseNonNegativeIntegerYenInput(createBudgetInput);
+    if (budgetYen == null) {
       periodError = "予算は 0 以上の整数で入力してください。";
       return Effect.void;
     }

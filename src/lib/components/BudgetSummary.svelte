@@ -2,6 +2,7 @@
   import BudgetPacePanel from "./budget/BudgetPacePanel.svelte";
   import BudgetStatsPanel from "./budget/BudgetStatsPanel.svelte";
   import BudgetPeriodForm from "./budget/BudgetPeriodForm.svelte";
+  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
 
   type PeriodSummary = {
     periodId: string;
@@ -60,6 +61,7 @@
 
   let budgetInput = $state("");
   let budgetInputPeriodId = $state<string | null>(null);
+  let budgetInputError = $state<string | null>(null);
 
   $effect(() => {
     if (!summary || budgetInputPeriodId === summary.periodId) {
@@ -67,14 +69,17 @@
     }
     budgetInput = String(summary.budgetYen);
     budgetInputPeriodId = summary.periodId;
+    budgetInputError = null;
   });
 
   function submitPeriod(event: Event): void {
     event.preventDefault();
-    const budgetYen = Number.parseInt(budgetInput, 10);
-    if (!Number.isInteger(budgetYen) || budgetYen < 0) {
+    const budgetYen = parseNonNegativeIntegerYenInput(budgetInput);
+    if (budgetYen == null) {
+      budgetInputError = "予算は 0 以上の整数で入力してください。";
       return;
     }
+    budgetInputError = null;
     savePeriod({ budgetYen });
   }
 
@@ -143,7 +148,7 @@
       bind:budgetInput
       {saving}
       {loading}
-      {errorMessage}
+      errorMessage={budgetInputError ?? errorMessage}
       onsubmit={submitPeriod}
     />
   {/if}

@@ -79,8 +79,7 @@
       <label>
         入力額 (円)
         <input
-          type="number"
-          min="0"
+          type="text"
           inputmode="numeric"
           bind:value={editInputYen}
           disabled={isMutating}

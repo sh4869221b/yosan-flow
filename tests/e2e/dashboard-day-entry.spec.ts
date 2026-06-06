@@ -74,6 +74,24 @@ test("supports add and history row edit in day modal, and keeps values after rel
     page
       .getByTestId(`calendar-day-${todayRow?.date}`)
       .getByTestId(`used-${todayRow?.date}`),
+  ).toHaveText("2000 円");
+  await expect(editingRow).toBeVisible();
+
+  await editingRow.getByLabel("入力額 (円)").fill("1000abc");
+  await editingRow.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(
+    page
+      .getByTestId(`calendar-day-${todayRow?.date}`)
+      .getByTestId(`used-${todayRow?.date}`),
+  ).toHaveText("2000 円");
+  await expect(editingRow).toBeVisible();
+
+  await editingRow.getByLabel("入力額 (円)").fill("1000");
+  await editingRow.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(
+    page
+      .getByTestId(`calendar-day-${todayRow?.date}`)
+      .getByTestId(`used-${todayRow?.date}`),
   ).toHaveText("1000 円");
 
   await page.reload();
@@ -82,6 +100,53 @@ test("supports add and history row edit in day modal, and keeps values after rel
       .getByTestId(`calendar-day-${todayRow?.date}`)
       .getByTestId(`used-${todayRow?.date}`),
   ).toHaveText("1000 円");
+});
+
+test("rejects malformed day-entry yen values before requests", async ({
+  page,
+  request,
+}) => {
+  const startDate = getCurrentJstDate();
+  const periodId = `p-${startDate}`;
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate,
+    endDate: addDays(startDate, 29),
+    budgetYen: 120000,
+  });
+
+  const summary = await fetchPeriodSummary(request, periodId);
+  const todayRow = summary.dailyRows.find((row) => row.label === "today");
+  expect(todayRow).toBeDefined();
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  let addRequestCount = 0;
+  await page.route(
+    `**/api/periods/${periodId}/days/${todayRow?.date}/add`,
+    async (route) => {
+      addRequestCount += 1;
+      await route.continue();
+    },
+  );
+
+  await page.getByTestId(`calendar-day-${todayRow?.date}`).click();
+  const modal = page.getByTestId("day-entry-modal");
+  await expect(modal).toBeVisible();
+
+  for (const input of ["", "1e3", "1000abc", "10.5", "-1"]) {
+    await modal.getByLabel("入力額 (円)").fill(input);
+    await modal.getByRole("button", { name: "保存する" }).click();
+    await expect(modal.getByRole("alert")).toContainText(
+      "入力額は 0 以上の整数で入力してください。",
+    );
+    await expect(
+      page
+        .getByTestId(`calendar-day-${todayRow?.date}`)
+        .getByTestId(`used-${todayRow?.date}`),
+    ).toHaveText("0 円");
+  }
+
+  expect(addRequestCount).toBe(0);
 });
 
 test("deletes history rows and keeps recalculated values after reload", async ({
