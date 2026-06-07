@@ -1,563 +1,137 @@
-import { Effect } from "effect";
-import {
-  dayAddUrl,
-  dayHistoryUrl,
-  fetchJsonEffect,
-  historyItemUrl,
-  periodSummaryUrl,
-  periodsUrl,
-  runClientEffect,
-} from "$lib/dashboard/api";
-import { addDays, toPeriodId } from "$lib/dashboard/date";
-import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
-import type {
-  DeleteHistoryPayload,
-  HistoryItem,
-  HistoryMutationResponse,
-  HistoryResponse,
-  PeriodCreateResponse,
-  PeriodListResponse,
-  SavePeriodPayload,
-  SubmitDayEntryPayload,
-  UpdateHistoryPayload,
-} from "$lib/dashboard/types";
+import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
+import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
+import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
+import type { DailyRow } from "$lib/dashboard/controller-types";
 import type { PageData } from "../../routes/$types";
 
-type PeriodSummary = NonNullable<PageData["summary"]>;
-type PeriodOption = PageData["periods"][number];
-type DailyRow = PeriodSummary["dailyRows"][number];
-
-function getInitialPageState(data: PageData): {
-  periods: PeriodOption[];
-  selectedPeriodId: string | null;
-  summary: PeriodSummary | null;
-  today: string;
-  createStartDate: string;
-} {
-  const initialPeriods = data.periods ?? [];
-  const today = data.today;
-  return {
-    periods: initialPeriods,
-    selectedPeriodId: data.selectedPeriodId,
-    summary: data.summary,
-    today,
-    createStartDate:
-      initialPeriods.length > 0
-        ? addDays(initialPeriods[initialPeriods.length - 1].endDate, 1)
-        : today,
-  };
-}
-
 export function createDashboardPageController(getData: () => PageData) {
-  const initialPageState = getInitialPageState(getData());
+  const periodController = createPeriodControllerState(getData());
 
-  let periods = $state<PeriodOption[]>(initialPageState.periods);
-  let selectedPeriodId = $state<string | null>(
-    initialPageState.selectedPeriodId,
-  );
-  let summary = $state<PeriodSummary | null>(initialPageState.summary);
-  let summaryLoading = $state(false);
-  let summaryError = $state<string | null>(null);
-
-  let periodSaving = $state(false);
-  let periodError = $state<string | null>(null);
-  let rangeStartDate = $state(
-    initialPageState.summary?.startDate ?? initialPageState.today,
-  );
-  let rangeEndDate = $state(
-    initialPageState.summary?.endDate ?? addDays(initialPageState.today, 29),
-  );
-  let createStartDate = $state(initialPageState.createStartDate);
-  let createEndDate = $state(addDays(initialPageState.createStartDate, 29));
-  let createPeriodId = $state(toPeriodId(initialPageState.createStartDate));
-  let createBudgetInput = $state("120000");
-
-  let modalOpen = $state(false);
-  let modalSaving = $state(false);
-  let modalError = $state<string | null>(null);
-  let selectedDate = $state<string | null>(null);
-  let selectedRow = $state<DailyRow | null>(null);
-  let historyLoading = $state(false);
-  let historyError = $state<string | null>(null);
-  let historyMutatingId = $state<string | null>(null);
-  let histories = $state<HistoryItem[]>([]);
-  let modalInputYen = $state("");
-  let modalMemo = $state("");
-
-  const modalPreviewAfterYen = $derived(
-    (selectedRow?.usedYen ?? 0) +
-      (parseNonNegativeIntegerYenInput(modalInputYen) ?? 0),
-  );
-  const modalRemainingRows = $derived(
-    summary == null || selectedDate == null
-      ? 0
-      : summary.dailyRows.filter((row) => row.date >= (selectedDate ?? ""))
-          .length,
-  );
-  const modalPreviewRemainingYen = $derived(
-    summary == null
-      ? null
-      : summary.remainingYen +
-          (selectedRow?.usedYen ?? 0) -
-          modalPreviewAfterYen,
-  );
-  const modalPreviewRecommendedYen = $derived(
-    modalPreviewRemainingYen == null || modalRemainingRows === 0
-      ? null
-      : Math.max(0, Math.floor(modalPreviewRemainingYen / modalRemainingRows)),
-  );
-
-  $effect(() => {
-    if (!summary) {
-      return;
-    }
-    selectedPeriodId = summary.periodId;
-    rangeStartDate = summary.startDate;
-    rangeEndDate = summary.endDate;
+  const historyController = createHistoryControllerState({
+    getSelectedDate,
+    getSelectedPeriodId: () => periodController.selectedPeriodId,
+    setSelectedRow,
+    setSummary: (nextSummary) => periodController.setSummary(nextSummary),
   });
 
-  function refreshSummaryEffect(periodId: string): Effect.Effect<void, never> {
-    return Effect.gen(function* () {
-      summaryLoading = true;
-      summaryError = null;
-      const result = yield* fetchJsonEffect<PeriodSummary>(
-        periodSummaryUrl(periodId),
-        undefined,
-        "再取得に失敗しました。",
-      ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        summaryError = result.left;
-      } else {
-        summary = result.right;
-      }
-      summaryLoading = false;
-    });
+  const dayEntryController = createDayEntryControllerState({
+    getSelectedPeriodId: () => periodController.selectedPeriodId,
+    getSummary: () => periodController.summary,
+    historyController,
+    setSummary: (nextSummary) => periodController.setSummary(nextSummary),
+  });
+
+  function getSelectedDate(): string | null {
+    return dayEntryController.selectedDate;
   }
 
-  function refreshPeriodListEffect(
-    preferredPeriodId?: string,
-  ): Effect.Effect<void, string> {
-    return Effect.gen(function* () {
-      const body = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
-        periodsUrl(),
-        undefined,
-        "保存に失敗しました。",
-      );
-      periods = body.periods ?? [];
-      if (periods.length === 0) {
-        selectedPeriodId = null;
-        summary = null;
-        return;
-      }
-      const matched =
-        periods.find((period) => period.id === preferredPeriodId) ??
-        periods.find((period) => period.id === selectedPeriodId) ??
-        periods[periods.length - 1];
-      selectedPeriodId = matched.id;
-      yield* refreshSummaryEffect(matched.id);
-    });
-  }
-
-  function loadHistoryEffect(date: string): Effect.Effect<void, never> {
-    if (!selectedPeriodId) {
-      return Effect.void;
-    }
-    const periodId = selectedPeriodId;
-    return Effect.gen(function* () {
-      historyLoading = true;
-      historyError = null;
-      const result = yield* fetchJsonEffect<HistoryResponse>(
-        dayHistoryUrl(periodId, date),
-        undefined,
-        "履歴の取得に失敗しました。",
-      ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        historyError = result.left;
-      } else {
-        histories = result.right.histories ?? [];
-      }
-      historyLoading = false;
-    });
-  }
-
-  function savePeriodUpdateEffect(
-    payload: SavePeriodPayload,
-  ): Effect.Effect<void, never> {
-    if (!selectedPeriodId || summaryLoading) {
-      return Effect.void;
-    }
-    const periodId = selectedPeriodId;
-    return Effect.gen(function* () {
-      periodSaving = true;
-      periodError = null;
-      const result = yield* fetchJsonEffect<PeriodSummary>(
-        periodSummaryUrl(periodId),
-        {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-        "保存に失敗しました。",
-      ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        periodError = result.left;
-      } else {
-        summary = result.right;
-        const refreshResult = yield* refreshPeriodListEffect(
-          result.right.periodId,
-        ).pipe(Effect.either);
-        if (refreshResult._tag === "Left") {
-          periodError = refreshResult.left;
-        }
-      }
-      periodSaving = false;
-    });
-  }
-
-  function createInitialPeriodEffect(): Effect.Effect<void, never> {
-    const budgetYen = parseNonNegativeIntegerYenInput(createBudgetInput);
-    if (budgetYen == null) {
-      periodError = "予算は 0 以上の整数で入力してください。";
-      return Effect.void;
-    }
-    return Effect.gen(function* () {
-      periodSaving = true;
-      periodError = null;
-      const latestPeriod = periods[periods.length - 1] ?? null;
-      const predecessorPeriodId =
-        latestPeriod && addDays(latestPeriod.endDate, 1) === createStartDate
-          ? latestPeriod.id
-          : null;
-      const result = yield* fetchJsonEffect<PeriodCreateResponse>(
-        periodsUrl(),
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            id: createPeriodId,
-            startDate: createStartDate,
-            endDate: createEndDate,
-            budgetYen,
-            predecessorPeriodId,
-          }),
-        },
-        "期間作成に失敗しました。",
-      ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        periodError = result.left;
-      } else {
-        const refreshResult = yield* refreshPeriodListEffect(
-          result.right.id,
-        ).pipe(Effect.either);
-        if (refreshResult._tag === "Left") {
-          periodError = refreshResult.left;
-        }
-      }
-      periodSaving = false;
-    });
-  }
-
-  function submitDayEntryEffect(
-    payload: SubmitDayEntryPayload,
-  ): Effect.Effect<void, never> {
-    if (!selectedPeriodId) {
-      return Effect.void;
-    }
-    const periodId = selectedPeriodId;
-    return Effect.gen(function* () {
-      modalSaving = true;
-      modalError = null;
-      const result = yield* fetchJsonEffect<PeriodSummary>(
-        dayAddUrl(periodId, payload.date),
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            inputYen: payload.inputYen,
-            memo: payload.memo,
-          }),
-        },
-        "保存に失敗しました。",
-      ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        modalError = result.left;
-      } else {
-        summary = result.right;
-        if (selectedDate) {
-          selectedRow =
-            result.right.dailyRows.find((row) => row.date === selectedDate) ??
-            null;
-          yield* loadHistoryEffect(selectedDate);
-        }
-        closeDayEntry();
-      }
-      modalSaving = false;
-    });
-  }
-
-  function applyHistoryMutationResult(
-    body: HistoryMutationResponse<PeriodSummary>,
-  ): void {
-    summary = body.summary;
-    histories = body.histories;
-    if (selectedDate) {
-      selectedRow =
-        body.summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
-    }
-  }
-
-  function updateHistoryEffect(
-    payload: UpdateHistoryPayload,
-  ): Effect.Effect<void, never> {
-    if (!selectedPeriodId || !selectedDate) {
-      return Effect.void;
-    }
-    const periodId = selectedPeriodId;
-    const date = selectedDate;
-    return Effect.gen(function* () {
-      historyMutatingId = payload.historyId;
-      historyError = null;
-      const result = yield* fetchJsonEffect<
-        HistoryMutationResponse<PeriodSummary>
-      >(
-        historyItemUrl(periodId, date, payload.historyId),
-        {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            inputYen: payload.inputYen,
-            memo: payload.memo,
-          }),
-        },
-        "履歴の更新に失敗しました。",
-      ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        historyError = result.left;
-      } else {
-        applyHistoryMutationResult(result.right);
-      }
-      historyMutatingId = null;
-    });
-  }
-
-  function deleteHistoryEffect(
-    payload: DeleteHistoryPayload,
-  ): Effect.Effect<void, never> {
-    if (!selectedPeriodId || !selectedDate) {
-      return Effect.void;
-    }
-    const periodId = selectedPeriodId;
-    const date = selectedDate;
-    return Effect.gen(function* () {
-      historyMutatingId = payload.historyId;
-      historyError = null;
-      const result = yield* fetchJsonEffect<
-        HistoryMutationResponse<PeriodSummary>
-      >(
-        historyItemUrl(periodId, date, payload.historyId),
-        { method: "DELETE" },
-        "履歴の削除に失敗しました。",
-      ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        historyError = result.left;
-      } else {
-        applyHistoryMutationResult(result.right);
-      }
-      historyMutatingId = null;
-    });
-  }
-
-  function handleSavePeriod(payload: { budgetYen: number }): void {
-    if (!summary) {
-      return;
-    }
-    runClientEffect(
-      savePeriodUpdateEffect({
-        budgetYen: payload.budgetYen,
-        startDate: rangeStartDate,
-        endDate: rangeEndDate,
-      }),
-    );
-  }
-
-  function handleRangeChange(payload: {
-    startDate: string;
-    endDate: string;
-  }): void {
-    rangeStartDate = payload.startDate;
-    rangeEndDate = payload.endDate;
-    if (!summary) {
-      return;
-    }
-    runClientEffect(
-      savePeriodUpdateEffect({
-        budgetYen: summary.budgetYen,
-        startDate: payload.startDate,
-        endDate: payload.endDate,
-      }),
-    );
-  }
-
-  function handleSelectPeriod(payload: { periodId: string }): void {
-    runClientEffect(refreshSummaryEffect(payload.periodId));
-  }
-
-  function createInitialPeriod(): void {
-    runClientEffect(createInitialPeriodEffect());
-  }
-
-  function openDayEntry(payload: { date: string }): void {
-    if (!summary) {
-      return;
-    }
-    selectedDate = payload.date;
-    selectedRow =
-      summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
-    modalError = null;
-    modalOpen = true;
-    modalInputYen = "";
-    modalMemo = "";
-    histories = [];
-    runClientEffect(loadHistoryEffect(payload.date));
-  }
-
-  function closeDayEntry(): void {
-    modalOpen = false;
-    modalError = null;
-  }
-
-  function submitDayEntry(payload: {
-    date: string;
-    inputYen: number;
-    memo: string;
-  }): void {
-    runClientEffect(submitDayEntryEffect(payload));
-  }
-
-  function updateHistory(payload: {
-    historyId: string;
-    inputYen: number;
-    memo: string;
-  }): void {
-    runClientEffect(updateHistoryEffect(payload));
-  }
-
-  function deleteHistory(payload: { historyId: string }): void {
-    runClientEffect(deleteHistoryEffect(payload));
-  }
-
-  function updateCreatePeriodRange(payload: {
-    startDate: string;
-    endDate: string;
-  }): void {
-    createStartDate = payload.startDate;
-    createEndDate = payload.endDate;
-    createPeriodId = toPeriodId(payload.startDate);
+  function setSelectedRow(row: DailyRow | null): void {
+    dayEntryController.setSelectedRow(row);
   }
 
   return {
     get periods() {
-      return periods;
+      return periodController.periods;
     },
     get selectedPeriodId() {
-      return selectedPeriodId;
+      return periodController.selectedPeriodId;
     },
     get summary() {
-      return summary;
+      return periodController.summary;
     },
     get summaryLoading() {
-      return summaryLoading;
+      return periodController.summaryLoading;
     },
     get summaryError() {
-      return summaryError;
+      return periodController.summaryError;
     },
     get periodSaving() {
-      return periodSaving;
+      return periodController.periodSaving;
     },
     get periodError() {
-      return periodError;
+      return periodController.periodError;
     },
     get rangeStartDate() {
-      return rangeStartDate;
+      return periodController.rangeStartDate;
     },
     get rangeEndDate() {
-      return rangeEndDate;
+      return periodController.rangeEndDate;
     },
     get createStartDate() {
-      return createStartDate;
+      return periodController.createStartDate;
     },
     get createEndDate() {
-      return createEndDate;
+      return periodController.createEndDate;
     },
     get createPeriodId() {
-      return createPeriodId;
+      return periodController.createPeriodId;
     },
     set createPeriodId(value: string) {
-      createPeriodId = value;
+      periodController.createPeriodId = value;
     },
     get createBudgetInput() {
-      return createBudgetInput;
+      return periodController.createBudgetInput;
     },
     set createBudgetInput(value: string) {
-      createBudgetInput = value;
+      periodController.createBudgetInput = value;
     },
     get modalOpen() {
-      return modalOpen;
+      return dayEntryController.modalOpen;
     },
     get modalSaving() {
-      return modalSaving;
+      return dayEntryController.modalSaving;
     },
     get modalError() {
-      return modalError;
+      return dayEntryController.modalError;
     },
     get selectedDate() {
-      return selectedDate;
+      return dayEntryController.selectedDate;
     },
     get selectedRow() {
-      return selectedRow;
+      return dayEntryController.selectedRow;
     },
     get historyLoading() {
-      return historyLoading;
+      return historyController.historyLoading;
     },
     get historyError() {
-      return historyError;
+      return historyController.historyError;
     },
     get historyMutatingId() {
-      return historyMutatingId;
+      return historyController.historyMutatingId;
     },
     get histories() {
-      return histories;
+      return historyController.histories;
     },
     get modalInputYen() {
-      return modalInputYen;
+      return dayEntryController.modalInputYen;
     },
     set modalInputYen(value: string) {
-      modalInputYen = value;
+      dayEntryController.modalInputYen = value;
     },
     get modalMemo() {
-      return modalMemo;
+      return dayEntryController.modalMemo;
     },
     set modalMemo(value: string) {
-      modalMemo = value;
+      dayEntryController.modalMemo = value;
     },
     get modalPreviewAfterYen() {
-      return modalPreviewAfterYen;
+      return dayEntryController.modalPreviewAfterYen;
     },
     get modalPreviewRemainingYen() {
-      return modalPreviewRemainingYen;
+      return dayEntryController.modalPreviewRemainingYen;
     },
     get modalPreviewRecommendedYen() {
-      return modalPreviewRecommendedYen;
+      return dayEntryController.modalPreviewRecommendedYen;
     },
-    handleSavePeriod,
-    handleRangeChange,
-    handleSelectPeriod,
-    createInitialPeriod,
-    openDayEntry,
-    closeDayEntry,
-    submitDayEntry,
-    updateHistory,
-    deleteHistory,
-    updateCreatePeriodRange,
+    handleSavePeriod: periodController.handleSavePeriod,
+    handleRangeChange: periodController.handleRangeChange,
+    handleSelectPeriod: periodController.handleSelectPeriod,
+    createInitialPeriod: periodController.createInitialPeriod,
+    openDayEntry: dayEntryController.openDayEntry,
+    closeDayEntry: dayEntryController.closeDayEntry,
+    submitDayEntry: dayEntryController.submitDayEntry,
+    updateHistory: historyController.updateHistory,
+    deleteHistory: historyController.deleteHistory,
+    updateCreatePeriodRange: periodController.updateCreatePeriodRange,
   };
 }
