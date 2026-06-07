@@ -9,7 +9,7 @@ Applies to `src/lib/dashboard/**`.
 - `api.ts` builds dashboard API URLs and wraps client JSON fetch behavior.
 - `date.ts` owns client-side period/date helpers.
 - `types.ts` owns dashboard request/response DTOs.
-- `page-controller.svelte.ts` owns Svelte 5 state, effects, modal state, period selection, save flows, and history mutation flows.
+- `page-controller.svelte.ts` is the public facade; period, day-entry, history, and preview responsibilities live in focused controller modules nearby.
 
 ## Controller Rules
 
