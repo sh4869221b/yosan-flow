@@ -21,8 +21,8 @@ importers:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@4.20260604.1)
       effect:
-        specifier: ^3.21.2
-        version: 3.21.2
+        specifier: ^3.21.3
+        version: 3.21.3
     devDependencies:
       '@playwright/test':
         specifier: ^1.60.0
@@ -1517,8 +1517,8 @@ packages:
       sqlite3:
         optional: true
 
-  effect@3.21.2:
-    resolution: {integrity: sha512-rXd2FGDM8KdjSIrc+mqEELo7ScW7xTVxEf1iInmPSpIde9/nyGuFM710cjTo7/EreGXiUX2MOonPpprbz2XHCg==}
+  effect@3.21.3:
+    resolution: {integrity: sha512-RqwU7WnJ6CqYhyjpOVJA5vh1Sgkn6eVECO6mnD0EjlbWcC2M3LJaPglXXr13Rdo/Y+B+wTEPzGRYFNL2xKxNeQ==}
 
   error-stack-parser-es@1.0.5:
     resolution: {integrity: sha512-5qucVt2XcuGMcEGgWI7i+yZpmpByQ8J1lHhcL7PwqCwu9FPP3VUXzT4ltHe5i2z9dePwEHcDVOAfSnHsOlCXRA==}
@@ -3286,7 +3286,7 @@ snapshots:
     optionalDependencies:
       '@cloudflare/workers-types': 4.20260604.1
 
-  effect@3.21.2:
+  effect@3.21.3:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
