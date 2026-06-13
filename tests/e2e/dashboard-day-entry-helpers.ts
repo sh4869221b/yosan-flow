@@ -1,9 +1,4 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Browser,
-} from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
 import {
   addDays,
