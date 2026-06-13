@@ -13,7 +13,7 @@ export type PeriodRangeSelection = {
   readonly isValid: boolean;
 };
 
-export function toDateValue(value: string): DateValue | undefined {
+function toDateValue(value: string): DateValue | undefined {
   if (!value) {
     return undefined;
   }

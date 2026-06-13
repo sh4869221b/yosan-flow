@@ -15,24 +15,6 @@ import type {
 } from "$lib/server/db/daily-total-repository";
 import type { PeriodSummaryDailyTotal } from "$lib/server/services/period-summary/period-summary-calculator";
 
-export class PeriodNotFoundError extends Error {
-  readonly code = "PERIOD_NOT_FOUND";
-
-  constructor(periodId: string) {
-    super(`Period not found: ${periodId}`);
-    this.name = "PeriodNotFoundError";
-  }
-}
-
-export class DateOutOfPeriodError extends Error {
-  readonly code = "DATE_OUT_OF_PERIOD";
-
-  constructor(date: string, periodId: string) {
-    super(`Date ${date} is outside period ${periodId}`);
-    this.name = "DateOutOfPeriodError";
-  }
-}
-
 export type DayEntryServicePort = {
   addDailyAmount(command: {
     periodId: string;

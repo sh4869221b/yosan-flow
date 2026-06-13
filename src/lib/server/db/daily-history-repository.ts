@@ -4,6 +4,4 @@ export type {
   D1DailyHistoryRepository,
   DailyHistoryRecord,
   DailyHistoryRepository,
-  DailyHistoryTransaction,
-  InsertDailyHistoryInput,
 } from "$lib/server/db/daily-history-types";

@@ -28,7 +28,7 @@ export function historyItemUrl(
   return `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(date)}/history/${encodeURIComponent(historyId)}`;
 }
 
-export function parseApiErrorEffect(
+function parseApiErrorEffect(
   response: Response,
   fallback: string,
 ): Effect.Effect<string, never> {
