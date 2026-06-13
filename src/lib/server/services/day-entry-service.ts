@@ -12,16 +12,15 @@ import type {
   DailyTotalRecord,
   DailyTotalRepository,
 } from "$lib/server/db/daily-total-repository";
-import { toEffectError } from "$lib/server/effect/runtime";
 import { createHistoryId as createDefaultHistoryId } from "$lib/server/services/history-id";
-import { replayDailyHistories } from "./day-entry/replay";
+import { persistEntryEffect } from "./day-entry/entry-persistence";
+import { replayHistoryMutationEffect } from "./day-entry/history-mutation";
 import {
-  normalizeEntryMemo,
-  normalizeUpdatedHistoryMemo,
-  assertHistoryMutationDate,
-  assertDateInPeriod,
-  createPreparedEntryInput,
-} from "./day-entry/commands";
+  prepareEntryEffect,
+  validateHistoryDeleteEffect,
+  validateHistoryUpdateEffect,
+  type ExecuteEntryInput,
+} from "./day-entry/preparation";
 
 type DayEntryServiceInput = {
   databaseClient: DatabaseClient<
@@ -52,17 +51,6 @@ export type HistoryMutationCommand = {
 export type UpdateHistoryCommand = HistoryMutationCommand & {
   inputYen: number;
   memo?: string | null;
-};
-
-type ExecuteEntryInput = {
-  operationType: "add" | "overwrite";
-  command: PeriodDayEntryCommand;
-};
-
-type PreparedEntryInput = ExecuteEntryInput & {
-  period: BudgetPeriodRecord;
-  memo: string | null;
-  nowIso: string;
 };
 
 export type DayEntryResult = {
@@ -149,15 +137,15 @@ export class DayEntryService {
     command: UpdateHistoryCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen(this, function* () {
-      const memo = yield* Effect.try({
-        try: () => normalizeUpdatedHistoryMemo(command),
-        catch: toEffectError,
+      const memo = yield* validateHistoryUpdateEffect(command);
+      return yield* replayHistoryMutationEffect({
+        ...this.createHistoryMutationInput(command),
+        mutateTarget: (history) => ({
+          ...history,
+          inputYen: command.inputYen,
+          memo,
+        }),
       });
-      return yield* this.replayHistoryMutationEffect(command, (history) => ({
-        ...history,
-        inputYen: command.inputYen,
-        memo,
-      }));
     });
   }
 
@@ -165,189 +153,55 @@ export class DayEntryService {
     command: HistoryMutationCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen(this, function* () {
-      yield* Effect.try({
-        try: () => assertHistoryMutationDate(command.date),
-        catch: toEffectError,
+      yield* validateHistoryDeleteEffect(command);
+      return yield* replayHistoryMutationEffect({
+        ...this.createHistoryMutationInput(command),
+        mutateTarget: () => null,
       });
-      return yield* this.replayHistoryMutationEffect(command, () => null);
     });
+  }
+
+  private createHistoryMutationInput(command: HistoryMutationCommand) {
+    return {
+      command,
+      databaseClient: this.databaseClient,
+      budgetPeriodRepository: this.budgetPeriodRepository,
+      dailyTotalRepository: this.dailyTotalRepository,
+      dailyHistoryRepository: this.dailyHistoryRepository,
+      now: this.now,
+      errors: {
+        createPeriodNotFoundError: (periodId: string) =>
+          new PeriodNotFoundError(periodId),
+        createDateOutOfPeriodError: (date: string, periodId: string) =>
+          new DateOutOfPeriodError(date, periodId),
+        createHistoryNotFoundError: (historyId: string) =>
+          new HistoryNotFoundError(historyId),
+      },
+    };
   }
 
   private executeEntryEffect(
     input: ExecuteEntryInput,
   ): Effect.Effect<DayEntryResult, Error> {
     return Effect.gen(this, function* () {
-      const prepared = yield* this.prepareEntryEffect(input);
-      return yield* this.persistEntryEffect(prepared);
-    });
-  }
-
-  private prepareEntryEffect(
-    input: ExecuteEntryInput,
-  ): Effect.Effect<PreparedEntryInput, Error> {
-    return Effect.gen(this, function* () {
-      const memo = yield* Effect.try({
-        try: () => normalizeEntryMemo(input.command),
-        catch: toEffectError,
-      });
-      const nowIso = this.now();
-
-      const period = yield* this.budgetPeriodRepository.findById(
-        input.command.periodId,
-      );
-      if (!period) {
-        return yield* Effect.fail(
-          new PeriodNotFoundError(input.command.periodId),
-        );
-      }
-      yield* Effect.try({
-        try: () =>
-          assertDateInPeriod(
-            input.command.date,
-            period,
-            (date, periodId) => new DateOutOfPeriodError(date, periodId),
-          ),
-        catch: toEffectError,
-      });
-
-      return createPreparedEntryInput({
+      const prepared = yield* prepareEntryEffect({
         execute: input,
-        period,
-        memo,
-        nowIso,
+        budgetPeriodRepository: this.budgetPeriodRepository,
+        now: this.now,
+        errors: {
+          createPeriodNotFoundError: (periodId) =>
+            new PeriodNotFoundError(periodId),
+          createDateOutOfPeriodError: (date, periodId) =>
+            new DateOutOfPeriodError(date, periodId),
+        },
+      });
+      return yield* persistEntryEffect({
+        databaseClient: this.databaseClient,
+        dailyTotalRepository: this.dailyTotalRepository,
+        dailyHistoryRepository: this.dailyHistoryRepository,
+        createHistoryId: this.createHistoryId,
+        prepared,
       });
     });
-  }
-
-  private persistEntryEffect(
-    input: PreparedEntryInput,
-  ): Effect.Effect<DayEntryResult, Error> {
-    return this.databaseClient.transaction((tx) =>
-      Effect.gen(this, function* () {
-        const existingTotal = yield* this.dailyTotalRepository.findByDate(
-          tx,
-          input.command.date,
-          input.period.id,
-        );
-        const beforeTotalYen = existingTotal?.totalUsedYen ?? 0;
-        const afterTotalYen =
-          input.operationType === "add"
-            ? beforeTotalYen + input.command.inputYen
-            : input.command.inputYen;
-
-        const dailyTotal = yield* this.dailyTotalRepository.upsertDailyTotal(
-          tx,
-          {
-            date: input.command.date,
-            yearMonth: input.command.date.slice(0, 7),
-            budgetPeriodId: input.period.id,
-            totalUsedYen: afterTotalYen,
-            nowIso: input.nowIso,
-          },
-        );
-        const history = yield* this.dailyHistoryRepository.insertHistory(tx, {
-          id: this.createHistoryId(),
-          date: input.command.date,
-          budgetPeriodId: input.period.id,
-          operationType: input.operationType,
-          inputYen: input.command.inputYen,
-          beforeTotalYen,
-          afterTotalYen,
-          memo: input.memo,
-          createdAt: input.nowIso,
-        });
-
-        return {
-          dailyTotal,
-          history,
-        };
-      }),
-    );
-  }
-
-  private replayHistoryMutationEffect(
-    command: HistoryMutationCommand,
-    mutateTarget: (history: DailyHistoryRecord) => DailyHistoryRecord | null,
-  ): Effect.Effect<HistoryReplayResult, Error> {
-    return this.databaseClient.transaction((tx) =>
-      Effect.gen(this, function* () {
-        const period = yield* this.budgetPeriodRepository.findById(
-          command.periodId,
-        );
-        if (!period) {
-          return yield* Effect.fail(new PeriodNotFoundError(command.periodId));
-        }
-        yield* Effect.try({
-          try: () =>
-            assertDateInPeriod(
-              command.date,
-              period,
-              (date, periodId) => new DateOutOfPeriodError(date, periodId),
-            ),
-          catch: toEffectError,
-        });
-
-        const target = yield* this.dailyHistoryRepository.findHistoryById(tx, {
-          budgetPeriodId: period.id,
-          date: command.date,
-          historyId: command.historyId,
-        });
-        if (!target) {
-          return yield* Effect.fail(
-            new HistoryNotFoundError(command.historyId),
-          );
-        }
-
-        const existingHistories =
-          yield* this.dailyHistoryRepository.listHistoriesByDateChronological(
-            tx,
-            command.date,
-            period.id,
-          );
-        const mutatedHistories = existingHistories.flatMap((history) => {
-          if (history.id !== command.historyId) {
-            return [history];
-          }
-          const next = mutateTarget(history);
-          return next ? [next] : [];
-        });
-        const replayed = replayDailyHistories(mutatedHistories);
-
-        yield* this.dailyHistoryRepository.replaceHistoriesForDate(tx, {
-          budgetPeriodId: period.id,
-          date: command.date,
-          histories: replayed.histories,
-        });
-        if (replayed.histories.length === 0) {
-          yield* this.dailyTotalRepository.deleteDailyTotal(tx, {
-            date: command.date,
-            budgetPeriodId: period.id,
-          });
-          return {
-            dailyTotal: {
-              date: command.date,
-              yearMonth: command.date.slice(0, 7),
-              budgetPeriodId: period.id,
-              totalUsedYen: 0,
-              updatedAt: this.now(),
-            },
-            histories: replayed.histories,
-          };
-        }
-
-        const dailyTotal = yield* this.dailyTotalRepository.setDailyTotal(tx, {
-          date: command.date,
-          yearMonth: command.date.slice(0, 7),
-          budgetPeriodId: period.id,
-          totalUsedYen: replayed.finalTotalYen,
-          nowIso: this.now(),
-        });
-
-        return {
-          dailyTotal,
-          histories: replayed.histories,
-        };
-      }),
-    );
   }
 }
