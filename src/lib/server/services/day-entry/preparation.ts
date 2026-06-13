@@ -14,13 +14,6 @@ import {
   type PreparedEntryInput,
 } from "./commands";
 
-type PeriodDayEntryCommandLike = {
-  periodId: string;
-  date: string;
-  inputYen: number;
-  memo?: string | null;
-};
-
 type HistoryMutationCommandLike = {
   periodId: string;
   date: string;
@@ -111,4 +104,4 @@ export function prepareEntryEffect(
   });
 }
 
-export type { ExecuteEntryInput, PeriodDayEntryCommandLike };
+export type { ExecuteEntryInput };

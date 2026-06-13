@@ -9,7 +9,7 @@ import {
 } from "$lib/server/db/budget-period-validation";
 import { PeriodValidationError } from "$lib/server/db/budget-period-types";
 
-export function createPeriodValidationError(
+function createPeriodValidationError(
   code: string,
   message: string,
 ): PeriodValidationError {

@@ -64,6 +64,7 @@ export type HistoryReplayResult = {
 };
 
 export class PeriodNotFoundError extends Error {
+  // fallow-ignore-next-line unused-class-member
   readonly code = "PERIOD_NOT_FOUND";
 
   constructor(periodId: string) {
@@ -73,6 +74,7 @@ export class PeriodNotFoundError extends Error {
 }
 
 export class DateOutOfPeriodError extends Error {
+  // fallow-ignore-next-line unused-class-member
   readonly code = "DATE_OUT_OF_PERIOD";
 
   constructor(date: string, periodId: string) {
@@ -82,6 +84,7 @@ export class DateOutOfPeriodError extends Error {
 }
 
 export class HistoryNotFoundError extends Error {
+  // fallow-ignore-next-line unused-class-member
   readonly code = "HISTORY_NOT_FOUND";
 
   constructor(historyId: string) {
