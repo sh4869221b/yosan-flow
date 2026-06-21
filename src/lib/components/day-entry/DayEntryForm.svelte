@@ -60,8 +60,7 @@
     <textarea
       rows="3"
       bind:value={memo}
-      placeholder="例: ランチ、食材の買い物など"
-    ></textarea>
+      placeholder="例: ランチ、食材の買い物など"></textarea>
   </label>
 
   <div class="actions">
