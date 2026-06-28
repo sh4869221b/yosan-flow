@@ -25,10 +25,3 @@ export function getJstDateParts(now: Date) {
     yearMonth: date.slice(0, 7),
   };
 }
-
-export function isFutureDateFromJstToday(
-  targetDate: string,
-  jstToday: string,
-): boolean {
-  return targetDate > jstToday;
-}

@@ -11,7 +11,7 @@ Applies to `src/lib/server/**`.
 - `services/` coordinates repositories and domain behavior. `month-summary-service.ts` is still the main summary/service boundary even though the app is period-first.
 - `services/api-services/` selects D1-backed, in-memory, and cached service implementations.
 - `validation/` owns request parsing and API error conversion. Keep route handlers thin.
-- `time/jst.ts` owns JST date helpers used by summaries and tests.
+- `time/` owns JST format/date comparison helpers used by summaries and tests.
 
 ## Domain Invariants
 
