@@ -1,9 +1,6 @@
 import { Effect } from "effect";
-import {
-  fetchJsonEffect,
-  periodSummaryUrl,
-  periodsUrl,
-} from "$lib/dashboard/api";
+import { periodSummaryUrl, periodsUrl } from "$lib/dashboard/api-urls";
+import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import type {
   PeriodOption,
   PeriodSummary,
