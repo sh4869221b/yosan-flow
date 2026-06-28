@@ -2,10 +2,8 @@ import {
   applyBudgetPeriodMutation,
   queryBudgetPeriods,
 } from "./budget-period-sql";
-import {
-  applyDailyOperationHistoryMutation,
-  queryDailyOperationHistories,
-} from "./daily-operation-history-sql";
+import { applyDailyOperationHistoryMutation } from "./daily-operation-history-mutations";
+import { queryDailyOperationHistories } from "./daily-operation-history-sql";
 import { applyDailyTotalMutation, queryDailyTotals } from "./daily-total-sql";
 import {
   toBudgetPeriodRawRow,
