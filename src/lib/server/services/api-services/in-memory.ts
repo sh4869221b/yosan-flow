@@ -19,7 +19,7 @@ import {
   DayEntryService,
   PeriodNotFoundError,
 } from "$lib/server/services/day-entry-service";
-import { getJstDateParts } from "$lib/server/time/jst";
+import { getJstDateParts } from "$lib/server/time/jst-format";
 import type {
   CreateInMemoryApiServicesInput,
   InMemoryApiServicesWithInternals,
