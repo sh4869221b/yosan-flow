@@ -1,5 +1,5 @@
 import type { Effect } from "effect";
-import { runClientEffect } from "$lib/dashboard/api";
+import { runClientEffect } from "$lib/dashboard/client-effect";
 import { toPeriodId } from "$lib/dashboard/date";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
 import type { SavePeriodPayload } from "$lib/dashboard/types";

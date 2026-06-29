@@ -1,9 +1,7 @@
 import { Effect } from "effect";
-import {
-  dayAddUrl,
-  fetchJsonEffect,
-  runClientEffect,
-} from "$lib/dashboard/api";
+import { runClientEffect } from "$lib/dashboard/client-effect";
+import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
+import { dayAddUrl } from "$lib/dashboard/api-urls";
 import {
   getModalPreviewAfterYen,
   getModalPreviewRecommendedYen,

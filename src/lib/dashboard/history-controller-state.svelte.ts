@@ -1,10 +1,7 @@
 import { Effect } from "effect";
-import {
-  dayHistoryUrl,
-  fetchJsonEffect,
-  historyItemUrl,
-  runClientEffect,
-} from "$lib/dashboard/api";
+import { dayHistoryUrl, historyItemUrl } from "$lib/dashboard/api-urls";
+import { runClientEffect } from "$lib/dashboard/client-effect";
+import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import type {
   DeleteHistoryPayload,
   HistoryItem,
