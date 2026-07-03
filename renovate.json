@@ -14,10 +14,6 @@
     "enabled": true,
     "schedule": ["before 8am on monday"]
   },
-  "postUpgradeTasks": {
-    "commands": ["pnpm install --frozen-lockfile", "pnpm format"],
-    "executionMode": "branch"
-  },
   "packageRules": [
     {
       "description": "Create stable patch/minor PRs immediately; pull request CI is the authoritative validation gate.",

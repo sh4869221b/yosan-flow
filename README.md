@@ -64,7 +64,7 @@ Renovate is configured in `renovate.json`.
 
 - Dependency Dashboard Issue is enabled as `Dependency Dashboard`.
 - npm package updates wait until the released version is at least 3 days old before Renovate creates an update branch or PR. Local and CI `pnpm install` also enforce the same 3-day minimum release age for direct and transitive dependencies.
-- Renovate runs `pnpm install --frozen-lockfile` and `pnpm format` once per update branch before committing, so formatter changes caused by dependency updates are included in the Renovate PR.
+- A Renovate-only formatting workflow runs `pnpm install --frozen-lockfile` and `pnpm format` on Renovate PR branches, then commits formatter changes back to the PR branch when dependency updates change formatter output.
 - Stable patch/minor updates create PRs immediately, and PR CI is the validation gate.
 - Major updates and current `0.x` dependencies require manual approval from the Dependency Dashboard before Renovate creates the update branch or PR.
 - Core dependencies still require Dependency Dashboard approval for major updates, but their patch/minor updates create PRs automatically after the 3-day release age gate.

@@ -7,6 +7,7 @@
 - Add `renovate.json`.
 - Update `.github/workflows/ci.yml` so pull requests and `main` pushes run the existing CI gate plus E2E in parallel, while `renovate/**` branch pushes do not run duplicate CI.
 - Add a matching `pnpm-workspace.yaml` install-time minimum release age so local and CI installs also avoid newly published direct and transitive npm package versions.
+- Add a Renovate-only formatting workflow so dependency updates that change formatter output get formatter diffs committed back to the Renovate PR branch.
 - Document the dependency update policy in `README.md` and `CONTRIBUTING.md`.
 
 **Policy:**
@@ -17,7 +18,7 @@
 - Major updates require `dependencyDashboardApproval`.
 - Current `0.x` dependencies require `dependencyDashboardApproval`.
 - Core dependencies require `dependencyDashboardApproval` only for major updates.
-- Renovate runs `pnpm install --frozen-lockfile` and `pnpm format` once per update branch before committing so dependency-driven formatter output changes are included in the PR.
+- A Renovate-only formatting workflow runs `pnpm install --frozen-lockfile` and `pnpm format` on Renovate PR branches, then commits dependency-driven formatter output changes back to the PR branch.
 - Pull request CI is the authoritative validation gate; the aggregate `Quality checks` job depends on all parallel CI jobs, and automerge remains disabled.
 
 **Core dependencies for this repository:**
