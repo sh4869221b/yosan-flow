@@ -17,6 +17,7 @@
 - Major updates require `dependencyDashboardApproval`.
 - Current `0.x` dependencies require `dependencyDashboardApproval`.
 - Core dependencies require `dependencyDashboardApproval` only for major updates.
+- Renovate runs `pnpm install --frozen-lockfile` and `pnpm format` once per update branch before committing so dependency-driven formatter output changes are included in the PR.
 - Pull request CI is the authoritative validation gate; the aggregate `Quality checks` job depends on all parallel CI jobs, and automerge remains disabled.
 
 **Core dependencies for this repository:**
