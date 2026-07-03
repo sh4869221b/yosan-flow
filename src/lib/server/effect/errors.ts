@@ -1,11 +1,7 @@
 import { Data } from "effect";
 
 export type ApiErrorKind =
-  | "validation"
-  | "not_found"
-  | "conflict"
-  | "database"
-  | "internal";
+  "validation" | "not_found" | "conflict" | "database" | "internal";
 
 export class ApiResponseError extends Data.TaggedError("ApiResponseError")<{
   readonly kind: ApiErrorKind;

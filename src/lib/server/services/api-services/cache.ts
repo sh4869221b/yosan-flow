@@ -10,8 +10,7 @@ function getApiServicesGlobalCache(): ApiServicesGlobalCache {
     (globalThis as { process?: unknown }).process ?? (globalThis as unknown);
   const cacheHost = runtimeHost as Record<string | symbol, unknown>;
   const existing = cacheHost[apiServicesCacheKey] as
-    | ApiServicesGlobalCache
-    | undefined;
+    ApiServicesGlobalCache | undefined;
   if (existing) {
     return existing;
   }
