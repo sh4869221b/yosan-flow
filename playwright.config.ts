@@ -18,6 +18,7 @@ export default defineConfig({
   workers: 1,
   reporter: [
     ["list"],
+    ["json", { outputFile: "test-results/results.json" }],
     ["html", { outputFolder: "playwright-report", open: "never" }],
   ],
   use: {
