@@ -21,11 +21,14 @@ export type SeededDayEntryPeriod = {
   readonly todayDate: string;
 };
 
-export type SuccessfulDayEntrySaveOptions = {
+export type DayEntrySaveResponseOptions = {
   readonly page: Page;
   readonly modal: Locator;
   readonly periodId: string;
   readonly date: string;
+};
+
+export type SuccessfulDayEntrySaveOptions = DayEntrySaveResponseOptions & {
   readonly responseAssertionContext?: string;
 };
 
@@ -84,13 +87,12 @@ export function isExactDayEntryAddResponse(
   );
 }
 
-export async function saveDayEntrySuccessfully({
+export async function clickSaveAndWaitForDayEntryAddResponse({
   page,
   modal,
   periodId,
   date,
-  responseAssertionContext,
-}: SuccessfulDayEntrySaveOptions): Promise<void> {
+}: DayEntrySaveResponseOptions): Promise<Response> {
   const addPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(date)}/add`;
   const expectedUrl = new URL(addPath, page.url()).href;
   const [response] = await Promise.all([
@@ -99,6 +101,22 @@ export async function saveDayEntrySuccessfully({
     ),
     modal.getByRole("button", { name: "保存する" }).click(),
   ]);
+  return response;
+}
+
+export async function saveDayEntrySuccessfully({
+  page,
+  modal,
+  periodId,
+  date,
+  responseAssertionContext,
+}: SuccessfulDayEntrySaveOptions): Promise<void> {
+  const response = await clickSaveAndWaitForDayEntryAddResponse({
+    page,
+    modal,
+    periodId,
+    date,
+  });
 
   if (!response.ok()) {
     throw new SuccessfulDayEntrySaveError(

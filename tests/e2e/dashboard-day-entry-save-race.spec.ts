@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  clickSaveAndWaitForDayEntryAddResponse,
   configureDashboardDayEntryE2E,
   saveDayEntrySuccessfully,
   seedCurrentPeriod,
@@ -17,7 +18,6 @@ test("keeps a newer day-entry modal open when an older save finishes", async ({
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   const secondDate = addDays(todayDate, 1);
   const historyUrl = `/api/periods/${periodId}/days/${todayDate}/history`;
-  const addUrl = `/api/periods/${periodId}/days/${todayDate}/add`;
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
   await Promise.all([
@@ -56,13 +56,12 @@ test("keeps a newer day-entry modal open when an older save finishes", async ({
   // When: the old save reaches its held history refresh, then the user opens a
   // newer modal session before that old refresh is allowed to complete.
   await modal.getByLabel("入力額 (円)").fill("2000");
-  const addResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      new URL(response.url()).pathname === addUrl,
-  );
-  await modal.getByRole("button", { name: "保存する" }).click();
-  const response = await addResponse;
+  const response = await clickSaveAndWaitForDayEntryAddResponse({
+    page,
+    modal,
+    periodId,
+    date: todayDate,
+  });
   expect(response.ok()).toBe(true);
   await expect(
     page
@@ -112,7 +111,6 @@ test("preserves a newer failed modal when an older successful save finishes", as
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   const secondDate = addDays(todayDate, 1);
   const oldHistoryUrl = `/api/periods/${periodId}/days/${todayDate}/history`;
-  const oldAddUrl = `/api/periods/${periodId}/days/${todayDate}/add`;
   const newHistoryUrl = `/api/periods/${periodId}/days/${secondDate}/history`;
   const newAddUrl = `/api/periods/${periodId}/days/${secondDate}/add`;
 
@@ -149,13 +147,13 @@ test("preserves a newer failed modal when an older successful save finishes", as
 
   await modal.getByLabel("入力額 (円)").fill("2000");
   await modal.getByLabel("メモ").fill("old successful session");
-  const oldAddResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      new URL(response.url()).pathname === oldAddUrl,
-  );
-  await modal.getByRole("button", { name: "保存する" }).click();
-  expect((await oldAddResponse).ok()).toBe(true);
+  const oldAddResponse = await clickSaveAndWaitForDayEntryAddResponse({
+    page,
+    modal,
+    periodId,
+    date: todayDate,
+  });
+  expect(oldAddResponse.ok()).toBe(true);
   await historyIntercepted;
   expect(intercepted).toBe(1);
   expect(released).toBe(0);
