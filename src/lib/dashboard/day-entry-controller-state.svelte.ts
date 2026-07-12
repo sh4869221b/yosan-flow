@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Deferred, Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import { dayAddUrl } from "$lib/dashboard/api-urls";
@@ -34,6 +34,8 @@ export function createDayEntryControllerState(
   let selectedRow = $state<DailyRow | null>(null);
   let modalInputYen = $state("");
   let modalMemo = $state("");
+  let modalGeneration = 0;
+  let modalSessionChanged = Effect.runSync(Deferred.make<void>());
 
   const modalPreviewAfterYen = $derived(
     getModalPreviewAfterYen(selectedRow, modalInputYen),
@@ -64,11 +66,16 @@ export function createDayEntryControllerState(
     if (selectedPeriodId == null) {
       return Effect.void;
     }
+    const submittedGeneration = modalGeneration;
+    const submittedDate = payload.date;
+    const submittedSessionChanged = modalSessionChanged;
     return Effect.gen(function* () {
-      modalSaving = true;
-      modalError = null;
+      if (submittedGeneration === modalGeneration) {
+        modalSaving = true;
+        modalError = null;
+      }
       const result = yield* fetchJsonEffect<PeriodSummary>(
-        dayAddUrl(selectedPeriodId, payload.date),
+        dayAddUrl(selectedPeriodId, submittedDate),
         {
           body: JSON.stringify({
             inputYen: payload.inputYen,
@@ -80,18 +87,27 @@ export function createDayEntryControllerState(
         "保存に失敗しました。",
       ).pipe(Effect.either);
       if (result._tag === "Left") {
-        modalError = result.left;
+        if (submittedGeneration === modalGeneration) {
+          modalError = result.left;
+        }
       } else {
         dependencies.setSummary(result.right);
-        if (selectedDate != null) {
+        if (submittedGeneration === modalGeneration) {
           selectedRow =
-            result.right.dailyRows.find((row) => row.date === selectedDate) ??
+            result.right.dailyRows.find((row) => row.date === submittedDate) ??
             null;
-          yield* dependencies.historyController.loadHistoryEffect(selectedDate);
+          yield* Effect.raceFirst(
+            dependencies.historyController.loadHistoryEffect(submittedDate),
+            Deferred.await(submittedSessionChanged),
+          );
         }
-        closeDayEntry();
+        if (submittedGeneration === modalGeneration) {
+          closeDayEntry();
+        }
       }
-      modalSaving = false;
+      if (submittedGeneration === modalGeneration) {
+        modalSaving = false;
+      }
     });
   }
 
@@ -140,6 +156,10 @@ export function createDayEntryControllerState(
       if (summary == null) {
         return;
       }
+      Effect.runSync(Deferred.succeed(modalSessionChanged, undefined));
+      modalSessionChanged = Effect.runSync(Deferred.make<void>());
+      modalGeneration += 1;
+      modalSaving = false;
       selectedDate = payload.date;
       selectedRow =
         summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
