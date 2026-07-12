@@ -28,6 +28,12 @@ export type DayEntrySaveResponseOptions = {
   readonly date: string;
 };
 
+export type OpenDayEntryAndWaitForHistoryOptions = {
+  readonly page: Page;
+  readonly periodId: string;
+  readonly date: string;
+};
+
 export type SuccessfulDayEntrySaveOptions = DayEntrySaveResponseOptions & {
   readonly responseAssertionContext?: string;
 };
@@ -85,6 +91,46 @@ export function isExactDayEntryAddResponse(
   return (
     response.request().method() === "POST" && response.url() === expectedUrl
   );
+}
+
+export async function openDayEntryAndWaitForHistory({
+  page,
+  periodId,
+  date,
+}: OpenDayEntryAndWaitForHistoryOptions): Promise<Locator> {
+  const dayTestId = `calendar-day-${date}`;
+  const dayButton = page.getByTestId(dayTestId);
+  await page.waitForFunction((testId) => {
+    const element = document.querySelector(`[data-testid="${testId}"]`);
+    return (
+      element != null &&
+      Object.getOwnPropertySymbols(element).some(
+        (symbol) => symbol.description === "events",
+      )
+    );
+  }, dayTestId);
+
+  const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(date)}/history`;
+  const expectedUrl = new URL(historyPath, page.url()).href;
+  const historyResponse = page.waitForResponse(
+    (candidate) =>
+      candidate.request().method() === "GET" && candidate.url() === expectedUrl,
+  );
+  await dayButton.click();
+
+  const modal = page.getByTestId("day-entry-modal");
+  await expect(modal).toBeVisible();
+  await expect(modal).toContainText(`対象日: ${date}`);
+  const response = await historyResponse;
+  expect(
+    response.ok(),
+    `Initial day-entry history request failed with HTTP ${response.status()}: ${response.url()}`,
+  ).toBe(true);
+  await expect(modal.getByText("履歴を読み込み中...")).toBeHidden();
+  await expect(
+    modal.getByText("入力を保存すると履歴が表示されます。"),
+  ).toBeVisible();
+  return modal;
 }
 
 export async function clickSaveAndWaitForDayEntryAddResponse({

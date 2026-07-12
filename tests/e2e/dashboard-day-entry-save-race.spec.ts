@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   clickSaveAndWaitForDayEntryAddResponse,
   configureDashboardDayEntryE2E,
+  openDayEntryAndWaitForHistory,
   saveDayEntrySuccessfully,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
@@ -17,22 +18,14 @@ test("keeps a newer day-entry modal open when an older save finishes", async ({
   // history refresh caused by saving will be held behind the barrier.
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   const secondDate = addDays(todayDate, 1);
-  const historyUrl = `/api/periods/${periodId}/days/${todayDate}/history`;
+  const historyUrl = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history`;
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.request().method() === "GET" &&
-        new URL(response.url()).pathname === historyUrl &&
-        response.ok(),
-    ),
-    page.getByTestId(`calendar-day-${todayDate}`).click(),
-  ]);
-
-  const modal = page.getByTestId("day-entry-modal");
-  await expect(modal).toBeVisible();
-  await expect(modal).toContainText(`対象日: ${todayDate}`);
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
 
   let intercepted = 0;
   let released = 0;
@@ -110,22 +103,16 @@ test("preserves a newer failed modal when an older successful save finishes", as
   // Given: an older successful save is paused at its post-save history refresh.
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   const secondDate = addDays(todayDate, 1);
-  const oldHistoryUrl = `/api/periods/${periodId}/days/${todayDate}/history`;
+  const oldHistoryUrl = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history`;
   const newHistoryUrl = `/api/periods/${periodId}/days/${secondDate}/history`;
   const newAddUrl = `/api/periods/${periodId}/days/${secondDate}/add`;
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.request().method() === "GET" &&
-        new URL(response.url()).pathname === oldHistoryUrl &&
-        response.ok(),
-    ),
-    page.getByTestId(`calendar-day-${todayDate}`).click(),
-  ]);
-  const modal = page.getByTestId("day-entry-modal");
-  await expect(modal).toBeVisible();
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
 
   let intercepted = 0;
   let released = 0;

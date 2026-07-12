@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   configureDashboardDayEntryE2E,
   isExactDayEntryAddResponse,
+  openDayEntryAndWaitForHistory,
   saveDayEntrySuccessfully,
   seedCurrentPeriod,
   SuccessfulDayEntrySaveError,
@@ -9,6 +10,43 @@ import {
 import { getBaseUrl } from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
+
+test("surfaces an unsuccessful initial history response", async ({
+  page,
+  request,
+}) => {
+  // Given: a seeded period whose exact initial history endpoint returns 503.
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await page.route(
+    `**/api/periods/${periodId}/days/${todayDate}/history`,
+    async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: { message: "initial history unavailable" },
+        }),
+      });
+    },
+  );
+
+  // When: the lifecycle helper observes the exact response.
+  const opening = openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
+
+  // Then: it fails with the real status instead of hiding 503 in a predicate.
+  await expect(opening).rejects.toThrow(
+    /Initial day-entry history request failed with HTTP 503/,
+  );
+  await expect(page.getByTestId("day-entry-modal")).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText(
+    "initial history unavailable",
+  );
+});
 
 test("matches only the exact absolute add response URL", async ({ page }) => {
   // Given: exact, query-bearing, and wrong-origin POST responses for one add path.
