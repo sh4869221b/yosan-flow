@@ -35,6 +35,8 @@ export function createDayEntryControllerState(
   let modalInputYen = $state("");
   let modalMemo = $state("");
   let modalGeneration = 0;
+  let submissionSequence = 0;
+  let latestAppliedSuccessfulSubmissionSequence = 0;
   let modalSessionChanged = Effect.runSync(Deferred.make<void>());
 
   const modalPreviewAfterYen = $derived(
@@ -69,6 +71,8 @@ export function createDayEntryControllerState(
     const submittedGeneration = modalGeneration;
     const submittedDate = payload.date;
     const submittedSessionChanged = modalSessionChanged;
+    submissionSequence += 1;
+    const submittedSequence = submissionSequence;
     return Effect.gen(function* () {
       if (submittedGeneration === modalGeneration) {
         modalSaving = true;
@@ -91,7 +95,10 @@ export function createDayEntryControllerState(
           modalError = result.left;
         }
       } else {
-        dependencies.setSummary(result.right);
+        if (submittedSequence > latestAppliedSuccessfulSubmissionSequence) {
+          dependencies.setSummary(result.right);
+          latestAppliedSuccessfulSubmissionSequence = submittedSequence;
+        }
         if (submittedGeneration === modalGeneration) {
           selectedRow =
             result.right.dailyRows.find((row) => row.date === submittedDate) ??
