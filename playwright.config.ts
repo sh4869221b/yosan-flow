@@ -16,6 +16,14 @@ export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
   workers: 1,
+  reporter: [
+    ["list"],
+    ["html", { outputFolder: "playwright-report", open: "never" }],
+  ],
+  use: {
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
   webServer: {
     command: [
       "bash -lc '",

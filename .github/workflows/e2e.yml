@@ -32,3 +32,15 @@ jobs:
 
       - name: Run E2E tests
         run: pnpm test:e2e
+
+      - name: Upload E2E diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/
+            playwright-report/
+            .tmp-xdg-config/.wrangler/logs/
+          if-no-files-found: warn
+          retention-days: 7
