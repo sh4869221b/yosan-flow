@@ -1,7 +1,7 @@
 import { Deferred, Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import { dayAddUrl } from "$lib/dashboard/api-urls";
+import { dayAddUrl, periodSummaryUrl } from "$lib/dashboard/api-urls";
 import {
   getModalPreviewAfterYen,
   getModalPreviewRecommendedYen,
@@ -37,6 +37,9 @@ export function createDayEntryControllerState(
   let modalGeneration = 0;
   let submissionSequence = 0;
   let latestAppliedSuccessfulSubmissionSequence = 0;
+  const activeSubmissionCounts = new Map<string, number>();
+  const latestRefreshSequences = new Map<string, number>();
+  let refreshSequence = 0;
   let modalSessionChanged = Effect.runSync(Deferred.make<void>());
 
   const modalPreviewAfterYen = $derived(
@@ -73,6 +76,10 @@ export function createDayEntryControllerState(
     const submittedSessionChanged = modalSessionChanged;
     submissionSequence += 1;
     const submittedSequence = submissionSequence;
+    activeSubmissionCounts.set(
+      selectedPeriodId,
+      (activeSubmissionCounts.get(selectedPeriodId) ?? 0) + 1,
+    );
     return Effect.gen(function* () {
       if (submittedGeneration === modalGeneration) {
         modalSaving = true;
@@ -90,27 +97,92 @@ export function createDayEntryControllerState(
         },
         "保存に失敗しました。",
       ).pipe(Effect.either);
+      const remainingSubmissions =
+        (activeSubmissionCounts.get(selectedPeriodId) ?? 1) - 1;
+      activeSubmissionCounts.set(selectedPeriodId, remainingSubmissions);
+      if (remainingSubmissions === 0) {
+        activeSubmissionCounts.delete(selectedPeriodId);
+      }
+      let refreshFailed = false;
       if (result._tag === "Left") {
         if (submittedGeneration === modalGeneration) {
           modalError = result.left;
         }
       } else {
-        if (submittedSequence > latestAppliedSuccessfulSubmissionSequence) {
+        const submittedPeriodIsCurrent =
+          dependencies.getSelectedPeriodId() === selectedPeriodId &&
+          result.right.periodId === selectedPeriodId;
+        if (
+          submittedPeriodIsCurrent &&
+          submittedSequence > latestAppliedSuccessfulSubmissionSequence
+        ) {
           dependencies.setSummary(result.right);
           latestAppliedSuccessfulSubmissionSequence = submittedSequence;
         }
-        if (submittedGeneration === modalGeneration) {
+        if (
+          submittedPeriodIsCurrent &&
+          (submittedGeneration === modalGeneration ||
+            selectedDate === submittedDate)
+        ) {
           selectedRow =
             result.right.dailyRows.find((row) => row.date === submittedDate) ??
             null;
+          const sessionChanged =
+            submittedGeneration === modalGeneration
+              ? submittedSessionChanged
+              : modalSessionChanged;
           yield* Effect.raceFirst(
             dependencies.historyController.loadHistoryEffect(submittedDate),
-            Deferred.await(submittedSessionChanged),
+            Deferred.await(sessionChanged),
           );
         }
-        if (submittedGeneration === modalGeneration) {
-          closeDayEntry();
+      }
+      if (remainingSubmissions === 0) {
+        refreshSequence += 1;
+        const currentRefreshSequence = refreshSequence;
+        latestRefreshSequences.set(selectedPeriodId, currentRefreshSequence);
+        const refreshResult = yield* fetchJsonEffect<PeriodSummary>(
+          periodSummaryUrl(selectedPeriodId),
+          undefined,
+          "再取得に失敗しました。",
+        ).pipe(Effect.either);
+        const refreshIsCurrent =
+          latestRefreshSequences.get(selectedPeriodId) ===
+            currentRefreshSequence &&
+          !activeSubmissionCounts.has(selectedPeriodId) &&
+          dependencies.getSelectedPeriodId() === selectedPeriodId;
+        if (
+          refreshResult._tag === "Right" &&
+          refreshIsCurrent &&
+          refreshResult.right.periodId === selectedPeriodId
+        ) {
+          dependencies.setSummary(refreshResult.right);
+          if (selectedDate === submittedDate) {
+            selectedRow =
+              refreshResult.right.dailyRows.find(
+                (row) => row.date === submittedDate,
+              ) ?? null;
+          }
+        } else if (
+          refreshResult._tag === "Left" &&
+          refreshIsCurrent &&
+          result._tag === "Right"
+        ) {
+          refreshFailed = true;
+          if (
+            submittedGeneration === modalGeneration ||
+            selectedDate === submittedDate
+          ) {
+            modalError = "保存しましたが再取得に失敗しました。";
+          }
         }
+      }
+      if (
+        result._tag === "Right" &&
+        submittedGeneration === modalGeneration &&
+        !refreshFailed
+      ) {
+        closeDayEntry();
       }
       if (submittedGeneration === modalGeneration) {
         modalSaving = false;

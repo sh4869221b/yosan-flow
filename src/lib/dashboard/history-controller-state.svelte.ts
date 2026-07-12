@@ -25,6 +25,7 @@ export function createHistoryControllerState(
   let historyError = $state<string | null>(null);
   let historyMutatingId = $state<string | null>(null);
   let histories = $state<HistoryItem[]>([]);
+  let historyRequestSequence = 0;
 
   function syncSelectedRow(summary: PeriodSummary): void {
     const selectedDate = dependencies.getSelectedDate();
@@ -41,6 +42,8 @@ export function createHistoryControllerState(
     if (selectedPeriodId == null) {
       return Effect.void;
     }
+    historyRequestSequence += 1;
+    const requestSequence = historyRequestSequence;
     return Effect.gen(function* () {
       historyLoading = true;
       historyError = null;
@@ -49,12 +52,18 @@ export function createHistoryControllerState(
         undefined,
         "履歴の取得に失敗しました。",
       ).pipe(Effect.either);
-      if (result._tag === "Left") {
+      const requestIsCurrent =
+        requestSequence === historyRequestSequence &&
+        dependencies.getSelectedPeriodId() === selectedPeriodId &&
+        dependencies.getSelectedDate() === date;
+      if (result._tag === "Left" && requestIsCurrent) {
         historyError = result.left;
-      } else {
+      } else if (result._tag === "Right" && requestIsCurrent) {
         histories = result.right.histories ?? [];
       }
-      historyLoading = false;
+      if (requestIsCurrent) {
+        historyLoading = false;
+      }
     });
   }
 

@@ -10,6 +10,43 @@ import { addDays, getBaseUrl } from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
+test("refreshes a reopened same-day modal after the pending save completes", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  const addUrl = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/add`;
+  const saveIntercepted = Promise.withResolvers<void>();
+  const saveReleased = Promise.withResolvers<void>();
+
+  await page.route(`**${addUrl}`, async (route) => {
+    saveIntercepted.resolve();
+    await saveReleased.promise;
+    await route.continue();
+  });
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
+  await modal.getByLabel("入力額 (円)").fill("2000");
+  await modal.getByLabel("メモ").fill("pending save");
+  await modal.getByRole("button", { name: "保存する" }).click();
+  await saveIntercepted.promise;
+
+  await page.getByTestId(`calendar-day-${todayDate}`).click();
+  await expect(modal).toBeVisible();
+  await modal.getByLabel("入力額 (円)").fill("3000");
+  await modal.getByLabel("メモ").fill("new session");
+  saveReleased.resolve();
+
+  await expect(modal.getByText("pending save")).toBeVisible();
+  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("3000");
+  await expect(modal.getByLabel("メモ")).toHaveValue("new session");
+  await expect(modal).toBeVisible();
+});
+
 test("keeps a newer day-entry modal open when an older save finishes", async ({
   page,
   request,
