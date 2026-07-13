@@ -143,16 +143,6 @@ export function createDayEntryControllerState(
       if (submittedGeneration === modalGeneration) {
         modalSaving = false;
       }
-      if (shouldRefreshHistory) {
-        const sessionChanged =
-          submittedGeneration === modalGeneration
-            ? submittedSessionChanged
-            : modalSessionChanged;
-        yield* Effect.raceFirst(
-          dependencies.historyController.loadHistoryEffect(submittedDate),
-          Deferred.await(sessionChanged),
-        );
-      }
       if (remainingSubmissions === 0) {
         refreshSequence += 1;
         const currentRefreshSequence = refreshSequence;
@@ -180,6 +170,16 @@ export function createDayEntryControllerState(
               ) ?? null;
           }
         }
+      }
+      if (shouldRefreshHistory) {
+        const sessionChanged =
+          submittedGeneration === modalGeneration
+            ? submittedSessionChanged
+            : modalSessionChanged;
+        yield* Effect.raceFirst(
+          dependencies.historyController.loadHistoryEffect(submittedDate),
+          Deferred.await(sessionChanged),
+        );
       }
     });
   }

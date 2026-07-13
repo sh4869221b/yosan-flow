@@ -114,9 +114,49 @@ describe("day-entry controller refresh failure", () => {
     await vi.waitFor(() => expect(loadHistoryEffect).toHaveBeenCalledOnce());
     expect(controller.modalOpen).toBe(false);
     expect(controller.modalSaving).toBe(false);
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     Effect.runSync(Deferred.succeed(historyFinished, undefined));
+  });
+
+  it("reconciles the summary while history remains pending", async () => {
+    // Given
+    const submittedSummary = createSummary();
+    const authoritativeSummary: PeriodSummary = {
+      ...submittedSummary,
+      plannedTotalYen: 5_000,
+      remainingYen: 5_000,
+      spentToDateYen: 5_000,
+    };
+    const historyFinished = Effect.runSync(Deferred.make<void>());
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(submittedSummary))
+      .mockResolvedValueOnce(jsonResponse(authoritativeSummary));
+    vi.stubGlobal("fetch", fetchMock);
+    const setSummary = vi.fn();
+    const controller = createDayEntryControllerState({
+      getSelectedPeriodId: () => "period-1",
+      getSummary: () => submittedSummary,
+      historyController: {
+        loadHistory: vi.fn(),
+        loadHistoryEffect: () => Deferred.await(historyFinished),
+        resetHistories: vi.fn(),
+      },
+      setSummary,
+    });
+    controller.openDayEntry({ date: "2026-07-12" });
+
+    // When
+    controller.submitDayEntry({
+      date: "2026-07-12",
+      inputYen: 2_000,
+      memo: "reconcile without history",
+    });
+
+    // Then
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(setSummary).toHaveBeenLastCalledWith(authoritativeSummary);
+    Effect.runSync(Deferred.succeed(historyFinished, undefined));
   });
 
   it("closes the modal after a successful save when summary refresh fails", async () => {
