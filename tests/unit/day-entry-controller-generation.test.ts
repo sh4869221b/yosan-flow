@@ -125,7 +125,7 @@ async function submitTwoDayEntries(
 }
 
 describe("day-entry controller modal generation", () => {
-  it("keeps the newest successful summary when successful submissions resolve in reverse order", async () => {
+  it("keeps the newest successful state when submissions resolve in reverse order", async () => {
     // Given
     const firstSummary = createSummary(2_000, 0);
     const secondSummary = createSummary(2_000, 3_000);
@@ -141,7 +141,7 @@ describe("day-entry controller modal generation", () => {
 
     // Then
     await vi.waitFor(() => {
-      expect(harness.loadHistoryEffect).toHaveBeenCalledTimes(2);
+      expect(harness.loadHistoryEffect).toHaveBeenCalledTimes(1);
       expect(harness.publishedSummaries).toEqual([secondSummary]);
     });
     expect(harness.summary).toEqual(secondSummary);

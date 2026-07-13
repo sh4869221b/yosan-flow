@@ -52,6 +52,38 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("day-entry controller refresh failure", () => {
+  it("finishes a successful save before reconciliation completes", async () => {
+    const summary = createSummary();
+    const refreshResponse = Promise.withResolvers<Response>();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(summary))
+      .mockImplementationOnce(() => refreshResponse.promise);
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = createDayEntryControllerState({
+      getSelectedPeriodId: () => "period-1",
+      getSummary: () => summary,
+      historyController: {
+        loadHistory: vi.fn(),
+        loadHistoryEffect: () => Effect.void,
+        resetHistories: vi.fn(),
+      },
+      setSummary: vi.fn(),
+    });
+    controller.openDayEntry({ date: "2026-07-12" });
+
+    controller.submitDayEntry({
+      date: "2026-07-12",
+      inputYen: 2_000,
+      memo: "committed without waiting",
+    });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(controller.modalOpen).toBe(false);
+    expect(controller.modalSaving).toBe(false);
+    refreshResponse.resolve(jsonResponse(summary));
+  });
+
   it("closes the modal after a successful save when summary refresh fails", async () => {
     const summary = createSummary();
     vi.stubGlobal(

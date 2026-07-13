@@ -103,27 +103,30 @@ export function createDayEntryControllerState(
       if (remainingSubmissions === 0) {
         activeSubmissionCounts.delete(selectedPeriodId);
       }
+      let shouldRefreshHistory = false;
       if (result._tag === "Left") {
         if (submittedGeneration === modalGeneration) {
           modalError = result.left;
         }
       } else {
-        const submittedPeriodIsCurrent =
-          dependencies.getSelectedPeriodId() === selectedPeriodId &&
-          result.right.periodId === selectedPeriodId;
-        if (
-          submittedPeriodIsCurrent &&
+        const successfulResponseIsLatest =
+          result.right.periodId === selectedPeriodId &&
           submittedSequence >
             (latestAppliedSuccessfulSubmissionSequences.get(selectedPeriodId) ??
-              0)
-        ) {
-          dependencies.setSummary(result.right);
+              0);
+        const submittedPeriodIsCurrent =
+          dependencies.getSelectedPeriodId() === selectedPeriodId;
+        if (successfulResponseIsLatest) {
           latestAppliedSuccessfulSubmissionSequences.set(
             selectedPeriodId,
             submittedSequence,
           );
+          if (submittedPeriodIsCurrent) {
+            dependencies.setSummary(result.right);
+          }
         }
         if (
+          successfulResponseIsLatest &&
           submittedPeriodIsCurrent &&
           (submittedGeneration === modalGeneration ||
             selectedDate === submittedDate)
@@ -131,15 +134,24 @@ export function createDayEntryControllerState(
           selectedRow =
             result.right.dailyRows.find((row) => row.date === submittedDate) ??
             null;
-          const sessionChanged =
-            submittedGeneration === modalGeneration
-              ? submittedSessionChanged
-              : modalSessionChanged;
-          yield* Effect.raceFirst(
-            dependencies.historyController.loadHistoryEffect(submittedDate),
-            Deferred.await(sessionChanged),
-          );
+          shouldRefreshHistory = true;
         }
+      }
+      if (result._tag === "Right" && submittedGeneration === modalGeneration) {
+        closeDayEntry();
+      }
+      if (submittedGeneration === modalGeneration) {
+        modalSaving = false;
+      }
+      if (shouldRefreshHistory) {
+        const sessionChanged =
+          submittedGeneration === modalGeneration
+            ? submittedSessionChanged
+            : modalSessionChanged;
+        yield* Effect.raceFirst(
+          dependencies.historyController.loadHistoryEffect(submittedDate),
+          Deferred.await(sessionChanged),
+        );
       }
       if (remainingSubmissions === 0) {
         refreshSequence += 1;
@@ -168,12 +180,6 @@ export function createDayEntryControllerState(
               ) ?? null;
           }
         }
-      }
-      if (result._tag === "Right" && submittedGeneration === modalGeneration) {
-        closeDayEntry();
-      }
-      if (submittedGeneration === modalGeneration) {
-        modalSaving = false;
       }
     });
   }
