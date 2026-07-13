@@ -150,6 +150,7 @@ export function createHistoryControllerState(
     }
     historyMutationSequence += 1;
     const mutationSequence = historyMutationSequence;
+    const summaryMutation = summaryRevision.beginMutation(selectedPeriodId);
     const mutationSummaryRevision = summaryRevision.get(selectedPeriodId);
     return Effect.gen(function* () {
       historyMutatingId = historyId;
@@ -165,6 +166,9 @@ export function createHistoryControllerState(
       const mutationOwnsCurrentPeriod =
         mutationSequence === historyMutationSequence &&
         dependencies.getSelectedPeriodId() === selectedPeriodId;
+      const mutationOwnsSummary =
+        mutationOwnsCurrentPeriod &&
+        summaryRevision.ownsMutation(selectedPeriodId, summaryMutation);
       const mutationOwnsCurrentDate =
         mutationOwnsCurrentPeriod &&
         dependencies.getSelectedDate() === selectedDate;
@@ -175,7 +179,10 @@ export function createHistoryControllerState(
         mutationOwnsCurrentPeriod &&
         result.right.summary.periodId === selectedPeriodId
       ) {
-        if (summaryRevision.get(selectedPeriodId) !== mutationSummaryRevision) {
+        if (
+          !mutationOwnsSummary ||
+          summaryRevision.get(selectedPeriodId) !== mutationSummaryRevision
+        ) {
           yield* reconcileHistoryMutationEffect(
             selectedPeriodId,
             selectedDate,

@@ -102,7 +102,6 @@ export function createPeriodControllerState(
         periods.find((period) => period.id === preferredPeriodId) ??
         periods.find((period) => period.id === selectedPeriodId) ??
         periods[periods.length - 1];
-      selectedPeriodId = matched.id;
       yield* refreshSummaryEffect(matched.id);
     });
   }
@@ -114,6 +113,7 @@ export function createPeriodControllerState(
       return Effect.void;
     }
     const periodId = selectedPeriodId;
+    const summaryMutationSequence = summaryRevision.beginMutation(periodId);
     const request = summaryRequests.start(periodId);
     const saveSequence = ++periodSaveSequence;
     return Effect.gen(function* () {
@@ -138,7 +138,7 @@ export function createPeriodControllerState(
         periodError = result.left;
       } else {
         if (
-          summaryRequests.isFresh(request) &&
+          summaryRevision.ownsMutation(periodId, summaryMutationSequence) &&
           result.right.periodId === periodId
         ) {
           publishSummary(result.right);

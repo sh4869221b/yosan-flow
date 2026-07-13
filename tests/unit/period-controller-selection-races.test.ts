@@ -141,3 +141,41 @@ it("clears summary loading when a superseding period-list request fails", async 
   await vi.waitFor(() => expect(controller.summaryLoading).toBe(false));
   expect(controller.summary).toEqual(initialSummary);
 });
+
+it("keeps selection owned by the visible summary when a created period summary fails", async () => {
+  const initialSummary = createSummary(0);
+  const createdPeriod = {
+    ...otherPeriod,
+    id: "period-3",
+    startDate: "2026-07-16",
+    endDate: "2026-07-17",
+  };
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (method === "POST" && url === "/api/periods") {
+      return Promise.resolve(jsonResponse({ id: createdPeriod.id }));
+    }
+    if (method === "GET" && url === "/api/periods") {
+      return Promise.resolve(
+        jsonResponse({ periods: [period, otherPeriod, createdPeriod] }),
+      );
+    }
+    if (method === "GET" && url.endsWith(`/${createdPeriod.id}`)) {
+      return Promise.resolve(jsonResponse({ error: {} }, 503));
+    }
+    throw new Error(`Unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const controller = createPeriodController(initialSummary);
+
+  controller.createInitialPeriod();
+  await vi.waitFor(() => expect(controller.periodSaving).toBe(false));
+
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(controller.periods).toContainEqual(createdPeriod);
+  expect(controller.selectedPeriodId).toBe(period.id);
+  expect(controller.summary).toEqual(initialSummary);
+  expect(controller.summaryLoading).toBe(false);
+  expect(controller.summaryError).toBe("再取得に失敗しました。");
+});

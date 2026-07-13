@@ -82,6 +82,7 @@ it("reconciles a period PUT body captured before a newer summary", async () => {
 
   controller.handleSavePeriod({ budgetYen: 12_000 });
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+  summaryRevision.beginMutation(period.id);
   summaryRevision.publish(newerAddSummary, controller.setSummary);
   putResponse.resolve(jsonResponse(stalePutSummary));
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -95,6 +96,68 @@ it("reconciles a period PUT body captured before a newer summary", async () => {
     expect(controller.summary).toEqual(authoritativeSummary),
   );
   expect(controller.periodSaving).toBe(false);
+});
+
+it("keeps a later period PUT authoritative over an older add response", async () => {
+  const addResponse = Promise.withResolvers<Response>();
+  const putResponse = Promise.withResolvers<Response>();
+  const initialSummary = createSummary(0);
+  const oldAddSummary = createSummary(2_000);
+  const updatedSummary = withBudget(oldAddSummary, 12_000);
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (method === "POST" && url.endsWith("/add")) {
+      return addResponse.promise;
+    }
+    if (method === "PUT") {
+      return putResponse.promise;
+    }
+    if (method === "GET" && url === "/api/periods") {
+      return Promise.resolve(jsonResponse({ error: {} }, 503));
+    }
+    if (method === "GET" && url === "/api/periods/period-1") {
+      return Promise.resolve(jsonResponse({ error: {} }, 503));
+    }
+    throw new Error(`Unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const summaryRevision = createPeriodSummaryRevision();
+  const periodController = createPeriodController(
+    initialSummary,
+    summaryRevision,
+  );
+  const dayEntryController = createDayEntryControllerState(
+    {
+      getSelectedPeriodId: () => periodController.selectedPeriodId,
+      getSummary: () => periodController.summary,
+      historyController: {
+        getMutationSequence: () => 0,
+        loadHistory: vi.fn(),
+        loadHistoryEffect: () => Effect.void,
+        resetHistories: vi.fn(),
+      },
+      setSummary: periodController.setSummary,
+    },
+    summaryRevision,
+  );
+
+  dayEntryController.openDayEntry({ date: "2026-07-12" });
+  dayEntryController.submitDayEntry({
+    date: "2026-07-12",
+    inputYen: 2_000,
+    memo: "older add",
+  });
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+  periodController.handleSavePeriod({ budgetYen: 12_000 });
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+  addResponse.resolve(jsonResponse(oldAddSummary));
+  putResponse.resolve(jsonResponse(updatedSummary));
+  await vi.waitFor(() => expect(periodController.periodSaving).toBe(false));
+
+  expect(periodController.summary).toEqual(updatedSummary);
+  expect(periodController.periodError).toBe("保存に失敗しました。");
 });
 
 it("does not let add reconciliation overwrite a newer period update", async () => {

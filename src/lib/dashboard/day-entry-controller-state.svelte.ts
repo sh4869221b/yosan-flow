@@ -43,7 +43,7 @@ export function createDayEntryControllerState(
   let modalInputYen = $state("");
   let modalMemo = $state("");
   let modalGeneration = 0;
-  const submissionTracker = createDayEntrySubmissionTracker();
+  const submissionTracker = createDayEntrySubmissionTracker(summaryRevision);
   const latestRefreshSequences = new Map<string, number>();
   const getMutationSequence =
     dependencies.historyController.getMutationSequence;
@@ -102,7 +102,6 @@ export function createDayEntryControllerState(
         "保存に失敗しました。",
       ).pipe(Effect.either);
       const remainingSubmissions = submissionTracker.finish(selectedPeriodId);
-      let shouldRefreshHistory = false;
       if (result._tag === "Left") {
         if (submittedGeneration === modalGeneration) {
           modalError = result.left;
@@ -114,15 +113,12 @@ export function createDayEntryControllerState(
           submittedMutationSequence,
           getMutationSequence(selectedPeriodId),
         );
-        const submittedPeriodIsCurrent =
-          dependencies.getSelectedPeriodId() === selectedPeriodId;
-        const submittedDateIsCurrent =
-          submittedGeneration === modalGeneration ||
-          selectedDate === submittedDate;
-        if (submittedPeriodIsCurrent && submittedDateIsCurrent) {
-          shouldRefreshHistory = true;
-        }
       }
+      const shouldRefreshHistory =
+        result._tag === "Right" &&
+        dependencies.getSelectedPeriodId() === selectedPeriodId &&
+        (submittedGeneration === modalGeneration ||
+          selectedDate === submittedDate);
       const bestSuccessfulSummary = submissionTracker.getBest(
         selectedPeriodId,
         getMutationSequence(selectedPeriodId),

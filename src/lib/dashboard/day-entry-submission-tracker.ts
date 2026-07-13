@@ -1,16 +1,34 @@
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 
 type SuccessfulSummaryCandidate = {
   readonly mutationSequence: number;
   readonly summary: PeriodSummary;
 };
 
-export function createDayEntrySubmissionTracker() {
+export function createDayEntrySubmissionTracker(
+  summaryRevision: PeriodSummaryRevision,
+) {
   const activeCounts = new Map<string, number>();
   const bestSuccessfulSummaries = new Map<string, SuccessfulSummaryCandidate>();
+  const summaryMutationSequences = new Map<string, number>();
+
+  function owns(periodId: string, sequence?: number): boolean {
+    const batchSequence = sequence ?? summaryMutationSequences.get(periodId);
+    return (
+      batchSequence != null &&
+      summaryRevision.ownsMutation(periodId, batchSequence)
+    );
+  }
 
   return {
     start(periodId: string): void {
+      if (!activeCounts.has(periodId)) {
+        summaryMutationSequences.set(
+          periodId,
+          summaryRevision.beginMutation(periodId),
+        );
+      }
       activeCounts.set(periodId, (activeCounts.get(periodId) ?? 0) + 1);
     },
     finish(periodId: string): number {
@@ -31,6 +49,7 @@ export function createDayEntrySubmissionTracker() {
       const currentBest = bestSuccessfulSummaries.get(periodId);
       const accepted =
         summary.periodId === periodId &&
+        owns(periodId) &&
         submittedMutationSequence === currentMutationSequence &&
         (currentBest == null ||
           currentBest.mutationSequence !== currentMutationSequence ||
@@ -54,6 +73,7 @@ export function createDayEntrySubmissionTracker() {
     },
     clearBest(periodId: string): void {
       bestSuccessfulSummaries.delete(periodId);
+      summaryMutationSequences.delete(periodId);
     },
     hasActive(periodId: string): boolean {
       return activeCounts.has(periodId);
