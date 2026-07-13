@@ -4,34 +4,59 @@ import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revisi
 type SuccessfulSummaryCandidate = {
   readonly mutationSequence: number;
   readonly summary: PeriodSummary;
+  readonly summarySequence: number;
 };
 
 export function createDayEntrySubmissionTracker(
   summaryRevision: PeriodSummaryRevision,
 ) {
   const activeCounts = new Map<string, number>();
+  const generationCounts = new Map<string, Map<number, number>>();
   const bestSuccessfulSummaries = new Map<string, SuccessfulSummaryCandidate>();
   const summaryMutationSequences = new Map<string, number>();
 
-  function owns(periodId: string, sequence?: number): boolean {
+  function isFresh(periodId: string, sequence?: number): boolean {
     const batchSequence = sequence ?? summaryMutationSequences.get(periodId);
     return (
       batchSequence != null &&
-      summaryRevision.ownsMutation(periodId, batchSequence)
+      summaryRevision.isMutationFresh(periodId, batchSequence)
     );
   }
 
   return {
-    start(periodId: string): void {
-      if (!activeCounts.has(periodId)) {
+    start(periodId: string): number {
+      const currentSequence = summaryMutationSequences.get(periodId);
+      if (currentSequence == null || !isFresh(periodId, currentSequence)) {
         summaryMutationSequences.set(
           periodId,
           summaryRevision.beginMutation(periodId),
         );
+        bestSuccessfulSummaries.delete(periodId);
       }
+      const sequence = summaryMutationSequences.get(periodId) ?? 0;
+      const periodGenerations = generationCounts.get(periodId) ?? new Map();
+      periodGenerations.set(
+        sequence,
+        (periodGenerations.get(sequence) ?? 0) + 1,
+      );
+      generationCounts.set(periodId, periodGenerations);
       activeCounts.set(periodId, (activeCounts.get(periodId) ?? 0) + 1);
+      return sequence;
     },
-    finish(periodId: string): number {
+    finish(periodId: string, summarySequence: number): number {
+      summaryRevision.observeMutationCompletion(periodId, summarySequence);
+      const periodGenerations = generationCounts.get(periodId);
+      const generationRemaining =
+        (periodGenerations?.get(summarySequence) ?? 1) - 1;
+      if (generationRemaining === 0) {
+        periodGenerations?.delete(summarySequence);
+        summaryRevision.completeMutation(periodId, summarySequence);
+      } else {
+        periodGenerations?.set(summarySequence, generationRemaining);
+      }
+      if (periodGenerations?.size === 0) {
+        generationCounts.delete(periodId);
+      }
       const remaining = (activeCounts.get(periodId) ?? 1) - 1;
       if (remaining === 0) {
         activeCounts.delete(periodId);
@@ -43,13 +68,13 @@ export function createDayEntrySubmissionTracker(
     accept(
       periodId: string,
       summary: PeriodSummary,
+      submittedSummarySequence: number,
       submittedMutationSequence: number,
       currentMutationSequence: number,
     ): boolean {
       const currentBest = bestSuccessfulSummaries.get(periodId);
       const accepted =
         summary.periodId === periodId &&
-        owns(periodId) &&
         submittedMutationSequence === currentMutationSequence &&
         (currentBest == null ||
           currentBest.mutationSequence !== currentMutationSequence ||
@@ -58,6 +83,7 @@ export function createDayEntrySubmissionTracker(
         bestSuccessfulSummaries.set(periodId, {
           mutationSequence: currentMutationSequence,
           summary,
+          summarySequence: submittedSummarySequence,
         });
       }
       return accepted;
@@ -77,6 +103,13 @@ export function createDayEntrySubmissionTracker(
     },
     hasActive(periodId: string): boolean {
       return activeCounts.has(periodId);
+    },
+    bestIsMutationFresh(periodId: string): boolean {
+      const candidate = bestSuccessfulSummaries.get(periodId);
+      return candidate != null && isFresh(periodId, candidate.summarySequence);
+    },
+    shouldReconcile(periodId: string): boolean {
+      return !summaryRevision.isMutationActive(periodId);
     },
   };
 }

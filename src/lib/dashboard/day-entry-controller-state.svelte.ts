@@ -1,10 +1,12 @@
 import { Deferred, Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import { dayAddUrl, periodSummaryUrl } from "$lib/dashboard/api-urls";
+import { dayAddUrl } from "$lib/dashboard/api-urls";
 import { createDayEntrySubmissionTracker } from "$lib/dashboard/day-entry-submission-tracker";
+import { createDayEntrySummaryReconciliation } from "$lib/dashboard/day-entry-summary-reconciliation";
 import {
   findSummaryRow,
+  summaryConfigurationMatches,
   summaryIsMoreComplete,
 } from "$lib/dashboard/summary-rows";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
@@ -44,11 +46,20 @@ export function createDayEntryControllerState(
   let modalMemo = $state("");
   let modalGeneration = 0;
   const submissionTracker = createDayEntrySubmissionTracker(summaryRevision);
-  const latestRefreshSequences = new Map<string, number>();
   const getMutationSequence =
     dependencies.historyController.getMutationSequence;
-  let refreshSequence = 0;
   let modalSessionChanged = Effect.runSync(Deferred.make<void>());
+  const reconcileSummaryEffect = createDayEntrySummaryReconciliation({
+    getHistoryMutationSequence: getMutationSequence,
+    getSelectedDate: () => selectedDate,
+    getSelectedPeriodId: dependencies.getSelectedPeriodId,
+    setSelectedRow: (row) => {
+      selectedRow = row;
+    },
+    setSummary: dependencies.setSummary,
+    submissionTracker,
+    summaryRevision,
+  });
 
   const modalPreviewAfterYen = $derived(
     getModalPreviewAfterYen(selectedRow, modalInputYen),
@@ -83,7 +94,7 @@ export function createDayEntryControllerState(
     const submittedDate = payload.date;
     const submittedSessionChanged = modalSessionChanged;
     const submittedMutationSequence = getMutationSequence(selectedPeriodId);
-    submissionTracker.start(selectedPeriodId);
+    const submittedSummarySequence = submissionTracker.start(selectedPeriodId);
     return Effect.gen(function* () {
       if (submittedGeneration === modalGeneration) {
         modalSaving = true;
@@ -101,7 +112,10 @@ export function createDayEntryControllerState(
         },
         "保存に失敗しました。",
       ).pipe(Effect.either);
-      const remainingSubmissions = submissionTracker.finish(selectedPeriodId);
+      const remainingSubmissions = submissionTracker.finish(
+        selectedPeriodId,
+        submittedSummarySequence,
+      );
       if (result._tag === "Left") {
         if (submittedGeneration === modalGeneration) {
           modalError = result.left;
@@ -110,6 +124,7 @@ export function createDayEntryControllerState(
         submissionTracker.accept(
           selectedPeriodId,
           result.right,
+          submittedSummarySequence,
           submittedMutationSequence,
           getMutationSequence(selectedPeriodId),
         );
@@ -126,6 +141,12 @@ export function createDayEntryControllerState(
       if (
         dependencies.getSelectedPeriodId() === selectedPeriodId &&
         bestSuccessfulSummary != null &&
+        (summaryConfigurationMatches(
+          bestSuccessfulSummary,
+          dependencies.getSummary(),
+        ) ||
+          summaryRevision.isMutationActive(selectedPeriodId) ||
+          submissionTracker.bestIsMutationFresh(selectedPeriodId)) &&
         summaryIsMoreComplete(bestSuccessfulSummary, dependencies.getSummary())
       ) {
         summaryRevision.publish(bestSuccessfulSummary, dependencies.setSummary);
@@ -140,34 +161,11 @@ export function createDayEntryControllerState(
       if (submittedGeneration === modalGeneration) {
         modalSaving = false;
       }
-      if (remainingSubmissions === 0) {
-        const currentRefreshSequence = ++refreshSequence;
-        const refreshSummaryRevision = summaryRevision.get(selectedPeriodId);
-        latestRefreshSequences.set(selectedPeriodId, currentRefreshSequence);
-        const refreshMutationSequence = getMutationSequence(selectedPeriodId);
-        const refreshResult = yield* fetchJsonEffect<PeriodSummary>(
-          periodSummaryUrl(selectedPeriodId),
-          undefined,
-          "再取得に失敗しました。",
-        ).pipe(Effect.either);
-        const currentMutationSequence = getMutationSequence(selectedPeriodId);
-        const refreshIsCurrent =
-          latestRefreshSequences.get(selectedPeriodId) ===
-            currentRefreshSequence &&
-          !submissionTracker.hasActive(selectedPeriodId) &&
-          currentMutationSequence === refreshMutationSequence &&
-          summaryRevision.get(selectedPeriodId) === refreshSummaryRevision &&
-          dependencies.getSelectedPeriodId() === selectedPeriodId;
-        if (
-          refreshResult._tag === "Right" &&
-          refreshIsCurrent &&
-          refreshResult.right.periodId === selectedPeriodId
-        ) {
-          summaryRevision.publish(refreshResult.right, dependencies.setSummary);
-          if (selectedDate === submittedDate) {
-            selectedRow = findSummaryRow(refreshResult.right, submittedDate);
-          }
-        }
+      if (
+        remainingSubmissions === 0 &&
+        submissionTracker.shouldReconcile(selectedPeriodId)
+      ) {
+        yield* reconcileSummaryEffect(selectedPeriodId, submittedDate);
       }
       if (
         shouldRefreshHistory &&

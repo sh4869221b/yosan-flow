@@ -19,3 +19,27 @@ export function summaryIsMoreComplete(
     candidate.plannedTotalYen > current.plannedTotalYen
   );
 }
+
+export function summaryConfigurationMatches(
+  candidate: PeriodSummary,
+  current: PeriodSummary | null,
+): boolean {
+  return (
+    current == null ||
+    current.periodId !== candidate.periodId ||
+    (candidate.budgetYen === current.budgetYen &&
+      candidate.startDate === current.startDate &&
+      candidate.endDate === current.endDate)
+  );
+}
+
+export function summarySpendingMatches(
+  candidate: PeriodSummary,
+  current: PeriodSummary | null,
+): boolean {
+  return (
+    current == null ||
+    current.periodId !== candidate.periodId ||
+    candidate.plannedTotalYen === current.plannedTotalYen
+  );
+}

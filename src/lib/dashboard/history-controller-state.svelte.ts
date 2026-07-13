@@ -1,9 +1,5 @@
 import { Effect } from "effect";
-import {
-  dayHistoryUrl,
-  historyItemUrl,
-  periodSummaryUrl,
-} from "$lib/dashboard/api-urls";
+import { dayHistoryUrl, historyItemUrl } from "$lib/dashboard/api-urls";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import type {
@@ -15,10 +11,13 @@ import type {
 } from "$lib/dashboard/types";
 import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { summaryConfigurationMatches } from "$lib/dashboard/summary-rows";
+import { createHistorySummaryReconciliation } from "$lib/dashboard/history-summary-reconciliation";
 
 type HistoryControllerDependencies = {
   readonly getSelectedDate: () => string | null;
   readonly getSelectedPeriodId: () => string | null;
+  readonly getSummary?: () => PeriodSummary | null;
   readonly setSelectedRow: (_row: DailyRow | null) => void;
   readonly setSummary: (_summary: PeriodSummary) => void;
 };
@@ -35,6 +34,18 @@ export function createHistoryControllerState(
   let activeHistoryRequest: { periodId: string; date: string } | null = null;
   let historyMutationSequence = 0;
   const mutationSequences = new Map<string, number>();
+
+  function mutationOwnsSelection(
+    periodId: string,
+    date: string,
+    sequence: number,
+  ): boolean {
+    return (
+      sequence === historyMutationSequence &&
+      dependencies.getSelectedPeriodId() === periodId &&
+      dependencies.getSelectedDate() === date
+    );
+  }
 
   function syncSelectedRow(summary: PeriodSummary): void {
     const selectedDate = dependencies.getSelectedDate();
@@ -102,41 +113,17 @@ export function createHistoryControllerState(
     }
   }
 
-  function reconcileHistoryMutationEffect(
-    periodId: string,
-    date: string,
-    mutationSequence: number,
-  ): Effect.Effect<void, never> {
-    const reconciliationRevision = summaryRevision.get(periodId);
-    return Effect.gen(function* () {
-      const result = yield* fetchJsonEffect<PeriodSummary>(
-        periodSummaryUrl(periodId),
-        undefined,
-        "再取得に失敗しました。",
-      ).pipe(Effect.either);
-      const reconciliationIsCurrent =
-        mutationSequence === historyMutationSequence &&
-        dependencies.getSelectedPeriodId() === periodId &&
-        summaryRevision.get(periodId) === reconciliationRevision;
-      if (
-        result._tag === "Right" &&
-        reconciliationIsCurrent &&
-        result.right.periodId === periodId
-      ) {
-        applyHistoryMutationSummary(result.right);
-      }
-      if (
-        mutationSequence === historyMutationSequence &&
-        dependencies.getSelectedPeriodId() === periodId &&
-        dependencies.getSelectedDate() === date
-      ) {
-        yield* loadHistoryEffect(date);
-        if (result._tag === "Left") {
-          historyError = result.left;
-        }
-      }
-    });
-  }
+  const reconcileHistoryMutationEffect = createHistorySummaryReconciliation({
+    applySummary: applyHistoryMutationSummary,
+    getMutationSequence: () => historyMutationSequence,
+    getSelectedDate: dependencies.getSelectedDate,
+    getSelectedPeriodId: dependencies.getSelectedPeriodId,
+    loadHistoryEffect,
+    setError: (error) => {
+      historyError = error;
+    },
+    summaryRevision,
+  });
 
   function mutateHistoryEffect(
     historyId: string,
@@ -162,16 +149,19 @@ export function createHistoryControllerState(
         request,
         errorMessage,
       ).pipe(Effect.either);
+      summaryRevision.completeMutation(selectedPeriodId, summaryMutation);
       invalidateHistoryLoads(selectedPeriodId, selectedDate);
       const mutationOwnsCurrentPeriod =
         mutationSequence === historyMutationSequence &&
         dependencies.getSelectedPeriodId() === selectedPeriodId;
       const mutationOwnsSummary =
         mutationOwnsCurrentPeriod &&
-        summaryRevision.ownsMutation(selectedPeriodId, summaryMutation);
-      const mutationOwnsCurrentDate =
-        mutationOwnsCurrentPeriod &&
-        dependencies.getSelectedDate() === selectedDate;
+        summaryRevision.isMutationFresh(selectedPeriodId, summaryMutation);
+      const mutationOwnsCurrentDate = mutationOwnsSelection(
+        selectedPeriodId,
+        selectedDate,
+        mutationSequence,
+      );
       if (result._tag === "Left" && mutationOwnsCurrentDate) {
         historyError = result.left;
       } else if (
@@ -179,19 +169,27 @@ export function createHistoryControllerState(
         mutationOwnsCurrentPeriod &&
         result.right.summary.periodId === selectedPeriodId
       ) {
-        if (
+        const summaryIsCompatible = summaryConfigurationMatches(
+          result.right.summary,
+          dependencies.getSummary?.() ?? null,
+        );
+        const mustReconcile =
           !mutationOwnsSummary ||
-          summaryRevision.get(selectedPeriodId) !== mutationSummaryRevision
-        ) {
-          yield* reconcileHistoryMutationEffect(
-            selectedPeriodId,
-            selectedDate,
-            mutationSequence,
-          );
-        } else {
+          summaryRevision.get(selectedPeriodId) !== mutationSummaryRevision ||
+          !summaryIsCompatible;
+        if (summaryIsCompatible) {
           applyHistoryMutationSummary(result.right.summary);
           if (mutationOwnsCurrentDate) {
             applyHistoryMutationHistories(result.right);
+          }
+        }
+        if (mustReconcile) {
+          if (!summaryRevision.isMutationActive(selectedPeriodId)) {
+            yield* reconcileHistoryMutationEffect(
+              selectedPeriodId,
+              selectedDate,
+              mutationSequence,
+            );
           }
         }
       }

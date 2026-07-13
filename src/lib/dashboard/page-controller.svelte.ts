@@ -7,15 +7,18 @@ import type { PageData } from "../../routes/$types";
 
 export function createDashboardPageController(getData: () => PageData) {
   const summaryRevision = createPeriodSummaryRevision();
+  let closeDayEntry = (): void => undefined;
   const periodController = createPeriodControllerState(
     getData(),
     summaryRevision,
+    () => closeDayEntry(),
   );
 
   const historyController = createHistoryControllerState(
     {
       getSelectedDate,
       getSelectedPeriodId: () => periodController.selectedPeriodId,
+      getSummary: () => periodController.summary,
       setSelectedRow,
       setSummary: (nextSummary) => periodController.setSummary(nextSummary),
     },
@@ -31,6 +34,7 @@ export function createDashboardPageController(getData: () => PageData) {
     },
     summaryRevision,
   );
+  closeDayEntry = dayEntryController.closeDayEntry;
 
   function getSelectedDate(): string | null {
     return dayEntryController.selectedDate;

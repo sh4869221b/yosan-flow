@@ -8,18 +8,17 @@ import type {
 import { addDays, toPeriodId } from "$lib/dashboard/date";
 import { createPeriodControllerActions } from "$lib/dashboard/period-controller-actions.svelte";
 import { createInitialPeriodEffect as createPeriodCreationEffect } from "$lib/dashboard/period-controller-create-effect";
+import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
 import { getInitialPeriodControllerState } from "$lib/dashboard/period-controller-initial-state";
 import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import type {
-  PeriodListResponse,
-  SavePeriodPayload,
-} from "$lib/dashboard/types";
+import type { PeriodListResponse } from "$lib/dashboard/types";
 import type { PageData } from "../../routes/$types";
 
 export function createPeriodControllerState(
   data: PageData,
   summaryRevision = createPeriodSummaryRevision(),
+  onPeriodChanged: () => void = () => undefined,
 ) {
   const initialState = getInitialPeriodControllerState(data);
   const summaryRequests = createPeriodSummaryRequestTracker(summaryRevision);
@@ -41,12 +40,13 @@ export function createPeriodControllerState(
   let createEndDate = $state(addDays(initialState.createStartDate, 29));
   let createPeriodId = $state(toPeriodId(initialState.createStartDate));
   let createBudgetInput = $state("120000");
-  let periodSaveSequence = 0;
 
   function publishSummary(nextSummary: PeriodSummary | null): void {
     if (nextSummary != null) {
+      const periodChanged = selectedPeriodId !== nextSummary.periodId;
       summaryRevision.advance(nextSummary.periodId);
       selectedPeriodId = nextSummary.periodId;
+      if (periodChanged) onPeriodChanged();
       rangeStartDate = nextSummary.startDate;
       rangeEndDate = nextSummary.endDate;
     }
@@ -106,55 +106,22 @@ export function createPeriodControllerState(
     });
   }
 
-  function savePeriodUpdateEffect(
-    payload: SavePeriodPayload,
-  ): Effect.Effect<void, never> {
-    if (selectedPeriodId == null || summaryLoading) {
-      return Effect.void;
-    }
-    const periodId = selectedPeriodId;
-    const summaryMutationSequence = summaryRevision.beginMutation(periodId);
-    const request = summaryRequests.start(periodId);
-    const saveSequence = ++periodSaveSequence;
-    return Effect.gen(function* () {
-      periodSaving = true;
-      periodError = null;
-      const result = yield* fetchJsonEffect<PeriodSummary>(
-        periodSummaryUrl(periodId),
-        {
-          body: JSON.stringify(payload),
-          headers: { "content-type": "application/json" },
-          method: "PUT",
-        },
-        "保存に失敗しました。",
-      ).pipe(Effect.either);
-      if (!summaryRequests.owns(request)) {
-        if (saveSequence === periodSaveSequence) {
-          periodSaving = false;
-        }
-        return;
-      }
-      if (result._tag === "Left") {
-        periodError = result.left;
-      } else {
-        if (
-          summaryRevision.ownsMutation(periodId, summaryMutationSequence) &&
-          result.right.periodId === periodId
-        ) {
-          publishSummary(result.right);
-        }
-        const refreshResult = yield* refreshPeriodListEffect(
-          result.right.periodId,
-        ).pipe(Effect.either);
-        if (refreshResult._tag === "Left") {
-          periodError = refreshResult.left;
-        }
-      }
-      if (saveSequence === periodSaveSequence) {
-        periodSaving = false;
-      }
-    });
-  }
+  const savePeriodUpdateEffect = createPeriodUpdateEffect({
+    getSelectedPeriodId: () => selectedPeriodId,
+    getSummary: () => summary,
+    getSummaryLoading: () => summaryLoading,
+    publishSummary,
+    refreshPeriodListEffect,
+    refreshSummaryEffect,
+    setError: (error) => {
+      periodError = error;
+    },
+    setSaving: (saving) => {
+      periodSaving = saving;
+    },
+    summaryRequests,
+    summaryRevision,
+  });
 
   function createInitialPeriodEffect(): Effect.Effect<void, never> {
     return createPeriodCreationEffect({

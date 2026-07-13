@@ -37,6 +37,7 @@ function forPeriod(summary: PeriodSummary, periodId: string): PeriodSummary {
 function createPeriodController(
   summary: PeriodSummary,
   summaryRevision = createPeriodSummaryRevision(),
+  onPeriodChanged: () => void = () => undefined,
 ) {
   return createPeriodControllerState(
     {
@@ -46,6 +47,7 @@ function createPeriodController(
       summary,
     },
     summaryRevision,
+    onPeriodChanged,
   );
 }
 
@@ -71,9 +73,11 @@ it("selects a fetched period before an old add settles in the same turn", async 
     throw new Error(`Unexpected fetch: ${method} ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
+  let closeDayEntry = (): void => undefined;
   const periodController = createPeriodController(
     initialSummary,
     summaryRevision,
+    () => closeDayEntry(),
   );
   const dayEntryController = createDayEntryControllerState(
     {
@@ -89,6 +93,7 @@ it("selects a fetched period before an old add settles in the same turn", async 
     },
     summaryRevision,
   );
+  closeDayEntry = dayEntryController.closeDayEntry;
 
   dayEntryController.openDayEntry({ date: "2026-07-12" });
   dayEntryController.submitDayEntry({
@@ -101,6 +106,10 @@ it("selects a fetched period before an old add settles in the same turn", async 
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
   selectedPeriodResponse.resolve(jsonResponse(selectedSummary));
+  await vi.waitFor(() =>
+    expect(periodController.selectedPeriodId).toBe(otherPeriod.id),
+  );
+  expect(dayEntryController.modalOpen).toBe(false);
   oldAddResponse.resolve(jsonResponse(oldAddSummary));
 
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
