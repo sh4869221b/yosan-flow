@@ -3,7 +3,11 @@ import { runClientEffect } from "$lib/dashboard/client-effect";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import { dayAddUrl, periodSummaryUrl } from "$lib/dashboard/api-urls";
 import { createDayEntrySubmissionTracker } from "$lib/dashboard/day-entry-submission-tracker";
-import { findSummaryRow } from "$lib/dashboard/summary-rows";
+import {
+  findSummaryRow,
+  summaryIsMoreComplete,
+} from "$lib/dashboard/summary-rows";
+import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 import {
   getModalPreviewAfterYen,
   getModalPreviewRecommendedYen,
@@ -29,6 +33,7 @@ type DayEntryControllerDependencies = {
 
 export function createDayEntryControllerState(
   dependencies: DayEntryControllerDependencies,
+  summaryRevision = createPeriodSummaryRevision(),
 ) {
   let modalOpen = $state(false);
   let modalSaving = $state(false);
@@ -121,16 +126,12 @@ export function createDayEntryControllerState(
         selectedPeriodId,
         dependencies.historyController.getMutationSequence(selectedPeriodId),
       );
-      const currentSummary = dependencies.getSummary();
       if (
         dependencies.getSelectedPeriodId() === selectedPeriodId &&
         bestSuccessfulSummary != null &&
-        (currentSummary == null ||
-          currentSummary.periodId !== selectedPeriodId ||
-          bestSuccessfulSummary.plannedTotalYen >
-            currentSummary.plannedTotalYen)
+        summaryIsMoreComplete(bestSuccessfulSummary, dependencies.getSummary())
       ) {
-        dependencies.setSummary(bestSuccessfulSummary);
+        summaryRevision.publish(bestSuccessfulSummary, dependencies.setSummary);
         selectedRow = findSummaryRow(bestSuccessfulSummary, selectedDate);
       }
       if (remainingSubmissions === 0) {
@@ -166,7 +167,7 @@ export function createDayEntryControllerState(
           refreshIsCurrent &&
           refreshResult.right.periodId === selectedPeriodId
         ) {
-          dependencies.setSummary(refreshResult.right);
+          summaryRevision.publish(refreshResult.right, dependencies.setSummary);
           if (selectedDate === submittedDate) {
             selectedRow = findSummaryRow(refreshResult.right, submittedDate);
           }

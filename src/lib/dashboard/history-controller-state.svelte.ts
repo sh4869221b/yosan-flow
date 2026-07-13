@@ -1,5 +1,9 @@
 import { Effect } from "effect";
-import { dayHistoryUrl, historyItemUrl } from "$lib/dashboard/api-urls";
+import {
+  dayHistoryUrl,
+  historyItemUrl,
+  periodSummaryUrl,
+} from "$lib/dashboard/api-urls";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import type {
@@ -10,6 +14,7 @@ import type {
   UpdateHistoryPayload,
 } from "$lib/dashboard/types";
 import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
+import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 
 type HistoryControllerDependencies = {
   readonly getSelectedDate: () => string | null;
@@ -20,6 +25,7 @@ type HistoryControllerDependencies = {
 
 export function createHistoryControllerState(
   dependencies: HistoryControllerDependencies,
+  summaryRevision = createPeriodSummaryRevision(),
 ) {
   let historyLoading = $state(false);
   let historyError = $state<string | null>(null);
@@ -73,7 +79,7 @@ export function createHistoryControllerState(
   }
 
   function applyHistoryMutationSummary(summary: PeriodSummary): void {
-    dependencies.setSummary(summary);
+    summaryRevision.publish(summary, dependencies.setSummary);
     syncSelectedRow(summary);
   }
 
@@ -96,8 +102,46 @@ export function createHistoryControllerState(
     }
   }
 
-  function updateHistoryEffect(
-    payload: UpdateHistoryPayload,
+  function reconcileHistoryMutationEffect(
+    periodId: string,
+    date: string,
+    mutationSequence: number,
+  ): Effect.Effect<void, never> {
+    const reconciliationRevision = summaryRevision.get(periodId);
+    return Effect.gen(function* () {
+      const result = yield* fetchJsonEffect<PeriodSummary>(
+        periodSummaryUrl(periodId),
+        undefined,
+        "再取得に失敗しました。",
+      ).pipe(Effect.either);
+      const reconciliationIsCurrent =
+        mutationSequence === historyMutationSequence &&
+        dependencies.getSelectedPeriodId() === periodId &&
+        summaryRevision.get(periodId) === reconciliationRevision;
+      if (
+        result._tag === "Right" &&
+        reconciliationIsCurrent &&
+        result.right.periodId === periodId
+      ) {
+        applyHistoryMutationSummary(result.right);
+      }
+      if (
+        mutationSequence === historyMutationSequence &&
+        dependencies.getSelectedPeriodId() === periodId &&
+        dependencies.getSelectedDate() === date
+      ) {
+        yield* loadHistoryEffect(date);
+        if (result._tag === "Left") {
+          historyError = result.left;
+        }
+      }
+    });
+  }
+
+  function mutateHistoryEffect(
+    historyId: string,
+    request: RequestInit,
+    errorMessage: string,
   ): Effect.Effect<void, never> {
     const selectedPeriodId = dependencies.getSelectedPeriodId();
     const selectedDate = dependencies.getSelectedDate();
@@ -106,22 +150,16 @@ export function createHistoryControllerState(
     }
     historyMutationSequence += 1;
     const mutationSequence = historyMutationSequence;
+    const mutationSummaryRevision = summaryRevision.get(selectedPeriodId);
     return Effect.gen(function* () {
-      historyMutatingId = payload.historyId;
+      historyMutatingId = historyId;
       historyError = null;
       const result = yield* fetchJsonEffect<
         HistoryMutationResponse<PeriodSummary>
       >(
-        historyItemUrl(selectedPeriodId, selectedDate, payload.historyId),
-        {
-          body: JSON.stringify({
-            inputYen: payload.inputYen,
-            memo: payload.memo,
-          }),
-          headers: { "content-type": "application/json" },
-          method: "PATCH",
-        },
-        "履歴の更新に失敗しました。",
+        historyItemUrl(selectedPeriodId, selectedDate, historyId),
+        request,
+        errorMessage,
       ).pipe(Effect.either);
       invalidateHistoryLoads(selectedPeriodId, selectedDate);
       const mutationOwnsCurrentPeriod =
@@ -137,9 +175,17 @@ export function createHistoryControllerState(
         mutationOwnsCurrentPeriod &&
         result.right.summary.periodId === selectedPeriodId
       ) {
-        applyHistoryMutationSummary(result.right.summary);
-        if (mutationOwnsCurrentDate) {
-          applyHistoryMutationHistories(result.right);
+        if (summaryRevision.get(selectedPeriodId) !== mutationSummaryRevision) {
+          yield* reconcileHistoryMutationEffect(
+            selectedPeriodId,
+            selectedDate,
+            mutationSequence,
+          );
+        } else {
+          applyHistoryMutationSummary(result.right.summary);
+          if (mutationOwnsCurrentDate) {
+            applyHistoryMutationHistories(result.right);
+          }
         }
       }
       if (mutationSequence === historyMutationSequence) {
@@ -148,49 +194,31 @@ export function createHistoryControllerState(
     });
   }
 
+  function updateHistoryEffect(
+    payload: UpdateHistoryPayload,
+  ): Effect.Effect<void, never> {
+    return mutateHistoryEffect(
+      payload.historyId,
+      {
+        body: JSON.stringify({
+          inputYen: payload.inputYen,
+          memo: payload.memo,
+        }),
+        headers: { "content-type": "application/json" },
+        method: "PATCH",
+      },
+      "履歴の更新に失敗しました。",
+    );
+  }
+
   function deleteHistoryEffect(
     payload: DeleteHistoryPayload,
   ): Effect.Effect<void, never> {
-    const selectedPeriodId = dependencies.getSelectedPeriodId();
-    const selectedDate = dependencies.getSelectedDate();
-    if (selectedPeriodId == null || selectedDate == null) {
-      return Effect.void;
-    }
-    historyMutationSequence += 1;
-    const mutationSequence = historyMutationSequence;
-    return Effect.gen(function* () {
-      historyMutatingId = payload.historyId;
-      historyError = null;
-      const result = yield* fetchJsonEffect<
-        HistoryMutationResponse<PeriodSummary>
-      >(
-        historyItemUrl(selectedPeriodId, selectedDate, payload.historyId),
-        { method: "DELETE" },
-        "履歴の削除に失敗しました。",
-      ).pipe(Effect.either);
-      invalidateHistoryLoads(selectedPeriodId, selectedDate);
-      const mutationOwnsCurrentPeriod =
-        mutationSequence === historyMutationSequence &&
-        dependencies.getSelectedPeriodId() === selectedPeriodId;
-      const mutationOwnsCurrentDate =
-        mutationOwnsCurrentPeriod &&
-        dependencies.getSelectedDate() === selectedDate;
-      if (result._tag === "Left" && mutationOwnsCurrentDate) {
-        historyError = result.left;
-      } else if (
-        result._tag === "Right" &&
-        mutationOwnsCurrentPeriod &&
-        result.right.summary.periodId === selectedPeriodId
-      ) {
-        applyHistoryMutationSummary(result.right.summary);
-        if (mutationOwnsCurrentDate) {
-          applyHistoryMutationHistories(result.right);
-        }
-      }
-      if (mutationSequence === historyMutationSequence) {
-        historyMutatingId = null;
-      }
-    });
+    return mutateHistoryEffect(
+      payload.historyId,
+      { method: "DELETE" },
+      "履歴の削除に失敗しました。",
+    );
   }
 
   return {

@@ -9,6 +9,7 @@ import { addDays, toPeriodId } from "$lib/dashboard/date";
 import { createPeriodControllerActions } from "$lib/dashboard/period-controller-actions.svelte";
 import { getInitialPeriodControllerState } from "$lib/dashboard/period-controller-initial-state";
 import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 import type {
   PeriodCreateResponse,
   PeriodListResponse,
@@ -16,7 +17,10 @@ import type {
 } from "$lib/dashboard/types";
 import type { PageData } from "../../routes/$types";
 
-export function createPeriodControllerState(data: PageData) {
+export function createPeriodControllerState(
+  data: PageData,
+  summaryRevision = createPeriodSummaryRevision(),
+) {
   const initialState = getInitialPeriodControllerState(data);
 
   let periods = $state<PeriodOption[]>(initialState.periods);
@@ -36,6 +40,13 @@ export function createPeriodControllerState(data: PageData) {
   let createEndDate = $state(addDays(initialState.createStartDate, 29));
   let createPeriodId = $state(toPeriodId(initialState.createStartDate));
   let createBudgetInput = $state("120000");
+
+  function publishSummary(nextSummary: PeriodSummary | null): void {
+    if (nextSummary != null) {
+      summaryRevision.advance(nextSummary.periodId);
+    }
+    summary = nextSummary;
+  }
 
   $effect(() => {
     if (summary == null) {
@@ -58,7 +69,7 @@ export function createPeriodControllerState(data: PageData) {
       if (result._tag === "Left") {
         summaryError = result.left;
       } else {
-        summary = result.right;
+        publishSummary(result.right);
       }
       summaryLoading = false;
     });
@@ -76,7 +87,7 @@ export function createPeriodControllerState(data: PageData) {
       periods = body.periods ?? [];
       if (periods.length === 0) {
         selectedPeriodId = null;
-        summary = null;
+        publishSummary(null);
         return;
       }
       const matched =
@@ -110,7 +121,7 @@ export function createPeriodControllerState(data: PageData) {
       if (result._tag === "Left") {
         periodError = result.left;
       } else {
-        summary = result.right;
+        publishSummary(result.right);
         const refreshResult = yield* refreshPeriodListEffect(
           result.right.periodId,
         ).pipe(Effect.either);

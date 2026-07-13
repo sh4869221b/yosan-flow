@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
 import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
 import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
+import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
 import type { HistoryItem } from "$lib/dashboard/types";
 
@@ -170,4 +171,93 @@ it("keeps another date history load while applying the period summary", async ()
 
   expect(controller.histories).toEqual([otherDateHistory]);
   expect(controller.historyLoading).toBe(false);
+});
+
+it("reconciles a stale history mutation body after a newer add", async () => {
+  const staleMutationResponse = Promise.withResolvers<Response>();
+  const staleMutationSummary = createSummary(500);
+  const latestSummary = createSummary(2_500);
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (method === "PATCH") {
+      return staleMutationResponse.promise;
+    }
+    if (method === "POST" && url.endsWith("/add")) {
+      return Promise.resolve(jsonResponse(latestSummary));
+    }
+    if (method === "GET" && url === "/api/periods/period-1") {
+      return Promise.resolve(jsonResponse(latestSummary));
+    }
+    if (method === "GET" && url.endsWith("/history")) {
+      return Promise.resolve(jsonResponse({ histories: [] }));
+    }
+    throw new Error(`Unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  let summary = createSummary(0);
+  const summaryRevision = createPeriodSummaryRevision();
+  const dayEntryControllerRef: {
+    current: ReturnType<typeof createDayEntryControllerState> | null;
+  } = { current: null };
+  const historyController = createHistoryControllerState(
+    {
+      getSelectedDate: () =>
+        dayEntryControllerRef.current?.selectedDate ?? null,
+      getSelectedPeriodId: () => "period-1",
+      setSelectedRow: (row) =>
+        dayEntryControllerRef.current?.setSelectedRow(row),
+      setSummary: (nextSummary) => {
+        summary = nextSummary;
+      },
+    },
+    summaryRevision,
+  );
+  const dayEntryController = createDayEntryControllerState(
+    {
+      getSelectedPeriodId: () => "period-1",
+      getSummary: () => summary,
+      historyController,
+      setSummary: (nextSummary) => {
+        summary = nextSummary;
+      },
+    },
+    summaryRevision,
+  );
+  dayEntryControllerRef.current = dayEntryController;
+
+  dayEntryController.openDayEntry({ date: "2026-07-12" });
+  await vi.waitFor(() => expect(historyController.historyLoading).toBe(false));
+  historyController.updateHistory({
+    historyId: "history-1",
+    inputYen: 500,
+    memo: "stale mutation",
+  });
+  await vi.waitFor(() =>
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH"),
+    ).toBe(true),
+  );
+  dayEntryController.openDayEntry({ date: "2026-07-13" });
+  dayEntryController.submitDayEntry({
+    date: "2026-07-13",
+    inputYen: 2_000,
+    memo: "newer add",
+  });
+  await vi.waitFor(() => expect(summary).toEqual(latestSummary));
+
+  staleMutationResponse.resolve(
+    jsonResponse({ summary: staleMutationSummary, histories: [] }),
+  );
+
+  await vi.waitFor(() =>
+    expect(
+      fetchMock.mock.calls.filter(
+        ([input, init]) =>
+          (init?.method ?? "GET") === "GET" &&
+          String(input) === "/api/periods/period-1",
+      ),
+    ).toHaveLength(2),
+  );
+  await vi.waitFor(() => expect(summary).toEqual(latestSummary));
 });

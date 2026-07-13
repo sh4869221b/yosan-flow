@@ -8,3 +8,14 @@ export function findSummaryRow(
     ? null
     : (summary.dailyRows.find((row) => row.date === date) ?? null);
 }
+
+export function summaryIsMoreComplete(
+  candidate: PeriodSummary,
+  current: PeriodSummary | null,
+): boolean {
+  return (
+    current == null ||
+    current.periodId !== candidate.periodId ||
+    candidate.plannedTotalYen > current.plannedTotalYen
+  );
+}
