@@ -7,11 +7,11 @@ import type {
 } from "$lib/dashboard/controller-types";
 import { addDays, toPeriodId } from "$lib/dashboard/date";
 import { createPeriodControllerActions } from "$lib/dashboard/period-controller-actions.svelte";
+import { createInitialPeriodEffect as createPeriodCreationEffect } from "$lib/dashboard/period-controller-create-effect";
 import { getInitialPeriodControllerState } from "$lib/dashboard/period-controller-initial-state";
-import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 import type {
-  PeriodCreateResponse,
   PeriodListResponse,
   SavePeriodPayload,
 } from "$lib/dashboard/types";
@@ -22,6 +22,7 @@ export function createPeriodControllerState(
   summaryRevision = createPeriodSummaryRevision(),
 ) {
   const initialState = getInitialPeriodControllerState(data);
+  const summaryRequests = createPeriodSummaryRequestTracker(summaryRevision);
 
   let periods = $state<PeriodOption[]>(initialState.periods);
   let selectedPeriodId = $state<string | null>(initialState.selectedPeriodId);
@@ -40,6 +41,7 @@ export function createPeriodControllerState(
   let createEndDate = $state(addDays(initialState.createStartDate, 29));
   let createPeriodId = $state(toPeriodId(initialState.createStartDate));
   let createBudgetInput = $state("120000");
+  let periodSaveSequence = 0;
 
   function publishSummary(nextSummary: PeriodSummary | null): void {
     if (nextSummary != null) {
@@ -58,6 +60,7 @@ export function createPeriodControllerState(
   });
 
   function refreshSummaryEffect(periodId: string): Effect.Effect<void, never> {
+    const request = summaryRequests.start(periodId);
     return Effect.gen(function* () {
       summaryLoading = true;
       summaryError = null;
@@ -66,24 +69,34 @@ export function createPeriodControllerState(
         undefined,
         "再取得に失敗しました。",
       ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        summaryError = result.left;
-      } else {
-        publishSummary(result.right);
+      if (summaryRequests.isFresh(request)) {
+        if (result._tag === "Left") {
+          summaryError = result.left;
+        } else if (result.right.periodId === periodId) {
+          publishSummary(result.right);
+        }
       }
-      summaryLoading = false;
+      if (summaryRequests.owns(request)) {
+        summaryLoading = false;
+      }
     });
   }
 
   function refreshPeriodListEffect(
     preferredPeriodId?: string,
   ): Effect.Effect<void, string> {
+    const request = summaryRequests.start(
+      preferredPeriodId ?? selectedPeriodId,
+    );
     return Effect.gen(function* () {
       const body = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
         periodsUrl(),
         undefined,
         "保存に失敗しました。",
       );
+      if (!summaryRequests.owns(request)) {
+        return;
+      }
       periods = body.periods ?? [];
       if (periods.length === 0) {
         selectedPeriodId = null;
@@ -106,6 +119,8 @@ export function createPeriodControllerState(
       return Effect.void;
     }
     const periodId = selectedPeriodId;
+    const request = summaryRequests.start(periodId);
+    const saveSequence = ++periodSaveSequence;
     return Effect.gen(function* () {
       periodSaving = true;
       periodError = null;
@@ -118,10 +133,21 @@ export function createPeriodControllerState(
         },
         "保存に失敗しました。",
       ).pipe(Effect.either);
+      if (!summaryRequests.owns(request)) {
+        if (saveSequence === periodSaveSequence) {
+          periodSaving = false;
+        }
+        return;
+      }
       if (result._tag === "Left") {
         periodError = result.left;
       } else {
-        publishSummary(result.right);
+        if (
+          summaryRequests.isFresh(request) &&
+          result.right.periodId === periodId
+        ) {
+          publishSummary(result.right);
+        }
         const refreshResult = yield* refreshPeriodListEffect(
           result.right.periodId,
         ).pipe(Effect.either);
@@ -129,51 +155,26 @@ export function createPeriodControllerState(
           periodError = refreshResult.left;
         }
       }
-      periodSaving = false;
+      if (saveSequence === periodSaveSequence) {
+        periodSaving = false;
+      }
     });
   }
 
   function createInitialPeriodEffect(): Effect.Effect<void, never> {
-    const budgetYen = parseNonNegativeIntegerYenInput(createBudgetInput);
-    if (budgetYen == null) {
-      periodError = "予算は 0 以上の整数で入力してください。";
-      return Effect.void;
-    }
-    return Effect.gen(function* () {
-      periodSaving = true;
-      periodError = null;
-      const latestPeriod = periods[periods.length - 1] ?? null;
-      const predecessorPeriodId =
-        latestPeriod != null &&
-        addDays(latestPeriod.endDate, 1) === createStartDate
-          ? latestPeriod.id
-          : null;
-      const result = yield* fetchJsonEffect<PeriodCreateResponse>(
-        periodsUrl(),
-        {
-          body: JSON.stringify({
-            budgetYen,
-            endDate: createEndDate,
-            id: createPeriodId,
-            predecessorPeriodId,
-            startDate: createStartDate,
-          }),
-          headers: { "content-type": "application/json" },
-          method: "POST",
-        },
-        "期間作成に失敗しました。",
-      ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        periodError = result.left;
-      } else {
-        const refreshResult = yield* refreshPeriodListEffect(
-          result.right.id,
-        ).pipe(Effect.either);
-        if (refreshResult._tag === "Left") {
-          periodError = refreshResult.left;
-        }
-      }
-      periodSaving = false;
+    return createPeriodCreationEffect({
+      getBudgetInput: () => createBudgetInput,
+      getEndDate: () => createEndDate,
+      getPeriodId: () => createPeriodId,
+      getPeriods: () => periods,
+      getStartDate: () => createStartDate,
+      refreshPeriodListEffect,
+      setError: (error) => {
+        periodError = error;
+      },
+      setSaving: (saving) => {
+        periodSaving = saving;
+      },
     });
   }
 

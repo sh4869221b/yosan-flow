@@ -1,61 +1,14 @@
 import { Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import {
+  createSummary,
+  jsonResponse,
+} from "./day-entry-controller-test-fixtures";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
-
-function createSummary(firstUsedYen: number, secondUsedYen = 0): PeriodSummary {
-  return {
-    periodId: "period-1",
-    startDate: "2026-07-12",
-    endDate: "2026-07-13",
-    budgetYen: 10_000,
-    status: "active",
-    periodLengthDays: 2,
-    spentToDateYen: firstUsedYen + secondUsedYen,
-    plannedTotalYen: firstUsedYen + secondUsedYen,
-    remainingYen: 10_000 - firstUsedYen - secondUsedYen,
-    overspentYen: 0,
-    todayRecommendedYen: 5_000,
-    varianceFromRecommendationYen: 0,
-    remainingAfterDayYenPreview: 10_000,
-    daysRemaining: 2,
-    foodPace: {
-      status: "on_track",
-      baseDailyYen: 5_000,
-      todayBonusYen: 0,
-      adjustmentYen: 0,
-      totalAdjustmentYen: 0,
-      todayAllowanceYen: 5_000,
-      usedTodayYen: firstUsedYen,
-      todayRemainingYen: 5_000 - firstUsedYen,
-    },
-    dailyRows: [
-      {
-        date: "2026-07-12",
-        label: "today",
-        usedYen: firstUsedYen,
-        recommendedYen: 5_000,
-      },
-      {
-        date: "2026-07-13",
-        label: "planned",
-        usedYen: secondUsedYen,
-        recommendedYen: 5_000,
-      },
-    ],
-  };
-}
-
-function jsonResponse(body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { "content-type": "application/json" },
-    status: 200,
-  });
-}
 
 describe("day-entry controller review races", () => {
   it("refreshes the authoritative summary after concurrent saves settle", async () => {

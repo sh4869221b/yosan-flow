@@ -45,6 +45,8 @@ export function createDayEntryControllerState(
   let modalGeneration = 0;
   const submissionTracker = createDayEntrySubmissionTracker();
   const latestRefreshSequences = new Map<string, number>();
+  const getMutationSequence =
+    dependencies.historyController.getMutationSequence;
   let refreshSequence = 0;
   let modalSessionChanged = Effect.runSync(Deferred.make<void>());
 
@@ -80,8 +82,7 @@ export function createDayEntryControllerState(
     const submittedGeneration = modalGeneration;
     const submittedDate = payload.date;
     const submittedSessionChanged = modalSessionChanged;
-    const submittedMutationSequence =
-      dependencies.historyController.getMutationSequence(selectedPeriodId);
+    const submittedMutationSequence = getMutationSequence(selectedPeriodId);
     submissionTracker.start(selectedPeriodId);
     return Effect.gen(function* () {
       if (submittedGeneration === modalGeneration) {
@@ -111,7 +112,7 @@ export function createDayEntryControllerState(
           selectedPeriodId,
           result.right,
           submittedMutationSequence,
-          dependencies.historyController.getMutationSequence(selectedPeriodId),
+          getMutationSequence(selectedPeriodId),
         );
         const submittedPeriodIsCurrent =
           dependencies.getSelectedPeriodId() === selectedPeriodId;
@@ -124,7 +125,7 @@ export function createDayEntryControllerState(
       }
       const bestSuccessfulSummary = submissionTracker.getBest(
         selectedPeriodId,
-        dependencies.historyController.getMutationSequence(selectedPeriodId),
+        getMutationSequence(selectedPeriodId),
       );
       if (
         dependencies.getSelectedPeriodId() === selectedPeriodId &&
@@ -144,23 +145,22 @@ export function createDayEntryControllerState(
         modalSaving = false;
       }
       if (remainingSubmissions === 0) {
-        refreshSequence += 1;
-        const currentRefreshSequence = refreshSequence;
+        const currentRefreshSequence = ++refreshSequence;
+        const refreshSummaryRevision = summaryRevision.get(selectedPeriodId);
         latestRefreshSequences.set(selectedPeriodId, currentRefreshSequence);
-        const refreshMutationSequence =
-          dependencies.historyController.getMutationSequence(selectedPeriodId);
+        const refreshMutationSequence = getMutationSequence(selectedPeriodId);
         const refreshResult = yield* fetchJsonEffect<PeriodSummary>(
           periodSummaryUrl(selectedPeriodId),
           undefined,
           "再取得に失敗しました。",
         ).pipe(Effect.either);
+        const currentMutationSequence = getMutationSequence(selectedPeriodId);
         const refreshIsCurrent =
           latestRefreshSequences.get(selectedPeriodId) ===
             currentRefreshSequence &&
           !submissionTracker.hasActive(selectedPeriodId) &&
-          dependencies.historyController.getMutationSequence(
-            selectedPeriodId,
-          ) === refreshMutationSequence &&
+          currentMutationSequence === refreshMutationSequence &&
+          summaryRevision.get(selectedPeriodId) === refreshSummaryRevision &&
           dependencies.getSelectedPeriodId() === selectedPeriodId;
         if (
           refreshResult._tag === "Right" &&
