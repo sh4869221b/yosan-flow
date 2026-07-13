@@ -187,4 +187,52 @@ describe("dashboard history mutation races", () => {
 
     expect(controller.histories).toEqual([editedHistory]);
   });
+
+  it("does not let a settled mutation invalidate another period history load", async () => {
+    const mutationResponse = Promise.withResolvers<Response>();
+    const periodBHistoryResponse = Promise.withResolvers<Response>();
+    const periodAHistory = createHistory("period-a-history", 1_000);
+    const periodBHistory = createHistory("period-b-history", 500);
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => mutationResponse.promise)
+      .mockImplementationOnce(() => periodBHistoryResponse.promise);
+    vi.stubGlobal("fetch", fetchMock);
+    let selectedPeriodId = "period-a";
+    const setSummary = vi.fn();
+    const controller = createHistoryControllerState({
+      getSelectedDate: () => "2026-07-12",
+      getSelectedPeriodId: () => selectedPeriodId,
+      setSelectedRow: vi.fn(),
+      setSummary,
+    });
+
+    controller.updateHistory({
+      historyId: "period-a-history",
+      inputYen: 1_000,
+      memo: "period A",
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    selectedPeriodId = "period-b";
+    const periodBLoad = Effect.runPromise(
+      controller.loadHistoryEffect("2026-07-12"),
+    );
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    mutationResponse.resolve(
+      jsonResponse({
+        summary: { ...createSummary(1_000), periodId: "period-a" },
+        histories: [periodAHistory],
+      }),
+    );
+    await vi.waitFor(() => expect(controller.historyMutatingId).toBeNull());
+    periodBHistoryResponse.resolve(
+      jsonResponse({ histories: [periodBHistory] }),
+    );
+    await periodBLoad;
+
+    expect(controller.histories).toEqual([periodBHistory]);
+    expect(controller.historyLoading).toBe(false);
+    expect(setSummary).not.toHaveBeenCalled();
+  });
 });

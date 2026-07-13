@@ -185,7 +185,8 @@ describe("day-entry controller review races", () => {
     refreshResponse.resolve(jsonResponse(summary));
 
     // Then
-    await vi.waitFor(() => expect(setSummary).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(setSummary).toHaveBeenCalledOnce());
+    expect(setSummary).toHaveBeenCalledWith(summary);
     expect(loadHistoryEffect).not.toHaveBeenCalled();
   });
 

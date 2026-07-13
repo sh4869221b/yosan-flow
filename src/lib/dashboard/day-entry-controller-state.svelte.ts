@@ -121,10 +121,14 @@ export function createDayEntryControllerState(
         selectedPeriodId,
         dependencies.historyController.getMutationSequence(selectedPeriodId),
       );
+      const currentSummary = dependencies.getSummary();
       if (
         dependencies.getSelectedPeriodId() === selectedPeriodId &&
         bestSuccessfulSummary != null &&
-        dependencies.getSummary() !== bestSuccessfulSummary
+        (currentSummary == null ||
+          currentSummary.periodId !== selectedPeriodId ||
+          bestSuccessfulSummary.plannedTotalYen >
+            currentSummary.plannedTotalYen)
       ) {
         dependencies.setSummary(bestSuccessfulSummary);
         selectedRow = findSummaryRow(bestSuccessfulSummary, selectedDate);

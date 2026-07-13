@@ -26,6 +26,8 @@ export function createHistoryControllerState(
   let historyMutatingId = $state<string | null>(null);
   let histories = $state<HistoryItem[]>([]);
   let historyRequestSequence = 0;
+  let activeHistoryRequestPeriodId: string | null = null;
+  let historyMutationSequence = 0;
   const mutationSequences = new Map<string, number>();
 
   function syncSelectedRow(summary: PeriodSummary): void {
@@ -45,6 +47,7 @@ export function createHistoryControllerState(
     }
     historyRequestSequence += 1;
     const requestSequence = historyRequestSequence;
+    activeHistoryRequestPeriodId = selectedPeriodId;
     return Effect.gen(function* () {
       historyLoading = true;
       historyError = null;
@@ -64,6 +67,7 @@ export function createHistoryControllerState(
       }
       if (requestSequence === historyRequestSequence) {
         historyLoading = false;
+        activeHistoryRequestPeriodId = null;
       }
     });
   }
@@ -79,8 +83,11 @@ export function createHistoryControllerState(
 
   function invalidateHistoryLoads(periodId: string): void {
     mutationSequences.set(periodId, (mutationSequences.get(periodId) ?? 0) + 1);
-    historyRequestSequence += 1;
-    historyLoading = false;
+    if (activeHistoryRequestPeriodId === periodId) {
+      historyRequestSequence += 1;
+      activeHistoryRequestPeriodId = null;
+      historyLoading = false;
+    }
   }
 
   function updateHistoryEffect(
@@ -91,6 +98,8 @@ export function createHistoryControllerState(
     if (selectedPeriodId == null || selectedDate == null) {
       return Effect.void;
     }
+    historyMutationSequence += 1;
+    const mutationSequence = historyMutationSequence;
     return Effect.gen(function* () {
       historyMutatingId = payload.historyId;
       historyError = null;
@@ -109,12 +118,22 @@ export function createHistoryControllerState(
         "履歴の更新に失敗しました。",
       ).pipe(Effect.either);
       invalidateHistoryLoads(selectedPeriodId);
-      if (result._tag === "Left") {
+      const mutationIsCurrent =
+        mutationSequence === historyMutationSequence &&
+        dependencies.getSelectedPeriodId() === selectedPeriodId &&
+        dependencies.getSelectedDate() === selectedDate;
+      if (result._tag === "Left" && mutationIsCurrent) {
         historyError = result.left;
-      } else {
+      } else if (
+        result._tag === "Right" &&
+        mutationIsCurrent &&
+        result.right.summary.periodId === selectedPeriodId
+      ) {
         applyHistoryMutationResult(result.right);
       }
-      historyMutatingId = null;
+      if (mutationSequence === historyMutationSequence) {
+        historyMutatingId = null;
+      }
     });
   }
 
@@ -126,6 +145,8 @@ export function createHistoryControllerState(
     if (selectedPeriodId == null || selectedDate == null) {
       return Effect.void;
     }
+    historyMutationSequence += 1;
+    const mutationSequence = historyMutationSequence;
     return Effect.gen(function* () {
       historyMutatingId = payload.historyId;
       historyError = null;
@@ -137,12 +158,22 @@ export function createHistoryControllerState(
         "履歴の削除に失敗しました。",
       ).pipe(Effect.either);
       invalidateHistoryLoads(selectedPeriodId);
-      if (result._tag === "Left") {
+      const mutationIsCurrent =
+        mutationSequence === historyMutationSequence &&
+        dependencies.getSelectedPeriodId() === selectedPeriodId &&
+        dependencies.getSelectedDate() === selectedDate;
+      if (result._tag === "Left" && mutationIsCurrent) {
         historyError = result.left;
-      } else {
+      } else if (
+        result._tag === "Right" &&
+        mutationIsCurrent &&
+        result.right.summary.periodId === selectedPeriodId
+      ) {
         applyHistoryMutationResult(result.right);
       }
-      historyMutatingId = null;
+      if (mutationSequence === historyMutationSequence) {
+        historyMutatingId = null;
+      }
     });
   }
 
