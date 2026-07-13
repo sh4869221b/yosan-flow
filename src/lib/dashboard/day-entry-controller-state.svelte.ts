@@ -36,7 +36,7 @@ export function createDayEntryControllerState(
   let modalMemo = $state("");
   let modalGeneration = 0;
   let submissionSequence = 0;
-  let latestAppliedSuccessfulSubmissionSequence = 0;
+  const latestAppliedSuccessfulSubmissionSequences = new Map<string, number>();
   const activeSubmissionCounts = new Map<string, number>();
   const latestRefreshSequences = new Map<string, number>();
   let refreshSequence = 0;
@@ -113,10 +113,15 @@ export function createDayEntryControllerState(
           result.right.periodId === selectedPeriodId;
         if (
           submittedPeriodIsCurrent &&
-          submittedSequence > latestAppliedSuccessfulSubmissionSequence
+          submittedSequence >
+            (latestAppliedSuccessfulSubmissionSequences.get(selectedPeriodId) ??
+              0)
         ) {
           dependencies.setSummary(result.right);
-          latestAppliedSuccessfulSubmissionSequence = submittedSequence;
+          latestAppliedSuccessfulSubmissionSequences.set(
+            selectedPeriodId,
+            submittedSequence,
+          );
         }
         if (
           submittedPeriodIsCurrent &&
