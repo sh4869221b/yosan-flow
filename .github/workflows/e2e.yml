@@ -43,4 +43,5 @@ jobs:
             playwright-report/
             .tmp-xdg-config/.wrangler/logs/
           if-no-files-found: warn
+          include-hidden-files: true
           retention-days: 7
