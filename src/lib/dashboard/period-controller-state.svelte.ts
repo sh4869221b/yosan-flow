@@ -46,18 +46,12 @@ export function createPeriodControllerState(
   function publishSummary(nextSummary: PeriodSummary | null): void {
     if (nextSummary != null) {
       summaryRevision.advance(nextSummary.periodId);
+      selectedPeriodId = nextSummary.periodId;
+      rangeStartDate = nextSummary.startDate;
+      rangeEndDate = nextSummary.endDate;
     }
     summary = nextSummary;
   }
-
-  $effect(() => {
-    if (summary == null) {
-      return;
-    }
-    selectedPeriodId = summary.periodId;
-    rangeStartDate = summary.startDate;
-    rangeEndDate = summary.endDate;
-  });
 
   function refreshSummaryEffect(periodId: string): Effect.Effect<void, never> {
     const request = summaryRequests.start(periodId);
@@ -88,6 +82,7 @@ export function createPeriodControllerState(
     const request = summaryRequests.start(
       preferredPeriodId ?? selectedPeriodId,
     );
+    summaryLoading = false;
     return Effect.gen(function* () {
       const body = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
         periodsUrl(),

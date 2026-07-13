@@ -1,0 +1,143 @@
+import { Effect } from "effect";
+import { afterEach, expect, it, vi } from "vitest";
+import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
+import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
+import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import {
+  createSummary,
+  jsonResponse,
+} from "./day-entry-controller-test-fixtures";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+const period = {
+  id: "period-1",
+  startDate: "2026-07-12",
+  endDate: "2026-07-13",
+  budgetYen: 10_000,
+  status: "active" as const,
+  predecessorPeriodId: null,
+  createdAt: "2026-07-12T00:00:00.000Z",
+  updatedAt: "2026-07-12T00:00:00.000Z",
+};
+const otherPeriod = {
+  ...period,
+  id: "period-2",
+  startDate: "2026-07-14",
+  endDate: "2026-07-15",
+};
+
+function forPeriod(summary: PeriodSummary, periodId: string): PeriodSummary {
+  return { ...summary, periodId };
+}
+
+function createPeriodController(
+  summary: PeriodSummary,
+  summaryRevision = createPeriodSummaryRevision(),
+) {
+  return createPeriodControllerState(
+    {
+      today: "2026-07-12",
+      periods: [period, otherPeriod],
+      selectedPeriodId: period.id,
+      summary,
+    },
+    summaryRevision,
+  );
+}
+
+it("selects a fetched period before an old add settles in the same turn", async () => {
+  const oldAddResponse = Promise.withResolvers<Response>();
+  const selectedPeriodResponse = Promise.withResolvers<Response>();
+  const summaryRevision = createPeriodSummaryRevision();
+  const initialSummary = createSummary(0);
+  const oldAddSummary = createSummary(2_000);
+  const selectedSummary = forPeriod(createSummary(0), otherPeriod.id);
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (method === "POST" && url.endsWith("/add")) {
+      return oldAddResponse.promise;
+    }
+    if (method === "GET" && url.endsWith(`/${otherPeriod.id}`)) {
+      return selectedPeriodResponse.promise;
+    }
+    if (method === "GET" && url.endsWith(`/${period.id}`)) {
+      return Promise.resolve(jsonResponse({ error: {} }, 503));
+    }
+    throw new Error(`Unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const periodController = createPeriodController(
+    initialSummary,
+    summaryRevision,
+  );
+  const dayEntryController = createDayEntryControllerState(
+    {
+      getSelectedPeriodId: () => periodController.selectedPeriodId,
+      getSummary: () => periodController.summary,
+      historyController: {
+        getMutationSequence: () => 0,
+        loadHistory: vi.fn(),
+        loadHistoryEffect: () => Effect.void,
+        resetHistories: vi.fn(),
+      },
+      setSummary: periodController.setSummary,
+    },
+    summaryRevision,
+  );
+
+  dayEntryController.openDayEntry({ date: "2026-07-12" });
+  dayEntryController.submitDayEntry({
+    date: "2026-07-12",
+    inputYen: 2_000,
+    memo: "old period add",
+  });
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+  periodController.handleSelectPeriod({ periodId: otherPeriod.id });
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+  selectedPeriodResponse.resolve(jsonResponse(selectedSummary));
+  oldAddResponse.resolve(jsonResponse(oldAddSummary));
+
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  expect(periodController.selectedPeriodId).toBe(otherPeriod.id);
+  expect(periodController.summary).toEqual(selectedSummary);
+});
+
+it("clears summary loading when a superseding period-list request fails", async () => {
+  const staleSelectionResponse = Promise.withResolvers<Response>();
+  const initialSummary = createSummary(0);
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (method === "GET" && url.endsWith(`/${otherPeriod.id}`)) {
+      return staleSelectionResponse.promise;
+    }
+    if (method === "POST" && url === "/api/periods") {
+      return Promise.resolve(jsonResponse({ id: "period-3" }));
+    }
+    if (method === "GET" && url === "/api/periods") {
+      return Promise.resolve(jsonResponse({ error: {} }, 503));
+    }
+    throw new Error(`Unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const controller = createPeriodController(initialSummary);
+
+  controller.handleSelectPeriod({ periodId: otherPeriod.id });
+  await vi.waitFor(() => expect(controller.summaryLoading).toBe(true));
+  controller.createInitialPeriod();
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  await vi.waitFor(() => expect(controller.periodSaving).toBe(false));
+
+  expect(controller.summaryLoading).toBe(false);
+  staleSelectionResponse.resolve(
+    jsonResponse(forPeriod(createSummary(0), otherPeriod.id)),
+  );
+  await vi.waitFor(() => expect(controller.summaryLoading).toBe(false));
+  expect(controller.summary).toEqual(initialSummary);
+});

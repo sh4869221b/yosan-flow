@@ -31,11 +31,12 @@ function withBudget(summary: PeriodSummary, budgetYen: number): PeriodSummary {
 function createPeriodController(
   summary: PeriodSummary,
   summaryRevision = createPeriodSummaryRevision(),
+  periods = [period],
 ) {
   return createPeriodControllerState(
     {
       today: "2026-07-12",
-      periods: [period],
+      periods,
       selectedPeriodId: period.id,
       summary,
     },
