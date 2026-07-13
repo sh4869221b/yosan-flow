@@ -22,6 +22,10 @@ for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     const { periodId, todayDate } = await seedCurrentPeriod(request);
     const nextPeriodId = `${periodId}-next`;
+    const nextPeriodSummaryUrl = new URL(
+      `/api/periods/${encodeURIComponent(nextPeriodId)}`,
+      getBaseUrl(),
+    ).href;
     await seedPeriod(request, getBaseUrl(), {
       periodId: nextPeriodId,
       startDate: addDays(todayDate, 30),
@@ -47,7 +51,7 @@ for (const viewport of viewports) {
     const summaryResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "GET" &&
-        response.url().endsWith(`/api/periods/${nextPeriodId}`),
+        response.url() === nextPeriodSummaryUrl,
     );
     await page.getByTestId("period-select").selectOption(nextPeriodId);
     expect((await summaryResponse).ok()).toBe(true);

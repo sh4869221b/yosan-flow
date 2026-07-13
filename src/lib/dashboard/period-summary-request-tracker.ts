@@ -1,6 +1,7 @@
 import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 
 export type PeriodSummaryRequest = {
+  readonly mutationWasActive: boolean;
   readonly mutationSequence: number;
   readonly periodId: string | null;
   readonly revision: number;
@@ -15,6 +16,8 @@ export function createPeriodSummaryRequestTracker(
   return {
     start(periodId: string | null): PeriodSummaryRequest {
       return {
+        mutationWasActive:
+          periodId != null && summaryRevision.isMutationActive(periodId),
         mutationSequence:
           periodId == null ? 0 : summaryRevision.getMutationSequence(periodId),
         periodId,
@@ -29,6 +32,7 @@ export function createPeriodSummaryRequestTracker(
       return (
         request.sequence === latestSequence &&
         request.periodId != null &&
+        !request.mutationWasActive &&
         summaryRevision.getMutationSequence(request.periodId) ===
           request.mutationSequence &&
         summaryRevision.get(request.periodId) === request.revision

@@ -4,7 +4,6 @@ import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revisi
 type SuccessfulSummaryCandidate = {
   readonly mutationSequence: number;
   readonly summary: PeriodSummary;
-  readonly summarySequence: number;
 };
 
 export function createDayEntrySubmissionTracker(
@@ -68,7 +67,6 @@ export function createDayEntrySubmissionTracker(
     accept(
       periodId: string,
       summary: PeriodSummary,
-      submittedSummarySequence: number,
       submittedMutationSequence: number,
       currentMutationSequence: number,
     ): boolean {
@@ -83,7 +81,6 @@ export function createDayEntrySubmissionTracker(
         bestSuccessfulSummaries.set(periodId, {
           mutationSequence: currentMutationSequence,
           summary,
-          summarySequence: submittedSummarySequence,
         });
       }
       return accepted;
@@ -103,10 +100,6 @@ export function createDayEntrySubmissionTracker(
     },
     hasActive(periodId: string): boolean {
       return activeCounts.has(periodId);
-    },
-    bestIsMutationFresh(periodId: string): boolean {
-      const candidate = bestSuccessfulSummaries.get(periodId);
-      return candidate != null && isFresh(periodId, candidate.summarySequence);
     },
     shouldReconcile(periodId: string): boolean {
       return !summaryRevision.isMutationActive(periodId);

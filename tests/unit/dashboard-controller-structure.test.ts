@@ -14,7 +14,9 @@ const controllerModules = [
   "src/lib/dashboard/period-controller-initial-state.ts",
   "src/lib/dashboard/period-controller-state.svelte.ts",
   "src/lib/dashboard/day-entry-controller-state.svelte.ts",
+  "src/lib/dashboard/day-entry-mutation-lifecycle.ts",
   "src/lib/dashboard/history-controller-state.svelte.ts",
+  "src/lib/dashboard/history-mutation-lifecycle.ts",
   "src/lib/dashboard/modal-preview.ts",
 ] as const;
 

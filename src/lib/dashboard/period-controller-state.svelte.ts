@@ -53,7 +53,10 @@ export function createPeriodControllerState(
     summary = nextSummary;
   }
 
-  function refreshSummaryEffect(periodId: string): Effect.Effect<void, never> {
+  function refreshSummaryEffect(
+    periodId: string,
+    reportError = true,
+  ): Effect.Effect<void, never> {
     const request = summaryRequests.start(periodId);
     return Effect.gen(function* () {
       summaryLoading = true;
@@ -65,7 +68,7 @@ export function createPeriodControllerState(
       ).pipe(Effect.either);
       if (summaryRequests.isFresh(request)) {
         if (result._tag === "Left") {
-          summaryError = result.left;
+          if (reportError) summaryError = result.left;
         } else if (result.right.periodId === periodId) {
           publishSummary(result.right);
         }
@@ -78,6 +81,7 @@ export function createPeriodControllerState(
 
   function refreshPeriodListEffect(
     preferredPeriodId?: string,
+    reportSummaryError = true,
   ): Effect.Effect<void, string> {
     const request = summaryRequests.start(
       preferredPeriodId ?? selectedPeriodId,
@@ -102,7 +106,7 @@ export function createPeriodControllerState(
         periods.find((period) => period.id === preferredPeriodId) ??
         periods.find((period) => period.id === selectedPeriodId) ??
         periods[periods.length - 1];
-      yield* refreshSummaryEffect(matched.id);
+      yield* refreshSummaryEffect(matched.id, reportSummaryError);
     });
   }
 

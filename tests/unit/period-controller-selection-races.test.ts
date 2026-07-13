@@ -188,3 +188,72 @@ it("keeps selection owned by the visible summary when a created period summary f
   expect(controller.summaryLoading).toBe(false);
   expect(controller.summaryError).toBe("再取得に失敗しました。");
 });
+
+it("does not let a queued period update reclaim a newer selection", async () => {
+  const addResponse = Promise.withResolvers<Response>();
+  const updateResponse = Promise.withResolvers<Response>();
+  const summaryRevision = createPeriodSummaryRevision();
+  const initialSummary = createSummary(0);
+  const selectedSummary = forPeriod(createSummary(0), otherPeriod.id);
+  const updatedOldSummary = { ...createSummary(1_000), budgetYen: 12_000 };
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (method === "POST" && url.endsWith("/add")) {
+      return addResponse.promise;
+    }
+    if (method === "PUT" && url.endsWith(`/${period.id}`)) {
+      return updateResponse.promise;
+    }
+    if (method === "GET" && url.endsWith(`/${otherPeriod.id}`)) {
+      return Promise.resolve(jsonResponse(selectedSummary));
+    }
+    if (method === "GET" && url.endsWith(`/${period.id}`)) {
+      return Promise.resolve(jsonResponse({ error: {} }, 503));
+    }
+    throw new Error(`Unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const periodController = createPeriodController(
+    initialSummary,
+    summaryRevision,
+  );
+  const dayEntryController = createDayEntryControllerState(
+    {
+      getSelectedPeriodId: () => periodController.selectedPeriodId,
+      getSummary: () => periodController.summary,
+      historyController: {
+        getMutationSequence: () => 0,
+        loadHistory: vi.fn(),
+        loadHistoryEffect: () => Effect.void,
+        resetHistories: vi.fn(),
+      },
+      setSummary: periodController.setSummary,
+    },
+    summaryRevision,
+  );
+
+  dayEntryController.submitDayEntry({
+    date: "2026-07-12",
+    inputYen: 1_000,
+    memo: "slot owner",
+  });
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+  periodController.handleSavePeriod({ budgetYen: 12_000 });
+  periodController.handleSelectPeriod({ periodId: otherPeriod.id });
+  await vi.waitFor(() =>
+    expect(periodController.selectedPeriodId).toBe(otherPeriod.id),
+  );
+
+  addResponse.resolve(jsonResponse(createSummary(1_000)));
+  await vi.waitFor(() =>
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(true),
+  );
+  updateResponse.resolve(jsonResponse(updatedOldSummary));
+  await vi.waitFor(() => expect(periodController.periodSaving).toBe(false));
+
+  expect(periodController.selectedPeriodId).toBe(otherPeriod.id);
+  expect(periodController.summary).toEqual(selectedSummary);
+});

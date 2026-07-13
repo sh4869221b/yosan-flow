@@ -1,7 +1,8 @@
 import { Effect } from "effect";
-import { dayHistoryUrl, historyItemUrl } from "$lib/dashboard/api-urls";
+import { dayHistoryUrl } from "$lib/dashboard/api-urls";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
+import { createHistoryMutationLifecycle } from "$lib/dashboard/history-mutation-lifecycle";
 import type {
   DeleteHistoryPayload,
   HistoryItem,
@@ -11,8 +12,6 @@ import type {
 } from "$lib/dashboard/types";
 import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import { summaryConfigurationMatches } from "$lib/dashboard/summary-rows";
-import { createHistorySummaryReconciliation } from "$lib/dashboard/history-summary-reconciliation";
 
 type HistoryControllerDependencies = {
   readonly getSelectedDate: () => string | null;
@@ -28,24 +27,11 @@ export function createHistoryControllerState(
 ) {
   let historyLoading = $state(false);
   let historyError = $state<string | null>(null);
-  let historyMutatingId = $state<string | null>(null);
+  let historyMutationVersion = $state(0);
   let histories = $state<HistoryItem[]>([]);
   let historyRequestSequence = 0;
   let activeHistoryRequest: { periodId: string; date: string } | null = null;
-  let historyMutationSequence = 0;
   const mutationSequences = new Map<string, number>();
-
-  function mutationOwnsSelection(
-    periodId: string,
-    date: string,
-    sequence: number,
-  ): boolean {
-    return (
-      sequence === historyMutationSequence &&
-      dependencies.getSelectedPeriodId() === periodId &&
-      dependencies.getSelectedDate() === date
-    );
-  }
 
   function syncSelectedRow(summary: PeriodSummary): void {
     const selectedDate = dependencies.getSelectedDate();
@@ -101,8 +87,7 @@ export function createHistoryControllerState(
     historyError = null;
   }
 
-  function invalidateHistoryLoads(periodId: string, date: string): void {
-    mutationSequences.set(periodId, (mutationSequences.get(periodId) ?? 0) + 1);
+  function cancelHistoryLoad(periodId: string, date: string): void {
     if (
       activeHistoryRequest?.periodId === periodId &&
       activeHistoryRequest.date === date
@@ -113,96 +98,30 @@ export function createHistoryControllerState(
     }
   }
 
-  const reconcileHistoryMutationEffect = createHistorySummaryReconciliation({
+  function invalidateHistoryLoads(periodId: string, date: string): void {
+    mutationSequences.set(periodId, (mutationSequences.get(periodId) ?? 0) + 1);
+    cancelHistoryLoad(periodId, date);
+  }
+
+  const historyMutations = createHistoryMutationLifecycle({
+    applyHistories: applyHistoryMutationHistories,
     applySummary: applyHistoryMutationSummary,
-    getMutationSequence: () => historyMutationSequence,
+    bumpVersion: () => {
+      historyMutationVersion += 1;
+    },
     getSelectedDate: dependencies.getSelectedDate,
     getSelectedPeriodId: dependencies.getSelectedPeriodId,
+    getSummary: () => dependencies.getSummary?.() ?? null,
+    invalidateHistoryLoads,
     loadHistoryEffect,
-    setError: (error) => {
-      historyError = error;
-    },
+    setError: (error) => (historyError = error),
     summaryRevision,
   });
-
-  function mutateHistoryEffect(
-    historyId: string,
-    request: RequestInit,
-    errorMessage: string,
-  ): Effect.Effect<void, never> {
-    const selectedPeriodId = dependencies.getSelectedPeriodId();
-    const selectedDate = dependencies.getSelectedDate();
-    if (selectedPeriodId == null || selectedDate == null) {
-      return Effect.void;
-    }
-    historyMutationSequence += 1;
-    const mutationSequence = historyMutationSequence;
-    const summaryMutation = summaryRevision.beginMutation(selectedPeriodId);
-    const mutationSummaryRevision = summaryRevision.get(selectedPeriodId);
-    return Effect.gen(function* () {
-      historyMutatingId = historyId;
-      historyError = null;
-      const result = yield* fetchJsonEffect<
-        HistoryMutationResponse<PeriodSummary>
-      >(
-        historyItemUrl(selectedPeriodId, selectedDate, historyId),
-        request,
-        errorMessage,
-      ).pipe(Effect.either);
-      summaryRevision.completeMutation(selectedPeriodId, summaryMutation);
-      invalidateHistoryLoads(selectedPeriodId, selectedDate);
-      const mutationOwnsCurrentPeriod =
-        mutationSequence === historyMutationSequence &&
-        dependencies.getSelectedPeriodId() === selectedPeriodId;
-      const mutationOwnsSummary =
-        mutationOwnsCurrentPeriod &&
-        summaryRevision.isMutationFresh(selectedPeriodId, summaryMutation);
-      const mutationOwnsCurrentDate = mutationOwnsSelection(
-        selectedPeriodId,
-        selectedDate,
-        mutationSequence,
-      );
-      if (result._tag === "Left" && mutationOwnsCurrentDate) {
-        historyError = result.left;
-      } else if (
-        result._tag === "Right" &&
-        mutationOwnsCurrentPeriod &&
-        result.right.summary.periodId === selectedPeriodId
-      ) {
-        const summaryIsCompatible = summaryConfigurationMatches(
-          result.right.summary,
-          dependencies.getSummary?.() ?? null,
-        );
-        const mustReconcile =
-          !mutationOwnsSummary ||
-          summaryRevision.get(selectedPeriodId) !== mutationSummaryRevision ||
-          !summaryIsCompatible;
-        if (summaryIsCompatible) {
-          applyHistoryMutationSummary(result.right.summary);
-          if (mutationOwnsCurrentDate) {
-            applyHistoryMutationHistories(result.right);
-          }
-        }
-        if (mustReconcile) {
-          if (!summaryRevision.isMutationActive(selectedPeriodId)) {
-            yield* reconcileHistoryMutationEffect(
-              selectedPeriodId,
-              selectedDate,
-              mutationSequence,
-            );
-          }
-        }
-      }
-      if (mutationSequence === historyMutationSequence) {
-        historyMutatingId = null;
-      }
-    });
-  }
 
   function updateHistoryEffect(
     payload: UpdateHistoryPayload,
   ): Effect.Effect<void, never> {
-    return mutateHistoryEffect(
+    return historyMutations.mutateEffect(
       payload.historyId,
       {
         body: JSON.stringify({
@@ -219,7 +138,7 @@ export function createHistoryControllerState(
   function deleteHistoryEffect(
     payload: DeleteHistoryPayload,
   ): Effect.Effect<void, never> {
-    return mutateHistoryEffect(
+    return historyMutations.mutateEffect(
       payload.historyId,
       { method: "DELETE" },
       "履歴の削除に失敗しました。",
@@ -227,6 +146,7 @@ export function createHistoryControllerState(
   }
 
   return {
+    cancelHistoryLoad,
     getMutationSequence(periodId: string): number {
       return mutationSequences.get(periodId) ?? 0;
     },
@@ -237,7 +157,7 @@ export function createHistoryControllerState(
       return historyError;
     },
     get historyMutatingId() {
-      return historyMutatingId;
+      return historyMutations.getVisibleId(historyMutationVersion);
     },
     get histories() {
       return histories;

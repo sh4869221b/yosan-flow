@@ -15,20 +15,23 @@ test("keeps history edits after stale summary and history responses", async ({
   request,
 }) => {
   const { periodId, todayDate } = await seedCurrentPeriod(request);
+  const baseUrl = getBaseUrl();
   const summaryPath = `/api/periods/${encodeURIComponent(periodId)}`;
   const historyPath = `${summaryPath}/days/${encodeURIComponent(todayDate)}/history`;
+  const summaryUrl = new URL(summaryPath, baseUrl).href;
+  const historyUrl = new URL(historyPath, baseUrl).href;
   const staleSummaryCaptured = Promise.withResolvers<void>();
   const staleSummaryReleased = Promise.withResolvers<void>();
   const staleHistoryCaptured = Promise.withResolvers<void>();
   const staleHistoryReleased = Promise.withResolvers<void>();
 
-  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await page.goto(`${baseUrl}/?periodId=${encodeURIComponent(periodId)}`);
   const modal = await openDayEntryAndWaitForHistory({
     page,
     periodId,
     date: todayDate,
   });
-  await page.route(`**${summaryPath}`, async (route) => {
+  await page.route(summaryUrl, async (route) => {
     const response = await route.fetch();
     staleSummaryCaptured.resolve();
     await staleSummaryReleased.promise;
@@ -46,7 +49,6 @@ test("keeps history edits after stale summary and history responses", async ({
   });
   await staleSummaryCaptured.promise;
 
-  const historyUrl = new URL(historyPath, page.url()).href;
   const reopenedHistoryResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" && response.url() === historyUrl,
@@ -66,7 +68,7 @@ test("keeps history edits after stale summary and history responses", async ({
       .getByTestId(`used-${todayDate}`),
   ).toHaveText("1000 円");
 
-  await page.route(`**${historyPath}`, async (route) => {
+  await page.route(historyUrl, async (route) => {
     const response = await route.fetch();
     staleHistoryCaptured.resolve();
     await staleHistoryReleased.promise;
@@ -96,6 +98,7 @@ test("keeps a new period history load after an old period edit settles", async (
 }) => {
   const { periodId: currentPeriodId, todayDate } =
     await seedCurrentPeriod(request);
+  const baseUrl = getBaseUrl();
   const futureStartDate = addDays(getCurrentJstDate(), 30);
   const futurePeriodId = `p-${futureStartDate}`;
   await seedPeriod(request, getBaseUrl(), {
@@ -106,7 +109,7 @@ test("keeps a new period history load after an old period edit settles", async (
   });
 
   await page.goto(
-    `${getBaseUrl()}/?periodId=${encodeURIComponent(currentPeriodId)}`,
+    `${baseUrl}/?periodId=${encodeURIComponent(currentPeriodId)}`,
   );
   const modal = await openDayEntryAndWaitForHistory({
     page,
@@ -123,10 +126,11 @@ test("keeps a new period history load after an old period edit settles", async (
   });
 
   const currentHistoryPath = `/api/periods/${encodeURIComponent(currentPeriodId)}/days/${encodeURIComponent(todayDate)}/history`;
+  const currentHistoryUrl = new URL(currentHistoryPath, baseUrl).href;
   const currentHistoryResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
-      response.url().endsWith(currentHistoryPath),
+      response.url() === currentHistoryUrl,
   );
   await page.getByTestId(`calendar-day-${todayDate}`).click();
   expect((await currentHistoryResponse).ok()).toBe(true);
@@ -139,11 +143,14 @@ test("keeps a new period history load after an old period edit settles", async (
   const oldMutationCaptured = Promise.withResolvers<void>();
   const oldMutationReleased = Promise.withResolvers<void>();
   const oldMutationPath = `/api/periods/${encodeURIComponent(currentPeriodId)}/days/${encodeURIComponent(todayDate)}/history/`;
-  await page.route(`**${oldMutationPath}*`, async (route) => {
+  const oldMutationBaseUrl = new URL(oldMutationPath, baseUrl).href;
+  let oldMutationUrl: string | null = null;
+  await page.route(`${oldMutationBaseUrl}*`, async (route) => {
     if (route.request().method() !== "PATCH") {
       await route.continue();
       return;
     }
+    oldMutationUrl = route.request().url();
     const response = await route.fetch();
     oldMutationCaptured.resolve();
     await oldMutationReleased.promise;
@@ -155,7 +162,8 @@ test("keeps a new period history load after an old period edit settles", async (
   const futureHistoryCaptured = Promise.withResolvers<void>();
   const futureHistoryReleased = Promise.withResolvers<void>();
   const futureHistoryPath = `/api/periods/${encodeURIComponent(futurePeriodId)}/days/${encodeURIComponent(futureStartDate)}/history`;
-  await page.route(`**${futureHistoryPath}`, async (route) => {
+  const futureHistoryUrl = new URL(futureHistoryPath, baseUrl).href;
+  await page.route(futureHistoryUrl, async (route) => {
     const response = await route.fetch();
     futureHistoryCaptured.resolve();
     await futureHistoryReleased.promise;
@@ -169,7 +177,8 @@ test("keeps a new period history load after an old period edit settles", async (
   const oldMutationDelivered = page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&
-      response.url().includes(oldMutationPath),
+      oldMutationUrl != null &&
+      response.url() === oldMutationUrl,
   );
   oldMutationReleased.resolve();
   expect((await oldMutationDelivered).ok()).toBe(true);
@@ -178,7 +187,7 @@ test("keeps a new period history load after an old period edit settles", async (
   const futureHistoryDelivered = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
-      response.url().endsWith(futureHistoryPath),
+      response.url() === futureHistoryUrl,
   );
   futureHistoryReleased.resolve();
   expect((await futureHistoryDelivered).ok()).toBe(true);

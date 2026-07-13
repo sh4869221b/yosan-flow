@@ -82,8 +82,9 @@ it("reconciles a period PUT body captured before a newer summary", async () => {
 
   controller.handleSavePeriod({ budgetYen: 12_000 });
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-  summaryRevision.beginMutation(period.id);
+  const newerMutation = summaryRevision.beginMutation(period.id);
   summaryRevision.publish(newerAddSummary, controller.setSummary);
+  summaryRevision.completeMutation(period.id, newerMutation);
   putResponse.resolve(jsonResponse(stalePutSummary));
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
@@ -150,9 +151,14 @@ it("keeps a later period PUT authoritative over an older add response", async ()
   });
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
   periodController.handleSavePeriod({ budgetYen: 12_000 });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(fetchMock).toHaveBeenCalledOnce();
   addResponse.resolve(jsonResponse(oldAddSummary));
+  await vi.waitFor(() =>
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(true),
+  );
   putResponse.resolve(jsonResponse(updatedSummary));
   await vi.waitFor(() => expect(periodController.periodSaving).toBe(false));
 

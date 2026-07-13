@@ -9,15 +9,24 @@ import { addDays, getBaseUrl } from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
-test("reconciles a delayed history edit after a newer day add", async ({
+test("serializes a day add after a delayed history edit", async ({
   page,
   request,
 }) => {
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   const secondDate = addDays(todayDate, 1);
+  const baseUrl = getBaseUrl();
   const summaryPath = `/api/periods/${encodeURIComponent(periodId)}`;
+  const secondAddPath = `${summaryPath}/days/${encodeURIComponent(secondDate)}/add`;
+  const secondAddUrl = new URL(secondAddPath, baseUrl).href;
+  let secondAddRequestCount = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url() === secondAddUrl) {
+      secondAddRequestCount += 1;
+    }
+  });
 
-  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await page.goto(`${baseUrl}/?periodId=${encodeURIComponent(periodId)}`);
   const modal = await openDayEntryAndWaitForHistory({
     page,
     periodId,
@@ -33,10 +42,11 @@ test("reconciles a delayed history edit after a newer day add", async ({
   });
 
   const firstHistoryPath = `${summaryPath}/days/${encodeURIComponent(todayDate)}/history`;
+  const firstHistoryUrl = new URL(firstHistoryPath, baseUrl).href;
   const firstHistoryResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
-      response.url().endsWith(firstHistoryPath),
+      response.url() === firstHistoryUrl,
   );
   await page.getByTestId(`calendar-day-${todayDate}`).click();
   expect((await firstHistoryResponse).ok()).toBe(true);
@@ -47,11 +57,13 @@ test("reconciles a delayed history edit after a newer day add", async ({
 
   const mutationCaptured = Promise.withResolvers<void>();
   const mutationReleased = Promise.withResolvers<void>();
-  await page.route(`**${firstHistoryPath}/*`, async (route) => {
+  let mutationUrl: string | null = null;
+  await page.route(`${firstHistoryUrl}/*`, async (route) => {
     if (route.request().method() !== "PATCH") {
       await route.continue();
       return;
     }
+    mutationUrl = route.request().url();
     const response = await route.fetch();
     mutationCaptured.resolve();
     await mutationReleased.promise;
@@ -67,30 +79,26 @@ test("reconciles a delayed history edit after a newer day add", async ({
   });
   await modal.getByLabel("入力額 (円)").fill("2000");
   await modal.getByLabel("メモ").fill("newer add");
-  await saveDayEntrySuccessfully({
-    page,
-    modal,
-    periodId,
-    date: secondDate,
-  });
-  await expect(
-    page
-      .getByTestId(`calendar-day-${todayDate}`)
-      .getByTestId(`used-${todayDate}`),
-  ).toHaveText("500 円");
-  await expect(
-    page
-      .getByTestId(`calendar-day-${secondDate}`)
-      .getByTestId(`used-${secondDate}`),
-  ).toHaveText("2000 円");
-
-  const reconciliationResponse = page.waitForResponse(
+  const secondAddResponse = page.waitForResponse(
     (response) =>
-      response.request().method() === "GET" &&
-      response.url().endsWith(summaryPath),
+      response.request().method() === "POST" && response.url() === secondAddUrl,
+  );
+  const saveButton = modal.locator('button[type="submit"]');
+  await saveButton.click();
+  await expect(saveButton).toBeDisabled();
+  expect(secondAddRequestCount).toBe(0);
+
+  const mutationDelivered = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      mutationUrl != null &&
+      response.url() === mutationUrl,
   );
   mutationReleased.resolve();
-  expect((await reconciliationResponse).ok()).toBe(true);
+  expect((await mutationDelivered).ok()).toBe(true);
+  expect((await secondAddResponse).ok()).toBe(true);
+  await expect(modal).toBeHidden();
+  expect(secondAddRequestCount).toBe(1);
   await expect(
     page
       .getByTestId(`calendar-day-${todayDate}`)

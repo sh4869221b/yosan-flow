@@ -6,12 +6,19 @@ import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revisi
 
 type Dependencies = {
   readonly applySummary: (_summary: PeriodSummary) => void;
-  readonly getMutationSequence: () => number;
+  readonly getMutationSequence: (_periodId: string) => number;
   readonly getSelectedDate: () => string | null;
   readonly getSelectedPeriodId: () => string | null;
   readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
   readonly setError: (_error: string) => void;
   readonly summaryRevision: PeriodSummaryRevision;
+};
+
+type ReconciliationRequest = {
+  readonly date: string;
+  readonly mutationSequence: number;
+  readonly originatingError: string | undefined;
+  readonly periodId: string;
 };
 
 export function createHistorySummaryReconciliation(dependencies: Dependencies) {
@@ -21,17 +28,52 @@ export function createHistorySummaryReconciliation(dependencies: Dependencies) {
     sequence: number,
   ): boolean {
     return (
-      sequence === dependencies.getMutationSequence() &&
+      sequence === dependencies.getMutationSequence(periodId) &&
       dependencies.getSelectedPeriodId() === periodId &&
       dependencies.getSelectedDate() === date
     );
   }
 
-  return (
-    periodId: string,
-    date: string,
-    mutationSequence: number,
-  ): Effect.Effect<void, never> => {
+  function recoverHistories(
+    request: ReconciliationRequest,
+    reconciliationError?: string,
+  ): Effect.Effect<void, never> {
+    const { date, mutationSequence, originatingError, periodId } = request;
+    if (!ownsSelection(periodId, date, mutationSequence)) {
+      return Effect.void;
+    }
+    if (dependencies.summaryRevision.isMutationActive(periodId)) {
+      const activeMutation =
+        dependencies.summaryRevision.getMutationSequence(periodId);
+      return dependencies.summaryRevision
+        .awaitMutationSettlement(periodId, activeMutation)
+        .pipe(
+          Effect.andThen(
+            Effect.suspend(() =>
+              recoverHistories(request, reconciliationError),
+            ),
+          ),
+        );
+    }
+    return dependencies.loadHistoryEffect(date).pipe(
+      Effect.andThen(
+        Effect.sync(() => {
+          if (!ownsSelection(periodId, date, mutationSequence)) return;
+          if (originatingError != null) {
+            dependencies.setError(originatingError);
+          } else if (reconciliationError != null) {
+            dependencies.setError(reconciliationError);
+          }
+        }),
+      ),
+    );
+  }
+
+  return (request: ReconciliationRequest): Effect.Effect<void, never> => {
+    const { periodId } = request;
+    if (dependencies.summaryRevision.isMutationActive(periodId)) {
+      return recoverHistories(request);
+    }
     const reconciliationRevision = dependencies.summaryRevision.get(periodId);
     const reconciliationMutation =
       dependencies.summaryRevision.getMutationSequence(periodId);
@@ -41,28 +83,22 @@ export function createHistorySummaryReconciliation(dependencies: Dependencies) {
         undefined,
         "再取得に失敗しました。",
       ).pipe(Effect.either);
-      const reconciliationIsCurrent =
-        mutationSequence === dependencies.getMutationSequence() &&
+      const summaryReconciliationIsCurrent =
         dependencies.getSelectedPeriodId() === periodId &&
         dependencies.summaryRevision.getMutationSequence(periodId) ===
           reconciliationMutation &&
         dependencies.summaryRevision.get(periodId) === reconciliationRevision;
       if (
         result._tag === "Right" &&
-        reconciliationIsCurrent &&
+        summaryReconciliationIsCurrent &&
         result.right.periodId === periodId
       ) {
         dependencies.applySummary(result.right);
       }
-      if (ownsSelection(periodId, date, mutationSequence)) {
-        yield* dependencies.loadHistoryEffect(date);
-        if (
-          result._tag === "Left" &&
-          ownsSelection(periodId, date, mutationSequence)
-        ) {
-          dependencies.setError(result.left);
-        }
-      }
+      yield* recoverHistories(
+        request,
+        result._tag === "Left" ? result.left : undefined,
+      );
     });
   };
 }

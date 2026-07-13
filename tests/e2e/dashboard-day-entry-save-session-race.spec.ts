@@ -15,11 +15,21 @@ test("preserves a newer failed modal when an older successful save finishes", as
 }) => {
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   const secondDate = addDays(todayDate, 1);
-  const oldHistoryUrl = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history`;
-  const newHistoryUrl = `/api/periods/${periodId}/days/${secondDate}/history`;
-  const newAddUrl = `/api/periods/${periodId}/days/${secondDate}/add`;
+  const baseUrl = getBaseUrl();
+  const oldHistoryUrl = new URL(
+    `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history`,
+    baseUrl,
+  ).href;
+  const newHistoryUrl = new URL(
+    `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(secondDate)}/history`,
+    baseUrl,
+  ).href;
+  const newAddUrl = new URL(
+    `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(secondDate)}/add`,
+    baseUrl,
+  ).href;
 
-  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await page.goto(`${baseUrl}/?periodId=${encodeURIComponent(periodId)}`);
   const modal = await openDayEntryAndWaitForHistory({
     page,
     periodId,
@@ -36,7 +46,7 @@ test("preserves a newer failed modal when an older successful save finishes", as
   const historyReleased = new Promise<void>((resolve) => {
     releaseHistory = resolve;
   });
-  await page.route(`**${oldHistoryUrl}`, async (route) => {
+  await page.route(oldHistoryUrl, async (route) => {
     intercepted += 1;
     signalIntercepted?.();
     await historyReleased;
@@ -61,7 +71,7 @@ test("preserves a newer failed modal when an older successful save finishes", as
     page.waitForResponse(
       (response) =>
         response.request().method() === "GET" &&
-        new URL(response.url()).pathname === newHistoryUrl &&
+        response.url() === newHistoryUrl &&
         response.ok(),
     ),
     page.getByTestId(`calendar-day-${secondDate}`).click(),
@@ -71,7 +81,7 @@ test("preserves a newer failed modal when an older successful save finishes", as
   await expect(
     modal.getByText("入力を保存すると履歴が表示されます。"),
   ).toBeVisible();
-  await page.route(`**${newAddUrl}`, async (route) => {
+  await page.route(newAddUrl, async (route) => {
     await route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -87,8 +97,7 @@ test("preserves a newer failed modal when an older successful save finishes", as
   await modal.getByLabel("メモ").fill("newer failed session");
   const newAddResponse = page.waitForResponse(
     (response) =>
-      response.request().method() === "POST" &&
-      new URL(response.url()).pathname === newAddUrl,
+      response.request().method() === "POST" && response.url() === newAddUrl,
   );
   await modal.getByRole("button", { name: "保存する" }).click();
   expect((await newAddResponse).status()).toBe(503);

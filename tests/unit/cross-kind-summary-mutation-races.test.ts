@@ -42,11 +42,11 @@ function createPeriodController(
   );
 }
 
-it("keeps a complete add result when a delayed PUT body predates it", async () => {
+it("runs a period update after an active add", async () => {
   const addResponse = Promise.withResolvers<Response>();
   const putResponse = Promise.withResolvers<Response>();
   const initialSummary = createSummary(0);
-  const stalePutSummary = withBudget(initialSummary, 12_000);
+  const addedSummary = createSummary(2_000);
   const completeSummary = withBudget(createSummary(2_000), 12_000);
   const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method ?? "GET";
@@ -79,18 +79,21 @@ it("keeps a complete add result when a delayed PUT body predates it", async () =
   });
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
   periodController.handleSavePeriod({ budgetYen: 12_000 });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-  addResponse.resolve(jsonResponse(completeSummary));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(fetchMock).toHaveBeenCalledOnce();
+  addResponse.resolve(jsonResponse(addedSummary));
   await vi.waitFor(() =>
-    expect(periodController.summary).toEqual(completeSummary),
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(true),
   );
-  putResponse.resolve(jsonResponse(stalePutSummary));
+  putResponse.resolve(jsonResponse(completeSummary));
   await vi.waitFor(() => expect(periodController.periodSaving).toBe(false));
 
   expect(periodController.summary).toEqual(completeSummary);
 });
 
-it("keeps a later history result after an older PUT settles", async () => {
+it("runs a history mutation after an active period update", async () => {
   const putResponse = Promise.withResolvers<Response>();
   const historyResponse = Promise.withResolvers<Response>();
   const initialSummary = createSummary(0);
@@ -130,10 +133,13 @@ it("keeps a later history result after an older PUT settles", async () => {
     inputYen: 1_000,
     memo: "edit",
   });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(fetchMock).toHaveBeenCalledOnce();
   putResponse.resolve(jsonResponse(updatedPeriodSummary));
   await vi.waitFor(() =>
-    expect(periodController.summary).toEqual(updatedPeriodSummary),
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH"),
+    ).toBe(true),
   );
   historyResponse.resolve(
     jsonResponse({ summary: completeSummary, histories }),

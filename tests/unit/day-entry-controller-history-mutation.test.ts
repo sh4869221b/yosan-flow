@@ -173,7 +173,7 @@ it("keeps another date history load while applying the period summary", async ()
   expect(controller.historyLoading).toBe(false);
 });
 
-it("reconciles a stale history mutation body after a newer add", async () => {
+it("runs a newer add after an active history mutation", async () => {
   const staleMutationResponse = Promise.withResolvers<Response>();
   const staleMutationSummary = createSummary(500);
   const latestSummary = createSummary(2_500);
@@ -244,20 +244,18 @@ it("reconciles a stale history mutation body after a newer add", async () => {
     inputYen: 2_000,
     memo: "newer add",
   });
-  await vi.waitFor(() => expect(summary).toEqual(latestSummary));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(
+    false,
+  );
 
   staleMutationResponse.resolve(
     jsonResponse({ summary: staleMutationSummary, histories: [] }),
   );
-
   await vi.waitFor(() =>
     expect(
-      fetchMock.mock.calls.filter(
-        ([input, init]) =>
-          (init?.method ?? "GET") === "GET" &&
-          String(input) === "/api/periods/period-1",
-      ),
-    ).toHaveLength(2),
+      fetchMock.mock.calls.some(([, init]) => init?.method === "POST"),
+    ).toBe(true),
   );
   await vi.waitFor(() => expect(summary).toEqual(latestSummary));
 });

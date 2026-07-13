@@ -34,7 +34,7 @@ jobs:
         run: pnpm test:e2e
 
       - name: Upload E2E diagnostics
-        if: ${{ always() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
           name: e2e-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
