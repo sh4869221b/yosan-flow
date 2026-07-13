@@ -103,7 +103,6 @@ export function createDayEntryControllerState(
       if (remainingSubmissions === 0) {
         activeSubmissionCounts.delete(selectedPeriodId);
       }
-      let refreshFailed = false;
       if (result._tag === "Left") {
         if (submittedGeneration === modalGeneration) {
           modalError = result.left;
@@ -163,25 +162,9 @@ export function createDayEntryControllerState(
                 (row) => row.date === submittedDate,
               ) ?? null;
           }
-        } else if (
-          refreshResult._tag === "Left" &&
-          refreshIsCurrent &&
-          result._tag === "Right"
-        ) {
-          refreshFailed = true;
-          if (
-            submittedGeneration === modalGeneration ||
-            selectedDate === submittedDate
-          ) {
-            modalError = "保存しましたが再取得に失敗しました。";
-          }
         }
       }
-      if (
-        result._tag === "Right" &&
-        submittedGeneration === modalGeneration &&
-        !refreshFailed
-      ) {
+      if (result._tag === "Right" && submittedGeneration === modalGeneration) {
         closeDayEntry();
       }
       if (submittedGeneration === modalGeneration) {

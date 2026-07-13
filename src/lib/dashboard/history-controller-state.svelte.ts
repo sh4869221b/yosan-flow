@@ -61,7 +61,7 @@ export function createHistoryControllerState(
       } else if (result._tag === "Right" && requestIsCurrent) {
         histories = result.right.histories ?? [];
       }
-      if (requestIsCurrent) {
+      if (requestSequence === historyRequestSequence) {
         historyLoading = false;
       }
     });

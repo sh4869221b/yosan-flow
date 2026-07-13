@@ -42,4 +42,30 @@ describe("history controller request generation", () => {
 
     expect(controller.histories).toEqual([{ id: "new" }]);
   });
+
+  it("clears loading when the selected period changes during the latest request", async () => {
+    const response = Promise.withResolvers<Response>();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => response.promise),
+    );
+    let selectedPeriodId = "period-1";
+    const controller = createHistoryControllerState({
+      getSelectedDate: () => "2026-07-12",
+      getSelectedPeriodId: () => selectedPeriodId,
+      setSelectedRow: vi.fn(),
+      setSummary: vi.fn(),
+    });
+
+    const loading = Effect.runPromise(
+      controller.loadHistoryEffect("2026-07-12"),
+    );
+    await vi.waitFor(() => expect(controller.historyLoading).toBe(true));
+    selectedPeriodId = "period-2";
+    response.resolve(historyResponse("old period"));
+    await loading;
+
+    expect(controller.historyLoading).toBe(false);
+    expect(controller.histories).toEqual([]);
+  });
 });

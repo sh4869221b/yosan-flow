@@ -101,9 +101,11 @@ test("returns after a successful add closes the modal", async ({
   // Given: a seeded period with an open day-entry modal.
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  await page.getByTestId(`calendar-day-${todayDate}`).click();
-  const modal = page.getByTestId("day-entry-modal");
-  await expect(modal).toBeVisible();
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
   await modal.getByLabel("入力額 (円)").fill("2000");
   await modal.getByLabel("メモ").fill("helper lifecycle proof");
 
@@ -143,8 +145,11 @@ test("rejects a failed add and leaves the modal input visible", async ({
       });
     },
   );
-  await page.getByTestId(`calendar-day-${todayDate}`).click();
-  const modal = page.getByTestId("day-entry-modal");
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
   await modal.getByLabel("入力額 (円)").fill("2000");
 
   // When: the helper observes the unsuccessful POST response.
