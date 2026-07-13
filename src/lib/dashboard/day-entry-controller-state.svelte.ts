@@ -35,8 +35,7 @@ export function createDayEntryControllerState(
   let modalInputYen = $state("");
   let modalMemo = $state("");
   let modalGeneration = 0;
-  let submissionSequence = 0;
-  const latestSuccessfulSubmissionSequences = new Map<string, number>();
+  const bestSuccessfulPlannedTotals = new Map<string, number>();
   const activeSubmissionCounts = new Map<string, number>();
   const latestRefreshSequences = new Map<string, number>();
   let refreshSequence = 0;
@@ -74,8 +73,6 @@ export function createDayEntryControllerState(
     const submittedGeneration = modalGeneration;
     const submittedDate = payload.date;
     const submittedSessionChanged = modalSessionChanged;
-    submissionSequence += 1;
-    const submittedSequence = submissionSequence;
     activeSubmissionCounts.set(
       selectedPeriodId,
       (activeSubmissionCounts.get(selectedPeriodId) ?? 0) + 1,
@@ -100,25 +97,22 @@ export function createDayEntryControllerState(
       const remainingSubmissions =
         (activeSubmissionCounts.get(selectedPeriodId) ?? 1) - 1;
       activeSubmissionCounts.set(selectedPeriodId, remainingSubmissions);
-      if (remainingSubmissions === 0) {
-        activeSubmissionCounts.delete(selectedPeriodId);
-      }
       let shouldRefreshHistory = false;
       if (result._tag === "Left") {
         if (submittedGeneration === modalGeneration) {
           modalError = result.left;
         }
       } else {
-        const successfulResponseIsLatest =
+        const successfulResponseIsFullest =
           result.right.periodId === selectedPeriodId &&
-          submittedSequence >
-            (latestSuccessfulSubmissionSequences.get(selectedPeriodId) ?? 0);
+          result.right.plannedTotalYen >
+            (bestSuccessfulPlannedTotals.get(selectedPeriodId) ?? -1);
         const submittedPeriodIsCurrent =
           dependencies.getSelectedPeriodId() === selectedPeriodId;
-        if (successfulResponseIsLatest) {
-          latestSuccessfulSubmissionSequences.set(
+        if (successfulResponseIsFullest) {
+          bestSuccessfulPlannedTotals.set(
             selectedPeriodId,
-            submittedSequence,
+            result.right.plannedTotalYen,
           );
           if (submittedPeriodIsCurrent) {
             dependencies.setSummary(result.right);
@@ -129,13 +123,17 @@ export function createDayEntryControllerState(
           selectedDate === submittedDate;
         if (submittedPeriodIsCurrent && submittedDateIsCurrent) {
           shouldRefreshHistory = true;
-          if (successfulResponseIsLatest) {
+          if (successfulResponseIsFullest) {
             selectedRow =
               result.right.dailyRows.find(
                 (row) => row.date === submittedDate,
               ) ?? null;
           }
         }
+      }
+      if (remainingSubmissions === 0) {
+        activeSubmissionCounts.delete(selectedPeriodId);
+        bestSuccessfulPlannedTotals.delete(selectedPeriodId);
       }
       if (result._tag === "Right" && submittedGeneration === modalGeneration) {
         closeDayEntry();
