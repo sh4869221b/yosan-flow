@@ -148,6 +148,44 @@ describe("day-entry controller review races", () => {
     expect(controller.modalInputYen).toBe("3000");
   });
 
+  it("does not refresh an old date after summary reconciliation", async () => {
+    // Given
+    const summary = createSummary(2_000);
+    const refreshResponse = Promise.withResolvers<Response>();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(summary))
+      .mockImplementationOnce(() => refreshResponse.promise);
+    vi.stubGlobal("fetch", fetchMock);
+    const loadHistoryEffect = vi.fn(() => Effect.void);
+    const setSummary = vi.fn();
+    const controller = createDayEntryControllerState({
+      getSelectedPeriodId: () => "period-1",
+      getSummary: () => summary,
+      historyController: {
+        loadHistory: vi.fn(),
+        loadHistoryEffect,
+        resetHistories: vi.fn(),
+      },
+      setSummary,
+    });
+    controller.openDayEntry({ date: "2026-07-12" });
+    controller.submitDayEntry({
+      date: "2026-07-12",
+      inputYen: 2_000,
+      memo: "old date",
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    // When
+    controller.openDayEntry({ date: "2026-07-13" });
+    refreshResponse.resolve(jsonResponse(summary));
+
+    // Then
+    await vi.waitFor(() => expect(setSummary).toHaveBeenCalledTimes(2));
+    expect(loadHistoryEffect).not.toHaveBeenCalled();
+  });
+
   it("does not apply an older authoritative refresh after a newer save", async () => {
     const firstRefresh = Promise.withResolvers<Response>();
     const firstSummary = createSummary(2_000);

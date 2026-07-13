@@ -171,7 +171,12 @@ export function createDayEntryControllerState(
           }
         }
       }
-      if (shouldRefreshHistory) {
+      if (
+        shouldRefreshHistory &&
+        dependencies.getSelectedPeriodId() === selectedPeriodId &&
+        (submittedGeneration === modalGeneration ||
+          selectedDate === submittedDate)
+      ) {
         const sessionChanged =
           submittedGeneration === modalGeneration
             ? submittedSessionChanged

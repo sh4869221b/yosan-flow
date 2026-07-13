@@ -47,6 +47,58 @@ test("refreshes a reopened same-day modal after the pending save completes", asy
   await expect(modal).toBeVisible();
 });
 
+test("does not start an old-day history refresh after switching days", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  const secondDate = addDays(todayDate, 1);
+  const summaryUrl = `/api/periods/${encodeURIComponent(periodId)}`;
+  const oldHistoryUrl = `${summaryUrl}/days/${encodeURIComponent(todayDate)}/history`;
+  const summaryIntercepted = Promise.withResolvers<void>();
+  const summaryReleased = Promise.withResolvers<void>();
+  let oldHistoryRequests = 0;
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
+  await page.route(`**${summaryUrl}`, async (route) => {
+    summaryIntercepted.resolve();
+    await summaryReleased.promise;
+    await route.continue();
+  });
+  await page.route(`**${oldHistoryUrl}`, async (route) => {
+    oldHistoryRequests += 1;
+    await route.continue();
+  });
+
+  await modal.getByLabel("入力額 (円)").fill("2000");
+  const saveResponse = await clickSaveAndWaitForDayEntryAddResponse({
+    page,
+    modal,
+    periodId,
+    date: todayDate,
+  });
+  expect(saveResponse.ok()).toBe(true);
+  await summaryIntercepted.promise;
+
+  await page.getByTestId(`calendar-day-${secondDate}`).click();
+  await expect(modal).toBeVisible();
+  await expect(modal).toContainText(`対象日: ${secondDate}`);
+  summaryReleased.resolve();
+  await expect(
+    page
+      .getByTestId(`calendar-day-${todayDate}`)
+      .getByTestId(`used-${todayDate}`),
+  ).toHaveText("2000 円");
+
+  expect(oldHistoryRequests).toBe(0);
+  await expect(modal).toContainText(`対象日: ${secondDate}`);
+});
+
 test("keeps a newer day-entry modal open when an older save finishes", async ({
   page,
   request,
