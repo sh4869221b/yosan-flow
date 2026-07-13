@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Deferred, Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
@@ -82,6 +82,41 @@ describe("day-entry controller refresh failure", () => {
     expect(controller.modalOpen).toBe(false);
     expect(controller.modalSaving).toBe(false);
     refreshResponse.resolve(jsonResponse(summary));
+  });
+
+  it("finishes a successful save before history reconciliation completes", async () => {
+    const summary = createSummary();
+    const historyFinished = Effect.runSync(Deferred.make<void>());
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(summary))
+      .mockResolvedValueOnce(jsonResponse(summary));
+    vi.stubGlobal("fetch", fetchMock);
+    const loadHistoryEffect = vi.fn(() => Deferred.await(historyFinished));
+    const controller = createDayEntryControllerState({
+      getSelectedPeriodId: () => "period-1",
+      getSummary: () => summary,
+      historyController: {
+        loadHistory: vi.fn(),
+        loadHistoryEffect,
+        resetHistories: vi.fn(),
+      },
+      setSummary: vi.fn(),
+    });
+    controller.openDayEntry({ date: "2026-07-12" });
+
+    controller.submitDayEntry({
+      date: "2026-07-12",
+      inputYen: 2_000,
+      memo: "committed before history",
+    });
+
+    await vi.waitFor(() => expect(loadHistoryEffect).toHaveBeenCalledOnce());
+    expect(controller.modalOpen).toBe(false);
+    expect(controller.modalSaving).toBe(false);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    Effect.runSync(Deferred.succeed(historyFinished, undefined));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
   it("closes the modal after a successful save when summary refresh fails", async () => {

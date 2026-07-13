@@ -36,7 +36,7 @@ export function createDayEntryControllerState(
   let modalMemo = $state("");
   let modalGeneration = 0;
   let submissionSequence = 0;
-  const latestAppliedSuccessfulSubmissionSequences = new Map<string, number>();
+  const latestSuccessfulSubmissionSequences = new Map<string, number>();
   const activeSubmissionCounts = new Map<string, number>();
   const latestRefreshSequences = new Map<string, number>();
   let refreshSequence = 0;
@@ -112,12 +112,11 @@ export function createDayEntryControllerState(
         const successfulResponseIsLatest =
           result.right.periodId === selectedPeriodId &&
           submittedSequence >
-            (latestAppliedSuccessfulSubmissionSequences.get(selectedPeriodId) ??
-              0);
+            (latestSuccessfulSubmissionSequences.get(selectedPeriodId) ?? 0);
         const submittedPeriodIsCurrent =
           dependencies.getSelectedPeriodId() === selectedPeriodId;
         if (successfulResponseIsLatest) {
-          latestAppliedSuccessfulSubmissionSequences.set(
+          latestSuccessfulSubmissionSequences.set(
             selectedPeriodId,
             submittedSequence,
           );
@@ -125,16 +124,17 @@ export function createDayEntryControllerState(
             dependencies.setSummary(result.right);
           }
         }
-        if (
-          successfulResponseIsLatest &&
-          submittedPeriodIsCurrent &&
-          (submittedGeneration === modalGeneration ||
-            selectedDate === submittedDate)
-        ) {
-          selectedRow =
-            result.right.dailyRows.find((row) => row.date === submittedDate) ??
-            null;
+        const submittedDateIsCurrent =
+          submittedGeneration === modalGeneration ||
+          selectedDate === submittedDate;
+        if (submittedPeriodIsCurrent && submittedDateIsCurrent) {
           shouldRefreshHistory = true;
+          if (successfulResponseIsLatest) {
+            selectedRow =
+              result.right.dailyRows.find(
+                (row) => row.date === submittedDate,
+              ) ?? null;
+          }
         }
       }
       if (result._tag === "Right" && submittedGeneration === modalGeneration) {
