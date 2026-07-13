@@ -64,6 +64,7 @@ describe("day-entry controller refresh failure", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect: () => Effect.void,
         resetHistories: vi.fn(),
@@ -97,6 +98,7 @@ describe("day-entry controller refresh failure", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect,
         resetHistories: vi.fn(),
@@ -138,6 +140,7 @@ describe("day-entry controller refresh failure", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => submittedSummary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect: () => Deferred.await(historyFinished),
         resetHistories: vi.fn(),
@@ -172,6 +175,7 @@ describe("day-entry controller refresh failure", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect: () => Effect.void,
         resetHistories: vi.fn(),

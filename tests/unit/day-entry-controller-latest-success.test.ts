@@ -60,6 +60,7 @@ function createControllerState(
     getSelectedPeriodId,
     getSummary,
     historyController: {
+      getMutationSequence: () => 0,
       loadHistory: vi.fn(),
       loadHistoryEffect: () => Effect.void,
       resetHistories: vi.fn(),

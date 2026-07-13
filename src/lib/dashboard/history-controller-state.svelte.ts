@@ -26,6 +26,7 @@ export function createHistoryControllerState(
   let historyMutatingId = $state<string | null>(null);
   let histories = $state<HistoryItem[]>([]);
   let historyRequestSequence = 0;
+  const mutationSequences = new Map<string, number>();
 
   function syncSelectedRow(summary: PeriodSummary): void {
     const selectedDate = dependencies.getSelectedDate();
@@ -70,9 +71,16 @@ export function createHistoryControllerState(
   function applyHistoryMutationResult(
     body: HistoryMutationResponse<PeriodSummary>,
   ): void {
+    historyError = null;
     dependencies.setSummary(body.summary);
     histories = body.histories;
     syncSelectedRow(body.summary);
+  }
+
+  function invalidateHistoryLoads(periodId: string): void {
+    mutationSequences.set(periodId, (mutationSequences.get(periodId) ?? 0) + 1);
+    historyRequestSequence += 1;
+    historyLoading = false;
   }
 
   function updateHistoryEffect(
@@ -100,6 +108,7 @@ export function createHistoryControllerState(
         },
         "履歴の更新に失敗しました。",
       ).pipe(Effect.either);
+      invalidateHistoryLoads(selectedPeriodId);
       if (result._tag === "Left") {
         historyError = result.left;
       } else {
@@ -127,6 +136,7 @@ export function createHistoryControllerState(
         { method: "DELETE" },
         "履歴の削除に失敗しました。",
       ).pipe(Effect.either);
+      invalidateHistoryLoads(selectedPeriodId);
       if (result._tag === "Left") {
         historyError = result.left;
       } else {
@@ -137,6 +147,9 @@ export function createHistoryControllerState(
   }
 
   return {
+    getMutationSequence(periodId: string): number {
+      return mutationSequences.get(periodId) ?? 0;
+    },
     get historyLoading() {
       return historyLoading;
     },

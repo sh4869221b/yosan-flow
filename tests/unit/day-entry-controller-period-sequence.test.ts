@@ -75,6 +75,7 @@ describe("day-entry controller period submission sequence", () => {
       getSelectedPeriodId: () => selectedPeriodId,
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect: () => Effect.void,
         resetHistories: vi.fn(),

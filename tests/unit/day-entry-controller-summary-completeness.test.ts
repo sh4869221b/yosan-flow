@@ -75,6 +75,7 @@ it("keeps the fullest concurrent add summary when reconciliation fails", async (
     getSelectedPeriodId: () => "period-1",
     getSummary: () => summary,
     historyController: {
+      getMutationSequence: () => 0,
       loadHistory: vi.fn(),
       loadHistoryEffect: () => Effect.void,
       resetHistories: vi.fn(),
@@ -105,4 +106,56 @@ it("keeps the fullest concurrent add summary when reconciliation fails", async (
   // Then
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
   await vi.waitFor(() => expect(summary).toEqual(combinedSummary));
+});
+
+it("applies an off-screen successful body after returning to its period", async () => {
+  const firstResponse = Promise.withResolvers<Response>();
+  const secondResponse = Promise.withResolvers<Response>();
+  const committedSummary = createSummary(2_000);
+  const periodBSummary = { ...createSummary(0), periodId: "period-2" };
+  const fetchMock = vi
+    .fn()
+    .mockImplementationOnce(() => firstResponse.promise)
+    .mockImplementationOnce(() => secondResponse.promise)
+    .mockResolvedValueOnce(jsonResponse({ error: {} }, 503));
+  vi.stubGlobal("fetch", fetchMock);
+  let selectedPeriodId = "period-1";
+  let summary = createSummary(0);
+  const controller = createDayEntryControllerState({
+    getSelectedPeriodId: () => selectedPeriodId,
+    getSummary: () => summary,
+    historyController: {
+      getMutationSequence: () => 0,
+      loadHistory: vi.fn(),
+      loadHistoryEffect: () => Effect.void,
+      resetHistories: vi.fn(),
+    },
+    setSummary: (nextSummary) => {
+      summary = nextSummary;
+    },
+  });
+  controller.openDayEntry({ date: "2026-07-12" });
+  controller.submitDayEntry({
+    date: "2026-07-12",
+    inputYen: 2_000,
+    memo: "committed",
+  });
+  controller.submitDayEntry({
+    date: "2026-07-13",
+    inputYen: 3_000,
+    memo: "failed",
+  });
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+  selectedPeriodId = "period-2";
+  summary = periodBSummary;
+  firstResponse.resolve(jsonResponse(committedSummary));
+  await vi.waitFor(() => expect(controller.modalOpen).toBe(false));
+  expect(summary).toEqual(periodBSummary);
+  selectedPeriodId = "period-1";
+  summary = createSummary(0);
+  secondResponse.resolve(jsonResponse({ error: {} }, 503));
+
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  await vi.waitFor(() => expect(summary).toEqual(committedSummary));
 });

@@ -75,6 +75,7 @@ function createSequencedSubmissionHarness() {
     getSelectedPeriodId: () => "period-1",
     getSummary: () => summary,
     historyController: {
+      getMutationSequence: () => 0,
       loadHistory: vi.fn(),
       loadHistoryEffect,
       resetHistories: vi.fn(),
@@ -206,6 +207,7 @@ describe("day-entry controller modal generation", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect: () => Effect.void,
         resetHistories: vi.fn(),
@@ -251,6 +253,7 @@ describe("day-entry controller modal generation", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect: () => Effect.void,
         resetHistories: vi.fn(),
@@ -296,6 +299,7 @@ describe("day-entry controller modal generation", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect: () => Effect.void,
         resetHistories: vi.fn(),

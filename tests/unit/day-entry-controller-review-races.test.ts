@@ -74,6 +74,7 @@ describe("day-entry controller review races", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect: () => Effect.void,
         resetHistories: vi.fn(),
@@ -123,6 +124,7 @@ describe("day-entry controller review races", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect,
         resetHistories: vi.fn(),
@@ -163,6 +165,7 @@ describe("day-entry controller review races", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect,
         resetHistories: vi.fn(),
@@ -202,6 +205,7 @@ describe("day-entry controller review races", () => {
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect: () => Effect.void,
         resetHistories: vi.fn(),
@@ -249,6 +253,7 @@ describe("day-entry controller review races", () => {
       getSelectedPeriodId: () => selectedPeriodId,
       getSummary: () => summary,
       historyController: {
+        getMutationSequence: () => 0,
         loadHistory: vi.fn(),
         loadHistoryEffect,
         resetHistories: vi.fn(),

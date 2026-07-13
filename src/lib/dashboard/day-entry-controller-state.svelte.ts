@@ -2,6 +2,8 @@ import { Deferred, Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import { dayAddUrl, periodSummaryUrl } from "$lib/dashboard/api-urls";
+import { createDayEntrySubmissionTracker } from "$lib/dashboard/day-entry-submission-tracker";
+import { findSummaryRow } from "$lib/dashboard/summary-rows";
 import {
   getModalPreviewAfterYen,
   getModalPreviewRecommendedYen,
@@ -12,6 +14,7 @@ import type { SubmitDayEntryPayload } from "$lib/dashboard/types";
 import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
 
 type HistoryController = {
+  readonly getMutationSequence: (_periodId: string) => number;
   readonly loadHistory: (_date: string) => void;
   readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
   readonly resetHistories: () => void;
@@ -35,8 +38,7 @@ export function createDayEntryControllerState(
   let modalInputYen = $state("");
   let modalMemo = $state("");
   let modalGeneration = 0;
-  const bestSuccessfulPlannedTotals = new Map<string, number>();
-  const activeSubmissionCounts = new Map<string, number>();
+  const submissionTracker = createDayEntrySubmissionTracker();
   const latestRefreshSequences = new Map<string, number>();
   let refreshSequence = 0;
   let modalSessionChanged = Effect.runSync(Deferred.make<void>());
@@ -73,10 +75,9 @@ export function createDayEntryControllerState(
     const submittedGeneration = modalGeneration;
     const submittedDate = payload.date;
     const submittedSessionChanged = modalSessionChanged;
-    activeSubmissionCounts.set(
-      selectedPeriodId,
-      (activeSubmissionCounts.get(selectedPeriodId) ?? 0) + 1,
-    );
+    const submittedMutationSequence =
+      dependencies.historyController.getMutationSequence(selectedPeriodId);
+    submissionTracker.start(selectedPeriodId);
     return Effect.gen(function* () {
       if (submittedGeneration === modalGeneration) {
         modalSaving = true;
@@ -94,46 +95,42 @@ export function createDayEntryControllerState(
         },
         "保存に失敗しました。",
       ).pipe(Effect.either);
-      const remainingSubmissions =
-        (activeSubmissionCounts.get(selectedPeriodId) ?? 1) - 1;
-      activeSubmissionCounts.set(selectedPeriodId, remainingSubmissions);
+      const remainingSubmissions = submissionTracker.finish(selectedPeriodId);
       let shouldRefreshHistory = false;
       if (result._tag === "Left") {
         if (submittedGeneration === modalGeneration) {
           modalError = result.left;
         }
       } else {
-        const successfulResponseIsFullest =
-          result.right.periodId === selectedPeriodId &&
-          result.right.plannedTotalYen >
-            (bestSuccessfulPlannedTotals.get(selectedPeriodId) ?? -1);
+        submissionTracker.accept(
+          selectedPeriodId,
+          result.right,
+          submittedMutationSequence,
+          dependencies.historyController.getMutationSequence(selectedPeriodId),
+        );
         const submittedPeriodIsCurrent =
           dependencies.getSelectedPeriodId() === selectedPeriodId;
-        if (successfulResponseIsFullest) {
-          bestSuccessfulPlannedTotals.set(
-            selectedPeriodId,
-            result.right.plannedTotalYen,
-          );
-          if (submittedPeriodIsCurrent) {
-            dependencies.setSummary(result.right);
-          }
-        }
         const submittedDateIsCurrent =
           submittedGeneration === modalGeneration ||
           selectedDate === submittedDate;
         if (submittedPeriodIsCurrent && submittedDateIsCurrent) {
           shouldRefreshHistory = true;
-          if (successfulResponseIsFullest) {
-            selectedRow =
-              result.right.dailyRows.find(
-                (row) => row.date === submittedDate,
-              ) ?? null;
-          }
         }
       }
+      const bestSuccessfulSummary = submissionTracker.getBest(
+        selectedPeriodId,
+        dependencies.historyController.getMutationSequence(selectedPeriodId),
+      );
+      if (
+        dependencies.getSelectedPeriodId() === selectedPeriodId &&
+        bestSuccessfulSummary != null &&
+        dependencies.getSummary() !== bestSuccessfulSummary
+      ) {
+        dependencies.setSummary(bestSuccessfulSummary);
+        selectedRow = findSummaryRow(bestSuccessfulSummary, selectedDate);
+      }
       if (remainingSubmissions === 0) {
-        activeSubmissionCounts.delete(selectedPeriodId);
-        bestSuccessfulPlannedTotals.delete(selectedPeriodId);
+        submissionTracker.clearBest(selectedPeriodId);
       }
       if (result._tag === "Right" && submittedGeneration === modalGeneration) {
         closeDayEntry();
@@ -145,6 +142,8 @@ export function createDayEntryControllerState(
         refreshSequence += 1;
         const currentRefreshSequence = refreshSequence;
         latestRefreshSequences.set(selectedPeriodId, currentRefreshSequence);
+        const refreshMutationSequence =
+          dependencies.historyController.getMutationSequence(selectedPeriodId);
         const refreshResult = yield* fetchJsonEffect<PeriodSummary>(
           periodSummaryUrl(selectedPeriodId),
           undefined,
@@ -153,7 +152,10 @@ export function createDayEntryControllerState(
         const refreshIsCurrent =
           latestRefreshSequences.get(selectedPeriodId) ===
             currentRefreshSequence &&
-          !activeSubmissionCounts.has(selectedPeriodId) &&
+          !submissionTracker.hasActive(selectedPeriodId) &&
+          dependencies.historyController.getMutationSequence(
+            selectedPeriodId,
+          ) === refreshMutationSequence &&
           dependencies.getSelectedPeriodId() === selectedPeriodId;
         if (
           refreshResult._tag === "Right" &&
@@ -162,10 +164,7 @@ export function createDayEntryControllerState(
         ) {
           dependencies.setSummary(refreshResult.right);
           if (selectedDate === submittedDate) {
-            selectedRow =
-              refreshResult.right.dailyRows.find(
-                (row) => row.date === submittedDate,
-              ) ?? null;
+            selectedRow = findSummaryRow(refreshResult.right, submittedDate);
           }
         }
       }
@@ -237,8 +236,7 @@ export function createDayEntryControllerState(
       modalGeneration += 1;
       modalSaving = false;
       selectedDate = payload.date;
-      selectedRow =
-        summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
+      selectedRow = findSummaryRow(summary, selectedDate);
       modalError = null;
       modalOpen = true;
       modalInputYen = "";
