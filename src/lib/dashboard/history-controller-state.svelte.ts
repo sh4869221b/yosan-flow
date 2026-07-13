@@ -26,7 +26,7 @@ export function createHistoryControllerState(
   let historyMutatingId = $state<string | null>(null);
   let histories = $state<HistoryItem[]>([]);
   let historyRequestSequence = 0;
-  let activeHistoryRequestPeriodId: string | null = null;
+  let activeHistoryRequest: { periodId: string; date: string } | null = null;
   let historyMutationSequence = 0;
   const mutationSequences = new Map<string, number>();
 
@@ -47,7 +47,7 @@ export function createHistoryControllerState(
     }
     historyRequestSequence += 1;
     const requestSequence = historyRequestSequence;
-    activeHistoryRequestPeriodId = selectedPeriodId;
+    activeHistoryRequest = { periodId: selectedPeriodId, date };
     return Effect.gen(function* () {
       historyLoading = true;
       historyError = null;
@@ -67,25 +67,31 @@ export function createHistoryControllerState(
       }
       if (requestSequence === historyRequestSequence) {
         historyLoading = false;
-        activeHistoryRequestPeriodId = null;
+        activeHistoryRequest = null;
       }
     });
   }
 
-  function applyHistoryMutationResult(
-    body: HistoryMutationResponse<PeriodSummary>,
-  ): void {
-    historyError = null;
-    dependencies.setSummary(body.summary);
-    histories = body.histories;
-    syncSelectedRow(body.summary);
+  function applyHistoryMutationSummary(summary: PeriodSummary): void {
+    dependencies.setSummary(summary);
+    syncSelectedRow(summary);
   }
 
-  function invalidateHistoryLoads(periodId: string): void {
+  function applyHistoryMutationHistories(
+    body: HistoryMutationResponse<PeriodSummary>,
+  ): void {
+    histories = body.histories;
+    historyError = null;
+  }
+
+  function invalidateHistoryLoads(periodId: string, date: string): void {
     mutationSequences.set(periodId, (mutationSequences.get(periodId) ?? 0) + 1);
-    if (activeHistoryRequestPeriodId === periodId) {
+    if (
+      activeHistoryRequest?.periodId === periodId &&
+      activeHistoryRequest.date === date
+    ) {
       historyRequestSequence += 1;
-      activeHistoryRequestPeriodId = null;
+      activeHistoryRequest = null;
       historyLoading = false;
     }
   }
@@ -117,19 +123,24 @@ export function createHistoryControllerState(
         },
         "履歴の更新に失敗しました。",
       ).pipe(Effect.either);
-      invalidateHistoryLoads(selectedPeriodId);
-      const mutationIsCurrent =
+      invalidateHistoryLoads(selectedPeriodId, selectedDate);
+      const mutationOwnsCurrentPeriod =
         mutationSequence === historyMutationSequence &&
-        dependencies.getSelectedPeriodId() === selectedPeriodId &&
+        dependencies.getSelectedPeriodId() === selectedPeriodId;
+      const mutationOwnsCurrentDate =
+        mutationOwnsCurrentPeriod &&
         dependencies.getSelectedDate() === selectedDate;
-      if (result._tag === "Left" && mutationIsCurrent) {
+      if (result._tag === "Left" && mutationOwnsCurrentDate) {
         historyError = result.left;
       } else if (
         result._tag === "Right" &&
-        mutationIsCurrent &&
+        mutationOwnsCurrentPeriod &&
         result.right.summary.periodId === selectedPeriodId
       ) {
-        applyHistoryMutationResult(result.right);
+        applyHistoryMutationSummary(result.right.summary);
+        if (mutationOwnsCurrentDate) {
+          applyHistoryMutationHistories(result.right);
+        }
       }
       if (mutationSequence === historyMutationSequence) {
         historyMutatingId = null;
@@ -157,19 +168,24 @@ export function createHistoryControllerState(
         { method: "DELETE" },
         "履歴の削除に失敗しました。",
       ).pipe(Effect.either);
-      invalidateHistoryLoads(selectedPeriodId);
-      const mutationIsCurrent =
+      invalidateHistoryLoads(selectedPeriodId, selectedDate);
+      const mutationOwnsCurrentPeriod =
         mutationSequence === historyMutationSequence &&
-        dependencies.getSelectedPeriodId() === selectedPeriodId &&
+        dependencies.getSelectedPeriodId() === selectedPeriodId;
+      const mutationOwnsCurrentDate =
+        mutationOwnsCurrentPeriod &&
         dependencies.getSelectedDate() === selectedDate;
-      if (result._tag === "Left" && mutationIsCurrent) {
+      if (result._tag === "Left" && mutationOwnsCurrentDate) {
         historyError = result.left;
       } else if (
         result._tag === "Right" &&
-        mutationIsCurrent &&
+        mutationOwnsCurrentPeriod &&
         result.right.summary.periodId === selectedPeriodId
       ) {
-        applyHistoryMutationResult(result.right);
+        applyHistoryMutationSummary(result.right.summary);
+        if (mutationOwnsCurrentDate) {
+          applyHistoryMutationHistories(result.right);
+        }
       }
       if (mutationSequence === historyMutationSequence) {
         historyMutatingId = null;

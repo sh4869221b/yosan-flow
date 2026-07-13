@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   configureDashboardDayEntryE2E,
+  openDayEntryAndWaitForHistory,
   saveDayEntrySuccessfully,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
@@ -15,8 +16,11 @@ test("clears history edit state when the modal is closed", async ({
   const { periodId, todayDate } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  const modal = page.getByTestId("day-entry-modal");
-  await page.getByTestId(`calendar-day-${todayDate}`).click();
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
   await modal.getByLabel("入力額 (円)").fill("1200");
   await saveDayEntrySuccessfully({
     page,

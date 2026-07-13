@@ -1,7 +1,9 @@
+import { Effect } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
 import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
 import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import type { HistoryItem } from "$lib/dashboard/types";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -49,6 +51,19 @@ function jsonResponse(body: unknown, status = 200): Response {
     headers: { "content-type": "application/json" },
     status,
   });
+}
+
+function createHistory(id: string, inputYen: number): HistoryItem {
+  return {
+    id,
+    date: "2026-07-12",
+    operationType: "add",
+    inputYen,
+    beforeTotalYen: 0,
+    afterTotalYen: inputYen,
+    memo: id,
+    createdAt: "2026-07-12T00:00:00.000Z",
+  };
 }
 
 it("rejects a save body captured before a history mutation", async () => {
@@ -105,4 +120,54 @@ it("rejects a save body captured before a history mutation", async () => {
 
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
   await vi.waitFor(() => expect(summary).toEqual(editedSummary));
+});
+
+it("keeps another date history load while applying the period summary", async () => {
+  const mutationResponse = Promise.withResolvers<Response>();
+  const otherDateHistoryResponse = Promise.withResolvers<Response>();
+  const mutationSummary = createSummary(1_000);
+  const originHistory = createHistory("origin-history", 1_000);
+  const otherDateHistory = {
+    ...createHistory("other-date-history", 500),
+    date: "2026-07-13",
+  };
+  const fetchMock = vi
+    .fn()
+    .mockImplementationOnce(() => mutationResponse.promise)
+    .mockImplementationOnce(() => otherDateHistoryResponse.promise);
+  vi.stubGlobal("fetch", fetchMock);
+  let selectedDate = "2026-07-12";
+  const setSummary = vi.fn();
+  const controller = createHistoryControllerState({
+    getSelectedDate: () => selectedDate,
+    getSelectedPeriodId: () => "period-1",
+    setSelectedRow: vi.fn(),
+    setSummary,
+  });
+
+  controller.updateHistory({
+    historyId: "origin-history",
+    inputYen: 1_000,
+    memo: "origin edit",
+  });
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+  selectedDate = "2026-07-13";
+  const otherDateLoad = Effect.runPromise(
+    controller.loadHistoryEffect(selectedDate),
+  );
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+  mutationResponse.resolve(
+    jsonResponse({ summary: mutationSummary, histories: [originHistory] }),
+  );
+  await vi.waitFor(() =>
+    expect(setSummary).toHaveBeenCalledWith(mutationSummary),
+  );
+  otherDateHistoryResponse.resolve(
+    jsonResponse({ histories: [otherDateHistory] }),
+  );
+  await otherDateLoad;
+
+  expect(controller.histories).toEqual([otherDateHistory]);
+  expect(controller.historyLoading).toBe(false);
 });
