@@ -78,6 +78,7 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
         ),
         Effect.orElseSucceed(() => undefined),
       ),
+    retainHistories: vi.fn(),
     setError: vi.fn(),
     summaryRevision: revision,
   });

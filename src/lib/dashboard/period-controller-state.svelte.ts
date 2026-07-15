@@ -61,6 +61,16 @@ export function createPeriodControllerState(
     return Effect.gen(function* () {
       summaryLoading = true;
       summaryError = null;
+      if (request.mutationWasActive) {
+        yield* summaryRevision.awaitMutationSettlement(
+          periodId,
+          request.mutationSequence,
+        );
+        if (summaryRequests.owns(request)) {
+          yield* refreshSummaryEffect(periodId, reportError);
+        }
+        return;
+      }
       const result = yield* fetchJsonEffect<PeriodSummary>(
         periodSummaryUrl(periodId),
         undefined,

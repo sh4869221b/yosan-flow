@@ -19,6 +19,13 @@ type Dependencies = {
   readonly getSummary: () => PeriodSummary | null;
   readonly invalidateHistoryLoads: (_periodId: string, _date: string) => void;
   readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
+  readonly retainHistories: (
+    _periodId: string,
+    _date: string,
+    _body: HistoryMutationResponse<PeriodSummary>,
+    _revision: number,
+    _mutationSequence: number,
+  ) => void;
   readonly setError: (_error: string | null) => void;
   readonly summaryRevision: PeriodSummaryRevision;
 };
@@ -103,6 +110,7 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
               dependencies.setError(result.left);
             }
             let shouldReconcile = true;
+            let responseWasPublished = false;
             if (
               result._tag === "Right" &&
               mutationOwnsCurrentPeriod &&
@@ -120,10 +128,38 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
               shouldReconcile = mustReconcile;
               if (!mustReconcile && summaryIsCompatible) {
                 dependencies.applySummary(result.right.summary);
+                responseWasPublished = true;
                 if (mutationOwnsCurrentDate) {
                   dependencies.applyHistories(result.right);
                 }
               }
+            }
+            const retainedRevision =
+              dependencies.summaryRevision.get(selectedPeriodId);
+            if (
+              result._tag === "Right" &&
+              !mutationOwnsCurrentDate &&
+              historyMutations.getSequence(selectedPeriodId) ===
+                mutationSequence &&
+              dependencies.summaryRevision.isMutationFresh(
+                selectedPeriodId,
+                summaryMutation,
+              ) &&
+              retainedRevision ===
+                mutationSummaryRevision + (responseWasPublished ? 1 : 0) &&
+              summaryConfigurationMatches(
+                result.right.summary,
+                dependencies.getSummary(),
+              ) &&
+              result.right.summary.periodId === selectedPeriodId
+            ) {
+              dependencies.retainHistories(
+                selectedPeriodId,
+                selectedDate,
+                result.right,
+                retainedRevision,
+                summaryMutation,
+              );
             }
             return {
               mutationError: result._tag === "Left" ? result.left : undefined,

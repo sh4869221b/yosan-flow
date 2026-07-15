@@ -64,6 +64,7 @@ it("cleans up an interrupted history mutation lifecycle", async () => {
     getSummary: () => createSummary(0),
     invalidateHistoryLoads: vi.fn(),
     loadHistoryEffect: () => Effect.void,
+    retainHistories: vi.fn(),
     setError: vi.fn(),
     summaryRevision: revision,
   });

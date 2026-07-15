@@ -12,6 +12,7 @@ import type {
 } from "$lib/dashboard/types";
 import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { createRetainedHistoryStore } from "$lib/dashboard/retained-history-store";
 
 type HistoryControllerDependencies = {
   readonly getSelectedDate: () => string | null;
@@ -32,6 +33,7 @@ export function createHistoryControllerState(
   let historyRequestSequence = 0;
   let activeHistoryRequest: { periodId: string; date: string } | null = null;
   const mutationSequences = new Map<string, number>();
+  const retainedHistories = createRetainedHistoryStore();
 
   function syncSelectedRow(summary: PeriodSummary): void {
     const selectedDate = dependencies.getSelectedDate();
@@ -47,6 +49,18 @@ export function createHistoryControllerState(
     const selectedPeriodId = dependencies.getSelectedPeriodId();
     if (selectedPeriodId == null) {
       return Effect.void;
+    }
+    const retained = retainedHistories.replay(
+      selectedPeriodId,
+      date,
+      summaryRevision.get(selectedPeriodId),
+      summaryRevision.getMutationSequence(selectedPeriodId),
+      dependencies.getSummary?.() ?? null,
+    );
+    if (retained.histories != null) {
+      histories = [...retained.histories];
+    } else if (retained.invalidated) {
+      histories = [];
     }
     historyRequestSequence += 1;
     const requestSequence = historyRequestSequence;
@@ -67,6 +81,7 @@ export function createHistoryControllerState(
         historyError = result.left;
       } else if (result._tag === "Right" && requestIsCurrent) {
         histories = result.right.histories ?? [];
+        retainedHistories.clear(selectedPeriodId, date);
       }
       if (requestSequence === historyRequestSequence) {
         historyLoading = false;
@@ -114,6 +129,15 @@ export function createHistoryControllerState(
     getSummary: () => dependencies.getSummary?.() ?? null,
     invalidateHistoryLoads,
     loadHistoryEffect,
+    retainHistories: (periodId, date, body, revision, mutationSequence) => {
+      retainedHistories.retain(
+        periodId,
+        date,
+        body,
+        revision,
+        mutationSequence,
+      );
+    },
     setError: (error) => (historyError = error),
     summaryRevision,
   });

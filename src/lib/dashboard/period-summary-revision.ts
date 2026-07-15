@@ -169,12 +169,15 @@ export function createPeriodSummaryRevision(): PeriodSummaryRevision {
       const current = mutations.get(periodId);
       current?.resolveCompletion();
       const nextSequence = (current?.sequence ?? 0) + 1;
-      const completion = Promise.withResolvers<void>();
+      let resolveCompletion = (): void => undefined;
+      const completion = new Promise<void>((resolve) => {
+        resolveCompletion = resolve;
+      });
       mutations.set(periodId, {
         active: true,
-        completion: completion.promise,
+        completion,
         dirty: false,
-        resolveCompletion: () => completion.resolve(),
+        resolveCompletion,
         sequence: nextSequence,
       });
       return nextSequence;
