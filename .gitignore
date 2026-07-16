@@ -12,4 +12,5 @@ dist
 .tmp-*
 coverage
 test-results
+playwright-report
 output/

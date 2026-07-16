@@ -1,7 +1,8 @@
 import { Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import { dayAddUrl } from "$lib/dashboard/api-urls";
+import { createDayEntryMutationLifecycle } from "$lib/dashboard/day-entry-mutation-lifecycle";
+import { findSummaryRow } from "$lib/dashboard/summary-rows";
+import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 import {
   getModalPreviewAfterYen,
   getModalPreviewRecommendedYen,
@@ -12,6 +13,8 @@ import type { SubmitDayEntryPayload } from "$lib/dashboard/types";
 import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
 
 type HistoryController = {
+  readonly cancelHistoryLoad?: (_periodId: string, _date: string) => void;
+  readonly getMutationSequence: (_periodId: string) => number;
   readonly loadHistory: (_date: string) => void;
   readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
   readonly resetHistories: () => void;
@@ -26,6 +29,7 @@ type DayEntryControllerDependencies = {
 
 export function createDayEntryControllerState(
   dependencies: DayEntryControllerDependencies,
+  summaryRevision = createPeriodSummaryRevision(),
 ) {
   let modalOpen = $state(false);
   let modalSaving = $state(false);
@@ -34,6 +38,27 @@ export function createDayEntryControllerState(
   let selectedRow = $state<DailyRow | null>(null);
   let modalInputYen = $state("");
   let modalMemo = $state("");
+  const mutationLifecycle = createDayEntryMutationLifecycle({
+    cancelHistoryLoad: dependencies.historyController.cancelHistoryLoad,
+    closeModal: closeDayEntry,
+    getHistoryMutationSequence:
+      dependencies.historyController.getMutationSequence,
+    getSelectedDate: () => selectedDate,
+    getSelectedPeriodId: dependencies.getSelectedPeriodId,
+    getSummary: dependencies.getSummary,
+    loadHistoryEffect: dependencies.historyController.loadHistoryEffect,
+    setError: (error) => {
+      modalError = error;
+    },
+    setSaving: (saving) => {
+      modalSaving = saving;
+    },
+    setSelectedRow: (row) => {
+      selectedRow = row;
+    },
+    setSummary: dependencies.setSummary,
+    summaryRevision,
+  });
 
   const modalPreviewAfterYen = $derived(
     getModalPreviewAfterYen(selectedRow, modalInputYen),
@@ -55,44 +80,6 @@ export function createDayEntryControllerState(
   function closeDayEntry(): void {
     modalOpen = false;
     modalError = null;
-  }
-
-  function submitDayEntryEffect(
-    payload: SubmitDayEntryPayload,
-  ): Effect.Effect<void, never> {
-    const selectedPeriodId = dependencies.getSelectedPeriodId();
-    if (selectedPeriodId == null) {
-      return Effect.void;
-    }
-    return Effect.gen(function* () {
-      modalSaving = true;
-      modalError = null;
-      const result = yield* fetchJsonEffect<PeriodSummary>(
-        dayAddUrl(selectedPeriodId, payload.date),
-        {
-          body: JSON.stringify({
-            inputYen: payload.inputYen,
-            memo: payload.memo,
-          }),
-          headers: { "content-type": "application/json" },
-          method: "POST",
-        },
-        "保存に失敗しました。",
-      ).pipe(Effect.either);
-      if (result._tag === "Left") {
-        modalError = result.left;
-      } else {
-        dependencies.setSummary(result.right);
-        if (selectedDate != null) {
-          selectedRow =
-            result.right.dailyRows.find((row) => row.date === selectedDate) ??
-            null;
-          yield* dependencies.historyController.loadHistoryEffect(selectedDate);
-        }
-        closeDayEntry();
-      }
-      modalSaving = false;
-    });
   }
 
   return {
@@ -140,9 +127,9 @@ export function createDayEntryControllerState(
       if (summary == null) {
         return;
       }
+      mutationLifecycle.beginModalSession();
       selectedDate = payload.date;
-      selectedRow =
-        summary.dailyRows.find((row) => row.date === selectedDate) ?? null;
+      selectedRow = findSummaryRow(summary, selectedDate);
       modalError = null;
       modalOpen = true;
       modalInputYen = "";
@@ -152,7 +139,7 @@ export function createDayEntryControllerState(
     },
     closeDayEntry,
     submitDayEntry(payload: SubmitDayEntryPayload): void {
-      runClientEffect(submitDayEntryEffect(payload));
+      runClientEffect(mutationLifecycle.submitEffect(payload));
     },
   };
 }

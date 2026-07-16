@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
   configureDashboardDayEntryE2E,
+  openDayEntryAndWaitForHistory,
+  saveDayEntrySuccessfully,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
 import { getBaseUrl } from "./dashboard-shared";
@@ -11,20 +13,26 @@ test("supports add and history row edit in day modal, and keeps values after rel
   page,
   request,
 }) => {
-  const { todayDate } = await seedCurrentPeriod(request);
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/`);
-  await expect(page.getByTestId(`calendar-day-${todayDate}`)).toBeVisible();
-
-  await page.getByTestId(`calendar-day-${todayDate}`).click();
-  const modal = page.getByTestId("day-entry-modal");
-  await expect(modal).toBeVisible();
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
   await modal.getByLabel("入力額 (円)").fill("2000");
   const longMemo =
     "週末用のまとめ買いメモです。野菜、肉、魚、調味料、冷凍食品、飲み物、朝食用の食材まで含めて、100文字を超える内容でも保存できることを確認します。";
   await modal.getByLabel("メモ").fill(longMemo);
   await expect(modal.getByText("上書き")).toHaveCount(0);
-  await modal.getByRole("button", { name: "保存する" }).click();
+  await saveDayEntrySuccessfully({
+    page,
+    modal,
+    periodId,
+    date: todayDate,
+    responseAssertionContext: "initial add before history edit",
+  });
   await expect(
     page
       .getByTestId(`calendar-day-${todayDate}`)

@@ -1,25 +1,40 @@
 import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
 import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
 import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
+import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 import type { DailyRow } from "$lib/dashboard/controller-types";
 import type { PageData } from "../../routes/$types";
 
 export function createDashboardPageController(getData: () => PageData) {
-  const periodController = createPeriodControllerState(getData());
+  const summaryRevision = createPeriodSummaryRevision();
+  let closeDayEntry = (): void => undefined;
+  const periodController = createPeriodControllerState(
+    getData(),
+    summaryRevision,
+    () => closeDayEntry(),
+  );
 
-  const historyController = createHistoryControllerState({
-    getSelectedDate,
-    getSelectedPeriodId: () => periodController.selectedPeriodId,
-    setSelectedRow,
-    setSummary: (nextSummary) => periodController.setSummary(nextSummary),
-  });
+  const historyController = createHistoryControllerState(
+    {
+      getSelectedDate,
+      getSelectedPeriodId: () => periodController.selectedPeriodId,
+      getSummary: () => periodController.summary,
+      setSelectedRow,
+      setSummary: (nextSummary) => periodController.setSummary(nextSummary),
+    },
+    summaryRevision,
+  );
 
-  const dayEntryController = createDayEntryControllerState({
-    getSelectedPeriodId: () => periodController.selectedPeriodId,
-    getSummary: () => periodController.summary,
-    historyController,
-    setSummary: (nextSummary) => periodController.setSummary(nextSummary),
-  });
+  const dayEntryController = createDayEntryControllerState(
+    {
+      getSelectedPeriodId: () => periodController.selectedPeriodId,
+      getSummary: () => periodController.summary,
+      historyController,
+      setSummary: (nextSummary) => periodController.setSummary(nextSummary),
+    },
+    summaryRevision,
+  );
+  closeDayEntry = dayEntryController.closeDayEntry;
 
   function getSelectedDate(): string | null {
     return dayEntryController.selectedDate;

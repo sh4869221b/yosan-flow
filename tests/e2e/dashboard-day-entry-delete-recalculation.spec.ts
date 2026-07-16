@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
   configureDashboardDayEntryE2E,
+  openDayEntryAndWaitForHistory,
+  saveDayEntrySuccessfully,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
 import { getBaseUrl } from "./dashboard-shared";
@@ -14,12 +16,24 @@ test("deletes history rows and keeps recalculated values after reload", async ({
   const { periodId, todayDate } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  const modal = page.getByTestId("day-entry-modal");
-  for (const inputYen of ["1000", "2000"]) {
-    await page.getByTestId(`calendar-day-${todayDate}`).click();
-    await expect(modal).toBeVisible();
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
+  for (const [index, inputYen] of ["1000", "2000"].entries()) {
+    if (index > 0) {
+      await page.getByTestId(`calendar-day-${todayDate}`).click();
+      await expect(modal).toBeVisible();
+    }
     await modal.getByLabel("入力額 (円)").fill(inputYen);
-    await modal.getByRole("button", { name: "保存する" }).click();
+    await saveDayEntrySuccessfully({
+      page,
+      modal,
+      periodId,
+      date: todayDate,
+      responseAssertionContext: `delete recalculation setup ${inputYen} yen`,
+    });
   }
   await expect(
     page

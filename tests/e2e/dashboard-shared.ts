@@ -50,6 +50,37 @@ export async function resetTestData(request: APIRequestContext): Promise<void> {
   if (!response.ok()) {
     throw new Error(`Failed to reset test data: ${response.status()}`);
   }
+  const body = (await response.json()) as {
+    after: {
+      budgetPeriods: number;
+      dailyOperationHistories: number;
+      dailyTotals: number;
+    };
+    before: {
+      budgetPeriods: number;
+      dailyOperationHistories: number;
+      dailyTotals: number;
+    };
+    completedAt: string;
+    ok: boolean;
+    startedAt: string;
+  };
+  if (
+    !body.ok ||
+    Object.values(body.after).some((rowCount) => rowCount !== 0)
+  ) {
+    throw new Error(`Failed to clear test data: ${JSON.stringify(body)}`);
+  }
+  console.info(
+    JSON.stringify({
+      after: body.after,
+      before: body.before,
+      completedAt: body.completedAt,
+      event: "e2e-database-reset",
+      jstDate: getCurrentJstDate(),
+      startedAt: body.startedAt,
+    }),
+  );
 }
 
 export async function fetchPeriodSummary(
