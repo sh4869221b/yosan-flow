@@ -1,33 +1,40 @@
-# Components Agent Notes
+# Components Knowledge Base
 
-## Scope
+## Overview
 
-Applies to `src/lib/components/**`.
+`src/lib/components/**` renders the period-first dashboard from typed controller data; components do not own API orchestration.
 
 ## Component Map
 
-- Top-level files such as `BudgetSummary.svelte`, `DayEntryModal.svelte`, `HistoryPanel.svelte`, `PeriodCalendar.svelte`, and `PeriodRangePicker.svelte` are shared dashboard surfaces.
-- `budget/` contains budget period form, stats, and pace panels.
-- `calendar/` contains calendar month UI and pure calendar-grid utilities.
-- `dashboard/` contains high-level workspace/settings/create-period panels.
-- `day-entry/` contains modal form, preview, and history row pieces.
+- Top level: `BudgetSummary`, `PeriodCalendar`, `PeriodRangePicker`, `DayEntryModal`, `HistoryPanel`.
+- `budget/`: period header/form, totals, food-pace panel.
+- `calendar/`: month presentation and pure grid utilities.
+- `dashboard/`: workspace, settings, empty/create-period panels.
+- `day-entry/`: input form, preview, history row.
 
 ## UI Rules
 
-- Keep the main workflow centered on current-period budget, today's allowance, today's usage, and today's remaining amount.
-- Avoid adding category-analysis or month-first concepts unless a task explicitly asks for them.
-- Use Svelte 5 patterns already present in nearby components.
-- Preserve existing Japanese product wording style and existing `data-testid` hooks used by Playwright.
-- Prefer passing typed data from the controller over doing API work inside components.
-- Keep fixed-format dashboard elements stable across responsive widths; avoid layout shifts from loading/error labels.
+- Keep the visual hierarchy centered on current-period budget, today's allowance, today's usage, and today's remaining amount.
+- Avoid category-analysis and month-first UI concepts unless explicitly requested.
+- Use nearby Svelte 5 patterns and pass typed controller data/actions; do not fetch inside components.
+- Preserve Japanese product wording and existing `data-testid` hooks used by Playwright.
+- Prefer accessible labels/roles for user controls; reserve test IDs for stable dynamic structure and values.
+- Keep fixed-format summary elements stable across responsive widths; loading/error text must not create avoidable layout shifts.
 
 ## Day Entry and History
 
-- Editing or deleting history rows must keep the modal history list, summary totals, and selected row state coherent.
-- Deleting the last history row should leave no visual stale total for that day after refresh.
-- Validate form inputs in a way that matches server rules; do not rely on browser coercion for yen values.
+- History edit/delete must keep the modal list, selected row, visible daily total, and period summary coherent.
+- Deleting the last history row must not leave a stale or zero tombstone total in the UI.
+- Validate yen input consistently with server rules; browser coercion is not validation.
+- Preserve modal session state against stale save/history responses from a previous period or date.
+
+## Structure
+
+- `tests/unit/budget-summary-structure.test.ts` protects the intentional component split and LOC limits. Extend the existing subcomponent boundaries instead of weakening the guard.
+- Shared non-visual state belongs in `src/lib/dashboard/**`; pure calendar/range helpers may stay beside their components.
 
 ## Verification
 
-- Component utility changes can use focused unit tests, such as `tests/unit/calendar-grid.test.ts`.
-- Browser workflow changes should update Playwright tests and preserve selectors used by existing specs.
+- Pure utilities: focused unit tests such as `calendar-grid.test.ts` or yen/range tests.
+- Component type/wiring changes: `pnpm check`.
+- Visual or interaction changes: focused Playwright tests while preserving selectors.

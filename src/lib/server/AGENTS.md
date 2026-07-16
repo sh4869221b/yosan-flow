@@ -1,43 +1,42 @@
-# Server Agent Notes
+# Server Knowledge Base
 
-## Scope
+## Overview
 
-Applies to `src/lib/server/**`.
+`src/lib/server/**` owns period domain rules, Effect services, API validation/error mapping, persistence contracts, and JST date semantics.
 
 ## Shape
 
-- `db/` contains D1/Drizzle-facing repositories, database client adapters, schema mirror, and the D1 day-entry writer.
-- `domain/` contains pure budget-period and daily-entry rules.
-- `services/` coordinates repositories and domain behavior. `month-summary-service.ts` is still the main summary/service boundary even though the app is period-first.
-- `services/api-services/` selects D1-backed, in-memory, and cached service implementations.
-- `validation/` owns request parsing and API error conversion. Keep route handlers thin.
-- `time/` owns JST format/date comparison helpers used by summaries and tests.
+- `db/`: repositories, Drizzle mirror, in-memory transaction client, raw-D1 writer.
+- `services/`: route-facing facade, API-service composition, day-entry commands, period summary.
+- `domain/`: pure budget-period and daily-entry assertions.
+- `validation/`: request parsing and stable API error conversion.
+- `effect/`: error normalization and Effect-to-Promise boundary.
+- `time/`: JST date formatting/comparison.
 
 ## Domain Invariants
 
-- Period-owned records must be scoped by `budget_period_id`; do not mutate day totals or operation histories by date alone.
-- Budget periods use `start_date` and `end_date`, and may cross month boundaries.
-- Old month/day update behavior is not a compatibility surface unless a task explicitly asks for it.
-- Same-day spending affects today's used/remaining amount only. It must not recalculate today's bonus or adjustment.
-- Future period summaries must not expose today's food allowance before the period starts.
+- Period records use `start_date` / `end_date` and may span months.
+- Daily totals and histories are owned by `budget_period_id`; never query or mutate by date alone.
+- Same-day spending changes today's used/remaining values without recalculating today's bonus/adjustment.
+- Future periods expose no today allowance before their start date.
+- Replay histories oldest-to-newest within `(budget_period_id, date)`; deleting the last history removes its daily total.
 
-## D1 and Repository Rules
+## Effect and Error Boundary
 
-- SQL migrations in `migrations/*.sql` are the schema source of truth. `db/schema.ts` is a Drizzle mirror, not a migration generator.
-- Request-time schema bootstrap is out of scope. Apply migrations before D1-backed execution.
-- Keep normal application queries behind repositories or the existing Drizzle boundary.
-- `db/day-entry-writer.ts` intentionally writes the atomic daily total/history mutation and replay SQL. Preserve transaction-like batching and `(budget_period_id, date, id)` filters.
-- When deleting the last history row for a day, remove the corresponding daily total instead of leaving a zero-value tombstone.
-- Replay history rows oldest-to-newest for the same `(budget_period_id, date)` and recompute before/after totals consistently.
+- Service methods return `Effect` values; route/page code executes them with `runApiEffect`.
+- Convert synchronous failures with `toEffectError` and API failures with `toApiErrorResponse`.
+- Keep domain errors near the owning service/repository. Add a new error type only when callers require a stable code or distinct response.
+- Validation is a system boundary concern; keep already-validated domain logic free of duplicate parsing.
 
-## Effect and Errors
+## Persistence Boundary
 
-- Service methods return `Effect` values and route/page boundaries use `runApiEffect`.
-- Convert thrown validation/repository failures through existing helpers such as `toEffectError` and `toApiErrorResponse`.
-- Add new error classes only when callers need stable codes or distinct API behavior.
+- `migrations/*.sql` is authoritative; `db/schema.ts` is a manually synchronized mirror.
+- Request-time schema creation and generated Drizzle migration ownership are not adopted.
+- Normal queries remain behind repositories/Drizzle. Raw D1 access is restricted by architecture tests to the day-entry writer family.
 
 ## Verification
 
-- Repository/domain changes usually need `pnpm test:unit`.
-- Route/service/DB behavior changes usually need `pnpm test:integration`.
-- D1 schema changes also need `pnpm run cf:migrate:local`.
+- Domain/repository/service logic: focused `pnpm test:unit`.
+- Route/service/D1 behavior: `pnpm test:integration`.
+- Schema changes: update SQL and mirror, then run `pnpm run cf:migrate:local`, integration tests, and `pnpm check`.
+- Server/API coverage is available through `pnpm test:coverage` but is not a required CI gate.

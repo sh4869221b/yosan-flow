@@ -1,35 +1,43 @@
-# Routes Agent Notes
+# Routes Knowledge Base
 
-## Scope
+## Overview
 
-Applies to `src/routes/**`.
+`src/routes/**` contains one dashboard page, period-first JSON handlers, and one guarded E2E-only reset endpoint.
 
 ## Route Map
 
-- `+page.server.ts` loads periods, picks requested/current/latest period, and returns the dashboard summary.
-- `+page.svelte` should stay a thin composition layer around the dashboard controller and components.
-- `api/periods/+server.ts` lists and creates periods.
-- `api/periods/[periodId]/+server.ts` reads/updates a period summary.
-- `api/periods/[periodId]/days/[date]/add/+server.ts` appends spending for a period day.
-- `api/periods/[periodId]/days/[date]/overwrite/+server.ts` replaces spending for a period day.
-- `api/periods/[periodId]/days/[date]/history/**` reads, edits, and deletes operation histories.
-- `api/__test/reset/+server.ts` is an E2E-only reset endpoint.
+- `+page.server.ts`: list periods, select requested/current/latest, load summary.
+- `+page.svelte`: thin controller/component composition.
+- `api/periods/+server.ts`: period list/create.
+- `api/periods/[periodId]/+server.ts`: summary read and period update.
+- `api/periods/[periodId]/days/[date]/{add,overwrite}/+server.ts`: day mutations.
+- `api/periods/[periodId]/days/[date]/history/**`: history read/edit/delete.
+- `api/__test/reset/+server.ts`: guarded local E2E database reset.
 
-## Request Boundaries
+## Handler Boundary
 
-- Prefer period API paths. Do not add old month/day compatibility routes unless explicitly requested.
-- Parse `periodId`, `date`, `historyId`, and mutation bodies through `src/lib/server/validation/**`.
-- Keep route handlers focused on parsing, calling services, and returning JSON. Domain decisions belong in `src/lib/server/**`.
-- Return stable JSON shapes used by the dashboard controller and integration tests.
-- Use `toApiErrorResponse` for validation/service failures so status codes and messages stay consistent.
+- Every normal API route exposes a `_create*Handler({ services })` factory. Preserve this dependency-injection seam for integration tests; public SvelteKit method exports resolve platform services and delegate.
+- Parse `periodId`, `date`, `historyId`, and request bodies through `src/lib/server/validation/**`.
+- Execute every Effect through `runApiEffect` at the route/page boundary and map failures with `toApiErrorResponse`.
+- Keep handlers limited to validation, service calls, and stable JSON serialization. Domain choices belong in `src/lib/server/**`.
+- Runtime platform with `DB` selects cached D1 services. Absent platform or the explicit dev flag selects in-memory services; a present platform without `DB` is an error.
 
-## Test-Only Reset
+## Response Contracts
 
-- Keep `api/__test/reset` guarded by the E2E reset token and local/test intent.
-- Do not expose reset behavior through normal app routes.
-- When changing reset semantics, update Playwright helpers and E2E setup together.
+- Period create and period summary endpoints return the period/summary object directly.
+- Period list returns `{ periods }`.
+- History GET returns `{ periodId, date, histories }`.
+- History PATCH/DELETE returns `{ summary, histories }` after both are refreshed.
+- Treat these shapes as controller and integration-test contracts, not interchangeable wrappers.
+
+## Reset Exception
+
+- `api/__test/reset` is the only direct-Drizzle route exception.
+- Preserve token validation, local/test intent, required `DB`, delete order `history -> daily totals -> periods`, structured log payload, and before/after counts.
+- Keep `tests/e2e/dashboard-shared.ts` aligned with any reset contract change.
 
 ## Verification
 
-- API route changes usually need `pnpm test:integration`.
-- Page load or dashboard wiring changes usually need `pnpm check` and focused Playwright coverage if browser behavior changes.
+- API handler, response, validation, or platform-selection changes: `pnpm test:integration`.
+- Page load or dashboard wiring: `pnpm check`; add focused E2E coverage for browser-visible changes.
+- Reset changes: integration-level guard coverage plus the E2E setup path.
