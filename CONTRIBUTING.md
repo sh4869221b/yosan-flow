@@ -45,14 +45,13 @@ XDG_CONFIG_HOME="$PWD/.tmp-xdg-config" pnpm wrangler types worker-runtime.d.ts -
 - `tests/unit/`: domain and calculation tests.
 - `tests/integration/`: API/repository integration tests.
 - `tests/e2e/`: Playwright dashboard tests.
-- `docs/superpowers/`: design specs and implementation plans.
 
 ## Development Guidelines
 
 - Keep the period-first budget model as the default design. Do not add month-first compatibility paths unless explicitly requested.
 - Keep the main dashboard optimized for quickly understanding today's allowance, today's usage, today's remaining amount, and the current period state.
 - Use existing repository patterns before introducing new abstractions.
-- Update docs/specs when behavior changes.
+- Update relevant user-facing documentation when behavior changes.
 - Do not commit `.dev.vars`, `.env`, `.wrangler`, `.tmp-*`, `test-results`, or other local state.
 
 ## Verification

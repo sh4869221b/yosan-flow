@@ -22,7 +22,6 @@ This file applies to the entire `yosan-flow` repository.
 - `src/lib/server/` contains server repositories, domain rules, Effect runtime helpers, services, validation, and JST date utilities.
 - `migrations/*.sql` are the D1 schema source of truth. `src/lib/server/db/schema.ts` is a Drizzle mirror.
 - `tests/unit/`, `tests/integration/`, and `tests/e2e/` map to pure/domain tests, route/API tests, and browser workflow tests.
-- `docs/superpowers/specs/` and `docs/superpowers/plans/` hold behavior specs and implementation plans.
 
 ## Required Reading
 
@@ -30,10 +29,7 @@ Before making changes, read:
 
 - `README.md`
 - `CONTRIBUTING.md`
-- Relevant specs/plans under `docs/superpowers/`
 - Any deeper `AGENTS.md` under the files you will edit.
-
-For behavior changes, update or confirm the relevant spec/plan first so the path remains traceable from spec to implementation to tests.
 
 ## Local AGENTS.md Map
 
@@ -42,7 +38,6 @@ For behavior changes, update or confirm the relevant spec/plan first so the path
 - `src/lib/dashboard/AGENTS.md`: client controller, dashboard DTOs, API URLs, and date helpers.
 - `src/lib/components/AGENTS.md`: Svelte component and dashboard UI conventions.
 - `tests/AGENTS.md`: unit/integration/E2E test patterns and reset helpers.
-- `docs/superpowers/AGENTS.md`: spec and plan traceability.
 
 ## Development Rules
 
