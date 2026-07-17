@@ -14,6 +14,8 @@ import type {
   DailyTotalRepository,
 } from "$lib/server/db/daily-total-repository";
 import type { PeriodSummaryDailyTotal } from "$lib/server/services/period-summary/period-summary-calculator";
+import type { PeriodUpdateRequest } from "$lib/server/services/period-update/period-update-types";
+import type { PeriodUpdateServiceResult } from "$lib/server/services/period-update/period-update-service";
 
 export type DayEntryServicePort = {
   addDailyAmount(command: {
@@ -52,12 +54,10 @@ export type InMemoryApiServices = {
     budgetYen: number;
     predecessorPeriodId?: string | null;
   }) => Effect.Effect<BudgetPeriodRecord, Error>;
-  updatePeriod: (input: {
-    id: string;
-    startDate: string;
-    endDate: string;
-    budgetYen: number;
-  }) => Effect.Effect<BudgetPeriodRecord, Error>;
+  updatePeriod: (
+    periodId: string,
+    request: PeriodUpdateRequest,
+  ) => Effect.Effect<PeriodUpdateServiceResult, Error>;
   listPeriods: () => Effect.Effect<BudgetPeriodRecord[], Error>;
   listDailyTotalsByPeriodId: (
     periodId: string,

@@ -85,6 +85,18 @@ describe("API error response mapping", () => {
       message:
         "期間外に出る日次データが存在するため、この変更は適用できません。",
     },
+    {
+      code: "PERIOD_MULTIPLE_SUCCESSORS",
+      rawMessage: "private successor ids",
+      status: 409,
+      message: "後続の予算期間が複数存在するため、変更できません。",
+    },
+    {
+      code: "PERIOD_UPDATE_CONFLICT",
+      rawMessage: "private stale snapshot detail",
+      status: 409,
+      message: "確認後に予算期間が変更されたため、もう一度操作してください。",
+    },
   ])(
     "maps $code domain errors without leaking raw messages",
     async ({ code, rawMessage, status, message }) => {

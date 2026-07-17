@@ -1,17 +1,17 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect, toEffectError } from "$lib/server/effect/runtime";
 import {
   getApiServicesFromPlatform,
   getPeriodSummaryFromServices,
   type InMemoryApiServices,
 } from "$lib/server/services/month-summary-service";
 import {
-  parseNonNegativeIntegerYen,
   parsePeriodId,
   parseRequestBodyObject,
   toApiErrorResponse,
 } from "$lib/server/validation/month";
-import { parseDate } from "$lib/server/validation/day";
+import { parsePeriodUpdateRequest } from "$lib/server/validation/period-update";
+import { PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR } from "$lib/server/services/period-update/period-update-types";
 
 export type PeriodRouteDependencies = {
   services: InMemoryApiServices;
@@ -28,6 +28,9 @@ export function _createPeriodGetHandler(
       );
       return json(summary);
     } catch (error) {
+      if (!(error instanceof Error)) {
+        return toApiErrorResponse(toEffectError(error));
+      }
       return toApiErrorResponse(error);
     }
   };
@@ -46,24 +49,31 @@ export function _createPeriodPutHandler(
     try {
       const periodId = parsePeriodId(params.periodId);
       const body = await runApiEffect(parseRequestBodyObject(request));
-      const startDate = parseDate(body.startDate as string | undefined);
-      const endDate = parseDate(body.endDate as string | undefined);
-      const budgetYen = parseNonNegativeIntegerYen(body.budgetYen, "budgetYen");
+      const updateRequest = parsePeriodUpdateRequest(body);
 
-      await runApiEffect(
-        dependencies.services.updatePeriod({
-          id: periodId,
-          startDate,
-          endDate,
-          budgetYen,
-        }),
+      const result = await runApiEffect(
+        dependencies.services.updatePeriod(periodId, updateRequest),
       );
-
-      const summary = await runApiEffect(
-        getPeriodSummaryFromServices(dependencies.services, periodId),
-      );
-      return json(summary);
+      switch (result.kind) {
+        case "confirmation-required":
+          return json(
+            {
+              error: PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR,
+              proposal: result.proposal,
+            },
+            { status: 409 },
+          );
+        case "updated": {
+          const summary = await runApiEffect(
+            getPeriodSummaryFromServices(dependencies.services, periodId),
+          );
+          return json(summary);
+        }
+      }
     } catch (error) {
+      if (!(error instanceof Error)) {
+        return toApiErrorResponse(toEffectError(error));
+      }
       return toApiErrorResponse(error);
     }
   };

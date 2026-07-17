@@ -66,6 +66,16 @@ const KNOWN_ERROR_RESPONSES: Record<
     status: 400,
     message: "期間外に出る日次データが存在するため、この変更は適用できません。",
   },
+  PERIOD_MULTIPLE_SUCCESSORS: {
+    kind: "conflict",
+    status: 409,
+    message: "後続の予算期間が複数存在するため、変更できません。",
+  },
+  PERIOD_UPDATE_CONFLICT: {
+    kind: "conflict",
+    status: 409,
+    message: "確認後に予算期間が変更されたため、もう一度操作してください。",
+  },
 };
 
 const KNOWN_ERROR_CODES = Object.keys(KNOWN_ERROR_RESPONSES);

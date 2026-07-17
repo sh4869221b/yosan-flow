@@ -19,6 +19,7 @@ import {
   DayEntryService,
   PeriodNotFoundError,
 } from "$lib/server/services/day-entry-service";
+import { createPeriodUpdateService } from "$lib/server/services/period-update/period-update-service";
 import { getJstDateParts } from "$lib/server/time/jst-format";
 import type {
   CreateInMemoryApiServicesInput,
@@ -120,6 +121,33 @@ export function createInMemoryApiServices(
     });
   }
 
+  const updateOrdinary = (periodInput: {
+    readonly id: string;
+    readonly startDate: string;
+    readonly endDate: string;
+    readonly budgetYen: number;
+  }) =>
+    runSerializedEffect(() =>
+      Effect.gen(function* () {
+        yield* assertNoOutOfRangePeriodEntries(
+          periodInput.id,
+          periodInput.startDate,
+          periodInput.endDate,
+        );
+
+        return yield* budgetPeriodRepository.updatePeriod({
+          ...periodInput,
+          nowIso: now().toISOString(),
+        });
+      }),
+    );
+  const updatePeriod = createPeriodUpdateService({
+    budgetPeriodRepository,
+    updateOrdinary,
+    assertNoOutOfRangeEntries: assertNoOutOfRangePeriodEntries,
+    nowIso: () => now().toISOString(),
+  });
+
   return {
     databaseClient,
     budgetPeriodRepository,
@@ -148,21 +176,7 @@ export function createInMemoryApiServices(
           nowIso: now().toISOString(),
         }),
       ),
-    updatePeriod: (periodInput) =>
-      runSerializedEffect(() =>
-        Effect.gen(function* () {
-          yield* assertNoOutOfRangePeriodEntries(
-            periodInput.id,
-            periodInput.startDate,
-            periodInput.endDate,
-          );
-
-          return yield* budgetPeriodRepository.updatePeriod({
-            ...periodInput,
-            nowIso: now().toISOString(),
-          });
-        }),
-      ),
+    updatePeriod,
     listPeriods: () => budgetPeriodRepository.listPeriods(),
     listDailyTotalsByPeriodId: (periodId) =>
       databaseClient.read((tx) =>
