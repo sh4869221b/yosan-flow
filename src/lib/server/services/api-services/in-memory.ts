@@ -36,7 +36,6 @@ export function createInMemoryApiServices(
   >();
   const dailyTotalRepository = createDailyTotalRepository();
   const dailyHistoryRepository = createDailyHistoryRepository();
-  const budgetPeriodRepository = createInMemoryBudgetPeriodRepository();
 
   let mutationQueue: Promise<void> = Promise.resolve();
   function runSerializedEffect<T>(
@@ -63,6 +62,22 @@ export function createInMemoryApiServices(
       );
     });
   }
+
+  const budgetPeriodRepository = createInMemoryBudgetPeriodRepository([], {
+    listOwnedEntryDates: () => {
+      const state = databaseClient.dumpState();
+      const totalDates: Record<string, string[]> = {};
+      const historyDates: Record<string, string[]> = {};
+      for (const total of state.dailyTotals.values()) {
+        (totalDates[total.budgetPeriodId] ??= []).push(total.date);
+      }
+      for (const history of state.dailyOperationHistories) {
+        (historyDates[history.budgetPeriodId] ??= []).push(history.date);
+      }
+      return { totalDates, historyDates };
+    },
+    runSerializedEffect,
+  });
 
   const rawDayEntryService = new DayEntryService({
     databaseClient,

@@ -1,1 +1,4 @@
-export { createPeriodAwareD1Fake } from "./period-d1-fake-modules/factory";
+export {
+  createPeriodAwareD1Fake,
+  type PeriodAwareD1FakeOptions,
+} from "./period-d1-fake-modules/factory";

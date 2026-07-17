@@ -60,8 +60,15 @@ export function applySqlMutation(
   sql: string,
   args: unknown[],
   state: PeriodAwareD1FakeState,
-): void {
-  applyBudgetPeriodMutation(sql, args, state);
+  linkedBoundaryChangesOverride?: number,
+): number {
+  const changes = applyBudgetPeriodMutation(
+    sql,
+    args,
+    state,
+    linkedBoundaryChangesOverride,
+  );
   applyDailyTotalMutation(sql, args, state);
   applyDailyOperationHistoryMutation(sql, args, state);
+  return changes;
 }

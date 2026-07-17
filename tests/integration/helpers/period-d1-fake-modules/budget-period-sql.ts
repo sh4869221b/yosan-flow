@@ -1,5 +1,6 @@
 import type { PeriodAwareD1FakeState } from "./table-state";
 import type { BudgetPeriodRow } from "./types";
+import { applyLinkedBoundaryMutation } from "./linked-boundary-sql";
 
 function assertKnownBudgetPeriodQuery(sql: string): void {
   const normalizedSql = sql.toLowerCase();
@@ -65,12 +66,25 @@ export function applyBudgetPeriodMutation(
   sql: string,
   args: unknown[],
   state: PeriodAwareD1FakeState,
-): void {
+  linkedBoundaryChangesOverride?: number,
+): number {
   const normalizedSql = sql.toLowerCase();
   if (!normalizedSql.includes("budget_periods")) {
-    return;
+    return 0;
   }
-  if (normalizedSql.includes("insert into") && args.length >= 8) {
+  const linkedBoundaryChanges = applyLinkedBoundaryMutation(
+    sql,
+    args,
+    state,
+    linkedBoundaryChangesOverride,
+  );
+  if (linkedBoundaryChanges !== null) {
+    return linkedBoundaryChanges;
+  }
+  if (
+    normalizedSql.includes('insert into "budget_periods"') &&
+    args.length >= 8
+  ) {
     state.periods.set(String(args[0]), {
       id: String(args[0]),
       start_date: String(args[1]),
@@ -81,14 +95,14 @@ export function applyBudgetPeriodMutation(
       created_at: String(args[6]),
       updated_at: String(args[7]),
     });
-    return;
+    return 1;
   }
 
-  if (normalizedSql.includes("update") && args.length >= 5) {
+  if (normalizedSql.includes('update "budget_periods"') && args.length >= 5) {
     const id = String(args[4]);
     const existing = state.periods.get(id);
     if (!existing) {
-      return;
+      return 0;
     }
     state.periods.set(id, {
       ...existing,
@@ -97,5 +111,14 @@ export function applyBudgetPeriodMutation(
       budget_yen: Number(args[2]),
       updated_at: String(args[3]),
     });
+    return 1;
   }
+  if (
+    normalizedSql.includes('insert into "budget_periods"') ||
+    normalizedSql.includes('update "budget_periods"') ||
+    normalizedSql.includes('delete from "budget_periods"')
+  ) {
+    throw new Error(`Unhandled budget period mutation in D1 fake: ${sql}`);
+  }
+  return 0;
 }
