@@ -4,10 +4,11 @@
 
   type Props = {
     range: PeriodRange;
+    disabled?: boolean;
     valueChange?: (_value: PeriodRange) => void;
   };
 
-  let { range, valueChange = () => {} }: Props = $props();
+  let { range, disabled = false, valueChange = () => {} }: Props = $props();
 </script>
 
 <RangeCalendar.Root
@@ -16,6 +17,7 @@
   locale="ja-JP"
   weekdayFormat="short"
   fixedWeeks={true}
+  {disabled}
   calendarLabel="予算期間"
 >
   {#snippet children({ months, weekdays })}

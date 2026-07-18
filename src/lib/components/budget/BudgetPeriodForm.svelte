@@ -3,6 +3,7 @@
     budgetInput: string;
     saving: boolean;
     loading: boolean;
+    interactionDisabled?: boolean;
     errorMessage?: string | null;
     onsubmit: (_event: Event) => void;
   };
@@ -11,6 +12,7 @@
     budgetInput = $bindable(""),
     saving = false,
     loading = false,
+    interactionDisabled = false,
     errorMessage = null,
     onsubmit,
   }: Props = $props();
@@ -30,10 +32,10 @@
         type="text"
         inputmode="numeric"
         bind:value={budgetInput}
-        disabled={saving || loading}
+        disabled={saving || interactionDisabled || loading}
       />
     </label>
-    <button type="submit" disabled={saving || loading}>
+    <button type="submit" disabled={saving || interactionDisabled || loading}>
       {saving ? "保存中..." : loading ? "読込中..." : "期間を更新"}
     </button>
   </form>

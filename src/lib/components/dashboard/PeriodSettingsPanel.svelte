@@ -2,6 +2,7 @@
   import { Settings2 } from "@lucide/svelte";
   import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
   import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
+  import PeriodBoundaryConfirmationDialog from "./PeriodBoundaryConfirmationDialog.svelte";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 
@@ -22,11 +23,19 @@
       startDate={controller.rangeStartDate}
       endDate={controller.rangeEndDate}
       saving={controller.periodSaving}
+      interactionDisabled={controller.periodInteractionDisabled}
       testIdPrefix="current-period-range"
       change={controller.handleRangeChange}
     />
   </div>
 </details>
+
+<PeriodBoundaryConfirmationDialog
+  proposal={controller.periodUpdateProposal}
+  confirmSaving={controller.confirmSaving}
+  confirm={controller.confirmPeriodUpdate}
+  cancel={controller.cancelPeriodUpdateConfirmation}
+/>
 
 <style>
   .card {

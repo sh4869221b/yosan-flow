@@ -9,7 +9,7 @@
   type Props = {
     selectedStartDate?: string;
     selectedEndDate?: string;
-    saving?: boolean;
+    disabled?: boolean;
     testIdPrefix?: string;
     input?: (_payload: DateInputPayload) => void;
   };
@@ -17,7 +17,7 @@
   let {
     selectedStartDate = "",
     selectedEndDate = "",
-    saving = false,
+    disabled = false,
     testIdPrefix = "period-range",
     input = () => {},
   }: Props = $props();
@@ -31,7 +31,7 @@
       data-testid={`${testIdPrefix}-start`}
       value={selectedStartDate}
       max={selectedEndDate || undefined}
-      disabled={saving}
+      {disabled}
       oninput={(event) =>
         input({ field: "start", value: event.currentTarget.value })}
     />
@@ -43,7 +43,7 @@
       data-testid={`${testIdPrefix}-end`}
       value={selectedEndDate}
       min={selectedStartDate || undefined}
-      disabled={saving}
+      {disabled}
       oninput={(event) =>
         input({ field: "end", value: event.currentTarget.value })}
     />

@@ -43,6 +43,7 @@
     periods?: PeriodOption[];
     selectedPeriodId?: string | null;
     saving?: boolean;
+    interactionDisabled?: boolean;
     loading?: boolean;
     errorMessage?: string | null;
     savePeriod?: (_payload: { budgetYen: number }) => void;
@@ -54,6 +55,7 @@
     periods = [],
     selectedPeriodId = null,
     saving = false,
+    interactionDisabled = false,
     loading = false,
     errorMessage = null,
     savePeriod = () => {},
@@ -99,7 +101,7 @@
     {summary}
     {periods}
     {selectedPeriodId}
-    {saving}
+    saving={saving || interactionDisabled}
     {loading}
     {selectPeriod}
   />
@@ -120,6 +122,7 @@
       bind:budgetInput
       {saving}
       {loading}
+      {interactionDisabled}
       errorMessage={budgetInputError ?? errorMessage}
       onsubmit={submitPeriod}
     />

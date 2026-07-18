@@ -10,6 +10,7 @@ export type SeedPeriodInput = {
   startDate: string;
   endDate: string;
   budgetYen: number;
+  predecessorPeriodId?: string;
   dailyTotals?: DailySeed[];
 };
 
@@ -51,6 +52,7 @@ export async function seedPeriod(
       startDate: input.startDate,
       endDate: input.endDate,
       budgetYen: input.budgetYen,
+      predecessorPeriodId: input.predecessorPeriodId,
     },
   );
   if (createResponse.status !== 201) {
