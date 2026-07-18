@@ -63,6 +63,15 @@ export function createDashboardPageController(getData: () => PageData) {
     get periodSaving() {
       return periodController.periodSaving;
     },
+    get confirmSaving() {
+      return periodController.confirmSaving;
+    },
+    get periodUpdateProposal() {
+      return periodController.periodUpdateProposal;
+    },
+    get periodInteractionDisabled() {
+      return periodController.periodInteractionDisabled;
+    },
     get periodError() {
       return periodController.periodError;
     },
@@ -141,6 +150,9 @@ export function createDashboardPageController(getData: () => PageData) {
     handleSavePeriod: periodController.handleSavePeriod,
     handleRangeChange: periodController.handleRangeChange,
     handleSelectPeriod: periodController.handleSelectPeriod,
+    confirmPeriodUpdate: periodController.confirmPeriodUpdate,
+    cancelPeriodUpdateConfirmation:
+      periodController.cancelPeriodUpdateConfirmation,
     createInitialPeriod: periodController.createInitialPeriod,
     openDayEntry: dayEntryController.openDayEntry,
     closeDayEntry: dayEntryController.closeDayEntry,

@@ -2,6 +2,7 @@ import type { Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { toPeriodId } from "$lib/dashboard/date";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import type { PendingPeriodUpdateConfirmation } from "$lib/dashboard/period-update-confirmation-state.svelte";
 import type { SavePeriodPayload } from "$lib/dashboard/types";
 
 type PeriodControllerActionDependencies = {
@@ -9,6 +10,12 @@ type PeriodControllerActionDependencies = {
   readonly getRangeEndDate: () => string;
   readonly getRangeStartDate: () => string;
   readonly getSummary: () => PeriodSummary | null;
+  readonly beginPeriodConfirmation: () => PendingPeriodUpdateConfirmation | null;
+  readonly clearPeriodConfirmation: () => void;
+  readonly confirmPeriodUpdateEffect: (
+    _pending: PendingPeriodUpdateConfirmation,
+  ) => Effect.Effect<void, never>;
+  readonly getConfirmSaving: () => boolean;
   readonly refreshSummaryEffect: (
     _periodId: string,
   ) => Effect.Effect<void, never>;
@@ -55,7 +62,23 @@ export function createPeriodControllerActions(
       );
     },
     handleSelectPeriod(payload: { periodId: string }): void {
+      dependencies.clearPeriodConfirmation();
       runClientEffect(dependencies.refreshSummaryEffect(payload.periodId));
+    },
+    confirmPeriodUpdate(): void {
+      const pending = dependencies.beginPeriodConfirmation();
+      if (pending != null) {
+        runClientEffect(dependencies.confirmPeriodUpdateEffect(pending));
+      }
+    },
+    cancelPeriodUpdateConfirmation(): void {
+      if (dependencies.getConfirmSaving()) return;
+      dependencies.clearPeriodConfirmation();
+      const summary = dependencies.getSummary();
+      if (summary != null) {
+        dependencies.setRangeStartDate(summary.startDate);
+        dependencies.setRangeEndDate(summary.endDate);
+      }
     },
     createInitialPeriod(): void {
       runClientEffect(dependencies.createInitialPeriodEffect());
