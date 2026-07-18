@@ -6,6 +6,7 @@ import { PUT as periodPutDefaultRoute } from "../../../src/routes/api/periods/[p
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 import type { BudgetPeriodRow } from "../helpers/period-d1-fake-modules/types";
 import { createFixture } from "./periods-fixture";
+import { createRouteEvent } from "./route-event-fixture";
 
 export const TARGET_ID = "period-target";
 export const SUCCESSOR_ID = "period-successor";
@@ -71,28 +72,34 @@ export async function put(
   body: JsonObject,
   periodId = TARGET_ID,
 ): Promise<Response> {
-  return fixture.updatePeriod({
-    params: { periodId },
-    request: new Request(`http://localhost/api/periods/${periodId}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+  return fixture.updatePeriod(
+    createRouteEvent({
+      params: { periodId },
+      platform: undefined,
+      request: new Request(`http://localhost/api/periods/${periodId}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
     }),
-  } as never);
+  );
 }
 
 export async function putRaw(
   fixture: ReturnType<typeof createFixture>,
   body: string,
 ): Promise<Response> {
-  return fixture.updatePeriod({
-    params: { periodId: TARGET_ID },
-    request: new Request(`http://localhost/api/periods/${TARGET_ID}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body,
+  return fixture.updatePeriod(
+    createRouteEvent({
+      params: { periodId: TARGET_ID },
+      platform: undefined,
+      request: new Request(`http://localhost/api/periods/${TARGET_ID}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body,
+      }),
     }),
-  } as never);
+  );
 }
 
 export async function readPeriods(
@@ -104,17 +111,20 @@ export async function readPeriods(
 export async function addSuccessorEntry(
   fixture: ReturnType<typeof createFixture>,
 ): Promise<Response> {
-  return fixture.addDay({
-    params: { periodId: SUCCESSOR_ID, date: "2026-07-21" },
-    request: new Request(
-      `http://localhost/api/periods/${SUCCESSOR_ID}/days/2026-07-21/add`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ inputYen: 100 }),
-      },
-    ),
-  } as never);
+  return fixture.addDay(
+    createRouteEvent({
+      params: { periodId: SUCCESSOR_ID, date: "2026-07-21" },
+      platform: undefined,
+      request: new Request(
+        `http://localhost/api/periods/${SUCCESSOR_ID}/days/2026-07-21/add`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ inputYen: 100 }),
+        },
+      ),
+    }),
+  );
 }
 
 export type D1BoundaryHarness = {
@@ -131,26 +141,36 @@ export function createD1BoundaryHarness(input?: {
     periods: input?.periods ?? [targetRow, successorRow],
     totalDates: input?.totalDates,
   });
+  const platform = {
+    env: { DB: db },
+    cf: {},
+    ctx: { waitUntil: () => {} },
+  } satisfies App.Platform;
   return {
     db,
     put: (body, periodId = TARGET_ID) =>
       Promise.resolve(
-        periodPutDefaultRoute({
-          params: { periodId },
-          request: new Request(`http://localhost/api/periods/${periodId}`, {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(body),
+        periodPutDefaultRoute(
+          createRouteEvent({
+            params: { periodId },
+            request: new Request(`http://localhost/api/periods/${periodId}`, {
+              method: "PUT",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(body),
+            }),
+            platform,
           }),
-          platform: { env: { DB: db } },
-        } as never),
+        ),
       ),
     list: () =>
       Promise.resolve(
-        periodsGetDefaultRoute({
-          request: new Request("http://localhost/api/periods"),
-          platform: { env: { DB: db } },
-        } as never),
+        periodsGetDefaultRoute(
+          createRouteEvent({
+            params: {},
+            request: new Request("http://localhost/api/periods"),
+            platform,
+          }),
+        ),
       ),
   };
 }
