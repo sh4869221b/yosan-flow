@@ -1,5 +1,9 @@
 import { Effect } from "effect";
 import {
+  replaceLinkedPeriodBoundary,
+  type InMemoryLinkedBoundaryContext,
+} from "$lib/server/db/budget-period-boundary-in-memory";
+import {
   assertPeriodHasNoOverlap,
   assertPeriodPredecessorContinuity,
   assertPeriodSuccessorContinuity,
@@ -16,6 +20,10 @@ import { toEffectError } from "$lib/server/effect/runtime";
 
 export function createInMemoryBudgetPeriodRepository(
   initialPeriods: BudgetPeriodRecord[] = [],
+  linkedBoundaryContext: InMemoryLinkedBoundaryContext = {
+    listOwnedEntryDates: () => ({ totalDates: {}, historyDates: {} }),
+    runSerializedEffect: (work) => work(),
+  },
 ): BudgetPeriodRepository {
   const store = new Map<string, BudgetPeriodRecord>();
   for (const period of initialPeriods) {
@@ -51,6 +59,21 @@ export function createInMemoryBudgetPeriodRepository(
       return Effect.try({
         try: () =>
           [...store.values()]
+            .map((period) => clonePeriod(period))
+            .sort((left, right) =>
+              left.startDate.localeCompare(right.startDate),
+            ),
+        catch: toEffectError,
+      });
+    },
+
+    findSuccessorsByPredecessorId(predecessorPeriodId) {
+      return Effect.try({
+        try: () =>
+          [...store.values()]
+            .filter(
+              (period) => period.predecessorPeriodId === predecessorPeriodId,
+            )
             .map((period) => clonePeriod(period))
             .sort((left, right) =>
               left.startDate.localeCompare(right.startDate),
@@ -145,6 +168,20 @@ export function createInMemoryBudgetPeriodRepository(
         },
         catch: toEffectError,
       });
+    },
+
+    updateLinkedBoundary(command) {
+      return linkedBoundaryContext.runSerializedEffect(() =>
+        Effect.try({
+          try: () =>
+            replaceLinkedPeriodBoundary(
+              store,
+              command,
+              linkedBoundaryContext.listOwnedEntryDates(),
+            ),
+          catch: toEffectError,
+        }),
+      );
     },
   };
 }

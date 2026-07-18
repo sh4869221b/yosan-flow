@@ -1,4 +1,4 @@
-export function createD1Result<T>(results: T[]): D1Result<T> {
+export function createD1Result<T>(results: T[], changes = 0): D1Result<T> {
   return {
     success: true,
     meta: {
@@ -8,7 +8,7 @@ export function createD1Result<T>(results: T[]): D1Result<T> {
       rows_written: 0,
       last_row_id: 0,
       changed_db: false,
-      changes: 0,
+      changes,
     },
     results,
   };

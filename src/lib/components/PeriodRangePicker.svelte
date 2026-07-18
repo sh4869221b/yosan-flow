@@ -13,6 +13,7 @@
     startDate?: string;
     endDate?: string;
     saving?: boolean;
+    interactionDisabled?: boolean;
     testIdPrefix?: string;
     change?: (_payload: { startDate: string; endDate: string }) => void;
   };
@@ -21,6 +22,7 @@
     startDate = "",
     endDate = "",
     saving = false,
+    interactionDisabled = false,
     testIdPrefix = "period-range",
     change = () => {},
   }: Props = $props();
@@ -34,6 +36,7 @@
   let range = $state<PeriodRange>(createPeriodRange(initialRangeProps));
   let syncedStartDate = $state(initialRangeProps.startDate);
   let syncedEndDate = $state(initialRangeProps.endDate);
+  const controlsDisabled = $derived(saving || interactionDisabled);
 
   $effect(() => {
     if (startDate === syncedStartDate && endDate === syncedEndDate) {
@@ -73,17 +76,21 @@
   <PeriodRangeInputRow
     selectedStartDate={selection.startDate}
     selectedEndDate={selection.endDate}
-    {saving}
+    disabled={controlsDisabled}
     {testIdPrefix}
     input={handleDateInput}
   />
 
-  <PeriodRangeCalendar {range} valueChange={handleValueChange} />
+  <PeriodRangeCalendar
+    {range}
+    disabled={controlsDisabled}
+    valueChange={handleValueChange}
+  />
 
   <button
     type="button"
     data-testid={`${testIdPrefix}-apply`}
-    disabled={saving || !selection.isValid}
+    disabled={controlsDisabled || !selection.isValid}
     onclick={submitPeriodRange}
   >
     {saving ? "保存中..." : "期間を反映"}

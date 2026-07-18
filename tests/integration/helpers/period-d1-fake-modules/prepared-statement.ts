@@ -7,9 +7,20 @@ import {
 } from "./sql-dispatch";
 import type { PeriodAwareD1FakeState } from "./table-state";
 
+export type PreparedStatementObserver = (statement: {
+  readonly sql: string;
+  readonly args: readonly unknown[];
+}) => void;
+
+type PreparedStatementOptions = {
+  readonly linkedBoundaryChangesOverride?: number;
+  readonly onStatementRun?: PreparedStatementObserver;
+};
+
 export function createPeriodAwarePreparedStatement(
   sql: string,
   state: PeriodAwareD1FakeState,
+  options: PreparedStatementOptions = {},
 ): D1PreparedStatement {
   let boundArgs: unknown[] = [];
 
@@ -40,8 +51,14 @@ export function createPeriodAwarePreparedStatement(
     },
     raw: rawRows,
     async run() {
-      applySqlMutation(sql, boundArgs, state);
-      return createD1Result([]);
+      options.onStatementRun?.({ sql, args: [...boundArgs] });
+      const changes = applySqlMutation(
+        sql,
+        boundArgs,
+        state,
+        options.linkedBoundaryChangesOverride,
+      );
+      return createD1Result([], changes);
     },
   };
 

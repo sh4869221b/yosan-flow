@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import type { D1Database } from "$lib/server/db/d1-types";
 import { createHistoryId as createDefaultHistoryId } from "$lib/server/services/history-id";
 import { getJstDateParts } from "$lib/server/time/jst-format";
+import { createPeriodUpdateService } from "$lib/server/services/period-update/period-update-service";
 import { createD1DayEntryService } from "./day-entry-command-service";
 import {
   assertNoOutOfRangePeriodEntries,
@@ -30,6 +31,36 @@ export function createD1ApiServices(
     now,
     createHistoryId: input.createHistoryId ?? createDefaultHistoryId,
   });
+  const updateOrdinary = (periodInput: {
+    readonly id: string;
+    readonly startDate: string;
+    readonly endDate: string;
+    readonly budgetYen: number;
+  }) =>
+    Effect.gen(function* () {
+      yield* assertNoOutOfRangePeriodEntries(
+        repositories,
+        periodInput.id,
+        periodInput.startDate,
+        periodInput.endDate,
+      );
+      return yield* budgetPeriodRepository.updatePeriod({
+        ...periodInput,
+        nowIso: now().toISOString(),
+      });
+    });
+  const updatePeriod = createPeriodUpdateService({
+    budgetPeriodRepository,
+    updateOrdinary,
+    assertNoOutOfRangeEntries: (periodId, startDate, endDate) =>
+      assertNoOutOfRangePeriodEntries(
+        repositories,
+        periodId,
+        startDate,
+        endDate,
+      ),
+    nowIso: () => now().toISOString(),
+  });
 
   return {
     budgetPeriodRepository,
@@ -39,19 +70,7 @@ export function createD1ApiServices(
         ...periodInput,
         nowIso: now().toISOString(),
       }),
-    updatePeriod: (periodInput) =>
-      Effect.gen(function* () {
-        yield* assertNoOutOfRangePeriodEntries(
-          repositories,
-          periodInput.id,
-          periodInput.startDate,
-          periodInput.endDate,
-        );
-        return yield* budgetPeriodRepository.updatePeriod({
-          ...periodInput,
-          nowIso: now().toISOString(),
-        });
-      }),
+    updatePeriod,
     listPeriods: () => budgetPeriodRepository.listPeriods(),
     listDailyTotalsByPeriodId: (periodId) =>
       listPeriodDailyTotals(dailyTotalRepository, periodId),

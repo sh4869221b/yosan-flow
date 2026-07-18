@@ -1,6 +1,11 @@
 import { and, asc, eq, gte, lte, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { createDrizzleD1Database } from "$lib/server/db/client";
+import { updateD1LinkedPeriodBoundary } from "$lib/server/db/budget-period-boundary-d1";
+import {
+  findD1BudgetPeriodById,
+  findD1SuccessorsByPredecessorId,
+} from "$lib/server/db/budget-period-d1-query";
 import type { D1Database } from "$lib/server/db/d1-types";
 import { toBudgetPeriodRecord } from "$lib/server/db/budget-period-row-mapper";
 import {
@@ -9,10 +14,7 @@ import {
   assertPeriodSuccessorContinuity,
   assertValidPeriodInput,
 } from "$lib/server/db/budget-period-validation-coordinator";
-import type {
-  BudgetPeriodRecord,
-  BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-types";
+import type { BudgetPeriodRepository } from "$lib/server/db/budget-period-types";
 import { PeriodNotFoundError } from "$lib/server/db/budget-period-types";
 import { budget_periods } from "$lib/server/db/schema";
 import { toEffectError } from "$lib/server/effect/runtime";
@@ -25,22 +27,10 @@ export function createD1BudgetPeriodRepository(
   input: CreateD1BudgetPeriodRepositoryInput,
 ): BudgetPeriodRepository {
   const database = createDrizzleD1Database(input.db);
-  const findByIdInternal = async (
-    id: string,
-  ): Promise<BudgetPeriodRecord | null> => {
-    const [row] = await database
-      .select()
-      .from(budget_periods)
-      .where(eq(budget_periods.id, id))
-      .limit(1)
-      .all();
-    return row ? toBudgetPeriodRecord(row) : null;
-  };
-
   return {
     findById(id) {
       return Effect.tryPromise({
-        try: () => findByIdInternal(id),
+        try: () => findD1BudgetPeriodById(database, id),
         catch: toEffectError,
       });
     },
@@ -80,6 +70,14 @@ export function createD1BudgetPeriodRepository(
       });
     },
 
+    findSuccessorsByPredecessorId(predecessorPeriodId) {
+      return Effect.tryPromise({
+        try: () =>
+          findD1SuccessorsByPredecessorId(database, predecessorPeriodId),
+        catch: toEffectError,
+      });
+    },
+
     createPeriod(inputRow) {
       return Effect.tryPromise({
         try: async () => {
@@ -89,7 +87,7 @@ export function createD1BudgetPeriodRepository(
             inputRow.budgetYen,
           );
 
-          const existing = await findByIdInternal(inputRow.id);
+          const existing = await findD1BudgetPeriodById(database, inputRow.id);
           if (existing) {
             return existing;
           }
@@ -152,7 +150,7 @@ export function createD1BudgetPeriodRepository(
             })
             .run();
 
-          const created = await findByIdInternal(inputRow.id);
+          const created = await findD1BudgetPeriodById(database, inputRow.id);
           if (!created) {
             throw new Error(
               `budget period not found after create: ${inputRow.id}`,
@@ -173,7 +171,7 @@ export function createD1BudgetPeriodRepository(
             inputRow.budgetYen,
           );
 
-          const existing = await findByIdInternal(inputRow.id);
+          const existing = await findD1BudgetPeriodById(database, inputRow.id);
           if (!existing) {
             throw new PeriodNotFoundError(inputRow.id);
           }
@@ -249,7 +247,7 @@ export function createD1BudgetPeriodRepository(
             .where(eq(budget_periods.id, inputRow.id))
             .run();
 
-          const updated = await findByIdInternal(inputRow.id);
+          const updated = await findD1BudgetPeriodById(database, inputRow.id);
           if (!updated) {
             throw new Error(`period not found after update: ${inputRow.id}`);
           }
@@ -258,5 +256,11 @@ export function createD1BudgetPeriodRepository(
         catch: toEffectError,
       });
     },
+
+    updateLinkedBoundary: (command) =>
+      Effect.tryPromise({
+        try: () => updateD1LinkedPeriodBoundary(database, command),
+        catch: toEffectError,
+      }),
   };
 }

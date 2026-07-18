@@ -21,6 +21,7 @@
     periods={controller.periods}
     selectedPeriodId={controller.selectedPeriodId}
     saving={controller.periodSaving}
+    interactionDisabled={controller.periodInteractionDisabled}
     loading={controller.summaryLoading}
     errorMessage={controller.periodError}
     savePeriod={controller.handleSavePeriod}

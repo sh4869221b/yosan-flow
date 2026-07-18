@@ -8,8 +8,12 @@ import type {
 import { addDays, toPeriodId } from "$lib/dashboard/date";
 import { createPeriodControllerActions } from "$lib/dashboard/period-controller-actions.svelte";
 import { createInitialPeriodEffect as createPeriodCreationEffect } from "$lib/dashboard/period-controller-create-effect";
-import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
+import {
+  createPeriodConfirmEffect,
+  createPeriodUpdateEffect,
+} from "$lib/dashboard/period-controller-update-effect";
 import { getInitialPeriodControllerState } from "$lib/dashboard/period-controller-initial-state";
+import { createPeriodUpdateConfirmationState } from "$lib/dashboard/period-update-confirmation-state.svelte";
 import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 import type { PeriodListResponse } from "$lib/dashboard/types";
@@ -40,6 +44,10 @@ export function createPeriodControllerState(
   let createEndDate = $state(addDays(initialState.createStartDate, 29));
   let createPeriodId = $state(toPeriodId(initialState.createStartDate));
   let createBudgetInput = $state("120000");
+  const confirmationState = createPeriodUpdateConfirmationState({
+    getSelectedPeriodId: () => selectedPeriodId,
+    summaryRevision,
+  });
 
   function publishSummary(nextSummary: PeriodSummary | null): void {
     if (nextSummary != null) {
@@ -51,6 +59,7 @@ export function createPeriodControllerState(
       rangeEndDate = nextSummary.endDate;
     }
     summary = nextSummary;
+    confirmationState.dropIfStale();
   }
 
   function refreshSummaryEffect(
@@ -120,22 +129,25 @@ export function createPeriodControllerState(
     });
   }
 
-  const savePeriodUpdateEffect = createPeriodUpdateEffect({
+  const periodUpdateDependencies = {
+    confirmationState,
     getSelectedPeriodId: () => selectedPeriodId,
     getSummary: () => summary,
     getSummaryLoading: () => summaryLoading,
     publishSummary,
     refreshPeriodListEffect,
     refreshSummaryEffect,
-    setError: (error) => {
-      periodError = error;
-    },
-    setSaving: (saving) => {
-      periodSaving = saving;
-    },
+    setError: (error: string | null) => (periodError = error),
+    setSaving: (saving: boolean) => (periodSaving = saving),
     summaryRequests,
     summaryRevision,
-  });
+  };
+  const savePeriodUpdateEffect = createPeriodUpdateEffect(
+    periodUpdateDependencies,
+  );
+  const confirmPeriodUpdateEffect = createPeriodConfirmEffect(
+    periodUpdateDependencies,
+  );
 
   function createInitialPeriodEffect(): Effect.Effect<void, never> {
     return createPeriodCreationEffect({
@@ -155,27 +167,21 @@ export function createPeriodControllerState(
   }
 
   const actions = createPeriodControllerActions({
+    beginPeriodConfirmation: confirmationState.beginConfirmation,
+    clearPeriodConfirmation: confirmationState.clear,
+    confirmPeriodUpdateEffect,
     createInitialPeriodEffect,
+    getConfirmSaving: () => confirmationState.confirmSaving,
     getRangeEndDate: () => rangeEndDate,
     getRangeStartDate: () => rangeStartDate,
     getSummary: () => summary,
     refreshSummaryEffect,
     savePeriodUpdateEffect,
-    setCreateEndDate: (value) => {
-      createEndDate = value;
-    },
-    setCreatePeriodId: (value) => {
-      createPeriodId = value;
-    },
-    setCreateStartDate: (value) => {
-      createStartDate = value;
-    },
-    setRangeEndDate: (value) => {
-      rangeEndDate = value;
-    },
-    setRangeStartDate: (value) => {
-      rangeStartDate = value;
-    },
+    setCreateEndDate: (value) => (createEndDate = value),
+    setCreatePeriodId: (value) => (createPeriodId = value),
+    setCreateStartDate: (value) => (createStartDate = value),
+    setRangeEndDate: (value) => (rangeEndDate = value),
+    setRangeStartDate: (value) => (rangeStartDate = value),
   });
 
   return {
@@ -196,6 +202,19 @@ export function createPeriodControllerState(
     },
     get periodSaving() {
       return periodSaving;
+    },
+    get confirmSaving() {
+      return confirmationState.confirmSaving;
+    },
+    get periodUpdateProposal() {
+      return confirmationState.pending?.proposal ?? null;
+    },
+    get periodInteractionDisabled() {
+      return (
+        periodSaving ||
+        confirmationState.confirmSaving ||
+        confirmationState.pending != null
+      );
     },
     get periodError() {
       return periodError;
@@ -226,10 +245,13 @@ export function createPeriodControllerState(
     },
     setSummary(nextSummary: PeriodSummary | null): void {
       summary = nextSummary;
+      confirmationState.dropIfStale();
     },
     handleSavePeriod: actions.handleSavePeriod,
     handleRangeChange: actions.handleRangeChange,
     handleSelectPeriod: actions.handleSelectPeriod,
+    confirmPeriodUpdate: actions.confirmPeriodUpdate,
+    cancelPeriodUpdateConfirmation: actions.cancelPeriodUpdateConfirmation,
     createInitialPeriod: actions.createInitialPeriod,
     updateCreatePeriodRange: actions.updateCreatePeriodRange,
   };
