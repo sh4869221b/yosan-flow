@@ -13,7 +13,7 @@
     "test:unit": "vitest run --passWithNoTests tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:coverage": "vitest run --coverage tests/unit tests/integration",
-    "test:e2e": "playwright test",
+    "test:e2e": "svelte-kit sync && playwright test",
     "build": "vite build",
     "cf:migrate:local": "wrangler d1 migrations apply DB --local",
     "cf:reset:local": "rm -rf .wrangler/state/v3/d1 .tmp-wrangler-state/v3/d1 && wrangler d1 migrations apply DB --local",
@@ -23,7 +23,7 @@
     "deploy:production": "wrangler deploy --env production"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.0",
     "@sveltejs/adapter-cloudflare": "^7.2.9",
     "@sveltejs/kit": "^2.70.1",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
