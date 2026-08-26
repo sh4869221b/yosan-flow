@@ -9,6 +9,7 @@ dist
 .DS_Store
 .codex
 .omo
+.fallow/
 .tmp-*
 coverage
 test-results
