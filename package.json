@@ -44,7 +44,7 @@
     "wrangler": "^4.127.1"
   },
   "dependencies": {
-    "@internationalized/date": "^3.12.3",
+    "@internationalized/date": "^3.12.4",
     "bits-ui": "^2.19.0",
     "drizzle-orm": "^0.45.2",
     "effect": "^3.22.1",
