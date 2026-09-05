@@ -7,15 +7,27 @@
   import CreatePeriodPanel from "./CreatePeriodPanel.svelte";
   import DashboardPeriodHeader from "./DashboardPeriodHeader.svelte";
   import PeriodSettingsPanel from "./PeriodSettingsPanel.svelte";
+  import type { DaySaveSuccess } from "$lib/dashboard/controller-types";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 
   type Props = {
     controller: Controller;
     today: string;
+    daySaveSuccess?: DaySaveSuccess | null;
+    onDayEntryRequested?: (_payload: {
+      readonly date: string;
+      readonly periodId: string;
+      readonly element: HTMLElement | null;
+    }) => void;
   };
 
-  let { controller, today }: Props = $props();
+  let {
+    controller,
+    today,
+    daySaveSuccess = null,
+    onDayEntryRequested = () => {},
+  }: Props = $props();
   let focusIntent = $state<"selection" | "retry" | null>(null);
   let requestedPeriodId = $state<string | null>(null);
 
@@ -50,13 +62,21 @@
   }
 
   function requestCalendarDayEntry(payload: { readonly date: string }): void {
+    const summary = controller.summary;
     if (
       controller.summaryLoading ||
       controller.periodInteractionDisabled ||
-      controller.summary?.periodId !== controller.selectedPeriodId
+      summary?.periodId !== controller.selectedPeriodId
     ) {
       return;
     }
+    onDayEntryRequested({
+      date: payload.date,
+      periodId: summary.periodId,
+      element: document.querySelector<HTMLElement>(
+        `[data-testid="calendar-day-${payload.date}"]`,
+      ),
+    });
     controller.openDayEntry(payload);
   }
 
@@ -161,6 +181,11 @@
                 : "期間の操作が完了するまで入力できません"}
               requestEdit={requestCalendarDayEntry}
             />
+            {#if daySaveSuccess?.periodId === controller.selectedPeriodId}
+              <p data-testid="day-entry-save-status" role="status">
+                {daySaveSuccess.date} の支出を保存しました。
+              </p>
+            {/if}
           {/key}
         </section>
       </section>

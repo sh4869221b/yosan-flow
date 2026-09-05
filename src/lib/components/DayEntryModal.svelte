@@ -151,24 +151,26 @@
           </p>
         {/if}
 
-        <DayEntryForm
-          bind:inputYen
-          bind:memo
-          {saving}
-          close={cancel}
-          {save}
-          {date}
-          saveError={errorMessage}
-        >
-          {#snippet preview()}
-            <DayEntryPreview
-              {currentUsedYen}
-              {previewAfterYen}
-              {previewRemainingYen}
-              {previewRecommendedYen}
-            />
-          {/snippet}
-        </DayEntryForm>
+        {#key date}
+          <DayEntryForm
+            bind:inputYen
+            bind:memo
+            {saving}
+            close={cancel}
+            {save}
+            {date}
+            saveError={errorMessage}
+          >
+            {#snippet preview()}
+              <DayEntryPreview
+                {currentUsedYen}
+                {previewAfterYen}
+                {previewRemainingYen}
+                {previewRecommendedYen}
+              />
+            {/snippet}
+          </DayEntryForm>
+        {/key}
 
         <section
           class="history-region"

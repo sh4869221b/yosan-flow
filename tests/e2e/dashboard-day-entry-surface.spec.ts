@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   configureDashboardDayEntryE2E,
+  isExactDayEntryAddResponse,
   openDayEntryAndWaitForHistory,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
@@ -163,4 +164,84 @@ test("blocks dismissal and resubmission while saving", async ({
   expect(addRequestCount).toBe(1);
   releaseSave.resolve();
   await expect(modal).toBeHidden();
+});
+
+test("returns focus to the calendar origin and announces an accepted save", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history`;
+  const historyUrl = new URL(historyPath, getBaseUrl()).href;
+  const addPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/add`;
+  const addUrl = new URL(addPath, getBaseUrl()).href;
+  const origin = page.getByTestId(`calendar-day-${todayDate}`);
+  const modal = page.getByTestId("day-entry-modal");
+  const status = page.getByTestId("day-entry-save-status");
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await origin.focus();
+  const initialHistoryResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" && response.url() === historyUrl,
+  );
+  await origin.press("Enter");
+  await expect(modal).toBeVisible();
+  expect((await initialHistoryResponse).ok()).toBe(true);
+
+  await modal.getByLabel("入力額 (円)").fill("1200");
+  await modal.getByLabel("メモ").fill("昼食");
+  const saveResponse = page.waitForResponse((response) =>
+    isExactDayEntryAddResponse(response, addUrl),
+  );
+  await modal.getByLabel("入力額 (円)").press("Enter");
+  expect((await saveResponse).ok()).toBe(true);
+  await expect(modal).toBeHidden();
+  await expect(origin).toBeFocused();
+  await expect(status).toHaveText(`${todayDate} の支出を保存しました。`);
+  await page.screenshot({
+    path: "test-results/issue-350/task-4-focus-status.png",
+    fullPage: true,
+  });
+
+  const reopenedHistoryResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" && response.url() === historyUrl,
+  );
+  await origin.press("Enter");
+  await expect(modal).toBeVisible();
+  expect((await reopenedHistoryResponse).ok()).toBe(true);
+  await expect(status).toHaveCount(0);
+  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("");
+  await expect(modal.getByLabel("メモ")).toHaveValue("");
+  await page.keyboard.press("Escape");
+  await expect(modal).toBeHidden();
+  await expect(origin).toBeFocused();
+  await expect(status).toHaveCount(0);
+
+  await origin.press("Enter");
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "閉じる" }).click();
+  await expect(modal).toBeHidden();
+  await expect(origin).toBeFocused();
+  await expect(status).toHaveCount(0);
+});
+
+test("falls back to the calendar heading when its origin is removed", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  const origin = page.getByTestId(`calendar-day-${todayDate}`);
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await origin.focus();
+  await origin.press("Enter");
+  const modal = page.getByTestId("day-entry-modal");
+  await expect(modal).toBeVisible();
+
+  await origin.evaluate((button) => button.remove());
+  await modal.getByRole("button", { name: "閉じる" }).click();
+  await expect(modal).toBeHidden();
+  await expect(page.locator("#period-calendar-heading")).toBeFocused();
 });
