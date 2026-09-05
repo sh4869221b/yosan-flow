@@ -27,7 +27,7 @@ test("rejects malformed day-entry yen values before requests", async ({
   const modal = page.getByTestId("day-entry-modal");
   await expect(modal).toBeVisible();
 
-  for (const input of ["", "1e3", "1000abc", "10.5", "-1"]) {
+  for (const input of ["", "1e3", "1000abc", "-1"]) {
     await modal.getByLabel("入力額 (円)").fill(input);
     await modal.getByRole("button", { name: "保存する" }).click();
     await expect(modal.getByRole("alert")).toContainText(
@@ -39,6 +39,27 @@ test("rejects malformed day-entry yen values before requests", async ({
         .getByTestId(`used-${todayDate}`),
     ).toHaveText("0 円");
   }
+
+  const memo = "小数入力でも保持されるメモ";
+  const amountInput = modal.getByLabel("入力額 (円)");
+  await amountInput.fill("1.5");
+  await modal.getByLabel("メモ").fill(memo);
+  await modal.getByRole("button", { name: "保存する" }).click();
+
+  await expect(amountInput).toBeFocused();
+  await expect(amountInput).toHaveValue("1.5");
+  await expect(modal.getByLabel("メモ")).toHaveValue(memo);
+  await expect(amountInput).toHaveAttribute("aria-invalid", "true");
+  const describedBy = await amountInput.getAttribute("aria-describedby");
+  expect(describedBy).toBe("day-entry-amount-error");
+  await expect(modal.locator(`#${describedBy}`)).toHaveAttribute(
+    "role",
+    "alert",
+  );
+
+  await amountInput.fill("1200");
+  await expect(amountInput).toHaveAttribute("aria-invalid", "false");
+  await expect(modal.locator("#day-entry-amount-error")).toHaveCount(0);
 
   expect(addRequestCount).toBe(0);
 });
@@ -103,9 +124,15 @@ test("shows save error and keeps input on failed day entry update", async ({
   const { periodId, todayDate } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const retryBarrier = Promise.withResolvers<void>();
+  let addRequestCount = 0;
   await page.route(
     `**/api/periods/${periodId}/days/${todayDate}/add`,
     async (route) => {
+      addRequestCount += 1;
+      if (addRequestCount === 2) {
+        await retryBarrier.promise;
+      }
       await route.fulfill({
         status: 503,
         contentType: "application/json",
@@ -120,15 +147,39 @@ test("shows save error and keeps input on failed day entry update", async ({
   );
 
   await page.getByTestId(`calendar-day-${todayDate}`).click();
-  await expect(page.getByTestId("day-entry-modal")).toBeVisible();
-  await page.getByLabel("入力額 (円)").fill("2000");
-  await page.getByRole("button", { name: "保存する" }).click();
+  const modal = page.getByTestId("day-entry-modal");
+  const amountInput = modal.getByLabel("入力額 (円)");
+  const memoInput = modal.getByLabel("メモ");
+  const saveButton = modal.getByRole("button", { name: "保存する" });
+  await expect(modal).toBeVisible();
+  await amountInput.fill("2000");
+  await memoInput.fill("失敗後も残るメモ");
+  await saveButton.click();
 
-  await expect(page.getByRole("alert")).toContainText(
-    "日次入力の保存に失敗しました。",
-  );
-  await expect(page.getByTestId("day-entry-modal")).toBeVisible();
-  await expect(page.getByLabel("入力額 (円)")).toHaveValue("2000");
+  const saveError = modal.locator("#day-entry-save-error");
+  await expect(saveError).toContainText("日次入力の保存に失敗しました。");
+  await expect(saveButton).toBeFocused();
+  await expect(amountInput).toHaveValue("2000");
+  await expect(memoInput).toHaveValue("失敗後も残るメモ");
+  expect(
+    await saveButton.evaluate(
+      (button, error) =>
+        error != null &&
+        Boolean(
+          button.compareDocumentPosition(error) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        ),
+      await saveError.elementHandle(),
+    ),
+  ).toBe(true);
+
+  await saveButton.click();
+  await expect.poll(() => addRequestCount).toBe(2);
+  await expect(saveError).toHaveCount(0);
+  await expect(amountInput).toHaveValue("2000");
+  await expect(memoInput).toHaveValue("失敗後も残るメモ");
+  retryBarrier.resolve();
+  await expect(saveError).toContainText("日次入力の保存に失敗しました。");
 });
 
 test("shows history load error while keeping the day entry modal usable", async ({

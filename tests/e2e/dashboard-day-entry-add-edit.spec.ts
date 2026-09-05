@@ -25,6 +25,30 @@ test("supports add and history row edit in day modal, and keeps values after rel
   const longMemo =
     "週末用のまとめ買いメモです。野菜、肉、魚、調味料、冷凍食品、飲み物、朝食用の食材まで含めて、100文字を超える内容でも保存できることを確認します。";
   await modal.getByLabel("メモ").fill(longMemo);
+  await expect(modal.getByText("変更後")).toBeVisible();
+  await expect(modal.getByText("2,000 円", { exact: true })).toBeVisible();
+  const flowOrder = await modal.evaluate((element) => {
+    const amount = element.querySelector<HTMLInputElement>("#day-entry-amount");
+    const memo = element.querySelector<HTMLTextAreaElement>("#day-entry-memo");
+    const preview = element.querySelector<HTMLElement>(
+      '[aria-label="入力前後の試算"]',
+    );
+    const save = Array.from(element.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("保存する") === true,
+    );
+    if (amount == null || memo == null || preview == null || save == null) {
+      return null;
+    }
+    return [amount, memo, preview, save].every(
+      (node, index, nodes) =>
+        index === 0 ||
+        Boolean(
+          nodes[index - 1]?.compareDocumentPosition(node) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        ),
+    );
+  });
+  expect(flowOrder).toBe(true);
   await expect(modal.getByText("上書き")).toHaveCount(0);
   await saveDayEntrySuccessfully({
     page,

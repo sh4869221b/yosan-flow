@@ -95,19 +95,25 @@
       <p class="planned-note">予定支出として登録されます。</p>
     {/if}
 
-    <DayEntryPreview
-      {currentUsedYen}
-      {previewAfterYen}
-      {previewRemainingYen}
-      {previewRecommendedYen}
-    />
-
-    {#if errorMessage}
-      <p class="error-message" role="alert">{errorMessage}</p>
-    {/if}
-
     <div class="entry-layout">
-      <DayEntryForm bind:inputYen bind:memo {saving} {close} {save} {date} />
+      <DayEntryForm
+        bind:inputYen
+        bind:memo
+        {saving}
+        {close}
+        {save}
+        {date}
+        saveError={errorMessage}
+      >
+        {#snippet preview()}
+          <DayEntryPreview
+            {currentUsedYen}
+            {previewAfterYen}
+            {previewRemainingYen}
+            {previewRecommendedYen}
+          />
+        {/snippet}
+      </DayEntryForm>
 
       <HistoryPanel
         {isOpen}
@@ -192,16 +198,6 @@
     border: 1px solid #ecd6aa;
     border-radius: 10px;
     color: #74501b;
-    font-weight: 800;
-    margin: 0;
-    padding: 0.75rem 0.85rem;
-  }
-
-  .error-message {
-    background: #fff1f0;
-    border: 1px solid #efc3bd;
-    border-radius: 10px;
-    color: #9b2c22;
     font-weight: 800;
     margin: 0;
     padding: 0.75rem 0.85rem;
