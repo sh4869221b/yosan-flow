@@ -14,10 +14,15 @@
   };
 
   let { controller }: Props = $props();
+
+  function retrySummary(): void {
+    const periodId = controller.selectedPeriodId ?? controller.periods[0]?.id;
+    if (periodId) controller.handleSelectPeriod({ periodId });
+  }
 </script>
 
 <section class="workspace-shell">
-  {#if controller.periods.length === 0}
+  {#if controller.periods.length === 0 && !controller.summaryLoading && !controller.summaryError}
     <section class="empty-state card" data-testid="create-period-panel" aria-labelledby="empty-period-heading">
       <span class="heading-icon" aria-hidden="true">
         <CalendarDays size={25} strokeWidth={2.4} />
@@ -38,6 +43,14 @@
       selectPeriod={controller.handleSelectPeriod}
     />
 
+    {#if controller.summaryError}
+      <section aria-labelledby="page-error-heading">
+        <h2 id="page-error-heading" tabindex="-1">読み込みに失敗しました</h2>
+        <p role="alert">{controller.summaryError}</p>
+        <button type="button" onclick={retrySummary}>再読み込み</button>
+      </section>
+    {/if}
+
     <BudgetSummary summary={controller.summary} loading={controller.summaryLoading} />
 
     {#if controller.summary}
@@ -55,10 +68,6 @@
           <p class="loading-pill">読み込み中...</p>
         {/if}
       </div>
-
-      {#if controller.summaryError}
-        <p role="alert">{controller.summaryError}</p>
-      {/if}
 
       <section aria-labelledby="period-calendar-heading">
         <h2 id="period-calendar-heading">カレンダー</h2>
@@ -106,7 +115,8 @@
   }
 
   .empty-state,
-  .secondary-actions > section {
+  .secondary-actions > section,
+  .workspace-shell > section[aria-labelledby="page-error-heading"] {
     background: #fffdf8;
     border: 1px solid #e4ddd2;
     border-radius: 12px;
@@ -122,6 +132,18 @@
   .secondary-actions summary {
     cursor: pointer;
     font-weight: 800;
+  }
+
+  button {
+    background: #2f6d3b;
+    border: 0;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 800;
+    min-height: 2.65rem;
+    padding: 0 1rem;
   }
 
   .details-body { border-top: 1px solid #e2d7c4; margin-top: 1rem; padding-top: 1rem; }

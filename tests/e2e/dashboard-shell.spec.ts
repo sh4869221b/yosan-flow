@@ -50,3 +50,33 @@ test("keeps empty and additional create bodies reachable", async ({ page, reques
   await page.getByText("次の予算期間を作成する").click();
   await expect(page.getByTestId("create-period-panel").getByLabel("期間ID")).toBeVisible();
 });
+
+test("keeps the selected summary while a failed selection is reported at the shell", async ({
+  page,
+  request,
+}) => {
+  const today = getCurrentJstDate();
+  await seedPeriod(request, getBaseUrl(), {
+    periodId: "p-shell-current",
+    startDate: today,
+    endDate: addDays(today, 29),
+    budgetYen: 120000,
+  });
+  await seedPeriod(request, getBaseUrl(), {
+    periodId: "p-shell-future",
+    startDate: addDays(today, 30),
+    endDate: addDays(today, 59),
+    budgetYen: 90000,
+  });
+  await page.goto(`${getBaseUrl()}/?periodId=p-shell-current`);
+  await page.route(`${getBaseUrl()}/api/periods/p-shell-future`, (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: { code: "TEMPORARY_FAILURE", message: "再取得に失敗しました。" } }),
+    }),
+  );
+  await page.getByTestId("period-select").selectOption("p-shell-future");
+  await expect(page.locator("#page-error-heading")).toBeVisible();
+  await expect(page.getByTestId("period-id")).toContainText("p-shell-current");
+});
