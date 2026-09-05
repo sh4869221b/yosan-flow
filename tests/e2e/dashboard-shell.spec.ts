@@ -97,8 +97,21 @@ test("keeps the selected summary while a failed selection is reported at the she
   await page.route(futureUrl, async (route) => {
     expect(route.request().method()).toBe("GET");
     futureGetCount += 1;
-    if (futureGetCount > 1) {
+    if (futureGetCount === 2) {
       await retryBarrier.promise;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "TEMPORARY_FAILURE",
+            message: "再取得に失敗しました。",
+          },
+        }),
+      });
+      return;
+    }
+    if (futureGetCount > 2) {
       await route.continue();
       return;
     }
@@ -138,6 +151,10 @@ test("keeps the selected summary while a failed selection is reported at the she
   ).toContainText("読み込み中...");
 
   retryBarrier.resolve();
+  await expect(page.locator("#page-error-heading")).toBeFocused();
+
+  await retryButton.click();
+  await expect.poll(() => futureGetCount).toBe(3);
   await expect(page.getByTestId("period-id")).toContainText("p-shell-future");
   await expect(page.locator("#selected-period-heading")).toBeFocused();
 });
