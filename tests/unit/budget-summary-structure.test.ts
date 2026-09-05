@@ -12,7 +12,7 @@ const budgetSummaryModules = [
   "src/lib/components/budget/BudgetPeriodHeader.svelte",
   "src/lib/components/budget/BudgetPacePanel.svelte",
   "src/lib/components/budget/BudgetStatsPanel.svelte",
-  "src/lib/components/budget/BudgetPeriodForm.svelte",
+  "src/lib/components/dashboard/BudgetPeriodForm.svelte",
 ] as const;
 
 function readProjectFile(path: string): string {
@@ -45,9 +45,16 @@ describe("budget summary component structure", () => {
     const budgetSummarySource = readProjectFile(
       "src/lib/components/BudgetSummary.svelte",
     );
-    expect(budgetSummarySource).toMatch(
-      /import\s+BudgetPeriodHeader\s+from\s+"\.\/budget\/BudgetPeriodHeader\.svelte";/,
+    expect(budgetSummarySource).not.toMatch(/BudgetPeriodForm/);
+    expect(budgetSummarySource).not.toMatch(/parseNonNegativeIntegerYenInput/);
+
+    const settingsSource = readProjectFile(
+      "src/lib/components/dashboard/PeriodSettingsPanel.svelte",
     );
-    expect(budgetSummarySource).toMatch(/<BudgetPeriodHeader(?:\s|>)/);
+    expect(settingsSource).toMatch(
+      /import\s+BudgetPeriodForm\s+from\s+"\.\/BudgetPeriodForm\.svelte";/,
+    );
+    expect(settingsSource).toMatch(/<BudgetPeriodForm(?:\s|>)/);
+    expect(settingsSource).toMatch(/parseNonNegativeIntegerYenInput/);
   });
 });

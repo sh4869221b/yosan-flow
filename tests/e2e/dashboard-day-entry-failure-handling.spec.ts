@@ -50,8 +50,13 @@ test("shows save error and keeps input on failed period update", async ({
   const { periodId } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await page.getByText("期間の終了日や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("130000");
   await page.route(`**/api/periods/${periodId}`, async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.continue();
+      return;
+    }
     await route.fulfill({
       status: 409,
       contentType: "application/json",
@@ -66,8 +71,13 @@ test("shows save error and keeps input on failed period update", async ({
 
   await page.getByRole("button", { name: "期間を更新" }).click();
 
-  await expect(page.getByRole("alert")).toBeVisible();
+  const budgetSettings = page.getByRole("region", { name: "予算設定" });
+  await expect(budgetSettings.getByRole("alert")).toBeVisible();
   await expect(page.getByLabel("期間予算 (円)")).toHaveValue("130000");
+  await expect(page.getByTestId("budget-value")).toContainText("120,000");
+  await expect(
+    budgetSettings.locator("xpath=ancestor::details"),
+  ).toHaveAttribute("open", "");
 });
 
 test("shows save error and keeps input on failed day entry update", async ({

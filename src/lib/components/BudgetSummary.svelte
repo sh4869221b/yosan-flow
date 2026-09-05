@@ -1,9 +1,7 @@
 <script lang="ts">
   import BudgetPacePanel from "./budget/BudgetPacePanel.svelte";
   import BudgetStatsPanel from "./budget/BudgetStatsPanel.svelte";
-  import BudgetPeriodForm from "./budget/BudgetPeriodForm.svelte";
   import BudgetPeriodHeader from "./budget/BudgetPeriodHeader.svelte";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
 
   type PeriodSummary = {
     periodId: string;
@@ -62,30 +60,6 @@
     selectPeriod = () => {},
   }: Props = $props();
 
-  let budgetInput = $state("");
-  let budgetInputPeriodId = $state<string | null>(null);
-  let budgetInputError = $state<string | null>(null);
-
-  $effect(() => {
-    if (!summary || budgetInputPeriodId === summary.periodId) {
-      return;
-    }
-    budgetInput = String(summary.budgetYen);
-    budgetInputPeriodId = summary.periodId;
-    budgetInputError = null;
-  });
-
-  function submitPeriod(event: Event): void {
-    event.preventDefault();
-    const budgetYen = parseNonNegativeIntegerYenInput(budgetInput);
-    if (budgetYen == null) {
-      budgetInputError = "予算は 0 以上の整数で入力してください。";
-      return;
-    }
-    budgetInputError = null;
-    savePeriod({ budgetYen });
-  }
-
   const pace = $derived(summary?.foodPace ?? null);
   const paceStatusLabel = $derived(
     pace?.status === "bonus"
@@ -116,15 +90,6 @@
       remainingYen={summary.remainingYen}
       daysRemaining={summary.daysRemaining}
       overspentYen={summary.overspentYen}
-    />
-
-    <BudgetPeriodForm
-      bind:budgetInput
-      {saving}
-      {loading}
-      {interactionDisabled}
-      errorMessage={budgetInputError ?? errorMessage}
-      onsubmit={submitPeriod}
     />
   {/if}
 </section>
