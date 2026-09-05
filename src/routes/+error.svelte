@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import "$lib/components/dashboard/dashboard-shell.css";
 
@@ -9,7 +10,7 @@
     if (retrying) return;
     retrying = true;
     try {
-      await goto(page.url, {
+      await goto(resolve("/"), {
         invalidateAll: true,
         keepFocus: true,
         noScroll: true,

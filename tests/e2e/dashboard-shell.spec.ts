@@ -61,10 +61,7 @@ test("shows shell regions in document order", async ({ page, request }) => {
   ).toHaveCount(0);
 });
 
-test("keeps empty and additional create bodies reachable", async ({
-  page,
-  request,
-}) => {
+test("keeps empty and additional create bodies reachable", async ({ page }) => {
   await page.goto(getBaseUrl());
   await expect(page.locator("#empty-period-heading")).toBeVisible();
   await expect(page.getByLabel("期間ID")).toBeVisible();
