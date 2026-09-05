@@ -2,16 +2,23 @@ import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controll
 import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
 import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import type { DailyRow } from "$lib/dashboard/controller-types";
+import type {
+  DailyRow,
+  DayEntryCloseReason,
+} from "$lib/dashboard/controller-types";
 import type { PageData } from "../../routes/$types";
 
 export function createDashboardPageController(getData: () => PageData) {
   const summaryRevision = createPeriodSummaryRevision();
-  let closeDayEntry = (): void => undefined;
+  let closeDayEntry = (_reason?: DayEntryCloseReason): void => undefined;
+  let invalidateDaySelection = (): void => undefined;
   const periodController = createPeriodControllerState(
     getData(),
     summaryRevision,
-    () => closeDayEntry(),
+    () => {
+      invalidateDaySelection();
+      closeDayEntry("period-change");
+    },
   );
 
   const historyController = createHistoryControllerState(
@@ -35,6 +42,7 @@ export function createDashboardPageController(getData: () => PageData) {
     summaryRevision,
   );
   closeDayEntry = dayEntryController.closeDayEntry;
+  invalidateDaySelection = dayEntryController.invalidateDaySelection;
 
   function getSelectedDate(): string | null {
     return dayEntryController.selectedDate;
@@ -108,6 +116,12 @@ export function createDashboardPageController(getData: () => PageData) {
     get modalError() {
       return dayEntryController.modalError;
     },
+    get daySaveSuccess() {
+      return dayEntryController.daySaveSuccess;
+    },
+    get dayEntryCloseReason() {
+      return dayEntryController.dayEntryCloseReason;
+    },
     get selectedDate() {
       return dayEntryController.selectedDate;
     },
@@ -149,7 +163,10 @@ export function createDashboardPageController(getData: () => PageData) {
     },
     handleSavePeriod: periodController.handleSavePeriod,
     handleRangeChange: periodController.handleRangeChange,
-    handleSelectPeriod: periodController.handleSelectPeriod,
+    handleSelectPeriod(payload: { periodId: string }): void {
+      dayEntryController.invalidateDaySelection();
+      periodController.handleSelectPeriod(payload);
+    },
     confirmPeriodUpdate: periodController.confirmPeriodUpdate,
     cancelPeriodUpdateConfirmation:
       periodController.cancelPeriodUpdateConfirmation,

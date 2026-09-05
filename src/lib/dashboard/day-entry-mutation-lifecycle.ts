@@ -1,6 +1,11 @@
 import { Deferred, Effect } from "effect";
 import { dayAddUrl } from "$lib/dashboard/api-urls";
-import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
+import type {
+  DailyRow,
+  DayEntryCloseReason,
+  DaySaveSuccess,
+  PeriodSummary,
+} from "$lib/dashboard/controller-types";
 import { createDayEntrySubmissionTracker } from "$lib/dashboard/day-entry-submission-tracker";
 import { createDayEntrySummaryReconciliation } from "$lib/dashboard/day-entry-summary-reconciliation";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
@@ -14,12 +19,15 @@ import type { SubmitDayEntryPayload } from "$lib/dashboard/types";
 
 type Dependencies = {
   readonly cancelHistoryLoad?: (_periodId: string, _date: string) => void;
-  readonly closeModal: () => void;
+  readonly closeModal: (_reason: DayEntryCloseReason) => void;
   readonly getHistoryMutationSequence: (_periodId: string) => number;
+  readonly getModalOpen: () => boolean;
+  readonly getSelectionSequence: () => number;
   readonly getSelectedDate: () => string | null;
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary: () => PeriodSummary | null;
   readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
+  readonly publishSaveSuccess: (_success: DaySaveSuccess) => void;
   readonly setError: (_error: string | null) => void;
   readonly setSaving: (_saving: boolean) => void;
   readonly setSelectedRow: (_row: DailyRow | null) => void;
@@ -50,6 +58,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
     if (selectedPeriodId == null) return Effect.void;
     const submittedGeneration = modalGeneration;
     const submittedDate = payload.date;
+    const submittedSelectionSequence = dependencies.getSelectionSequence();
     const submittedSessionChanged = modalSessionChanged;
     return Effect.gen(function* () {
       if (submittedGeneration === modalGeneration) {
@@ -144,7 +153,19 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
               result._tag === "Right" &&
               submittedGeneration === modalGeneration
             ) {
-              dependencies.closeModal();
+              if (
+                dependencies.getModalOpen() &&
+                dependencies.getSelectedPeriodId() === selectedPeriodId &&
+                dependencies.getSelectedDate() === submittedDate &&
+                dependencies.getSelectionSequence() ===
+                  submittedSelectionSequence
+              ) {
+                dependencies.publishSaveSuccess({
+                  periodId: selectedPeriodId,
+                  date: submittedDate,
+                });
+              }
+              dependencies.closeModal("success");
             }
             return { remainingSubmissions, shouldRefreshHistory };
           }),

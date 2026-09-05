@@ -63,6 +63,7 @@ test("preserves a newer failed modal when an older successful save finishes", as
     date: todayDate,
   });
   expect(oldAddResponse.ok()).toBe(true);
+  await expect(modal).toBeHidden();
   await historyIntercepted;
   expect(intercepted).toBe(1);
   expect(released).toBe(0);

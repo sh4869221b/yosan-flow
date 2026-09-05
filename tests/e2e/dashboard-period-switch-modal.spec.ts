@@ -48,6 +48,11 @@ for (const viewport of viewports) {
       });
     }
 
+    const origin = page.getByTestId(`calendar-day-${todayDate}`);
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(origin).toBeFocused();
+
     const summaryResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "GET" &&
@@ -56,8 +61,8 @@ for (const viewport of viewports) {
     await page.getByTestId("period-select").selectOption(nextPeriodId);
     expect((await summaryResponse).ok()).toBe(true);
 
-    await expect(modal).toBeHidden();
     await expect(page.getByTestId("period-id")).toContainText(nextPeriodId);
+    await expect(page.locator("#selected-period-heading")).toBeFocused();
     if (evidenceDirectory != null) {
       await page.screenshot({
         fullPage: true,

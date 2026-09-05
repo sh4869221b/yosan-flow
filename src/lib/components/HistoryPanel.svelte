@@ -15,6 +15,7 @@
 
   type Props = {
     date?: string | null;
+    headingId?: string;
     isOpen?: boolean;
     histories?: HistoryItem[];
     loading?: boolean;
@@ -30,6 +31,7 @@
 
   let {
     date = null,
+    headingId = undefined,
     isOpen = false,
     histories = [],
     loading = false,
@@ -104,7 +106,7 @@
 
 <section class="history-panel">
   <div class="history-heading">
-    <h2>履歴表示</h2>
+    <h2 id={headingId}>履歴表示</h2>
     {#if date}
       <p>対象日: {date}</p>
     {/if}

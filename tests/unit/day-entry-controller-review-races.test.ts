@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe("day-entry controller review races", () => {
-  it("refreshes the authoritative summary after concurrent saves settle", async () => {
+  it("keeps the fullest concurrent summary when reconciliation fails", async () => {
     const firstResponse = Promise.withResolvers<Response>();
     const secondResponse = Promise.withResolvers<Response>();
     const partialSummary = createSummary(0, 3_000);
@@ -20,7 +20,7 @@ describe("day-entry controller review races", () => {
       .fn()
       .mockImplementationOnce(() => firstResponse.promise)
       .mockImplementationOnce(() => secondResponse.promise)
-      .mockResolvedValueOnce(jsonResponse(combinedSummary));
+      .mockResolvedValueOnce(jsonResponse({ error: {} }, 503));
     vi.stubGlobal("fetch", fetchMock);
     let summary = createSummary(0);
     const controller = createDayEntryControllerState({
@@ -52,6 +52,7 @@ describe("day-entry controller review races", () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
     secondResponse.resolve(jsonResponse(partialSummary));
+    await vi.waitFor(() => expect(summary).toEqual(partialSummary));
     firstResponse.resolve(jsonResponse(combinedSummary));
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
@@ -60,6 +61,10 @@ describe("day-entry controller review races", () => {
       undefined,
     );
     await vi.waitFor(() => expect(summary).toEqual(combinedSummary));
+    expect(summary.dailyRows).toEqual([
+      expect.objectContaining({ date: "2026-07-12", usedYen: 2_000 }),
+      expect.objectContaining({ date: "2026-07-13", usedYen: 3_000 }),
+    ]);
   });
 
   it("refreshes history when the submitted date is reopened before save completion", async () => {
