@@ -88,7 +88,7 @@
   .today-pace {
     border: 1px solid #e4ddd2;
     border-radius: 12px;
-    grid-template-columns: minmax(16rem, 1.35fr) repeat(2, minmax(9rem, 1fr));
+    grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr));
     margin-top: 1rem;
     overflow: hidden;
   }
@@ -157,7 +157,7 @@
     font-size: 1.3rem;
     letter-spacing: 0;
     margin-top: 0.2rem;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
   .today-pace strong {

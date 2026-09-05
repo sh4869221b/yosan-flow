@@ -4,6 +4,7 @@
   import BudgetSummary from "$lib/components/BudgetSummary.svelte";
   import PeriodCalendar from "$lib/components/PeriodCalendar.svelte";
   import CreatePeriodPanel from "./CreatePeriodPanel.svelte";
+  import DashboardPeriodHeader from "./DashboardPeriodHeader.svelte";
   import PeriodSettingsPanel from "./PeriodSettingsPanel.svelte";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
@@ -16,16 +17,19 @@
 </script>
 
 <section class="workspace-shell">
-  <BudgetSummary
+  <DashboardPeriodHeader
     summary={controller.summary}
     periods={controller.periods}
     selectedPeriodId={controller.selectedPeriodId}
     saving={controller.periodSaving}
     interactionDisabled={controller.periodInteractionDisabled}
     loading={controller.summaryLoading}
-    errorMessage={controller.periodError}
-    savePeriod={controller.handleSavePeriod}
     selectPeriod={controller.handleSelectPeriod}
+  />
+
+  <BudgetSummary
+    summary={controller.summary}
+    loading={controller.summaryLoading}
   />
 
   {#if controller.summary}
@@ -71,7 +75,7 @@
     grid-template-columns: minmax(0, 1.45fr) minmax(20rem, 0.9fr);
   }
 
-  .workspace-shell > :global(:first-child) {
+  .workspace-shell > :global(:nth-child(-n + 2)) {
     grid-column: 1 / -1;
   }
 
