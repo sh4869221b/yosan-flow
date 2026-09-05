@@ -1,8 +1,11 @@
 <script lang="ts">
   import { ClipboardList } from "@lucide/svelte";
+  import { Dialog } from "bits-ui";
+  import "./day-entry-modal.css";
   import DayEntryPreview from "$lib/components/day-entry/DayEntryPreview.svelte";
   import DayEntryForm from "$lib/components/day-entry/DayEntryForm.svelte";
   import HistoryPanel from "$lib/components/HistoryPanel.svelte";
+  import type { DayEntryCloseReason } from "$lib/dashboard/controller-types";
 
   type HistoryItem = {
     id: string;
@@ -43,7 +46,8 @@
     previewAfterYen?: number;
     previewRemainingYen?: number | null;
     previewRecommendedYen?: number | null;
-    close?: () => void;
+    close?: (_reason: DayEntryCloseReason) => void;
+    onCloseAutoFocus?: (_event: Event) => void;
     save?: (_payload: SavePayload) => void;
     updateHistory?: (_payload: UpdateHistoryPayload) => void;
     deleteHistory?: (_payload: { historyId: string }) => void;
@@ -66,174 +70,123 @@
     previewRemainingYen = null,
     previewRecommendedYen = null,
     close = () => {},
+    onCloseAutoFocus = () => {},
     save = () => {},
     updateHistory = () => {},
     deleteHistory = () => {},
   }: Props = $props();
+
+  let dialogTitle = $state<HTMLElement | null>(null);
+
+  function handleOpenChange(open: boolean): void {
+    if (!open && !saving) {
+      close("cancel");
+    }
+  }
+
+  function handleOpenAutoFocus(event: Event): void {
+    event.preventDefault();
+    dialogTitle?.focus();
+  }
+
+  function handleCloseAutoFocus(event: Event): void {
+    onCloseAutoFocus(event);
+  }
+
+  function handleEscapeKeydown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || !saving) {
+      return;
+    }
+    event.preventDefault();
+  }
+
+  function preventOutsideDismissal(event: PointerEvent): void {
+    event.preventDefault();
+  }
+
+  function cancel(): void {
+    if (!saving) {
+      close("cancel");
+    }
+  }
 </script>
 
-{#if isOpen}
-  <section
-    class="day-entry-card"
-    aria-label="日次入力モーダル"
-    data-testid="day-entry-modal"
-  >
-    <div class="entry-header">
-      <span class="entry-icon" aria-hidden="true">
-        <ClipboardList size={24} strokeWidth={2.4} />
-      </span>
-      <div>
-        <p class="eyebrow">Step 2</p>
-        <h2>日次入力</h2>
-      </div>
-      {#if date}
-        <p class="target-date">対象日: {date}</p>
-      {/if}
-    </div>
-
-    {#if isPlanned}
-      <p class="planned-note">予定支出として登録されます。</p>
-    {/if}
-
-    <div class="entry-layout">
-      <DayEntryForm
-        bind:inputYen
-        bind:memo
-        {saving}
-        {close}
-        {save}
-        {date}
-        saveError={errorMessage}
+<Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
+  {#if isOpen}
+    <Dialog.Portal>
+      <Dialog.Overlay class="day-entry-overlay" />
+      <Dialog.Content
+        class="day-entry-content"
+        data-testid="day-entry-modal"
+        onOpenAutoFocus={handleOpenAutoFocus}
+        onCloseAutoFocus={handleCloseAutoFocus}
+        onEscapeKeydown={handleEscapeKeydown}
+        onInteractOutside={preventOutsideDismissal}
       >
-        {#snippet preview()}
-          <DayEntryPreview
-            {currentUsedYen}
-            {previewAfterYen}
-            {previewRemainingYen}
-            {previewRecommendedYen}
+        <div class="entry-header">
+          <span class="entry-icon" aria-hidden="true">
+            <ClipboardList size={24} strokeWidth={2.4} />
+          </span>
+          <div>
+            <p class="eyebrow">Step 2</p>
+            <Dialog.Title level={2} tabindex={-1} bind:ref={dialogTitle}>
+              日次入力
+              {#if date}
+                <span class="target-date">対象日: {date}</span>
+              {/if}
+            </Dialog.Title>
+          </div>
+        </div>
+        <Dialog.Description>
+          入力額とメモを入力して保存します。
+        </Dialog.Description>
+
+        {#if isPlanned}
+          <p class="planned-note">予定支出として登録されます。</p>
+        {/if}
+
+        {#if saving}
+          <p class="saving-status" role="status">
+            保存中です。処理が完了するまで閉じられません。
+          </p>
+        {/if}
+
+        <DayEntryForm
+          bind:inputYen
+          bind:memo
+          {saving}
+          close={cancel}
+          {save}
+          {date}
+          saveError={errorMessage}
+        >
+          {#snippet preview()}
+            <DayEntryPreview
+              {currentUsedYen}
+              {previewAfterYen}
+              {previewRemainingYen}
+              {previewRecommendedYen}
+            />
+          {/snippet}
+        </DayEntryForm>
+
+        <section
+          class="history-region"
+          aria-labelledby="day-entry-history-heading"
+        >
+          <HistoryPanel
+            {isOpen}
+            {date}
+            {histories}
+            loading={historyLoading}
+            errorMessage={historyErrorMessage}
+            {historyMutatingId}
+            {updateHistory}
+            {deleteHistory}
+            headingId="day-entry-history-heading"
           />
-        {/snippet}
-      </DayEntryForm>
-
-      <HistoryPanel
-        {isOpen}
-        {date}
-        {histories}
-        loading={historyLoading}
-        errorMessage={historyErrorMessage}
-        {historyMutatingId}
-        {updateHistory}
-        {deleteHistory}
-      />
-    </div>
-  </section>
-{/if}
-
-<style>
-  .day-entry-card {
-    background: #fffdf8;
-    border: 1px solid #e4ddd2;
-    border-radius: 12px;
-    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-    display: grid;
-    gap: 1rem;
-    margin-top: 1rem;
-    padding: 1.15rem 1.25rem;
-  }
-
-  .entry-header {
-    align-items: center;
-    display: flex;
-    gap: 0.9rem;
-    min-width: 0;
-  }
-
-  .entry-header > div {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .entry-icon {
-    align-items: center;
-    background: #e1f0dd;
-    border-radius: 999px;
-    color: #397d3d;
-    display: inline-flex;
-    flex: 0 0 auto;
-    height: 2.75rem;
-    justify-content: center;
-    width: 2.75rem;
-  }
-
-  .eyebrow {
-    color: #357b3d;
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0;
-    margin: 0;
-    text-transform: uppercase;
-  }
-
-  h2 {
-    color: #2f2219;
-    font-size: 1.45rem;
-    letter-spacing: 0;
-    line-height: 1.1;
-    margin: 0;
-  }
-
-  .target-date {
-    background: #f7f0e7;
-    border: 1px solid #e3d6c6;
-    border-radius: 999px;
-    color: #3a2a20;
-    font-weight: 800;
-    margin: 0;
-    padding: 0.45rem 0.75rem;
-    white-space: nowrap;
-  }
-
-  .planned-note {
-    background: #fff7e8;
-    border: 1px solid #ecd6aa;
-    border-radius: 10px;
-    color: #74501b;
-    font-weight: 800;
-    margin: 0;
-    padding: 0.75rem 0.85rem;
-  }
-
-  .entry-layout {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
-  }
-
-  @media (max-width: 900px) {
-    .entry-layout {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .day-entry-card {
-      border-radius: 18px;
-      padding: 0.95rem;
-    }
-
-    .entry-header {
-      align-items: flex-start;
-    }
-
-    .target-date {
-      border-radius: 10px;
-      font-size: 0.86rem;
-      margin-left: auto;
-      white-space: normal;
-    }
-
-    h2 {
-      font-size: 1.2rem;
-    }
-  }
-</style>
+        </section>
+      </Dialog.Content>
+    </Dialog.Portal>
+  {/if}
+</Dialog.Root>
