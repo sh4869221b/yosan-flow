@@ -17,6 +17,7 @@
     readonly periods: readonly PeriodOption[];
     readonly selectedPeriodId: string | null;
     readonly saving: boolean;
+    readonly interactionDisabled: boolean;
     readonly loading: boolean;
     readonly selectPeriod: (_payload: { readonly periodId: string }) => void;
   };
@@ -26,6 +27,7 @@
     periods,
     selectedPeriodId,
     saving,
+    interactionDisabled,
     loading,
     selectPeriod,
   }: Props = $props();
@@ -38,10 +40,10 @@
   }
 </script>
 
-<div class="summary-header">
+<div class="summary-header" aria-busy={loading}>
   <div class="title-row">
-    <p class="eyebrow">Yosan Flow</p>
-    <h1>今の予算期間</h1>
+    <h1 class="eyebrow" id="dashboard-heading" tabindex="-1">Yosan Flow</h1>
+    <h2 id="selected-period-heading" tabindex="-1">今の予算期間</h2>
     {#if summary}
       <p class="period-chip">
         {summary.startDate} - {summary.endDate}
@@ -54,7 +56,7 @@
       data-testid="period-select"
       value={selectedPeriodId ?? ""}
       onchange={handleSelectPeriod}
-      disabled={saving || loading}
+      disabled={saving || interactionDisabled || loading}
     >
       {#each periods as period (period.id)}
         <option value={period.id}>
@@ -62,6 +64,9 @@
         </option>
       {/each}
     </select>
+    {#if loading}
+      <span class="loading-status" role="status">読み込み中...</span>
+    {/if}
   </label>
 </div>
 
@@ -100,7 +105,7 @@
     padding-right: 1.25rem;
   }
 
-  h1 {
+  h2 {
     font-size: 1.35rem;
     letter-spacing: 0;
     line-height: 1.2;
@@ -128,6 +133,11 @@
   }
 
   .period-select span {
+    font-size: 0.82rem;
+  }
+
+  .period-select .loading-status {
+    color: #76675b;
     font-size: 0.82rem;
   }
 
@@ -170,7 +180,7 @@
       padding: 0;
     }
 
-    h1 {
+    h2 {
       align-self: center;
       font-size: 0.95rem;
       text-align: right;

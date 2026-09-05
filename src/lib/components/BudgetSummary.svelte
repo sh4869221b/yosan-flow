@@ -1,90 +1,14 @@
 <script lang="ts">
+  import type { PeriodSummary } from "$lib/dashboard/controller-types";
   import BudgetPacePanel from "./budget/BudgetPacePanel.svelte";
   import BudgetStatsPanel from "./budget/BudgetStatsPanel.svelte";
-  import BudgetPeriodForm from "./budget/BudgetPeriodForm.svelte";
-  import BudgetPeriodHeader from "./budget/BudgetPeriodHeader.svelte";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
-
-  type PeriodSummary = {
-    periodId: string;
-    startDate: string;
-    endDate: string;
-    budgetYen: number;
-    status: "active" | "closed";
-    periodLengthDays: number;
-    spentToDateYen: number;
-    plannedTotalYen: number;
-    remainingYen: number;
-    overspentYen: number;
-    todayRecommendedYen: number;
-    varianceFromRecommendationYen: number;
-    remainingAfterDayYenPreview: number;
-    daysRemaining: number;
-    foodPace: {
-      status: "bonus" | "adjustment" | "on_track";
-      baseDailyYen: number;
-      todayAllowanceYen: number;
-      usedTodayYen: number;
-      todayRemainingYen: number;
-      todayBonusYen: number;
-      adjustmentYen: number;
-      totalAdjustmentYen: number;
-    };
-  };
-  type PeriodOption = {
-    id: string;
-    startDate: string;
-    endDate: string;
-    status: "active" | "closed";
-  };
 
   type Props = {
-    summary?: PeriodSummary | null;
-    periods?: PeriodOption[];
-    selectedPeriodId?: string | null;
-    saving?: boolean;
-    interactionDisabled?: boolean;
-    loading?: boolean;
-    errorMessage?: string | null;
-    savePeriod?: (_payload: { budgetYen: number }) => void;
-    selectPeriod?: (_payload: { periodId: string }) => void;
+    readonly summary: PeriodSummary | null;
+    readonly loading: boolean;
   };
 
-  let {
-    summary = null,
-    periods = [],
-    selectedPeriodId = null,
-    saving = false,
-    interactionDisabled = false,
-    loading = false,
-    errorMessage = null,
-    savePeriod = () => {},
-    selectPeriod = () => {},
-  }: Props = $props();
-
-  let budgetInput = $state("");
-  let budgetInputPeriodId = $state<string | null>(null);
-  let budgetInputError = $state<string | null>(null);
-
-  $effect(() => {
-    if (!summary || budgetInputPeriodId === summary.periodId) {
-      return;
-    }
-    budgetInput = String(summary.budgetYen);
-    budgetInputPeriodId = summary.periodId;
-    budgetInputError = null;
-  });
-
-  function submitPeriod(event: Event): void {
-    event.preventDefault();
-    const budgetYen = parseNonNegativeIntegerYenInput(budgetInput);
-    if (budgetYen == null) {
-      budgetInputError = "予算は 0 以上の整数で入力してください。";
-      return;
-    }
-    budgetInputError = null;
-    savePeriod({ budgetYen });
-  }
+  let { summary, loading }: Props = $props();
 
   const pace = $derived(summary?.foodPace ?? null);
   const paceStatusLabel = $derived(
@@ -96,16 +20,8 @@
   );
 </script>
 
-<section>
-  <BudgetPeriodHeader
-    {summary}
-    {periods}
-    {selectedPeriodId}
-    saving={saving || interactionDisabled}
-    {loading}
-    {selectPeriod}
-  />
-
+<section aria-labelledby="budget-summary-heading">
+  <h2 id="budget-summary-heading">予算サマリー</h2>
   {#if summary}
     {#if pace}
       <BudgetPacePanel {pace} {paceStatusLabel} />
@@ -117,15 +33,8 @@
       daysRemaining={summary.daysRemaining}
       overspentYen={summary.overspentYen}
     />
-
-    <BudgetPeriodForm
-      bind:budgetInput
-      {saving}
-      {loading}
-      {interactionDisabled}
-      errorMessage={budgetInputError ?? errorMessage}
-      onsubmit={submitPeriod}
-    />
+  {:else if loading}
+    <p>読み込み中...</p>
   {/if}
 </section>
 
@@ -137,6 +46,11 @@
     box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
     color: #2f2219;
     padding: 1.15rem 1.25rem;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+    margin: 0;
   }
 
   @media (max-width: 760px) {

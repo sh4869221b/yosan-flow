@@ -24,7 +24,7 @@ test("shows period creation form on empty dashboard", async ({ page }) => {
   await expect(page.getByRole("button", { name: "期間を作成" })).toBeVisible();
 });
 
-test("creates period and updates budget", async ({ page }) => {
+test("creates period", async ({ page }) => {
   const today = getCurrentJstDate();
   const endDate = addDays(today, 29);
 
@@ -50,8 +50,34 @@ test("creates period and updates budget", async ({ page }) => {
   await expect(page.getByTestId("food-pace-status")).toContainText(
     "基準どおり",
   );
+});
+
+test("updates a seeded period budget", async ({ page, request }) => {
+  const today = getCurrentJstDate();
+  const endDate = addDays(today, 29);
+  const periodId = `p-budget-${today}`;
+
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate: today,
+    endDate,
+    budgetYen: 120000,
+  });
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await page.getByText("期間の終了日や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("150000");
+  const updateRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      request.url() === `${getBaseUrl()}/api/periods/${periodId}`,
+  );
   await page.getByRole("button", { name: "期間を更新" }).click();
+  expect((await updateRequest).postDataJSON()).toEqual({
+    budgetYen: 150000,
+    startDate: today,
+    endDate,
+  });
   await expect(page.getByTestId("budget-value")).toContainText("150,000");
 });
 
@@ -69,6 +95,7 @@ test("rejects malformed period budget values before requests", async ({
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await page.getByText("期間の終了日や予算を変更する").click();
   let updateRequestCount = 0;
   await page.route(`**/api/periods/${periodId}`, async (route) => {
     updateRequestCount += 1;
@@ -154,6 +181,28 @@ test("switches between current and future budget periods", async ({
     page.getByText(`期間: ${futureStartDate} - ${futureEndDate}`),
   ).toBeVisible();
   await expect(page.getByTestId("today-food-allowance")).toContainText("0 円");
+});
+
+test("shows the prior-day surplus as today's bonus", async ({
+  page,
+  request,
+}) => {
+  const today = getCurrentJstDate();
+  const periodId = "p-bonus";
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate: addDays(today, -1),
+    endDate: addDays(today, 28),
+    budgetYen: 120000,
+  });
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+
+  await expect(page.getByTestId("food-pace-status")).toContainText("ボーナス");
+  await expect(page.getByTestId("today-food-bonus")).toContainText("+4,000 円");
+  await expect(page.getByTestId("today-food-allowance")).toContainText(
+    "8,000 円",
+  );
 });
 
 test("creates the next budget period from secondary settings", async ({

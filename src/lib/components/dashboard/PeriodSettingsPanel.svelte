@@ -1,7 +1,9 @@
 <script lang="ts">
   import { Settings2 } from "@lucide/svelte";
   import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
+  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
   import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
+  import BudgetPeriodForm from "./BudgetPeriodForm.svelte";
   import PeriodBoundaryConfirmationDialog from "./PeriodBoundaryConfirmationDialog.svelte";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
@@ -11,6 +13,31 @@
   };
 
   let { controller }: Props = $props();
+
+  let budgetInput = $state("");
+  let budgetInputPeriodId = $state<string | null>(null);
+  let budgetInputError = $state<string | null>(null);
+
+  $effect(() => {
+    const summary = controller.summary;
+    if (!summary || budgetInputPeriodId === summary.periodId) {
+      return;
+    }
+    budgetInput = String(summary.budgetYen);
+    budgetInputPeriodId = summary.periodId;
+    budgetInputError = null;
+  });
+
+  function submitPeriod(event: Event): void {
+    event.preventDefault();
+    const budgetYen = parseNonNegativeIntegerYenInput(budgetInput);
+    if (budgetYen == null) {
+      budgetInputError = "予算は 0 以上の整数で入力してください。";
+      return;
+    }
+    budgetInputError = null;
+    controller.handleSavePeriod({ budgetYen });
+  }
 </script>
 
 <details class="card">
@@ -19,6 +46,17 @@
     期間の終了日や予算を変更する
   </summary>
   <div class="details-body">
+    <section aria-label="予算設定">
+      <BudgetPeriodForm
+        bind:budgetInput
+        saving={controller.periodSaving}
+        loading={controller.summaryLoading}
+        interactionDisabled={controller.periodInteractionDisabled}
+        errorMessage={budgetInputError ?? controller.periodError}
+        onsubmit={submitPeriod}
+      />
+    </section>
+
     <PeriodRangePicker
       startDate={controller.rangeStartDate}
       endDate={controller.rangeEndDate}

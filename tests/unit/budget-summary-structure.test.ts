@@ -9,10 +9,10 @@ const pureLocLimit = 250;
 
 const budgetSummaryModules = [
   "src/lib/components/BudgetSummary.svelte",
-  "src/lib/components/budget/BudgetPeriodHeader.svelte",
+  "src/lib/components/dashboard/DashboardPeriodHeader.svelte",
   "src/lib/components/budget/BudgetPacePanel.svelte",
   "src/lib/components/budget/BudgetStatsPanel.svelte",
-  "src/lib/components/budget/BudgetPeriodForm.svelte",
+  "src/lib/components/dashboard/BudgetPeriodForm.svelte",
 ] as const;
 
 function readProjectFile(path: string): string {
@@ -45,9 +45,27 @@ describe("budget summary component structure", () => {
     const budgetSummarySource = readProjectFile(
       "src/lib/components/BudgetSummary.svelte",
     );
+    expect(budgetSummarySource).not.toMatch(/BudgetPeriodForm/);
+    expect(budgetSummarySource).not.toMatch(/parseNonNegativeIntegerYenInput/);
+    expect(budgetSummarySource).not.toMatch(/BudgetPeriodHeader/);
+    expect(budgetSummarySource).not.toMatch(/selectPeriod/);
+    expect(budgetSummarySource).not.toMatch(/savePeriod/);
     expect(budgetSummarySource).toMatch(
-      /import\s+BudgetPeriodHeader\s+from\s+"\.\/budget\/BudgetPeriodHeader\.svelte";/,
+      /readonly summary: PeriodSummary \| null;\s+readonly loading: boolean;/,
     );
-    expect(budgetSummarySource).toMatch(/<BudgetPeriodHeader(?:\s|>)/);
+
+    const workspaceSource = readProjectFile(
+      "src/lib/components/dashboard/DashboardWorkspace.svelte",
+    );
+    expect(workspaceSource).toMatch(/<DashboardPeriodHeader(?:\s|>)/);
+
+    const settingsSource = readProjectFile(
+      "src/lib/components/dashboard/PeriodSettingsPanel.svelte",
+    );
+    expect(settingsSource).toMatch(
+      /import\s+BudgetPeriodForm\s+from\s+"\.\/BudgetPeriodForm\.svelte";/,
+    );
+    expect(settingsSource).toMatch(/<BudgetPeriodForm(?:\s|>)/);
+    expect(settingsSource).toMatch(/parseNonNegativeIntegerYenInput/);
   });
 });

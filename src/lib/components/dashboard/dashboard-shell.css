@@ -1,0 +1,28 @@
+body {
+  background: #f8f5ef;
+  color: #2f2219;
+  font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
+  margin: 0;
+  -webkit-text-size-adjust: 100%;
+}
+
+.dashboard-page {
+  margin: 0 auto;
+  max-width: 1480px;
+  padding: 1.35rem;
+}
+
+@media (max-width: 900px) {
+  .dashboard-page {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 760px) {
+  body {
+    background: #f4f1eb;
+  }
+  .dashboard-page {
+    padding: 0.75rem;
+  }
+}
