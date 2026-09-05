@@ -13,10 +13,16 @@ body {
 }
 
 @media (max-width: 900px) {
-  .dashboard-page { padding: 1rem; }
+  .dashboard-page {
+    padding: 1rem;
+  }
 }
 
 @media (max-width: 760px) {
-  body { background: #f4f1eb; }
-  .dashboard-page { padding: 0.75rem; }
+  body {
+    background: #f4f1eb;
+  }
+  .dashboard-page {
+    padding: 0.75rem;
+  }
 }

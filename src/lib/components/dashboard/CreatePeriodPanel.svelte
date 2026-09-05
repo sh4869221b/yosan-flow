@@ -18,52 +18,72 @@
   {/if}
   <label>
     期間ID
-    <input aria-label="期間ID" type="text" bind:value={controller.createPeriodId} placeholder="p-2026-04-20" />
+    <input
+      aria-label="期間ID"
+      type="text"
+      bind:value={controller.createPeriodId}
+      placeholder="p-2026-04-20"
+    />
   </label>
-  <PeriodRangePicker startDate={controller.createStartDate} endDate={controller.createEndDate} saving={controller.periodSaving} testIdPrefix="initial-period-range" change={controller.updateCreatePeriodRange} />
+  <PeriodRangePicker
+    startDate={controller.createStartDate}
+    endDate={controller.createEndDate}
+    saving={controller.periodSaving}
+    testIdPrefix="initial-period-range"
+    change={controller.updateCreatePeriodRange}
+  />
   <label>
     新規予算額 (円)
-    <input aria-label="新規予算額 (円)" type="text" inputmode="numeric" bind:value={controller.createBudgetInput} />
+    <input
+      aria-label="新規予算額 (円)"
+      type="text"
+      inputmode="numeric"
+      bind:value={controller.createBudgetInput}
+    />
   </label>
-  <button type="button" onclick={controller.createInitialPeriod} disabled={controller.periodSaving}>
+  <button
+    type="button"
+    onclick={controller.createInitialPeriod}
+    disabled={controller.periodSaving}
+  >
     {controller.periodSaving ? "作成中..." : "期間を作成"}
   </button>
 {:else}
   <p>
     今の期間が終わった後の期間を追加します。開始日は前期間の翌日が基本です。
   </p>
-      <label>
-        期間ID
-        <input
-          aria-label="期間ID"
-          type="text"
-          bind:value={controller.createPeriodId}
-          placeholder="p-2026-04-20"
-        />
-      </label>
-      <PeriodRangePicker
-        startDate={controller.createStartDate}
-        endDate={controller.createEndDate}
-        saving={controller.periodSaving}
-        testIdPrefix="create-period-range"
-        change={controller.updateCreatePeriodRange}
-      />
-      <label>
-        新規予算額 (円)
-        <input
-          aria-label="新規予算額 (円)"
-          type="text"
-          inputmode="numeric"
-          bind:value={controller.createBudgetInput}
-        />
-      </label>
-      <button
-        type="button"
-        onclick={controller.createInitialPeriod}
-        disabled={controller.periodSaving}
-      >
-        {controller.periodSaving ? "作成中..." : "期間を作成"}
-      </button>
+  <label>
+    期間ID
+    <input
+      aria-label="期間ID"
+      type="text"
+      bind:value={controller.createPeriodId}
+      placeholder="p-2026-04-20"
+    />
+  </label>
+  <PeriodRangePicker
+    startDate={controller.createStartDate}
+    endDate={controller.createEndDate}
+    saving={controller.periodSaving}
+    testIdPrefix="create-period-range"
+    change={controller.updateCreatePeriodRange}
+  />
+  <label>
+    新規予算額 (円)
+    <input
+      aria-label="新規予算額 (円)"
+      type="text"
+      inputmode="numeric"
+      bind:value={controller.createBudgetInput}
+    />
+  </label>
+  <button
+    type="button"
+    onclick={controller.createInitialPeriod}
+    disabled={controller.periodSaving}
+  >
+    {controller.periodSaving ? "作成中..." : "期間を作成"}
+  </button>
 {/if}
 
 <style>
@@ -108,6 +128,8 @@
 
   @media (max-width: 760px) {
     input,
-    button { min-height: 2.45rem; }
+    button {
+      min-height: 2.45rem;
+    }
   }
 </style>
