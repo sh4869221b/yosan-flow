@@ -91,25 +91,53 @@ test("keeps the selected summary while a failed selection is reported at the she
     budgetYen: 90000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-shell-current`);
-  await page.route(`${getBaseUrl()}/api/periods/p-shell-future`, (route) =>
-    route.fulfill({
+  const retryBarrier = Promise.withResolvers<void>();
+  let futureGetCount = 0;
+  const futureUrl = `${getBaseUrl()}/api/periods/p-shell-future`;
+  await page.route(futureUrl, async (route) => {
+    expect(route.request().method()).toBe("GET");
+    futureGetCount += 1;
+    if (futureGetCount > 1) {
+      await retryBarrier.promise;
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
       status: 503,
       contentType: "application/json",
       body: JSON.stringify({
         error: { code: "TEMPORARY_FAILURE", message: "再取得に失敗しました。" },
       }),
-    }),
-  );
+    });
+  });
   await page.getByTestId("period-select").selectOption("p-shell-future");
   await expect(page.locator("#page-error-heading")).toBeVisible();
   await expect(page.getByTestId("period-id")).toContainText("p-shell-current");
+  await expect(page.getByTestId("period-select")).toHaveValue(
+    "p-shell-current",
+  );
   await expect(page.getByTestId("period-select")).toBeFocused();
+  await expect(
+    page.locator('section[aria-labelledby="budget-summary-heading"]'),
+  ).toHaveCSS("grid-column", "1 / -1");
 
-  await page.getByRole("button", { name: "再読み込み" }).click();
-  await expect(page.locator("#page-error-heading")).toBeFocused();
+  const retryButton = page.getByRole("button", { name: "再読み込み" });
+  await retryButton.click();
+  await expect.poll(() => futureGetCount).toBe(2);
+  await expect(retryButton).toBeVisible();
+  await expect(retryButton).toBeFocused();
+  await expect(
+    page.locator('section[aria-labelledby="page-error-heading"]'),
+  ).toHaveAttribute("aria-busy", "true");
+  await expect(page.locator(".summary-header")).toHaveAttribute(
+    "aria-busy",
+    "true",
+  );
+  await expect(
+    page.locator(".summary-header").getByRole("status"),
+  ).toContainText("読み込み中...");
 
-  await page.unroute(`${getBaseUrl()}/api/periods/p-shell-future`);
-  await page.getByRole("button", { name: "再読み込み" }).click();
+  retryBarrier.resolve();
   await expect(page.getByTestId("period-id")).toContainText("p-shell-future");
   await expect(page.locator("#selected-period-heading")).toBeFocused();
 });
@@ -150,10 +178,60 @@ test("keeps the current draft while an exact period GET is loading", async ({
   await expect(page.getByTestId("period-select")).toBeDisabled();
   await expect(page.getByLabel("期間予算 (円)")).toHaveValue("130000");
   await expect(page.getByTestId("budget-value")).toContainText("120,000");
-  await expect(page.locator(".loading-pill")).toBeVisible();
+  await expect(page.locator(".summary-header")).toHaveAttribute(
+    "aria-busy",
+    "true",
+  );
+  await expect(
+    page.locator(".summary-header").getByRole("status"),
+  ).toContainText("読み込み中...");
 
   barrier.resolve();
   await expect(page.getByTestId("period-id")).toContainText("p-shell-future");
   await expect(page.getByTestId("today-food-allowance")).toContainText("0 円");
   await expect(page.locator("#selected-period-heading")).toBeFocused();
+});
+
+test("keeps a failed additional create error visible while settings stay closed", async ({
+  page,
+  request,
+}) => {
+  const today = getCurrentJstDate();
+  await seedPeriod(request, getBaseUrl(), {
+    periodId: "p-shell-current",
+    startDate: today,
+    endDate: addDays(today, 29),
+    budgetYen: 120000,
+  });
+  await page.goto(`${getBaseUrl()}/?periodId=p-shell-current`);
+
+  const settings = page
+    .getByText("期間の終了日や予算を変更する")
+    .locator("xpath=ancestor::details");
+  await expect(settings).not.toHaveAttribute("open", "");
+  const additionalCreate = page.getByTestId("create-period-panel");
+  await additionalCreate.locator("summary").click();
+  await additionalCreate.getByLabel("期間ID").fill("p-shell-failed-create");
+  await page.route(`${getBaseUrl()}/api/periods`, async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: {
+          code: "TEMPORARY_CREATE_FAILURE",
+          message: "期間の作成に失敗しました。",
+        },
+      }),
+    });
+  });
+
+  await additionalCreate.getByRole("button", { name: "期間を作成" }).click();
+  await expect(additionalCreate.getByRole("alert")).toContainText(
+    "期間の作成に失敗しました。",
+  );
+  await expect(settings).not.toHaveAttribute("open", "");
 });

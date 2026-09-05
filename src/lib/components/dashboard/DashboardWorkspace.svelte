@@ -24,6 +24,13 @@
     );
   }
 
+  function restoreSelectedPeriod(): void {
+    const select = document.querySelector('[data-testid="period-select"]');
+    if (select instanceof HTMLSelectElement && controller.selectedPeriodId) {
+      select.value = controller.selectedPeriodId;
+    }
+  }
+
   function selectPeriod(payload: { readonly periodId: string }): void {
     requestedPeriodId = payload.periodId;
     focusIntent = "selection";
@@ -45,6 +52,7 @@
     if (!focusIntent || controller.summaryLoading) return;
 
     if (controller.summaryError) {
+      if (focusIntent === "selection") restoreSelectedPeriod();
       focusTarget(
         focusIntent === "retry"
           ? "#page-error-heading"
@@ -92,10 +100,17 @@
       {selectPeriod}
     />
 
-    {#if controller.summaryError}
-      <section aria-labelledby="page-error-heading">
+    {#if controller.summaryError || focusIntent === "retry"}
+      <section
+        aria-labelledby="page-error-heading"
+        aria-busy={controller.summaryLoading}
+      >
         <h2 id="page-error-heading" tabindex="-1">読み込みに失敗しました</h2>
-        <p role="alert">{controller.summaryError}</p>
+        {#if controller.summaryError}
+          <p role="alert">{controller.summaryError}</p>
+        {:else}
+          <p role="status">読み込み中...</p>
+        {/if}
         <button type="button" onclick={retrySummary}>再読み込み</button>
       </section>
     {/if}
@@ -116,9 +131,6 @@
             <h2>カレンダーの日付を選んで入力</h2>
             <p>日付を押すと、その日の入力と履歴をまとめて確認できます。</p>
           </div>
-          {#if controller.summaryLoading}
-            <p class="loading-pill">読み込み中...</p>
-          {/if}
         </div>
 
         <section aria-labelledby="period-calendar-heading">
@@ -156,7 +168,10 @@
     grid-template-columns: minmax(0, 1.45fr) minmax(20rem, 0.9fr);
   }
 
-  .workspace-shell > :global(:nth-child(-n + 2)) {
+  .workspace-shell > :global(.summary-header),
+  .workspace-shell > section[aria-labelledby="page-error-heading"],
+  .workspace-shell
+    > :global(section[aria-labelledby="budget-summary-heading"]) {
     grid-column: 1 / -1;
   }
 
@@ -257,16 +272,6 @@
     font-weight: 800;
     letter-spacing: 0;
     text-transform: uppercase;
-  }
-
-  .loading-pill {
-    background: #2d5b45;
-    border-radius: 999px;
-    color: #fff;
-    font-size: 0.85rem;
-    margin-left: auto;
-    padding: 0.45rem 0.75rem;
-    white-space: nowrap;
   }
 
   .secondary-actions {

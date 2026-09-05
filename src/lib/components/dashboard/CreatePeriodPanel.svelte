@@ -49,6 +49,9 @@
     {controller.periodSaving ? "作成中..." : "期間を作成"}
   </button>
 {:else}
+  {#if controller.periodError}
+    <p role="alert">{controller.periodError}</p>
+  {/if}
   <p>
     今の期間が終わった後の期間を追加します。開始日は前期間の翌日が基本です。
   </p>

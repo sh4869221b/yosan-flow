@@ -40,7 +40,7 @@
   }
 </script>
 
-<div class="summary-header">
+<div class="summary-header" aria-busy={loading}>
   <div class="title-row">
     <h1 class="eyebrow" id="dashboard-heading" tabindex="-1">Yosan Flow</h1>
     <h2 id="selected-period-heading" tabindex="-1">今の予算期間</h2>
@@ -64,6 +64,9 @@
         </option>
       {/each}
     </select>
+    {#if loading}
+      <span class="loading-status" role="status">読み込み中...</span>
+    {/if}
   </label>
 </div>
 
@@ -130,6 +133,11 @@
   }
 
   .period-select span {
+    font-size: 0.82rem;
+  }
+
+  .period-select .loading-status {
+    color: #76675b;
     font-size: 0.82rem;
   }
 
