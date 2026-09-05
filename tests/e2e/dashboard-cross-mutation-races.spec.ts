@@ -72,6 +72,8 @@ test("serializes a day add after a delayed history edit", async ({
   await editingRow.getByRole("button", { name: "保存", exact: true }).click();
   await mutationCaptured.promise;
 
+  await modal.getByRole("button", { name: "閉じる" }).click();
+  await expect(modal).toBeHidden();
   await openDayEntryAndWaitForHistory({
     page,
     periodId,

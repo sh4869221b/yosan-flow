@@ -15,11 +15,21 @@ test("refreshes a reopened same-day modal after the pending save completes", asy
   request,
 }) => {
   const { periodId, todayDate } = await seedCurrentPeriod(request);
-  const addUrl = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/add`;
+  const addPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/add`;
+  const addUrl = new URL(addPath, getBaseUrl()).href;
+  const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history`;
+  const historyUrl = new URL(historyPath, getBaseUrl()).href;
   const saveIntercepted = Promise.withResolvers<void>();
   const saveReleased = Promise.withResolvers<void>();
 
-  await page.route(`**${addUrl}`, async (route) => {
+  await page.route(`**${addPath}`, async (route) => {
+    if (
+      route.request().method() !== "POST" ||
+      route.request().url() !== addUrl
+    ) {
+      await route.continue();
+      return;
+    }
     saveIntercepted.resolve();
     await saveReleased.promise;
     await route.continue();
@@ -35,15 +45,33 @@ test("refreshes a reopened same-day modal after the pending save completes", asy
   await modal.getByRole("button", { name: "保存する" }).click();
   await saveIntercepted.promise;
 
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole("button", { name: "保存中..." })).toBeDisabled();
+  const addResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" && response.url() === addUrl,
+  );
+  const savedHistoryResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" && response.url() === historyUrl,
+  );
+  saveReleased.resolve();
+  expect((await addResponse).ok()).toBe(true);
+  await expect(modal).toBeHidden();
+  expect((await savedHistoryResponse).ok()).toBe(true);
+
+  const reopenedHistoryResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" && response.url() === historyUrl,
+  );
   await page.getByTestId(`calendar-day-${todayDate}`).click();
   await expect(modal).toBeVisible();
-  await modal.getByLabel("入力額 (円)").fill("3000");
-  await modal.getByLabel("メモ").fill("new session");
-  saveReleased.resolve();
-
+  await expect(modal).toContainText(`対象日: ${todayDate}`);
+  expect((await reopenedHistoryResponse).ok()).toBe(true);
+  await expect(modal.getByText("履歴を読み込み中...")).toBeHidden();
   await expect(modal.getByText("pending save")).toBeVisible();
-  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("3000");
-  await expect(modal.getByLabel("メモ")).toHaveValue("new session");
+  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("");
+  await expect(modal.getByLabel("メモ")).toHaveValue("");
   await expect(modal).toBeVisible();
 });
 
@@ -83,6 +111,7 @@ test("does not start an old-day history refresh after switching days", async ({
     date: todayDate,
   });
   expect(saveResponse.ok()).toBe(true);
+  await expect(modal).toBeHidden();
   await summaryIntercepted.promise;
 
   await page.getByTestId(`calendar-day-${secondDate}`).click();
@@ -145,6 +174,7 @@ test("keeps a newer day-entry modal open when an older save finishes", async ({
     date: todayDate,
   });
   expect(response.ok()).toBe(true);
+  await expect(modal).toBeHidden();
   await expect(
     page
       .getByTestId(`calendar-day-${todayDate}`)
