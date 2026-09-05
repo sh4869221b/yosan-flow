@@ -1,13 +1,52 @@
 <script lang="ts">
+  import { buildCalendarDayPresentation } from "./calendar-day-presentation";
   import type { CalendarMonth, DailyRow } from "./calendar-grid";
 
   type Props = {
     month: CalendarMonth;
     rowsByDate: Map<string, DailyRow>;
-    requestEdit: (_payload: { date: string }) => void;
+    today: string;
+    selectedDate: string | null;
+    focusedDate: string | null;
+    disabled: boolean;
+    disabledDescriptionId: string;
+    requestEdit: (_payload: { readonly date: string }) => void;
+    focusDate: (_payload: { readonly date: string }) => void;
+    navigateDate: (_payload: {
+      readonly currentDate: string;
+      readonly key: string;
+    }) => void;
   };
 
-  let { month, rowsByDate, requestEdit }: Props = $props();
+  let {
+    month,
+    rowsByDate,
+    today,
+    selectedDate,
+    focusedDate,
+    disabled,
+    disabledDescriptionId,
+    requestEdit,
+    focusDate,
+    navigateDate,
+  }: Props = $props();
+
+  const navigationKeys = new Set([
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowUp",
+    "ArrowDown",
+    "Home",
+    "End",
+    "PageUp",
+    "PageDown",
+  ]);
+
+  function handleKeydown(event: KeyboardEvent, date: string): void {
+    if (!navigationKeys.has(event.key)) return;
+    event.preventDefault();
+    navigateDate({ currentDate: date, key: event.key });
+  }
 </script>
 
 <article>
@@ -30,19 +69,41 @@
           {#each week as date, dayIndex (date ?? `${month.key}-empty-${weekIndex}-${dayIndex}`)}
             <td>
               {#if date}
-                <button
-                  type="button"
-                  data-testid={`calendar-day-${date}`}
-                  onclick={() => requestEdit({ date })}
-                  class:today={rowsByDate.get(date)?.label === "today"}
-                  class:spent={(rowsByDate.get(date)?.usedYen ?? 0) > 0}
-                >
-                  <span class="date-number">{Number(date.slice(8, 10))}</span>
-                  <span class="used" data-testid={`used-${date}`}
-                    >{rowsByDate.get(date)?.usedYen ?? 0} 円</span
+                {@const row = rowsByDate.get(date)}
+                {#if row}
+                  {@const presentation = buildCalendarDayPresentation({
+                    row,
+                    today,
+                    selected: selectedDate === date,
+                    disabled,
+                  })}
+                  <button
+                    type="button"
+                    data-testid={`calendar-day-${date}`}
+                    onclick={() => requestEdit({ date })}
+                    onfocus={() => focusDate({ date })}
+                    onkeydown={(event) => handleKeydown(event, date)}
+                    tabindex={focusedDate === date ? 0 : -1}
+                    aria-label={presentation.accessibleLabel}
+                    aria-current={date === today ? "date" : undefined}
+                    aria-pressed={presentation.isSelected}
+                    aria-disabled={presentation.isDisabled}
+                    aria-describedby={disabled
+                      ? disabledDescriptionId
+                      : undefined}
+                    class:today={row.label === "today"}
+                    class:spent={row.usedYen > 0}
+                    class:selected={presentation.isSelected}
                   >
-                  <span class="hint">入力</span>
-                </button>
+                    <span class="date-number">{Number(date.slice(8, 10))}</span>
+                    <span class="used" data-testid={`used-${date}`}
+                      >{presentation.amountLabel}</span
+                    >
+                    <span class="hint"
+                      >{presentation.stateLabels.join("・")}</span
+                    >
+                  </button>
+                {/if}
               {:else}
                 <span class="empty-cell" aria-hidden="true">-</span>
               {/if}
@@ -132,6 +193,11 @@
     border-color: #83a978;
   }
 
+  button:focus-visible {
+    outline: 3px solid #2f76c2;
+    outline-offset: -3px;
+  }
+
   .date-number {
     color: #2d2118;
     font-size: 1.05rem;
@@ -164,6 +230,10 @@
   .spent .hint,
   .today .hint {
     color: #2f7a3f;
+  }
+
+  .selected {
+    box-shadow: inset 0 0 0 3px #2f6d3b;
   }
 
   .empty-cell {

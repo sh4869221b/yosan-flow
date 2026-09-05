@@ -12,9 +12,10 @@
 
   type Props = {
     controller: Controller;
+    today: string;
   };
 
-  let { controller }: Props = $props();
+  let { controller, today }: Props = $props();
   let focusIntent = $state<"selection" | "retry" | null>(null);
   let requestedPeriodId = $state<string | null>(null);
 
@@ -46,6 +47,17 @@
     requestedPeriodId = periodId;
     focusIntent = "retry";
     controller.handleSelectPeriod({ periodId });
+  }
+
+  function requestCalendarDayEntry(payload: { readonly date: string }): void {
+    if (
+      controller.summaryLoading ||
+      controller.periodInteractionDisabled ||
+      controller.summary?.periodId !== controller.selectedPeriodId
+    ) {
+      return;
+    }
+    controller.openDayEntry(payload);
   }
 
   $effect(() => {
@@ -134,14 +146,22 @@
         </div>
 
         <section aria-labelledby="period-calendar-heading">
-          <h2 id="period-calendar-heading">カレンダー</h2>
-          <PeriodCalendar
-            rows={controller.summary.dailyRows}
-            startDate={controller.summary.startDate}
-            endDate={controller.summary.endDate}
-            loading={controller.summaryLoading}
-            requestEdit={controller.openDayEntry}
-          />
+          <h2 id="period-calendar-heading" tabindex="-1">カレンダー</h2>
+          {#key controller.summary.periodId}
+            <PeriodCalendar
+              rows={controller.summary.dailyRows}
+              startDate={controller.summary.startDate}
+              endDate={controller.summary.endDate}
+              {today}
+              disabled={controller.summaryLoading ||
+                controller.periodInteractionDisabled ||
+                controller.summary.periodId !== controller.selectedPeriodId}
+              disabledReason={controller.summaryLoading
+                ? "期間を読み込み中です"
+                : "期間の操作が完了するまで入力できません"}
+              requestEdit={requestCalendarDayEntry}
+            />
+          {/key}
         </section>
       </section>
     {/if}
@@ -197,9 +217,19 @@
     color: #76675b;
   }
 
-  .secondary-actions h2,
-  #period-calendar-heading {
+  .secondary-actions h2 {
     display: none;
+  }
+
+  #period-calendar-heading {
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .secondary-actions summary {
