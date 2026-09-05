@@ -10,7 +10,12 @@ import {
   getModalRemainingRows,
 } from "$lib/dashboard/modal-preview";
 import type { SubmitDayEntryPayload } from "$lib/dashboard/types";
-import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
+import type {
+  DailyRow,
+  DayEntryCloseReason,
+  DaySaveSuccess,
+  PeriodSummary,
+} from "$lib/dashboard/controller-types";
 
 type HistoryController = {
   readonly cancelHistoryLoad?: (_periodId: string, _date: string) => void;
@@ -38,15 +43,23 @@ export function createDayEntryControllerState(
   let selectedRow = $state<DailyRow | null>(null);
   let modalInputYen = $state("");
   let modalMemo = $state("");
+  let daySaveSuccess = $state<DaySaveSuccess | null>(null);
+  let dayEntryCloseReason = $state<DayEntryCloseReason | null>(null);
+  let daySelectionSequence = 0;
   const mutationLifecycle = createDayEntryMutationLifecycle({
     cancelHistoryLoad: dependencies.historyController.cancelHistoryLoad,
     closeModal: closeDayEntry,
     getHistoryMutationSequence:
       dependencies.historyController.getMutationSequence,
+    getModalOpen: () => modalOpen,
+    getSelectionSequence: () => daySelectionSequence,
     getSelectedDate: () => selectedDate,
     getSelectedPeriodId: dependencies.getSelectedPeriodId,
     getSummary: dependencies.getSummary,
     loadHistoryEffect: dependencies.historyController.loadHistoryEffect,
+    publishSaveSuccess: (success) => {
+      daySaveSuccess = success;
+    },
     setError: (error) => {
       modalError = error;
     },
@@ -77,9 +90,19 @@ export function createDayEntryControllerState(
     getModalPreviewRecommendedYen(modalPreviewRemainingYen, modalRemainingRows),
   );
 
-  function closeDayEntry(): void {
+  function closeDayEntry(reason: DayEntryCloseReason = "cancel"): void {
     modalOpen = false;
     modalError = null;
+    dayEntryCloseReason = reason;
+    if (reason !== "success") {
+      daySaveSuccess = null;
+      mutationLifecycle.beginModalSession();
+    }
+  }
+
+  function invalidateDaySelection(): void {
+    daySelectionSequence += 1;
+    daySaveSuccess = null;
   }
 
   return {
@@ -91,6 +114,12 @@ export function createDayEntryControllerState(
     },
     get modalError() {
       return modalError;
+    },
+    get daySaveSuccess() {
+      return daySaveSuccess;
+    },
+    get dayEntryCloseReason() {
+      return dayEntryCloseReason;
     },
     get selectedDate() {
       return selectedDate;
@@ -106,12 +135,14 @@ export function createDayEntryControllerState(
     },
     set modalInputYen(value: string) {
       modalInputYen = value;
+      daySaveSuccess = null;
     },
     get modalMemo() {
       return modalMemo;
     },
     set modalMemo(value: string) {
       modalMemo = value;
+      daySaveSuccess = null;
     },
     get modalPreviewAfterYen() {
       return modalPreviewAfterYen;
@@ -128,6 +159,8 @@ export function createDayEntryControllerState(
         return;
       }
       mutationLifecycle.beginModalSession();
+      daySaveSuccess = null;
+      dayEntryCloseReason = null;
       selectedDate = payload.date;
       selectedRow = findSummaryRow(summary, selectedDate);
       modalError = null;
@@ -138,6 +171,7 @@ export function createDayEntryControllerState(
       dependencies.historyController.loadHistory(payload.date);
     },
     closeDayEntry,
+    invalidateDaySelection,
     submitDayEntry(payload: SubmitDayEntryPayload): void {
       runClientEffect(mutationLifecycle.submitEffect(payload));
     },

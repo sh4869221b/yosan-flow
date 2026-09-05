@@ -16,10 +16,13 @@ it("cleans up an interrupted day-entry mutation lifecycle", async () => {
   const lifecycle = createDayEntryMutationLifecycle({
     closeModal: vi.fn(),
     getHistoryMutationSequence: () => 0,
+    getModalOpen: () => true,
+    getSelectionSequence: () => 0,
     getSelectedDate: () => "2026-07-12",
     getSelectedPeriodId: () => "period-1",
     getSummary: () => createSummary(0),
     loadHistoryEffect: () => Effect.void,
+    publishSaveSuccess: vi.fn(),
     setError: vi.fn(),
     setSaving: (nextSaving) => {
       saving = nextSaving;
