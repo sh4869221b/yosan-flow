@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { CalendarDays } from "@lucide/svelte";
   import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
   import BudgetSummary from "$lib/components/BudgetSummary.svelte";
@@ -14,22 +15,70 @@
   };
 
   let { controller }: Props = $props();
+  let focusIntent = $state<"selection" | "retry" | null>(null);
+  let requestedPeriodId = $state<string | null>(null);
+
+  function focusTarget(selector: string): void {
+    void tick().then(() =>
+      document.querySelector<HTMLElement>(selector)?.focus(),
+    );
+  }
+
+  function selectPeriod(payload: { readonly periodId: string }): void {
+    requestedPeriodId = payload.periodId;
+    focusIntent = "selection";
+    controller.handleSelectPeriod(payload);
+  }
 
   function retrySummary(): void {
-    const periodId = controller.selectedPeriodId ?? controller.periods[0]?.id;
-    if (periodId) controller.handleSelectPeriod({ periodId });
+    const periodId =
+      requestedPeriodId ??
+      controller.selectedPeriodId ??
+      controller.periods[0]?.id;
+    if (!periodId) return;
+    requestedPeriodId = periodId;
+    focusIntent = "retry";
+    controller.handleSelectPeriod({ periodId });
   }
+
+  $effect(() => {
+    if (!focusIntent || controller.summaryLoading) return;
+
+    if (controller.summaryError) {
+      focusTarget(
+        focusIntent === "retry"
+          ? "#page-error-heading"
+          : '[data-testid="period-select"]',
+      );
+      focusIntent = null;
+      return;
+    }
+
+    if (
+      requestedPeriodId &&
+      controller.summary?.periodId === requestedPeriodId
+    ) {
+      focusTarget("#selected-period-heading");
+      focusIntent = null;
+    }
+  });
 </script>
 
 <section class="workspace-shell">
   {#if controller.periods.length === 0 && !controller.summaryLoading && !controller.summaryError}
-    <section class="empty-state card" data-testid="create-period-panel" aria-labelledby="empty-period-heading">
+    <section
+      class="empty-state card"
+      data-testid="create-period-panel"
+      aria-labelledby="empty-period-heading"
+    >
       <span class="heading-icon" aria-hidden="true">
         <CalendarDays size={25} strokeWidth={2.4} />
       </span>
       <p class="eyebrow">Step 1</p>
       <h1 id="empty-period-heading" tabindex="-1">最初の予算期間を作成</h1>
-      <p>まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。</p>
+      <p>
+        まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。
+      </p>
       <CreatePeriodPanel variant="empty-state" {controller} />
     </section>
   {:else}
@@ -40,7 +89,7 @@
       saving={controller.periodSaving}
       interactionDisabled={controller.periodInteractionDisabled}
       loading={controller.summaryLoading}
-      selectPeriod={controller.handleSelectPeriod}
+      {selectPeriod}
     />
 
     {#if controller.summaryError}
@@ -51,35 +100,38 @@
       </section>
     {/if}
 
-    <BudgetSummary summary={controller.summary} loading={controller.summaryLoading} />
+    <BudgetSummary
+      summary={controller.summary}
+      loading={controller.summaryLoading}
+    />
 
     {#if controller.summary}
-    <section class="primary-workspace" aria-label="日別入力">
-      <div class="workspace-heading">
-        <span class="heading-icon" aria-hidden="true">
-          <CalendarDays size={25} strokeWidth={2.4} />
-        </span>
-        <div>
-          <p class="eyebrow">Step 1</p>
-          <h2>カレンダーの日付を選んで入力</h2>
-          <p>日付を押すと、その日の入力と履歴をまとめて確認できます。</p>
+      <section class="primary-workspace" aria-label="日別入力">
+        <div class="workspace-heading">
+          <span class="heading-icon" aria-hidden="true">
+            <CalendarDays size={25} strokeWidth={2.4} />
+          </span>
+          <div>
+            <p class="eyebrow">Step 1</p>
+            <h2>カレンダーの日付を選んで入力</h2>
+            <p>日付を押すと、その日の入力と履歴をまとめて確認できます。</p>
+          </div>
+          {#if controller.summaryLoading}
+            <p class="loading-pill">読み込み中...</p>
+          {/if}
         </div>
-        {#if controller.summaryLoading}
-          <p class="loading-pill">読み込み中...</p>
-        {/if}
-      </div>
 
-      <section aria-labelledby="period-calendar-heading">
-        <h2 id="period-calendar-heading">カレンダー</h2>
-        <PeriodCalendar
-        rows={controller.summary.dailyRows}
-        startDate={controller.summary.startDate}
-        endDate={controller.summary.endDate}
-        loading={controller.summaryLoading}
-        requestEdit={controller.openDayEntry}
-        />
+        <section aria-labelledby="period-calendar-heading">
+          <h2 id="period-calendar-heading">カレンダー</h2>
+          <PeriodCalendar
+            rows={controller.summary.dailyRows}
+            startDate={controller.summary.startDate}
+            endDate={controller.summary.endDate}
+            loading={controller.summaryLoading}
+            requestEdit={controller.openDayEntry}
+          />
+        </section>
       </section>
-    </section>
     {/if}
 
     <section class="secondary-actions">
@@ -89,7 +141,9 @@
       </section>
       <details class="card" data-testid="create-period-panel">
         <summary>次の予算期間を作成する</summary>
-        <div class="details-body"><CreatePeriodPanel variant="secondary-action" {controller} /></div>
+        <div class="details-body">
+          <CreatePeriodPanel variant="secondary-action" {controller} />
+        </div>
       </details>
     </section>
   {/if}
@@ -124,10 +178,14 @@
     padding: 1.15rem 1.25rem;
   }
 
-  .empty-state p { color: #76675b; }
+  .empty-state p {
+    color: #76675b;
+  }
 
   .secondary-actions h2,
-  #period-calendar-heading { display: none; }
+  #period-calendar-heading {
+    display: none;
+  }
 
   .secondary-actions summary {
     cursor: pointer;
@@ -146,7 +204,11 @@
     padding: 0 1rem;
   }
 
-  .details-body { border-top: 1px solid #e2d7c4; margin-top: 1rem; padding-top: 1rem; }
+  .details-body {
+    border-top: 1px solid #e2d7c4;
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
 
   .workspace-heading {
     align-items: center;

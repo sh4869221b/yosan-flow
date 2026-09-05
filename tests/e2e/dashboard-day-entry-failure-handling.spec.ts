@@ -69,7 +69,18 @@ test("shows save error and keeps input on failed period update", async ({
     });
   });
 
+  const reconcileBarrier = Promise.withResolvers<void>();
+  let reconcileGetCount = 0;
+  await page.route(`${getBaseUrl()}/api/periods`, async (route) => {
+    expect(route.request().method()).toBe("GET");
+    reconcileGetCount += 1;
+    await reconcileBarrier.promise;
+    await route.continue();
+  });
+
   await page.getByRole("button", { name: "期間を更新" }).click();
+
+  await expect.poll(() => reconcileGetCount).toBe(1);
 
   const budgetSettings = page.getByRole("region", { name: "予算設定" });
   await expect(budgetSettings.getByRole("alert")).toBeVisible();
@@ -78,6 +89,11 @@ test("shows save error and keeps input on failed period update", async ({
   await expect(
     budgetSettings.locator("xpath=ancestor::details"),
   ).toHaveAttribute("open", "");
+  await expect(page.locator("#dashboard-heading")).not.toBeFocused();
+  await expect(page.locator("#selected-period-heading")).not.toBeFocused();
+
+  reconcileBarrier.resolve();
+  await expect(page.getByLabel("期間予算 (円)")).toHaveValue("130000");
 });
 
 test("shows save error and keeps input on failed day entry update", async ({
