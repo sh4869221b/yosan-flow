@@ -48,6 +48,6 @@
     "bits-ui": "^2.19.0",
     "drizzle-orm": "^0.45.2",
     "effect": "^3.22.1",
-    "@lucide/svelte": "^1.38.0"
+    "@lucide/svelte": "^1.39.0"
   }
 }
