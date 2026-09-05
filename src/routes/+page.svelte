@@ -10,7 +10,7 @@
 </script>
 
 <main class="dashboard-page">
-  <DashboardWorkspace {controller} />
+  <DashboardWorkspace {controller} today={data.today} />
 
   <DayEntryModal
     isOpen={controller.modalOpen}
