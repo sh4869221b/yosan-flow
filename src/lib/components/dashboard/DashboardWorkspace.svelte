@@ -17,22 +17,30 @@
 </script>
 
 <section class="workspace-shell">
-  <DashboardPeriodHeader
-    summary={controller.summary}
-    periods={controller.periods}
-    selectedPeriodId={controller.selectedPeriodId}
-    saving={controller.periodSaving}
-    interactionDisabled={controller.periodInteractionDisabled}
-    loading={controller.summaryLoading}
-    selectPeriod={controller.handleSelectPeriod}
-  />
+  {#if controller.periods.length === 0}
+    <section class="empty-state card" data-testid="create-period-panel" aria-labelledby="empty-period-heading">
+      <span class="heading-icon" aria-hidden="true">
+        <CalendarDays size={25} strokeWidth={2.4} />
+      </span>
+      <p class="eyebrow">Step 1</p>
+      <h1 id="empty-period-heading" tabindex="-1">最初の予算期間を作成</h1>
+      <p>まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。</p>
+      <CreatePeriodPanel variant="empty-state" {controller} />
+    </section>
+  {:else}
+    <DashboardPeriodHeader
+      summary={controller.summary}
+      periods={controller.periods}
+      selectedPeriodId={controller.selectedPeriodId}
+      saving={controller.periodSaving}
+      interactionDisabled={controller.periodInteractionDisabled}
+      loading={controller.summaryLoading}
+      selectPeriod={controller.handleSelectPeriod}
+    />
 
-  <BudgetSummary
-    summary={controller.summary}
-    loading={controller.summaryLoading}
-  />
+    <BudgetSummary summary={controller.summary} loading={controller.summaryLoading} />
 
-  {#if controller.summary}
+    {#if controller.summary}
     <section class="primary-workspace" aria-label="日別入力">
       <div class="workspace-heading">
         <span class="heading-icon" aria-hidden="true">
@@ -52,20 +60,30 @@
         <p role="alert">{controller.summaryError}</p>
       {/if}
 
-      <PeriodCalendar
+      <section aria-labelledby="period-calendar-heading">
+        <h2 id="period-calendar-heading">カレンダー</h2>
+        <PeriodCalendar
         rows={controller.summary.dailyRows}
         startDate={controller.summary.startDate}
         endDate={controller.summary.endDate}
         loading={controller.summaryLoading}
         requestEdit={controller.openDayEntry}
-      />
+        />
+      </section>
+    </section>
+    {/if}
+
+    <section class="secondary-actions">
+      <section aria-labelledby="period-settings-heading">
+        <h2 id="period-settings-heading">期間設定</h2>
+        <PeriodSettingsPanel {controller} />
+      </section>
+      <details class="card" data-testid="create-period-panel">
+        <summary>次の予算期間を作成する</summary>
+        <div class="details-body"><CreatePeriodPanel variant="secondary-action" {controller} /></div>
+      </details>
     </section>
   {/if}
-
-  <section class="secondary-actions" aria-label="期間設定">
-    <PeriodSettingsPanel {controller} />
-    <CreatePeriodPanel variant="secondary-action" {controller} />
-  </section>
 </section>
 
 <style>
@@ -86,6 +104,27 @@
     box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
     padding: 1.15rem 1.25rem;
   }
+
+  .empty-state,
+  .secondary-actions > section {
+    background: #fffdf8;
+    border: 1px solid #e4ddd2;
+    border-radius: 12px;
+    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
+    padding: 1.15rem 1.25rem;
+  }
+
+  .empty-state p { color: #76675b; }
+
+  .secondary-actions h2,
+  #period-calendar-heading { display: none; }
+
+  .secondary-actions summary {
+    cursor: pointer;
+    font-weight: 800;
+  }
+
+  .details-body { border-top: 1px solid #e2d7c4; margin-top: 1rem; padding-top: 1rem; }
 
   .workspace-heading {
     align-items: center;
