@@ -1,5 +1,9 @@
 import { Effect } from "effect";
-import { afterEach, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
+import {
+  captureClientEffects,
+  settled,
+} from "./period-controller-effect-fixture";
 import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
 import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
@@ -9,9 +13,7 @@ import {
   jsonResponse,
 } from "./day-entry-controller-test-fixtures";
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+const executions = captureClientEffects();
 
 const period = {
   id: "period-1",
@@ -54,6 +56,8 @@ function createPeriodController(
 it("selects a fetched period before an old add settles in the same turn", async () => {
   const oldAddResponse = Promise.withResolvers<Response>();
   const selectedPeriodResponse = Promise.withResolvers<Response>();
+  const addStarted = Promise.withResolvers<void>();
+  const selectionStarted = Promise.withResolvers<void>();
   const summaryRevision = createPeriodSummaryRevision();
   const initialSummary = createSummary(0);
   const oldAddSummary = createSummary(2_000);
@@ -62,9 +66,11 @@ it("selects a fetched period before an old add settles in the same turn", async 
     const url = String(input);
     const method = init?.method ?? "GET";
     if (method === "POST" && url.endsWith("/add")) {
+      addStarted.resolve();
       return oldAddResponse.promise;
     }
     if (method === "GET" && url.endsWith(`/${otherPeriod.id}`)) {
+      selectionStarted.resolve();
       return selectedPeriodResponse.promise;
     }
     if (method === "GET" && url.endsWith(`/${period.id}`)) {
@@ -101,29 +107,35 @@ it("selects a fetched period before an old add settles in the same turn", async 
     inputYen: 2_000,
     memo: "old period add",
   });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-  periodController.handleSelectPeriod({ periodId: otherPeriod.id });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-
-  selectedPeriodResponse.resolve(jsonResponse(selectedSummary));
-  await vi.waitFor(() =>
-    expect(periodController.selectedPeriodId).toBe(otherPeriod.id),
-  );
-  expect(dayEntryController.modalOpen).toBe(false);
-  oldAddResponse.resolve(jsonResponse(oldAddSummary));
-
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  try {
+    await settled(addStarted.promise);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    periodController.handleSelectPeriod({ periodId: otherPeriod.id });
+    await settled(selectionStarted.promise);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    selectedPeriodResponse.resolve(jsonResponse(selectedSummary));
+    await settled(executions[1]);
+    expect(periodController.selectedPeriodId).toBe(otherPeriod.id);
+    expect(dayEntryController.modalOpen).toBe(false);
+  } finally {
+    selectedPeriodResponse.resolve(jsonResponse(selectedSummary));
+    oldAddResponse.resolve(jsonResponse(oldAddSummary));
+    await settled(Promise.all(executions));
+  }
+  expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(periodController.selectedPeriodId).toBe(otherPeriod.id);
   expect(periodController.summary).toEqual(selectedSummary);
 });
 
 it("clears summary loading when a superseding period-list request fails", async () => {
   const staleSelectionResponse = Promise.withResolvers<Response>();
+  const selectionStarted = Promise.withResolvers<void>();
   const initialSummary = createSummary(0);
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? "GET";
     if (method === "GET" && url.endsWith(`/${otherPeriod.id}`)) {
+      selectionStarted.resolve();
       return staleSelectionResponse.promise;
     }
     if (method === "POST" && url === "/api/periods") {
@@ -138,16 +150,21 @@ it("clears summary loading when a superseding period-list request fails", async 
   const controller = createPeriodController(initialSummary);
 
   controller.handleSelectPeriod({ periodId: otherPeriod.id });
-  await vi.waitFor(() => expect(controller.summaryLoading).toBe(true));
-  controller.createInitialPeriod();
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-  await vi.waitFor(() => expect(controller.periodSaving).toBe(false));
-
+  try {
+    await settled(selectionStarted.promise);
+    expect(controller.summaryLoading).toBe(true);
+    controller.createInitialPeriod();
+    await settled(executions[1]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(controller.periodSaving).toBe(false);
+    expect(controller.summaryLoading).toBe(false);
+  } finally {
+    staleSelectionResponse.resolve(
+      jsonResponse(forPeriod(createSummary(0), otherPeriod.id)),
+    );
+    await settled(executions[0]);
+  }
   expect(controller.summaryLoading).toBe(false);
-  staleSelectionResponse.resolve(
-    jsonResponse(forPeriod(createSummary(0), otherPeriod.id)),
-  );
-  await vi.waitFor(() => expect(controller.summaryLoading).toBe(false));
   expect(controller.summary).toEqual(initialSummary);
 });
 
@@ -179,7 +196,8 @@ it("keeps selection owned by the visible summary when a created period summary f
   const controller = createPeriodController(initialSummary);
 
   controller.createInitialPeriod();
-  await vi.waitFor(() => expect(controller.periodSaving).toBe(false));
+  await settled(executions[0]);
+  expect(controller.periodSaving).toBe(false);
 
   expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(controller.periods).toContainEqual(createdPeriod);
@@ -192,6 +210,8 @@ it("keeps selection owned by the visible summary when a created period summary f
 it("does not let a queued period update reclaim a newer selection", async () => {
   const addResponse = Promise.withResolvers<Response>();
   const updateResponse = Promise.withResolvers<Response>();
+  const addStarted = Promise.withResolvers<void>();
+  const updateStarted = Promise.withResolvers<void>();
   const summaryRevision = createPeriodSummaryRevision();
   const initialSummary = createSummary(0);
   const selectedSummary = forPeriod(createSummary(0), otherPeriod.id);
@@ -200,9 +220,11 @@ it("does not let a queued period update reclaim a newer selection", async () => 
     const url = String(input);
     const method = init?.method ?? "GET";
     if (method === "POST" && url.endsWith("/add")) {
+      addStarted.resolve();
       return addResponse.promise;
     }
     if (method === "PUT" && url.endsWith(`/${period.id}`)) {
+      updateStarted.resolve();
       return updateResponse.promise;
     }
     if (method === "GET" && url.endsWith(`/${otherPeriod.id}`)) {
@@ -238,21 +260,26 @@ it("does not let a queued period update reclaim a newer selection", async () => 
     inputYen: 1_000,
     memo: "slot owner",
   });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-  periodController.handleSavePeriod({ budgetYen: 12_000 });
-  periodController.handleSelectPeriod({ periodId: otherPeriod.id });
-  await vi.waitFor(() =>
-    expect(periodController.selectedPeriodId).toBe(otherPeriod.id),
-  );
-
-  addResponse.resolve(jsonResponse(createSummary(1_000)));
-  await vi.waitFor(() =>
+  try {
+    await settled(addStarted.promise);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    periodController.handleSavePeriod({ budgetYen: 12_000 });
+    expect(periodController.budget.saving).toBe(true);
+    periodController.handleSelectPeriod({ periodId: otherPeriod.id });
+    await settled(executions[2]);
+    expect(periodController.selectedPeriodId).toBe(otherPeriod.id);
+    expect(periodController.periodInteractionDisabled).toBe(true);
+    addResponse.resolve(jsonResponse(createSummary(1_000)));
+    await settled(updateStarted.promise);
     expect(
       fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
-    ).toBe(true),
-  );
-  updateResponse.resolve(jsonResponse(updatedOldSummary));
-  await vi.waitFor(() => expect(periodController.periodSaving).toBe(false));
+    ).toBe(true);
+  } finally {
+    addResponse.resolve(jsonResponse(createSummary(1_000)));
+    updateResponse.resolve(jsonResponse(updatedOldSummary));
+    await settled(Promise.all(executions));
+  }
+  expect(periodController.budget.saving).toBe(false);
 
   expect(periodController.selectedPeriodId).toBe(otherPeriod.id);
   expect(periodController.summary).toEqual(selectedSummary);

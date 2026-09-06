@@ -1,14 +1,20 @@
-import type { Effect } from "effect";
+import { Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { toPeriodId } from "$lib/dashboard/date";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
 import type { PendingPeriodUpdateConfirmation } from "$lib/dashboard/period-update-confirmation-state.svelte";
 import type { SavePeriodPayload } from "$lib/dashboard/types";
+import type {
+  PeriodSetting,
+  PeriodSettingsState,
+} from "$lib/dashboard/period-settings-state.svelte";
 
 type PeriodControllerActionDependencies = {
   readonly createInitialPeriodEffect: () => Effect.Effect<void, never>;
-  readonly getRangeEndDate: () => string;
-  readonly getRangeStartDate: () => string;
+  readonly settings: PeriodSettingsState;
+  readonly getInteractionDisabled: () => boolean;
+  readonly getSummaryLoading: () => boolean;
+  readonly setCreateSaving: (_saving: boolean) => void;
   readonly getSummary: () => PeriodSummary | null;
   readonly beginPeriodConfirmation: () => PendingPeriodUpdateConfirmation | null;
   readonly clearPeriodConfirmation: () => void;
@@ -21,45 +27,77 @@ type PeriodControllerActionDependencies = {
   ) => Effect.Effect<void, never>;
   readonly savePeriodUpdateEffect: (
     _payload: SavePeriodPayload,
+    _operation: PeriodSetting,
   ) => Effect.Effect<void, never>;
   readonly setCreateEndDate: (_value: string) => void;
   readonly setCreatePeriodId: (_value: string) => void;
   readonly setCreateStartDate: (_value: string) => void;
-  readonly setRangeEndDate: (_value: string) => void;
-  readonly setRangeStartDate: (_value: string) => void;
 };
 
 export function createPeriodControllerActions(
   dependencies: PeriodControllerActionDependencies,
 ) {
+  function saveBudget(): void {
+    if (
+      dependencies.getInteractionDisabled() ||
+      dependencies.getSummaryLoading()
+    )
+      return;
+    const summary = dependencies.getSummary();
+    const budgetYen = dependencies.settings.validateBudget();
+    if (summary == null || budgetYen == null) return;
+    runClientEffect(
+      dependencies.savePeriodUpdateEffect(
+        {
+          budgetYen,
+          startDate: summary.startDate,
+          endDate: summary.endDate,
+        },
+        "budget",
+      ),
+    );
+  }
+  function saveRange(): void {
+    if (
+      dependencies.getInteractionDisabled() ||
+      dependencies.getSummaryLoading()
+    )
+      return;
+    const summary = dependencies.getSummary();
+    const range = dependencies.settings.validateRange();
+    if (summary == null || range == null) return;
+    runClientEffect(
+      dependencies.savePeriodUpdateEffect(
+        {
+          budgetYen: summary.budgetYen,
+          ...range,
+        },
+        "range",
+      ),
+    );
+  }
   return {
+    saveBudget,
+    saveRange,
     handleSavePeriod(payload: { budgetYen: number }): void {
-      const summary = dependencies.getSummary();
-      if (summary == null) {
+      if (
+        dependencies.getInteractionDisabled() ||
+        dependencies.getSummaryLoading() ||
+        dependencies.getSummary() == null
+      )
         return;
-      }
-      runClientEffect(
-        dependencies.savePeriodUpdateEffect({
-          budgetYen: payload.budgetYen,
-          endDate: dependencies.getRangeEndDate(),
-          startDate: dependencies.getRangeStartDate(),
-        }),
-      );
+      dependencies.settings.budget.draft = String(payload.budgetYen);
+      saveBudget();
     },
     handleRangeChange(payload: { endDate: string; startDate: string }): void {
-      dependencies.setRangeStartDate(payload.startDate);
-      dependencies.setRangeEndDate(payload.endDate);
-      const summary = dependencies.getSummary();
-      if (summary == null) {
+      if (
+        dependencies.getInteractionDisabled() ||
+        dependencies.getSummaryLoading() ||
+        dependencies.getSummary() == null
+      )
         return;
-      }
-      runClientEffect(
-        dependencies.savePeriodUpdateEffect({
-          budgetYen: summary.budgetYen,
-          endDate: payload.endDate,
-          startDate: payload.startDate,
-        }),
-      );
+      dependencies.settings.range.edit(payload);
+      saveRange();
     },
     handleSelectPeriod(payload: { periodId: string }): void {
       dependencies.clearPeriodConfirmation();
@@ -74,14 +112,20 @@ export function createPeriodControllerActions(
     cancelPeriodUpdateConfirmation(): void {
       if (dependencies.getConfirmSaving()) return;
       dependencies.clearPeriodConfirmation();
-      const summary = dependencies.getSummary();
-      if (summary != null) {
-        dependencies.setRangeStartDate(summary.startDate);
-        dependencies.setRangeEndDate(summary.endDate);
-      }
+      dependencies.settings.range.reset();
     },
     createInitialPeriod(): void {
-      runClientEffect(dependencies.createInitialPeriodEffect());
+      if (dependencies.getInteractionDisabled()) return;
+      dependencies.setCreateSaving(true);
+      runClientEffect(
+        dependencies
+          .createInitialPeriodEffect()
+          .pipe(
+            Effect.ensuring(
+              Effect.sync(() => dependencies.setCreateSaving(false)),
+            ),
+          ),
+      );
     },
     updateCreatePeriodRange(payload: {
       endDate: string;

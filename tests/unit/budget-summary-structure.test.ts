@@ -66,6 +66,16 @@ describe("budget summary component structure", () => {
       /import\s+BudgetPeriodForm\s+from\s+"\.\/BudgetPeriodForm\.svelte";/,
     );
     expect(settingsSource).toMatch(/<BudgetPeriodForm(?:\s|>)/);
-    expect(settingsSource).toMatch(/parseNonNegativeIntegerYenInput/);
+    expect(settingsSource).not.toMatch(/parseNonNegativeIntegerYenInput/);
+    expect(settingsSource).toMatch(
+      /bind:budgetInput=\{controller\.budget\.draft\}/,
+    );
+    expect(settingsSource).toMatch(/controller\.saveBudget\(\)/);
+    const settingsStateSource = readProjectFile(
+      "src/lib/dashboard/period-settings-state.svelte.ts",
+    );
+    expect(settingsStateSource).toMatch(
+      /parseNonNegativeIntegerYenInput\(budget\.draft\)/,
+    );
   });
 });

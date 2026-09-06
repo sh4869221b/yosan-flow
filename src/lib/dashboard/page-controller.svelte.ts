@@ -53,6 +53,8 @@ export function createDashboardPageController(getData: () => PageData) {
   }
 
   return {
+    budget: periodController.budget,
+    range: periodController.range,
     get periods() {
       return periodController.periods;
     },
@@ -161,6 +163,8 @@ export function createDashboardPageController(getData: () => PageData) {
     get modalPreviewRecommendedYen() {
       return dayEntryController.modalPreviewRecommendedYen;
     },
+    saveBudget: periodController.saveBudget,
+    saveRange: periodController.saveRange,
     handleSavePeriod: periodController.handleSavePeriod,
     handleRangeChange: periodController.handleRangeChange,
     handleSelectPeriod(payload: { periodId: string }): void {

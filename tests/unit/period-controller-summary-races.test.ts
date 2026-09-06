@@ -1,5 +1,9 @@
 import { Effect } from "effect";
-import { afterEach, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
+import {
+  captureClientEffects,
+  settled,
+} from "./period-controller-effect-fixture";
 import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
 import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
@@ -9,9 +13,7 @@ import {
   jsonResponse,
 } from "./day-entry-controller-test-fixtures";
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+const executions = captureClientEffects();
 
 const period = {
   id: "period-1",
@@ -46,9 +48,13 @@ function createPeriodController(
 
 it("discards a period GET captured before a newer summary publication", async () => {
   const staleResponse = Promise.withResolvers<Response>();
+  const started = Promise.withResolvers<void>();
   vi.stubGlobal(
     "fetch",
-    vi.fn(() => staleResponse.promise),
+    vi.fn(() => {
+      started.resolve();
+      return staleResponse.promise;
+    }),
   );
   const summaryRevision = createPeriodSummaryRevision();
   const staleSummary = createSummary(0);
@@ -56,17 +62,23 @@ it("discards a period GET captured before a newer summary publication", async ()
   const controller = createPeriodController(staleSummary, summaryRevision);
 
   controller.handleSelectPeriod({ periodId: period.id });
-  await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
-  summaryRevision.publish(newerSummary, controller.setSummary);
-  staleResponse.resolve(jsonResponse(staleSummary));
-
-  await vi.waitFor(() => expect(controller.summaryLoading).toBe(false));
+  try {
+    await settled(started.promise);
+    expect(fetch).toHaveBeenCalledOnce();
+    summaryRevision.publish(newerSummary, controller.setSummary);
+  } finally {
+    staleResponse.resolve(jsonResponse(staleSummary));
+    await settled(executions[0]);
+  }
+  expect(controller.summaryLoading).toBe(false);
   expect(controller.summary).toEqual(newerSummary);
 });
 
 it("reconciles a period PUT body captured before a newer summary", async () => {
   const putResponse = Promise.withResolvers<Response>();
   const listResponse = Promise.withResolvers<Response>();
+  const putStarted = Promise.withResolvers<void>();
+  const listStarted = Promise.withResolvers<void>();
   const summaryRevision = createPeriodSummaryRevision();
   const initialSummary = createSummary(0);
   const newerAddSummary = createSummary(2_000);
@@ -74,34 +86,47 @@ it("reconciles a period PUT body captured before a newer summary", async () => {
   const authoritativeSummary = withBudget(newerAddSummary, 12_000);
   const fetchMock = vi
     .fn()
-    .mockImplementationOnce(() => putResponse.promise)
-    .mockImplementationOnce(() => listResponse.promise)
+    .mockImplementationOnce(() => {
+      putStarted.resolve();
+      return putResponse.promise;
+    })
+    .mockImplementationOnce(() => {
+      listStarted.resolve();
+      return listResponse.promise;
+    })
     .mockResolvedValueOnce(jsonResponse(authoritativeSummary));
   vi.stubGlobal("fetch", fetchMock);
   const controller = createPeriodController(initialSummary, summaryRevision);
 
   controller.handleSavePeriod({ budgetYen: 12_000 });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-  const newerMutation = summaryRevision.beginMutation(period.id);
-  summaryRevision.publish(newerAddSummary, controller.setSummary);
-  summaryRevision.completeMutation(period.id, newerMutation);
-  putResponse.resolve(jsonResponse(stalePutSummary));
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-
-  expect(controller.summary).toEqual(newerAddSummary);
-  listResponse.resolve(
-    jsonResponse({ periods: [{ ...period, budgetYen: 12_000 }] }),
-  );
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-  await vi.waitFor(() =>
-    expect(controller.summary).toEqual(authoritativeSummary),
-  );
-  expect(controller.periodSaving).toBe(false);
+  try {
+    await settled(putStarted.promise);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const newerMutation = summaryRevision.beginMutation(period.id);
+    summaryRevision.publish(newerAddSummary, controller.setSummary);
+    summaryRevision.completeMutation(period.id, newerMutation);
+    putResponse.resolve(jsonResponse(stalePutSummary));
+    await settled(listStarted.promise);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(controller.summary).toEqual(newerAddSummary);
+    expect(controller.budget.saving).toBe(true);
+  } finally {
+    putResponse.resolve(jsonResponse(stalePutSummary));
+    listResponse.resolve(
+      jsonResponse({ periods: [{ ...period, budgetYen: 12_000 }] }),
+    );
+    await settled(executions[0]);
+  }
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(controller.summary).toEqual(authoritativeSummary);
+  expect(controller.budget.saving).toBe(false);
 });
 
 it("keeps a later period PUT authoritative over an older add response", async () => {
   const addResponse = Promise.withResolvers<Response>();
   const putResponse = Promise.withResolvers<Response>();
+  const addStarted = Promise.withResolvers<void>();
+  const putStarted = Promise.withResolvers<void>();
   const initialSummary = createSummary(0);
   const oldAddSummary = createSummary(2_000);
   const updatedSummary = withBudget(oldAddSummary, 12_000);
@@ -109,9 +134,11 @@ it("keeps a later period PUT authoritative over an older add response", async ()
     const url = String(input);
     const method = init?.method ?? "GET";
     if (method === "POST" && url.endsWith("/add")) {
+      addStarted.resolve();
       return addResponse.promise;
     }
     if (method === "PUT") {
+      putStarted.resolve();
       return putResponse.promise;
     }
     if (method === "GET" && url === "/api/periods") {
@@ -149,25 +176,33 @@ it("keeps a later period PUT authoritative over an older add response", async ()
     inputYen: 2_000,
     memo: "older add",
   });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-  periodController.handleSavePeriod({ budgetYen: 12_000 });
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  expect(fetchMock).toHaveBeenCalledOnce();
-  addResponse.resolve(jsonResponse(oldAddSummary));
-  await vi.waitFor(() =>
+  try {
+    await settled(addStarted.promise);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    periodController.handleSavePeriod({ budgetYen: 12_000 });
+    expect(periodController.budget.saving).toBe(true);
+    expect(executions).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    addResponse.resolve(jsonResponse(oldAddSummary));
+    await settled(putStarted.promise);
     expect(
       fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
-    ).toBe(true),
-  );
-  putResponse.resolve(jsonResponse(updatedSummary));
-  await vi.waitFor(() => expect(periodController.periodSaving).toBe(false));
+    ).toBe(true);
+  } finally {
+    addResponse.resolve(jsonResponse(oldAddSummary));
+    putResponse.resolve(jsonResponse(updatedSummary));
+    await settled(Promise.all(executions));
+  }
+  expect(periodController.budget.saving).toBe(false);
 
   expect(periodController.summary).toEqual(updatedSummary);
-  expect(periodController.periodError).toBe("保存に失敗しました。");
+  expect(periodController.budget.serverError).toBe("保存に失敗しました。");
+  expect(periodController.periodError).toBeNull();
 });
 
 it("does not let add reconciliation overwrite a newer period update", async () => {
   const staleAddRefresh = Promise.withResolvers<Response>();
+  const staleRefreshStarted = Promise.withResolvers<void>();
   const summaryRevision = createPeriodSummaryRevision();
   const initialSummary = createSummary(0);
   const addedSummary = createSummary(2_000);
@@ -189,6 +224,7 @@ it("does not let add reconciliation overwrite a newer period update", async () =
     }
     if (method === "GET" && url === "/api/periods/period-1") {
       periodGetCount += 1;
+      if (periodGetCount === 1) staleRefreshStarted.resolve();
       return periodGetCount === 1
         ? staleAddRefresh.promise
         : Promise.resolve(jsonResponse(updatedSummary));
@@ -221,13 +257,16 @@ it("does not let add reconciliation overwrite a newer period update", async () =
     inputYen: 2_000,
     memo: "add before period update",
   });
-  await vi.waitFor(() => expect(periodGetCount).toBe(1));
-  periodController.handleSavePeriod({ budgetYen: 12_000 });
-  await vi.waitFor(() =>
-    expect(periodController.summary).toEqual(updatedSummary),
-  );
-
-  staleAddRefresh.resolve(jsonResponse(addedSummary));
-  await vi.waitFor(() => expect(periodController.periodSaving).toBe(false));
+  try {
+    await settled(staleRefreshStarted.promise);
+    expect(periodGetCount).toBe(1);
+    periodController.handleSavePeriod({ budgetYen: 12_000 });
+    await settled(executions[1]);
+    expect(periodController.summary).toEqual(updatedSummary);
+  } finally {
+    staleAddRefresh.resolve(jsonResponse(addedSummary));
+    await settled(Promise.all(executions));
+  }
+  expect(periodController.budget.saving).toBe(false);
   expect(periodController.summary).toEqual(updatedSummary);
 });

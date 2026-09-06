@@ -44,7 +44,7 @@
   <button
     type="button"
     onclick={controller.createInitialPeriod}
-    disabled={controller.periodSaving}
+    disabled={controller.periodInteractionDisabled}
   >
     {controller.periodSaving ? "作成中..." : "期間を作成"}
   </button>
@@ -83,7 +83,7 @@
   <button
     type="button"
     onclick={controller.createInitialPeriod}
-    disabled={controller.periodSaving}
+    disabled={controller.periodInteractionDisabled}
   >
     {controller.periodSaving ? "作成中..." : "期間を作成"}
   </button>
