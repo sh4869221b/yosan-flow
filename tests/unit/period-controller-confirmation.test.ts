@@ -1,4 +1,14 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { Effect } from "effect";
+import { expect, it, vi } from "vitest";
+import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
+import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
+import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
+import { createPeriodUpdateConfirmationState } from "$lib/dashboard/period-update-confirmation-state.svelte";
+import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import {
+  captureClientEffects,
+  settled,
+} from "./period-controller-effect-fixture";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 import {
   createSummary,
@@ -15,14 +25,13 @@ import {
   updatedTargetSummary,
 } from "./period-controller-confirmation-fixture";
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+const executions = captureClientEffects();
 
 registerPeriodUpdateApiParserTests();
 
 it("opens, confirms once, and reconciles both period revisions", async () => {
   const confirmResponse = Promise.withResolvers<Response>();
+  const confirmStarted = Promise.withResolvers<void>();
   const revision = createPeriodSummaryRevision();
   const summary = updatedTargetSummary();
   const requestOrder: string[] = [];
@@ -34,6 +43,7 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
       return Promise.resolve(jsonResponse(confirmationBody, 409));
     }
     if (method === "PUT") {
+      confirmStarted.resolve();
       return confirmResponse.promise;
     }
     if (method === "GET" && url === "/api/periods") {
@@ -61,28 +71,31 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
-  await vi.waitFor(() =>
-    expect(controller.periodUpdateProposal).toEqual(proposal),
-  );
+  await settled(executions[0]);
+  expect(controller.periodUpdateProposal).toEqual(proposal);
   expect(fetchMock).toHaveBeenCalledOnce();
-  expect(controller.periodSaving).toBe(false);
+  expect(controller.range.saving).toBe(false);
   expect(controller.periodInteractionDisabled).toBe(true);
   expect(revision.getMutationSequence(targetPeriod.id)).toBe(0);
 
   controller.confirmPeriodUpdate();
   controller.confirmPeriodUpdate();
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-  expect(controller.confirmSaving).toBe(true);
-  expect(controller.periodInteractionDisabled).toBe(true);
-  expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
-    budgetYen: proposal.target.after.budgetYen,
-    confirmation: proposal,
-    endDate: proposal.target.after.endDate,
-    startDate: proposal.target.after.startDate,
-  });
-
-  confirmResponse.resolve(jsonResponse(summary));
-  await vi.waitFor(() => expect(controller.confirmSaving).toBe(false));
+  try {
+    await settled(confirmStarted.promise);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(controller.confirmSaving).toBe(true);
+    expect(controller.periodInteractionDisabled).toBe(true);
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      budgetYen: proposal.target.after.budgetYen,
+      confirmation: proposal,
+      endDate: proposal.target.after.endDate,
+      startDate: proposal.target.after.startDate,
+    });
+  } finally {
+    confirmResponse.resolve(jsonResponse(summary));
+    await settled(executions[1]);
+  }
+  expect(controller.confirmSaving).toBe(false);
 
   expect(requestOrder).toEqual([
     `PUT /api/periods/${targetPeriod.id}`,
@@ -108,9 +121,8 @@ it("cancels without confirming and restores authoritative range inputs", async (
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
-  await vi.waitFor(() =>
-    expect(controller.periodUpdateProposal).toEqual(proposal),
-  );
+  await settled(executions[0]);
+  expect(controller.periodUpdateProposal).toEqual(proposal);
   controller.cancelPeriodUpdateConfirmation();
 
   expect(fetchMock).toHaveBeenCalledOnce();
@@ -164,9 +176,8 @@ it("drops stale proposals and preserves conflicts", async () => {
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
-  await vi.waitFor(() =>
-    expect(controller.periodUpdateProposal).toEqual(proposal),
-  );
+  await settled(executions[0]);
+  expect(controller.periodUpdateProposal).toEqual(proposal);
   revision.advance(successorPeriod.id);
 
   expect(controller.periodUpdateProposal).toBeNull();
@@ -176,14 +187,15 @@ it("drops stale proposals and preserves conflicts", async () => {
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
-  await vi.waitFor(() =>
-    expect(controller.periodUpdateProposal).toEqual(proposal),
-  );
+  await settled(executions[1]);
+  expect(controller.periodUpdateProposal).toEqual(proposal);
   controller.confirmPeriodUpdate();
-  await vi.waitFor(() => expect(controller.confirmSaving).toBe(false));
+  await settled(executions[2]);
+  expect(controller.confirmSaving).toBe(false);
 
   expect(controller.periodUpdateProposal).toBeNull();
-  expect(controller.periodError).toBe(conflictMessage);
+  expect(controller.range.serverError).toBe(conflictMessage);
+  expect(controller.periodError).toBeNull();
   expect(controller.summary).toEqual(authoritativeSummary);
   expect(requestOrder.slice(-3)).toEqual([
     `PUT /api/periods/${targetPeriod.id}`,
@@ -194,11 +206,15 @@ it("drops stale proposals and preserves conflicts", async () => {
 
 it("ignores a preview that settles after selection changes", async () => {
   const previewResponse = Promise.withResolvers<Response>();
+  const previewStarted = Promise.withResolvers<void>();
   const selectedSummary = forPeriod(createSummary(0), successorPeriod.id);
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? "GET";
-    if (method === "PUT") return previewResponse.promise;
+    if (method === "PUT") {
+      previewStarted.resolve();
+      return previewResponse.promise;
+    }
     if (method === "GET" && url.endsWith(`/${successorPeriod.id}`)) {
       return Promise.resolve(jsonResponse(selectedSummary));
     }
@@ -211,13 +227,17 @@ it("ignores a preview that settles after selection changes", async () => {
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-  controller.handleSelectPeriod({ periodId: successorPeriod.id });
-  await vi.waitFor(() =>
-    expect(controller.selectedPeriodId).toBe(successorPeriod.id),
-  );
-  previewResponse.resolve(jsonResponse(confirmationBody, 409));
-  await vi.waitFor(() => expect(controller.periodSaving).toBe(false));
+  try {
+    await settled(previewStarted.promise);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    controller.handleSelectPeriod({ periodId: successorPeriod.id });
+    await settled(executions[1]);
+    expect(controller.selectedPeriodId).toBe(successorPeriod.id);
+  } finally {
+    previewResponse.resolve(jsonResponse(confirmationBody, 409));
+    await settled(executions[0]);
+  }
+  expect(controller.range.saving).toBe(false);
 
   expect(controller.periodUpdateProposal).toBeNull();
   expect(controller.summary).toEqual(selectedSummary);
@@ -225,20 +245,21 @@ it("ignores a preview that settles after selection changes", async () => {
 
 it("ignores a preview superseded by a newer save request", async () => {
   const stalePreview = Promise.withResolvers<Response>();
+  const firstStarted = Promise.withResolvers<void>();
+  const secondStarted = Promise.withResolvers<void>();
+  const newerResponse = Promise.withResolvers<Response>();
   let putCount = 0;
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? "GET";
     if (method === "PUT") {
       putCount += 1;
-      return putCount === 1
-        ? stalePreview.promise
-        : Promise.resolve(
-            jsonResponse(
-              { error: { code: "INVALID_PERIOD_RANGE", message: "invalid" } },
-              400,
-            ),
-          );
+      if (putCount === 1) {
+        firstStarted.resolve();
+        return stalePreview.promise;
+      }
+      secondStarted.resolve();
+      return newerResponse.promise;
     }
     if (method === "GET" && url === "/api/periods") {
       return Promise.resolve(
@@ -251,18 +272,109 @@ it("ignores a preview superseded by a newer save request", async () => {
     throw new Error(`Unexpected fetch: ${method} ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
-  const controller = createController();
-
-  controller.handleRangeChange({
-    startDate: proposal.target.after.startDate,
-    endDate: proposal.target.after.endDate,
+  const revision = createPeriodSummaryRevision();
+  const summaryRequests = createPeriodSummaryRequestTracker(revision);
+  const confirmationState = createPeriodUpdateConfirmationState({
+    getSelectedPeriodId: () => targetPeriod.id,
+    summaryRevision: revision,
   });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-  controller.handleSavePeriod({ budgetYen: 11_000 });
-  stalePreview.resolve(jsonResponse(confirmationBody, 409));
-  await vi.waitFor(() => expect(controller.periodSaving).toBe(false));
-
+  let summary = createSummary(0);
+  const saving = { budget: false, range: false };
+  const errors: Record<"budget" | "range", string | null> = {
+    budget: null,
+    range: null,
+  };
+  function publishSummary(next: PeriodSummary): void {
+    revision.publish(next, (value) => {
+      summary = value;
+    });
+  }
+  function refreshSummaryEffect(periodId: string) {
+    const request = summaryRequests.start(periodId);
+    return fetchJsonEffect<PeriodSummary>(
+      `/api/periods/${periodId}`,
+      undefined,
+      "再取得に失敗しました。",
+    ).pipe(
+      Effect.match({
+        onFailure: (message) => {
+          if (summaryRequests.isFresh(request)) errors.budget = message;
+        },
+        onSuccess: (next) => {
+          if (summaryRequests.isFresh(request)) publishSummary(next);
+        },
+      }),
+    );
+  }
+  const update = createPeriodUpdateEffect({
+    confirmationState,
+    getSelectedPeriodId: () => targetPeriod.id,
+    getSummary: () => summary,
+    getSummaryLoading: () => false,
+    publishSummary,
+    refreshPeriodListEffect: () =>
+      fetchJsonEffect("/api/periods", undefined, "保存に失敗しました。").pipe(
+        Effect.flatMap(() => refreshSummaryEffect(targetPeriod.id)),
+      ),
+    refreshSummaryEffect,
+    setError: (message, operation = "range") => {
+      errors[operation] = message;
+    },
+    setSaving: (value, operation = "range") => {
+      saving[operation] = value;
+    },
+    summaryRequests,
+    summaryRevision: revision,
+  });
+  // Public submissions now reject duplicates. Exercise supersession at the
+  // existing update Effect seam without replacing its queue or request tracker.
+  const first = Effect.runPromise(
+    update(
+      {
+        budgetYen: proposal.target.after.budgetYen,
+        startDate: proposal.target.after.startDate,
+        endDate: proposal.target.after.endDate,
+      },
+      "range",
+    ),
+  );
+  let second: Promise<void> | undefined;
+  try {
+    await settled(firstStarted.promise);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    second = Effect.runPromise(
+      update(
+        {
+          budgetYen: 11_000,
+          startDate: targetPeriod.startDate,
+          endDate: targetPeriod.endDate,
+        },
+        "budget",
+      ),
+    );
+    stalePreview.resolve(jsonResponse(confirmationBody, 409));
+    await settled(first);
+    await settled(secondStarted.promise);
+    expect(confirmationState.pending?.proposal ?? null).toBeNull();
+    expect(saving.range).toBe(false);
+    expect(saving.budget).toBe(true);
+    expect(errors.budget).toBeNull();
+  } finally {
+    stalePreview.resolve(jsonResponse(confirmationBody, 409));
+    newerResponse.resolve(
+      jsonResponse(
+        {
+          error: { code: "INVALID_PERIOD_RANGE", message: "invalid" },
+        },
+        400,
+      ),
+    );
+    await settled(first);
+    if (second != null) await settled(second);
+  }
   expect(putCount).toBe(2);
-  expect(controller.periodUpdateProposal).toBeNull();
-  expect(controller.periodError).toBe("invalid");
+  expect(confirmationState.pending?.proposal ?? null).toBeNull();
+  expect(errors.budget).toBe("invalid");
+  expect(errors.range).toBeNull();
+  expect(saving).toEqual({ budget: false, range: false });
 });

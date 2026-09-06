@@ -11,6 +11,7 @@ import { createInitialPeriodEffect as createPeriodCreationEffect } from "$lib/da
 import {
   createPeriodConfirmEffect,
   createPeriodUpdateEffect,
+  type PeriodRefreshError,
 } from "$lib/dashboard/period-controller-update-effect";
 import { getInitialPeriodControllerState } from "$lib/dashboard/period-controller-initial-state";
 import { createPeriodUpdateConfirmationState } from "$lib/dashboard/period-update-confirmation-state.svelte";
@@ -48,6 +49,8 @@ export function createPeriodControllerState(
   });
 
   const interactionDisabled = () =>
+    settings.budget.saving ||
+    settings.range.saving ||
     periodSaving ||
     confirmationState.confirmSaving ||
     confirmationState.pending != null;
@@ -74,7 +77,7 @@ export function createPeriodControllerState(
 
   function refreshSummaryEffect(
     periodId: string,
-    reportError = true,
+    reportError: PeriodRefreshError = true,
     submission?: PeriodSettingsSubmission,
   ): Effect.Effect<void, never> {
     const request = summaryRequests.start(periodId);
@@ -86,9 +89,8 @@ export function createPeriodControllerState(
           periodId,
           request.mutationSequence,
         );
-        if (summaryRequests.owns(request)) {
+        if (summaryRequests.owns(request))
           yield* refreshSummaryEffect(periodId, reportError, submission);
-        }
         return;
       }
       const result = yield* fetchJsonEffect<PeriodSummary>(
@@ -98,36 +100,34 @@ export function createPeriodControllerState(
       ).pipe(Effect.either);
       if (summaryRequests.isFresh(request)) {
         if (result._tag === "Left") {
-          if (reportError) summaryError = result.left;
+          if (typeof reportError === "function") reportError(result.left);
+          else if (reportError) summaryError = result.left;
         } else if (result.right.periodId === periodId) {
           publishSummary(result.right, submission);
         }
       }
-      if (summaryRequests.owns(request)) {
-        summaryLoading = false;
-      }
+      if (summaryRequests.owns(request)) summaryLoading = false;
     });
   }
 
   function refreshPeriodListEffect(
     preferredPeriodId?: string,
-    reportSummaryError = true,
+    reportSummaryError: PeriodRefreshError = true,
     submission?: PeriodSettingsSubmission,
-  ): Effect.Effect<void, string> {
+  ): Effect.Effect<void | boolean, string> {
     const request = summaryRequests.start(
       preferredPeriodId ?? selectedPeriodId,
     );
     summaryLoading = false;
     return Effect.gen(function* () {
-      const body = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
+      const result = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
         periodsUrl(),
         undefined,
         "保存に失敗しました。",
-      );
-      if (!summaryRequests.owns(request)) {
-        return;
-      }
-      periods = body.periods ?? [];
+      ).pipe(Effect.either);
+      if (!summaryRequests.owns(request)) return false;
+      if (result._tag === "Left") return yield* Effect.fail(result.left);
+      periods = result.right.periods ?? [];
       if (periods.length === 0) {
         selectedPeriodId = null;
         publishSummary(null);
@@ -149,8 +149,8 @@ export function createPeriodControllerState(
     publishSummary,
     refreshPeriodListEffect,
     refreshSummaryEffect,
-    setError: (error: string | null) => (periodError = error),
-    setSaving: (saving: boolean) => (periodSaving = saving),
+    setError: settings.setError,
+    setSaving: settings.setSaving,
     summaryRequests,
     summaryRevision,
   };
@@ -168,13 +168,10 @@ export function createPeriodControllerState(
       getPeriodId: () => createPeriodId,
       getPeriods: () => periods,
       getStartDate: () => createStartDate,
-      refreshPeriodListEffect,
-      setError: (error) => {
-        periodError = error;
-      },
-      setSaving: (saving) => {
-        periodSaving = saving;
-      },
+      refreshPeriodListEffect: (id) =>
+        refreshPeriodListEffect(id).pipe(Effect.asVoid),
+      setError: (error) => (periodError = error),
+      setSaving: (saving) => (periodSaving = saving),
     });
   }
 
@@ -248,6 +245,9 @@ export function createPeriodControllerState(
       createInitialPeriodEffect,
       getConfirmSaving: () => confirmationState.confirmSaving,
       settings,
+      getInteractionDisabled: interactionDisabled,
+      getSummaryLoading: () => summaryLoading,
+      setCreateSaving: (saving) => (periodSaving = saving),
       getSummary: () => summary,
       refreshSummaryEffect,
       savePeriodUpdateEffect,

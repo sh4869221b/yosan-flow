@@ -1,4 +1,4 @@
-import type { Effect } from "effect";
+import { Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
 import { toPeriodId } from "$lib/dashboard/date";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
@@ -12,6 +12,9 @@ import type {
 type PeriodControllerActionDependencies = {
   readonly createInitialPeriodEffect: () => Effect.Effect<void, never>;
   readonly settings: PeriodSettingsState;
+  readonly getInteractionDisabled: () => boolean;
+  readonly getSummaryLoading: () => boolean;
+  readonly setCreateSaving: (_saving: boolean) => void;
   readonly getSummary: () => PeriodSummary | null;
   readonly beginPeriodConfirmation: () => PendingPeriodUpdateConfirmation | null;
   readonly clearPeriodConfirmation: () => void;
@@ -35,6 +38,11 @@ export function createPeriodControllerActions(
   dependencies: PeriodControllerActionDependencies,
 ) {
   function saveBudget(): void {
+    if (
+      dependencies.getInteractionDisabled() ||
+      dependencies.getSummaryLoading()
+    )
+      return;
     const summary = dependencies.getSummary();
     const budgetYen = dependencies.settings.validateBudget();
     if (summary == null || budgetYen == null) return;
@@ -50,6 +58,11 @@ export function createPeriodControllerActions(
     );
   }
   function saveRange(): void {
+    if (
+      dependencies.getInteractionDisabled() ||
+      dependencies.getSummaryLoading()
+    )
+      return;
     const summary = dependencies.getSummary();
     const range = dependencies.settings.validateRange();
     if (summary == null || range == null) return;
@@ -67,12 +80,22 @@ export function createPeriodControllerActions(
     saveBudget,
     saveRange,
     handleSavePeriod(payload: { budgetYen: number }): void {
-      if (dependencies.getSummary() == null) return;
+      if (
+        dependencies.getInteractionDisabled() ||
+        dependencies.getSummaryLoading() ||
+        dependencies.getSummary() == null
+      )
+        return;
       dependencies.settings.budget.draft = String(payload.budgetYen);
       saveBudget();
     },
     handleRangeChange(payload: { endDate: string; startDate: string }): void {
-      if (dependencies.getSummary() == null) return;
+      if (
+        dependencies.getInteractionDisabled() ||
+        dependencies.getSummaryLoading() ||
+        dependencies.getSummary() == null
+      )
+        return;
       dependencies.settings.range.edit(payload);
       saveRange();
     },
@@ -92,7 +115,17 @@ export function createPeriodControllerActions(
       dependencies.settings.range.reset();
     },
     createInitialPeriod(): void {
-      runClientEffect(dependencies.createInitialPeriodEffect());
+      if (dependencies.getInteractionDisabled()) return;
+      dependencies.setCreateSaving(true);
+      runClientEffect(
+        dependencies
+          .createInitialPeriodEffect()
+          .pipe(
+            Effect.ensuring(
+              Effect.sync(() => dependencies.setCreateSaving(false)),
+            ),
+          ),
+      );
     },
     updateCreatePeriodRange(payload: {
       endDate: string;

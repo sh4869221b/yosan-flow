@@ -158,6 +158,17 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
           resetRange(dependencies.getSummary());
       },
     },
+    setSaving(saving: boolean, operation: PeriodSetting = "range"): void {
+      const state = operation === "budget" ? budget : range;
+      state.saving = saving;
+      if (saving) {
+        state.serverError = null;
+        state.success = false;
+      }
+    },
+    setError(error: string | null, operation: PeriodSetting = "range"): void {
+      (operation === "budget" ? budget : range).serverError = error;
+    },
     validateBudget,
     validateRange,
     adopt(

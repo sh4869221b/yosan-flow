@@ -18,6 +18,7 @@ import type {
   PeriodSettingsSubmission,
 } from "$lib/dashboard/period-settings-state.svelte";
 
+export type PeriodRefreshError = boolean | ((_error: string) => void);
 type Dependencies = {
   readonly confirmationState?: PeriodUpdateConfirmationState;
   readonly getSelectedPeriodId: () => string | null;
@@ -29,16 +30,19 @@ type Dependencies = {
   ) => void;
   readonly refreshPeriodListEffect: (
     _periodId: string,
-    _reportSummaryError?: boolean,
+    _reportSummaryError?: PeriodRefreshError,
     _submission?: PeriodSettingsSubmission,
-  ) => Effect.Effect<void, string>;
+  ) => Effect.Effect<void | boolean, string>;
   readonly refreshSummaryEffect: (
     _periodId: string,
-    _reportError?: boolean,
+    _reportError?: PeriodRefreshError,
     _submission?: PeriodSettingsSubmission,
   ) => Effect.Effect<void, never>;
-  readonly setError: (_error: string | null) => void;
-  readonly setSaving: (_saving: boolean) => void;
+  readonly setError: (
+    _error: string | null,
+    _operation?: PeriodSetting,
+  ) => void;
+  readonly setSaving: (_saving: boolean, _operation?: PeriodSetting) => void;
   readonly summaryRequests: ReturnType<
     typeof createPeriodSummaryRequestTracker
   >;
@@ -69,19 +73,22 @@ function reconcileEffect(
 ): Effect.Effect<void, never> {
   return Effect.gen(function* () {
     const revision = dependencies.summaryRevision.get(periodId);
+    const report = reportError ? dependencies.setError : false;
     const listResult = yield* dependencies
-      .refreshPeriodListEffect(periodId, reportError, submission)
+      .refreshPeriodListEffect(periodId, report, submission)
       .pipe(Effect.either);
+    if (listResult._tag === "Right" && listResult.right === false) return;
+    if (dependencies.getSelectedPeriodId() !== periodId) return;
     if (listResult._tag === "Left") {
       if (reportError) dependencies.setError(listResult.left);
       yield* submission == null
-        ? dependencies.refreshSummaryEffect(periodId, reportError)
-        : dependencies.refreshSummaryEffect(periodId, reportError, submission);
+        ? dependencies.refreshSummaryEffect(periodId, false)
+        : dependencies.refreshSummaryEffect(periodId, false, submission);
     } else if (
       !mutationIsFresh &&
       dependencies.summaryRevision.get(periodId) === revision
     ) {
-      yield* dependencies.refreshSummaryEffect(periodId, true, submission);
+      yield* dependencies.refreshSummaryEffect(periodId, report, submission);
     }
   });
 }
@@ -107,55 +114,60 @@ function publishUpdatedSummary(
 
 export function createPeriodUpdateEffect(dependencies: Dependencies) {
   let saveSequence = 0;
+  const savingSequences = { budget: 0, range: 0 };
 
   return (
-    payload: SavePeriodPayload,
+    input: SavePeriodPayload,
     operation?: PeriodSetting,
   ): Effect.Effect<void, never> => {
+    const payload = { ...input };
     const submission = operation == null ? undefined : { operation, payload };
     dependencies.confirmationState?.clear();
     const periodId = dependencies.getSelectedPeriodId();
     if (periodId == null || dependencies.getSummaryLoading())
       return Effect.void;
     const currentSaveSequence = ++saveSequence;
-    return Effect.gen(function* () {
-      dependencies.setSaving(true);
-      dependencies.setError(null);
-      const request = dependencies.summaryRequests.start(periodId);
-      let legacyMutation: number | null = null;
-      const result = yield* dependencies.summaryRevision
-        .withMutationSlot(
-          periodId,
-          "period",
-          Effect.gen(function* () {
-            if (dependencies.confirmationState == null) {
-              legacyMutation =
-                dependencies.summaryRevision.beginMutation(periodId);
-            }
-            return yield* requestEffect(periodId, payload);
-          }).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                if (legacyMutation != null) {
-                  dependencies.summaryRevision.completeMutation(
-                    periodId,
-                    legacyMutation,
-                  );
-                }
-              }),
-            ),
-          ),
+    const savingOperation = operation ?? "range";
+    savingSequences[savingOperation] = currentSaveSequence;
+    const request = dependencies.summaryRequests.start(periodId);
+    const localDependencies = {
+      ...dependencies,
+      setError: (error: string | null) => {
+        if (
+          currentSaveSequence === saveSequence &&
+          dependencies.getSelectedPeriodId() === periodId
         )
-        .pipe(
+          dependencies.setError(error, operation);
+      },
+    };
+    dependencies.setSaving(true, operation);
+    localDependencies.setError(null);
+    return Effect.gen(function* () {
+      let legacyMutation: number | null = null;
+      const result = yield* dependencies.summaryRevision.withMutationSlot(
+        periodId,
+        "period",
+        Effect.gen(function* () {
+          if (dependencies.confirmationState == null) {
+            legacyMutation =
+              dependencies.summaryRevision.beginMutation(periodId);
+          }
+          return yield* requestEffect(periodId, payload);
+        }).pipe(
           Effect.ensuring(
             Effect.sync(() => {
-              if (currentSaveSequence === saveSequence) {
-                dependencies.setSaving(false);
+              if (legacyMutation != null) {
+                dependencies.summaryRevision.completeMutation(
+                  periodId,
+                  legacyMutation,
+                );
               }
             }),
           ),
-        );
+        ),
+      );
       if (
+        currentSaveSequence !== saveSequence ||
         !dependencies.summaryRequests.owns(request) ||
         dependencies.getSelectedPeriodId() !== periodId
       ) {
@@ -192,19 +204,26 @@ export function createPeriodUpdateEffect(dependencies: Dependencies) {
           submission,
         );
       } else {
-        dependencies.setError(result.message);
+        localDependencies.setError(result.message);
       }
       if (legacyMutation == null) {
         dependencies.summaryRevision.completeMutation(periodId, mutation);
       }
       yield* reconcileEffect(
-        dependencies,
+        localDependencies,
         periodId,
         result.kind === "updated",
         mutationIsFresh,
         result.kind === "updated" && !published ? submission : undefined,
       );
-    });
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (savingSequences[savingOperation] === currentSaveSequence)
+            dependencies.setSaving(false, operation);
+        }),
+      ),
+    );
   };
 }
 

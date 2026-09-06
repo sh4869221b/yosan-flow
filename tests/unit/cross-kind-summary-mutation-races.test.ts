@@ -1,5 +1,9 @@
 import { Effect } from "effect";
-import { afterEach, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
+import {
+  captureClientEffects,
+  settled,
+} from "./period-controller-effect-fixture";
 import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
 import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
 import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
@@ -10,7 +14,7 @@ import {
   jsonResponse,
 } from "./day-entry-controller-test-fixtures";
 
-afterEach(() => vi.unstubAllGlobals());
+const executions = captureClientEffects();
 
 const period = {
   id: "period-1",
@@ -45,13 +49,21 @@ function createPeriodController(
 it("runs a period update after an active add", async () => {
   const addResponse = Promise.withResolvers<Response>();
   const putResponse = Promise.withResolvers<Response>();
+  const addStarted = Promise.withResolvers<void>();
+  const putStarted = Promise.withResolvers<void>();
   const initialSummary = createSummary(0);
   const addedSummary = createSummary(2_000);
   const completeSummary = withBudget(createSummary(2_000), 12_000);
   const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method ?? "GET";
-    if (method === "POST") return addResponse.promise;
-    if (method === "PUT") return putResponse.promise;
+    if (method === "POST") {
+      addStarted.resolve();
+      return addResponse.promise;
+    }
+    if (method === "PUT") {
+      putStarted.resolve();
+      return putResponse.promise;
+    }
     return Promise.resolve(jsonResponse({ error: {} }, 503));
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -77,18 +89,24 @@ it("runs a period update after an active add", async () => {
     inputYen: 2_000,
     memo: "add",
   });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-  periodController.handleSavePeriod({ budgetYen: 12_000 });
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  expect(fetchMock).toHaveBeenCalledOnce();
-  addResponse.resolve(jsonResponse(addedSummary));
-  await vi.waitFor(() =>
+  try {
+    await settled(addStarted.promise);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    periodController.handleSavePeriod({ budgetYen: 12_000 });
+    expect(executions).toHaveLength(2);
+    expect(periodController.budget.saving).toBe(true);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    addResponse.resolve(jsonResponse(addedSummary));
+    await settled(putStarted.promise);
     expect(
       fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
-    ).toBe(true),
-  );
-  putResponse.resolve(jsonResponse(completeSummary));
-  await vi.waitFor(() => expect(periodController.periodSaving).toBe(false));
+    ).toBe(true);
+  } finally {
+    addResponse.resolve(jsonResponse(addedSummary));
+    putResponse.resolve(jsonResponse(completeSummary));
+    await settled(Promise.all(executions));
+  }
+  expect(periodController.budget.saving).toBe(false);
 
   expect(periodController.summary).toEqual(completeSummary);
 });
@@ -96,6 +114,8 @@ it("runs a period update after an active add", async () => {
 it("runs a history mutation after an active period update", async () => {
   const putResponse = Promise.withResolvers<Response>();
   const historyResponse = Promise.withResolvers<Response>();
+  const putStarted = Promise.withResolvers<void>();
+  const historyStarted = Promise.withResolvers<void>();
   const initialSummary = createSummary(0);
   const updatedPeriodSummary = withBudget(initialSummary, 12_000);
   const completeSummary = withBudget(createSummary(1_000), 12_000);
@@ -103,8 +123,14 @@ it("runs a history mutation after an active period update", async () => {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? "GET";
-    if (method === "PUT") return putResponse.promise;
-    if (method === "PATCH") return historyResponse.promise;
+    if (method === "PUT") {
+      putStarted.resolve();
+      return putResponse.promise;
+    }
+    if (method === "PATCH") {
+      historyStarted.resolve();
+      return historyResponse.promise;
+    }
     if (url.endsWith("/history")) {
       return Promise.resolve(jsonResponse({ histories }));
     }
@@ -127,26 +153,29 @@ it("runs a history mutation after an active period update", async () => {
   );
 
   periodController.handleSavePeriod({ budgetYen: 12_000 });
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-  historyController.updateHistory({
-    historyId: "history-1",
-    inputYen: 1_000,
-    memo: "edit",
-  });
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  expect(fetchMock).toHaveBeenCalledOnce();
-  putResponse.resolve(jsonResponse(updatedPeriodSummary));
-  await vi.waitFor(() =>
+  try {
+    await settled(putStarted.promise);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    historyController.updateHistory({
+      historyId: "history-1",
+      inputYen: 1_000,
+      memo: "edit",
+    });
+    expect(executions).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    putResponse.resolve(jsonResponse(updatedPeriodSummary));
+    await settled(historyStarted.promise);
     expect(
       fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH"),
-    ).toBe(true),
-  );
-  historyResponse.resolve(
-    jsonResponse({ summary: completeSummary, histories }),
-  );
-  await vi.waitFor(() =>
-    expect(historyController.historyMutatingId).toBeNull(),
-  );
+    ).toBe(true);
+  } finally {
+    putResponse.resolve(jsonResponse(updatedPeriodSummary));
+    historyResponse.resolve(
+      jsonResponse({ summary: completeSummary, histories }),
+    );
+    await settled(Promise.all(executions));
+  }
+  expect(historyController.historyMutatingId).toBeNull();
 
   expect(periodController.summary).toEqual(completeSummary);
 });
