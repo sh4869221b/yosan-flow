@@ -126,7 +126,7 @@
       summary={controller.summary}
       periods={controller.periods}
       selectedPeriodId={controller.selectedPeriodId}
-      saving={controller.periodSaving}
+      saving={controller.periodInteractionDisabled}
       interactionDisabled={controller.periodInteractionDisabled}
       loading={controller.summaryLoading}
       {selectPeriod}

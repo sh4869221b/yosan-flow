@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Settings2 } from "@lucide/svelte";
   import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
   import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
   import BudgetPeriodForm from "./BudgetPeriodForm.svelte";
   import PeriodBoundaryConfirmationDialog from "./PeriodBoundaryConfirmationDialog.svelte";
@@ -14,29 +13,16 @@
 
   let { controller }: Props = $props();
 
-  let budgetInput = $state("");
-  let budgetInputPeriodId = $state<string | null>(null);
-  let budgetInputError = $state<string | null>(null);
-
-  $effect(() => {
-    const summary = controller.summary;
-    if (!summary || budgetInputPeriodId === summary.periodId) {
-      return;
-    }
-    budgetInput = String(summary.budgetYen);
-    budgetInputPeriodId = summary.periodId;
-    budgetInputError = null;
-  });
+  const rangeError = $derived(
+    controller.range.validationErrors.startDate ??
+      controller.range.validationErrors.endDate ??
+      controller.range.validationErrors.range ??
+      controller.range.serverError,
+  );
 
   function submitPeriod(event: Event): void {
     event.preventDefault();
-    const budgetYen = parseNonNegativeIntegerYenInput(budgetInput);
-    if (budgetYen == null) {
-      budgetInputError = "予算は 0 以上の整数で入力してください。";
-      return;
-    }
-    budgetInputError = null;
-    controller.handleSavePeriod({ budgetYen });
+    controller.saveBudget();
   }
 </script>
 
@@ -48,11 +34,12 @@
   <div class="details-body">
     <section aria-label="予算設定">
       <BudgetPeriodForm
-        bind:budgetInput
-        saving={controller.periodSaving}
+        bind:budgetInput={controller.budget.draft}
+        saving={controller.budget.saving}
         loading={controller.summaryLoading}
         interactionDisabled={controller.periodInteractionDisabled}
-        errorMessage={budgetInputError ?? controller.periodError}
+        errorMessage={controller.budget.validationError ??
+          controller.budget.serverError}
         onsubmit={submitPeriod}
       />
     </section>
@@ -60,11 +47,14 @@
     <PeriodRangePicker
       startDate={controller.rangeStartDate}
       endDate={controller.rangeEndDate}
-      saving={controller.periodSaving}
+      saving={controller.range.saving}
       interactionDisabled={controller.periodInteractionDisabled}
       testIdPrefix="current-period-range"
       change={controller.handleRangeChange}
     />
+    {#if rangeError}
+      <p role="alert">{rangeError}</p>
+    {/if}
   </div>
 </details>
 
