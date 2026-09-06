@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { expect, it, vi } from "vitest";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
+import * as periodUpdateEffects from "$lib/dashboard/period-controller-update-effect";
 import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
 import { createPeriodUpdateConfirmationState } from "$lib/dashboard/period-update-confirmation-state.svelte";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
@@ -28,6 +29,73 @@ import {
 const executions = captureClientEffects();
 
 registerPeriodUpdateApiParserTests();
+
+it.each([false, true])(
+  "low-level budget confirmation outcome cannot own a range proposal (pending=%s)",
+  async (withPending) => {
+    // Capture the controller's real Effect, retaining its settings, queue,
+    // request tracker, confirmation state, and revision bookkeeping.
+    const factory = vi.spyOn(periodUpdateEffects, "createPeriodUpdateEffect");
+    const revision = createPeriodSummaryRevision();
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(jsonResponse(confirmationBody, 409)),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = createController(revision);
+    const actualEffect = factory.mock.results[0].value as ReturnType<
+      typeof createPeriodUpdateEffect
+    >;
+    const confirmationState = factory.mock.calls[0][0].confirmationState;
+    controller.budget.draft = "13000";
+    if (withPending) {
+      controller.handleRangeChange({
+        startDate: proposal.target.after.startDate,
+        endDate: proposal.target.after.endDate,
+      });
+      await settled(executions[0]);
+      expect(controller.periodUpdateProposal).toEqual(proposal);
+    }
+    const pending = confirmationState?.pending;
+    const rangeDraft = { ...controller.range.draft };
+    const payload = {
+      budgetYen: 13_000,
+      startDate: targetPeriod.startDate,
+      endDate: targetPeriod.endDate,
+    };
+
+    const effect = actualEffect(payload, "budget");
+    const pendingAfterAcceptance = confirmationState?.pending;
+    await settled(Effect.runPromise(effect));
+
+    expect(pendingAfterAcceptance).toEqual(pending);
+    expect(confirmationState?.pending).toEqual(pending);
+    expect(controller.periodUpdateProposal).toEqual(
+      withPending ? proposal : null,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(withPending ? 2 : 1);
+    expect(fetchMock.mock.lastCall?.[0]).toBe(
+      `/api/periods/${targetPeriod.id}`,
+    );
+    expect(fetchMock.mock.lastCall?.[1]?.method).toBe("PUT");
+    expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toEqual(
+      payload,
+    );
+    expect(controller.summary).toEqual(createSummary(0));
+    expect(controller.budget.draft).toBe("13000");
+    expect(controller.budget.serverError).not.toBeNull();
+    expect(controller.budget.success).toBe(false);
+    expect(controller.budget.saving).toBe(false);
+    expect(controller.range.draft).toEqual(rangeDraft);
+    expect(controller.range.serverError).toBeNull();
+    expect(controller.range.success).toBe(false);
+    expect(controller.range.saving).toBe(false);
+    expect(controller.periodError).toBeNull();
+    expect(controller.periodInteractionDisabled).toBe(withPending);
+    expect(revision.getMutationSequence(targetPeriod.id)).toBe(0);
+    expect(revision.get(targetPeriod.id)).toBe(0);
+    expect(revision.get(successorPeriod.id)).toBe(0);
+  },
+);
 
 it("opens, confirms once, and reconciles both period revisions", async () => {
   const confirmResponse = Promise.withResolvers<Response>();
@@ -67,6 +135,7 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   vi.stubGlobal("fetch", fetchMock);
   const controller = createController(revision);
 
+  controller.budget.draft = "13000";
   controller.handleRangeChange({
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
@@ -77,6 +146,30 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   expect(controller.range.saving).toBe(false);
   expect(controller.periodInteractionDisabled).toBe(true);
   expect(revision.getMutationSequence(targetPeriod.id)).toBe(0);
+  expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+    budgetYen: targetPeriod.budgetYen,
+    startDate: proposal.target.after.startDate,
+    endDate: proposal.target.after.endDate,
+  });
+  expect(controller.range.success).toBe(false);
+  expect(controller.budget.success).toBe(false);
+  controller.saveBudget();
+  controller.saveRange();
+  controller.handleSavePeriod({ budgetYen: 14_000 });
+  controller.handleRangeChange({
+    startDate: targetPeriod.startDate,
+    endDate: targetPeriod.endDate,
+  });
+  controller.createInitialPeriod();
+  controller.budget.reset();
+  controller.range.reset();
+  expect(executions).toHaveLength(1);
+  expect(controller.budget.draft).toBe("13000");
+  expect(controller.range.draft).toEqual({
+    startDate: proposal.target.after.startDate,
+    endDate: proposal.target.after.endDate,
+  });
+  expect(controller.periodUpdateProposal).toEqual(proposal);
 
   controller.confirmPeriodUpdate();
   controller.confirmPeriodUpdate();
@@ -85,6 +178,10 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(controller.confirmSaving).toBe(true);
     expect(controller.periodInteractionDisabled).toBe(true);
+    controller.cancelPeriodUpdateConfirmation();
+    expect(controller.periodUpdateProposal).toEqual(proposal);
+    expect(controller.budget.draft).toBe("13000");
+    expect(controller.range.success).toBe(false);
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
       budgetYen: proposal.target.after.budgetYen,
       confirmation: proposal,
@@ -106,17 +203,27 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   expect(controller.periodUpdateProposal).toBeNull();
   expect(controller.periodInteractionDisabled).toBe(false);
   expect(controller.summary).toEqual(summary);
+  expect(controller.range.success).toBe(true);
+  expect(controller.range.dirty).toBe(false);
+  expect(controller.range.serverError).toBeNull();
+  expect(controller.budget.draft).toBe("13000");
+  expect(controller.budget.dirty).toBe(true);
+  expect(controller.budget.success).toBe(false);
+  expect(controller.budget.serverError).toBeNull();
+  expect(controller.periodError).toBeNull();
   expect(revision.get(targetPeriod.id)).toBeGreaterThan(0);
   expect(revision.get(successorPeriod.id)).toBeGreaterThan(0);
 });
 
-it("cancels without confirming and restores authoritative range inputs", async () => {
+it("proposal cancel preserves budget draft without confirming and restores authoritative range inputs", async () => {
   const fetchMock = vi
     .fn()
     .mockResolvedValue(jsonResponse(confirmationBody, 409));
   vi.stubGlobal("fetch", fetchMock);
   const controller = createController();
 
+  controller.budget.draft = "13000";
+  controller.createBudgetInput = "777";
   controller.handleRangeChange({
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
@@ -129,7 +236,75 @@ it("cancels without confirming and restores authoritative range inputs", async (
   expect(controller.periodUpdateProposal).toBeNull();
   expect(controller.rangeStartDate).toBe(targetPeriod.startDate);
   expect(controller.rangeEndDate).toBe(targetPeriod.endDate);
+  expect(controller.range.dirty).toBe(false);
+  expect(controller.range.success).toBe(false);
+  expect(controller.range.serverError).toBeNull();
+  expect(controller.budget.draft).toBe("13000");
+  expect(controller.budget.dirty).toBe(true);
+  expect(controller.budget.success).toBe(false);
+  expect(controller.budget.serverError).toBeNull();
+  expect(controller.createBudgetInput).toBe("777");
+  expect(controller.periodError).toBeNull();
+  expect(controller.periodInteractionDisabled).toBe(false);
 });
+
+it.each([targetPeriod.id, successorPeriod.id])(
+  "rejects confirmation when %s becomes stale inside the mutation-slot wait",
+  async (stalePeriodId) => {
+    const revision = createPeriodSummaryRevision();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(confirmationBody, 409));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = createController(revision);
+    controller.budget.draft = "13000";
+    controller.handleRangeChange({
+      startDate: proposal.target.after.startDate,
+      endDate: proposal.target.after.endDate,
+    });
+    await settled(executions[0]);
+    expect(controller.periodUpdateProposal).toEqual(proposal);
+
+    const slotStarted = Promise.withResolvers<void>();
+    const releaseSlot = Promise.withResolvers<void>();
+    const earlierMutation = Effect.runPromise(
+      revision.withMutationSlot(
+        targetPeriod.id,
+        "history",
+        Effect.gen(function* () {
+          slotStarted.resolve();
+          yield* Effect.promise(() => releaseSlot.promise);
+        }),
+      ),
+    );
+    try {
+      await settled(slotStarted.promise);
+      controller.confirmPeriodUpdate();
+      expect(controller.confirmSaving).toBe(true);
+      expect(controller.periodInteractionDisabled).toBe(true);
+      expect(fetchMock).toHaveBeenCalledOnce();
+      revision.advance(stalePeriodId);
+      // Do not read pending here: rejection must happen inside the slot,
+      // not through the public getter's stale-proposal cleanup.
+    } finally {
+      releaseSlot.resolve();
+      await settled(earlierMutation);
+      await settled(Promise.all(executions));
+    }
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(controller.periodUpdateProposal).toBeNull();
+    expect(controller.confirmSaving).toBe(false);
+    expect(controller.periodInteractionDisabled).toBe(false);
+    expect(controller.summary).toEqual(createSummary(0));
+    expect(controller.budget.draft).toBe("13000");
+    expect(controller.budget.serverError).toBeNull();
+    expect(controller.range.success).toBe(false);
+    expect(controller.range.serverError).toBeNull();
+    expect(controller.periodError).toBeNull();
+    expect(revision.getMutationSequence(targetPeriod.id)).toBe(0);
+  },
+);
 
 it("drops stale proposals and preserves conflicts", async () => {
   const revision = createPeriodSummaryRevision();
@@ -172,6 +347,7 @@ it("drops stale proposals and preserves conflicts", async () => {
   vi.stubGlobal("fetch", fetchMock);
   const controller = createController(revision);
 
+  controller.budget.draft = "13000";
   controller.handleRangeChange({
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
@@ -195,6 +371,11 @@ it("drops stale proposals and preserves conflicts", async () => {
 
   expect(controller.periodUpdateProposal).toBeNull();
   expect(controller.range.serverError).toBe(conflictMessage);
+  expect(controller.range.success).toBe(false);
+  expect(controller.range.dirty).toBe(true);
+  expect(controller.budget.draft).toBe("13000");
+  expect(controller.budget.serverError).toBeNull();
+  expect(controller.budget.success).toBe(false);
   expect(controller.periodError).toBeNull();
   expect(controller.summary).toEqual(authoritativeSummary);
   expect(requestOrder.slice(-3)).toEqual([

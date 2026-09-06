@@ -122,7 +122,7 @@ export function createPeriodUpdateEffect(dependencies: Dependencies) {
   ): Effect.Effect<void, never> => {
     const payload = { ...input };
     const submission = operation == null ? undefined : { operation, payload };
-    dependencies.confirmationState?.clear();
+    if (operation !== "budget") dependencies.confirmationState?.clear();
     const periodId = dependencies.getSelectedPeriodId();
     if (periodId == null || dependencies.getSummaryLoading())
       return Effect.void;
@@ -174,6 +174,10 @@ export function createPeriodUpdateEffect(dependencies: Dependencies) {
         return;
       }
       if (result.kind === "confirmation-required") {
+        if (operation === "budget") {
+          localDependencies.setError("保存に失敗しました。");
+          return;
+        }
         const successorId = result.proposal.successor.before.id;
         dependencies.confirmationState?.open({
           proposal: result.proposal,
