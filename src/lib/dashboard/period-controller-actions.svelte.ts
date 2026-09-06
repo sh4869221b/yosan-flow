@@ -41,8 +41,8 @@ export function createPeriodControllerActions(
       runClientEffect(
         dependencies.savePeriodUpdateEffect({
           budgetYen: payload.budgetYen,
-          endDate: dependencies.getRangeEndDate(),
-          startDate: dependencies.getRangeStartDate(),
+          endDate: summary.endDate,
+          startDate: summary.startDate,
         }),
       );
     },
