@@ -16,6 +16,10 @@ import { getInitialPeriodControllerState } from "$lib/dashboard/period-controlle
 import { createPeriodUpdateConfirmationState } from "$lib/dashboard/period-update-confirmation-state.svelte";
 import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import {
+  createPeriodSettingsState,
+  type PeriodSettingsSubmission,
+} from "$lib/dashboard/period-settings-state.svelte";
 import type { PeriodListResponse } from "$lib/dashboard/types";
 import type { PageData } from "../../routes/$types";
 
@@ -34,12 +38,6 @@ export function createPeriodControllerState(
   let summaryError = $state<string | null>(null);
   let periodSaving = $state(false);
   let periodError = $state<string | null>(null);
-  let rangeStartDate = $state(
-    initialState.summary?.startDate ?? initialState.today,
-  );
-  let rangeEndDate = $state(
-    initialState.summary?.endDate ?? addDays(initialState.today, 29),
-  );
   let createStartDate = $state(initialState.createStartDate);
   let createEndDate = $state(addDays(initialState.createStartDate, 29));
   let createPeriodId = $state(toPeriodId(initialState.createStartDate));
@@ -49,22 +47,35 @@ export function createPeriodControllerState(
     summaryRevision,
   });
 
-  function publishSummary(nextSummary: PeriodSummary | null): void {
+  const interactionDisabled = () =>
+    periodSaving ||
+    confirmationState.confirmSaving ||
+    confirmationState.pending != null;
+  const settings = createPeriodSettingsState({
+    getSummary: () => summary,
+    getResetDisabled: interactionDisabled,
+  });
+
+  function publishSummary(
+    nextSummary: PeriodSummary | null,
+    submission?: PeriodSettingsSubmission,
+  ): void {
+    settings.adopt(nextSummary, submission);
     if (nextSummary != null) {
       const periodChanged = selectedPeriodId !== nextSummary.periodId;
       summaryRevision.advance(nextSummary.periodId);
       selectedPeriodId = nextSummary.periodId;
       if (periodChanged) onPeriodChanged();
-      rangeStartDate = nextSummary.startDate;
-      rangeEndDate = nextSummary.endDate;
     }
     summary = nextSummary;
-    confirmationState.dropIfStale();
+    if (nextSummary == null) confirmationState.clear();
+    else confirmationState.dropIfStale();
   }
 
   function refreshSummaryEffect(
     periodId: string,
     reportError = true,
+    submission?: PeriodSettingsSubmission,
   ): Effect.Effect<void, never> {
     const request = summaryRequests.start(periodId);
     return Effect.gen(function* () {
@@ -76,7 +87,7 @@ export function createPeriodControllerState(
           request.mutationSequence,
         );
         if (summaryRequests.owns(request)) {
-          yield* refreshSummaryEffect(periodId, reportError);
+          yield* refreshSummaryEffect(periodId, reportError, submission);
         }
         return;
       }
@@ -89,7 +100,7 @@ export function createPeriodControllerState(
         if (result._tag === "Left") {
           if (reportError) summaryError = result.left;
         } else if (result.right.periodId === periodId) {
-          publishSummary(result.right);
+          publishSummary(result.right, submission);
         }
       }
       if (summaryRequests.owns(request)) {
@@ -101,6 +112,7 @@ export function createPeriodControllerState(
   function refreshPeriodListEffect(
     preferredPeriodId?: string,
     reportSummaryError = true,
+    submission?: PeriodSettingsSubmission,
   ): Effect.Effect<void, string> {
     const request = summaryRequests.start(
       preferredPeriodId ?? selectedPeriodId,
@@ -125,7 +137,7 @@ export function createPeriodControllerState(
         periods.find((period) => period.id === preferredPeriodId) ??
         periods.find((period) => period.id === selectedPeriodId) ??
         periods[periods.length - 1];
-      yield* refreshSummaryEffect(matched.id, reportSummaryError);
+      yield* refreshSummaryEffect(matched.id, reportSummaryError, submission);
     });
   }
 
@@ -166,25 +178,9 @@ export function createPeriodControllerState(
     });
   }
 
-  const actions = createPeriodControllerActions({
-    beginPeriodConfirmation: confirmationState.beginConfirmation,
-    clearPeriodConfirmation: confirmationState.clear,
-    confirmPeriodUpdateEffect,
-    createInitialPeriodEffect,
-    getConfirmSaving: () => confirmationState.confirmSaving,
-    getRangeEndDate: () => rangeEndDate,
-    getRangeStartDate: () => rangeStartDate,
-    getSummary: () => summary,
-    refreshSummaryEffect,
-    savePeriodUpdateEffect,
-    setCreateEndDate: (value) => (createEndDate = value),
-    setCreatePeriodId: (value) => (createPeriodId = value),
-    setCreateStartDate: (value) => (createStartDate = value),
-    setRangeEndDate: (value) => (rangeEndDate = value),
-    setRangeStartDate: (value) => (rangeStartDate = value),
-  });
-
   return {
+    budget: settings.budget,
+    range: settings.range,
     get periods() {
       return periods;
     },
@@ -210,20 +206,16 @@ export function createPeriodControllerState(
       return confirmationState.pending?.proposal ?? null;
     },
     get periodInteractionDisabled() {
-      return (
-        periodSaving ||
-        confirmationState.confirmSaving ||
-        confirmationState.pending != null
-      );
+      return interactionDisabled();
     },
     get periodError() {
       return periodError;
     },
     get rangeStartDate() {
-      return rangeStartDate;
+      return settings.range.draft.startDate;
     },
     get rangeEndDate() {
-      return rangeEndDate;
+      return settings.range.draft.endDate;
     },
     get createStartDate() {
       return createStartDate;
@@ -244,15 +236,24 @@ export function createPeriodControllerState(
       createBudgetInput = value;
     },
     setSummary(nextSummary: PeriodSummary | null): void {
+      settings.adopt(nextSummary);
       summary = nextSummary;
-      confirmationState.dropIfStale();
+      if (nextSummary == null) confirmationState.clear();
+      else confirmationState.dropIfStale();
     },
-    handleSavePeriod: actions.handleSavePeriod,
-    handleRangeChange: actions.handleRangeChange,
-    handleSelectPeriod: actions.handleSelectPeriod,
-    confirmPeriodUpdate: actions.confirmPeriodUpdate,
-    cancelPeriodUpdateConfirmation: actions.cancelPeriodUpdateConfirmation,
-    createInitialPeriod: actions.createInitialPeriod,
-    updateCreatePeriodRange: actions.updateCreatePeriodRange,
+    ...createPeriodControllerActions({
+      beginPeriodConfirmation: confirmationState.beginConfirmation,
+      clearPeriodConfirmation: confirmationState.clear,
+      confirmPeriodUpdateEffect,
+      createInitialPeriodEffect,
+      getConfirmSaving: () => confirmationState.confirmSaving,
+      settings,
+      getSummary: () => summary,
+      refreshSummaryEffect,
+      savePeriodUpdateEffect,
+      setCreateEndDate: (value) => (createEndDate = value),
+      setCreatePeriodId: (value) => (createPeriodId = value),
+      setCreateStartDate: (value) => (createStartDate = value),
+    }),
   };
 }
