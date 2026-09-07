@@ -1,6 +1,5 @@
 import { Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
-import { toPeriodId } from "$lib/dashboard/date";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
 import type { PendingPeriodUpdateConfirmation } from "$lib/dashboard/period-update-confirmation-state.svelte";
 import type { SavePeriodPayload } from "$lib/dashboard/types";
@@ -29,9 +28,10 @@ type PeriodControllerActionDependencies = {
     _payload: SavePeriodPayload,
     _operation: PeriodSetting,
   ) => Effect.Effect<void, never>;
-  readonly setCreateEndDate: (_value: string) => void;
-  readonly setCreatePeriodId: (_value: string) => void;
-  readonly setCreateStartDate: (_value: string) => void;
+  readonly updateCreatePeriodRange: (_range: {
+    endDate: string;
+    startDate: string;
+  }) => void;
 };
 
 export function createPeriodControllerActions(
@@ -131,9 +131,7 @@ export function createPeriodControllerActions(
       endDate: string;
       startDate: string;
     }): void {
-      dependencies.setCreateStartDate(payload.startDate);
-      dependencies.setCreateEndDate(payload.endDate);
-      dependencies.setCreatePeriodId(toPeriodId(payload.startDate));
+      dependencies.updateCreatePeriodRange(payload);
     },
   };
 }

@@ -5,6 +5,7 @@ import { addDays } from "$lib/dashboard/date";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import type { PeriodCreateResponse } from "$lib/dashboard/types";
 import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+import type { PeriodCreateState } from "$lib/dashboard/period-create-state.svelte";
 
 type PeriodCreationDependencies = {
   readonly getBudgetInput: () => string;
@@ -18,6 +19,29 @@ type PeriodCreationDependencies = {
   readonly setError: (_error: string | null) => void;
   readonly setSaving: (_saving: boolean) => void;
 };
+
+type PeriodCreationControllerDependencies = {
+  readonly createState: PeriodCreateState;
+  readonly getPeriods: () => PeriodOption[];
+  readonly refreshPeriodListEffect: (
+    _preferredPeriodId: string,
+  ) => Effect.Effect<void, string>;
+};
+
+export function createPeriodCreationEffect(
+  dependencies: PeriodCreationControllerDependencies,
+): Effect.Effect<void, never> {
+  return createInitialPeriodEffect({
+    getBudgetInput: () => dependencies.createState.createBudgetInput,
+    getEndDate: () => dependencies.createState.createEndDate,
+    getPeriodId: () => dependencies.createState.createPeriodId,
+    getPeriods: dependencies.getPeriods,
+    getStartDate: () => dependencies.createState.createStartDate,
+    refreshPeriodListEffect: dependencies.refreshPeriodListEffect,
+    setError: dependencies.createState.setError,
+    setSaving: dependencies.createState.setSaving,
+  });
+}
 
 export function createInitialPeriodEffect(
   dependencies: PeriodCreationDependencies,
