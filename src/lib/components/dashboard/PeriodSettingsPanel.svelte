@@ -48,6 +48,7 @@
       nextRange.startDate === syncedRange.startDate &&
       nextRange.endDate === syncedRange.endDate
     ) {
+      localEdit = false;
       return;
     }
     if (!localEdit) {
@@ -57,6 +58,13 @@
     }
     localEdit = false;
     syncedRange = { ...nextRange };
+  });
+
+  $effect(() => {
+    if (!controller.range.success) return;
+    touchedStart = false;
+    touchedEnd = false;
+    applyAttempted = false;
   });
 
   function updateRange(value: { startDate: string; endDate: string }): void {
@@ -74,7 +82,7 @@
     if (!rangeValidation.isValid) {
       document
         .getElementById(
-          rangeValidation.startError
+          rangeValidation.startError || rangeValidation.rangeError
             ? "current-period-range-start"
             : "current-period-range-end",
         )
@@ -108,6 +116,7 @@
       />
     </section>
 
+    <h2>期間設定</h2>
     <PeriodRangePicker
       value={controller.range.draft}
       onValueChange={updateRange}
@@ -143,6 +152,14 @@
 />
 
 <style>
+  h2 {
+    color: #2f2219;
+    font-size: clamp(1.25rem, 2vw, 1.55rem);
+    letter-spacing: 0;
+    line-height: 1.15;
+    margin: 1rem 0 0;
+  }
+
   .card {
     background: #fffdf8;
     border: 1px solid #e4ddd2;

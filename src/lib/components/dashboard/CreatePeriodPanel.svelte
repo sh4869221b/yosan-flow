@@ -73,13 +73,16 @@
     if (!rangeValidation.isValid) {
       document
         .getElementById(
-          rangeValidation.startError
+          rangeValidation.startError || rangeValidation.rangeError
             ? `${getRangePrefix()}-start`
             : `${getRangePrefix()}-end`,
         )
         ?.focus();
       return;
     }
+    touchedStart = false;
+    touchedEnd = false;
+    applyAttempted = false;
     controller.updateCreatePeriodRange(rangeDraft);
   }
 
@@ -103,6 +106,7 @@
       placeholder="p-2026-04-20"
     />
   </label>
+  <h2>期間設定</h2>
   <PeriodRangePicker
     value={rangeDraft}
     onValueChange={updateRange}
@@ -155,6 +159,7 @@
       placeholder="p-2026-04-20"
     />
   </label>
+  <h2>期間設定</h2>
   <PeriodRangePicker
     value={rangeDraft}
     onValueChange={updateRange}
@@ -194,6 +199,14 @@
 {/if}
 
 <style>
+  h2 {
+    color: #2f2219;
+    font-size: clamp(1.25rem, 2vw, 1.55rem);
+    letter-spacing: 0;
+    line-height: 1.15;
+    margin: 0.75rem 0 0;
+  }
+
   label {
     display: grid;
     font-weight: 700;

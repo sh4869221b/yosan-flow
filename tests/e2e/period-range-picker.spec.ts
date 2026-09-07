@@ -80,12 +80,17 @@ test("raw input retains invalid text, associates errors, and makes no mutation",
   }
   await page.getByTestId("current-period-range-apply").click();
   expect(mutationCount).toBe(0);
+  await expect(start).toBeFocused();
   await expect(start).toHaveValue("2026-09-30");
   await expect(end).toHaveValue("2026-09-01");
 
   await end.fill("2026-09-30");
   await expect(start).toHaveAttribute("aria-invalid", "false");
   await expect(end).toHaveAttribute("aria-invalid", "false");
+  await page.getByTestId("current-period-range-apply").click();
+  await expect(page.getByText("期間: 2026-09-30 - 2026-09-30")).toBeVisible();
+  await start.fill("2026-09-");
+  await expect(start).toHaveAttribute("aria-invalid", "false");
 });
 
 test("create apply updates initial and additional range only after valid apply", async ({
@@ -94,8 +99,12 @@ test("create apply updates initial and additional range only after valid apply",
 }) => {
   await page.goto(getBaseUrl());
   const initialId = page.getByLabel("期間ID");
+  const initialStart = page.getByTestId("initial-period-range-start");
+  await page.getByTestId("initial-period-range-apply").click();
+  await initialStart.fill("2026-09-");
+  await expect(initialStart).toHaveAttribute("aria-invalid", "false");
   await initialId.fill("custom-initial-id");
-  await page.getByTestId("initial-period-range-start").fill("2026-10-01");
+  await initialStart.fill("2026-10-01");
   await page.getByTestId("initial-period-range-end").fill("2026-10-31");
   await expect(initialId).toHaveValue("custom-initial-id");
   await page.getByTestId("initial-period-range-apply").click();
