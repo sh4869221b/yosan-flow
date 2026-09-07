@@ -52,6 +52,50 @@ test("creates period", async ({ page }) => {
   );
 });
 
+test("preserves manually edited create ID after applying range", async ({
+  page,
+}, testInfo) => {
+  const today = getCurrentJstDate();
+  const endDate = addDays(today, 14);
+  const periodId = "p-manual-create";
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto(`${getBaseUrl()}/`);
+  await page.getByLabel("期間ID").fill(periodId);
+  await page.getByTestId("initial-period-range-start").fill(today);
+  await page.getByTestId("initial-period-range-end").fill(endDate);
+  await page.getByTestId("initial-period-range-apply").click();
+
+  await expect(page.getByLabel("期間ID")).toHaveValue(periodId);
+  const createRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request.url() === `${getBaseUrl()}/api/periods`,
+  );
+  await page.getByRole("button", { name: "期間を作成" }).click();
+  expect((await createRequest).postDataJSON()).toEqual({
+    id: periodId,
+    startDate: today,
+    endDate,
+    budgetYen: 120000,
+    predecessorPeriodId: null,
+  });
+
+  await expect(page.getByTestId("period-select")).toHaveValue(periodId);
+  await expect(page.getByTestId("period-id")).toContainText(periodId);
+  await page.screenshot({
+    path: testInfo.outputPath("issue-378-created.png"),
+    fullPage: true,
+  });
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 test("updates a seeded period budget", async ({ page, request }) => {
   const today = getCurrentJstDate();
   const endDate = addDays(today, 29);
