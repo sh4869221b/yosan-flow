@@ -34,6 +34,21 @@ export function createPeriodRange(input: {
   };
 }
 
+export function getPeriodRangeCalendarValue(input: {
+  readonly startDate: string;
+  readonly endDate: string;
+}): PeriodRange {
+  const range = createPeriodRange(input);
+  const startDate = range.start?.toString() ?? "";
+  const endDate = range.end?.toString() ?? "";
+
+  if (!startDate || (endDate && startDate > endDate)) {
+    return { start: undefined, end: undefined };
+  }
+
+  return range;
+}
+
 export function updatePeriodRangeInput(
   range: PeriodRange,
   field: PeriodRangeField,
