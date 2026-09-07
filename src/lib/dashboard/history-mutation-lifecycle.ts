@@ -6,7 +6,10 @@ import { createHistoryMutationTracker } from "$lib/dashboard/history-mutation-tr
 import { createHistorySummaryReconciliation } from "$lib/dashboard/history-summary-reconciliation";
 import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 import { summaryConfigurationMatches } from "$lib/dashboard/summary-rows";
-import type { HistoryMutationResponse } from "$lib/dashboard/types";
+import type {
+  HistoryActionResult,
+  HistoryMutationResponse,
+} from "$lib/dashboard/types";
 
 type Dependencies = {
   readonly applyHistories: (
@@ -18,7 +21,9 @@ type Dependencies = {
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary: () => PeriodSummary | null;
   readonly invalidateHistoryLoads: (_periodId: string, _date: string) => void;
-  readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
+  readonly loadHistoryEffect: (
+    _date: string,
+  ) => Effect.Effect<HistoryActionResult, never>;
   readonly retainHistories: (
     _periodId: string,
     _date: string,
@@ -46,16 +51,20 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
     historyId: string,
     request: RequestInit,
     errorMessage: string,
-  ): Effect.Effect<void, never> {
+  ): Effect.Effect<HistoryActionResult, never> {
     const selectedPeriodId = dependencies.getSelectedPeriodId();
     const selectedDate = dependencies.getSelectedDate();
-    if (selectedPeriodId == null || selectedDate == null) return Effect.void;
+    if (selectedPeriodId == null || selectedDate == null) {
+      return Effect.succeed({ kind: "ignored" });
+    }
     const mutationReservation = historyMutations.reserve(
       selectedPeriodId,
       selectedDate,
       historyId,
     );
-    if (mutationReservation == null) return Effect.void;
+    if (mutationReservation == null) {
+      return Effect.succeed({ kind: "ignored" });
+    }
     dependencies.setError(null);
     dependencies.bumpVersion();
     return Effect.gen(function* () {
@@ -162,6 +171,17 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
               );
             }
             return {
+              actionResult:
+                result._tag === "Right" &&
+                responseWasPublished &&
+                mutationOwnsCurrentDate
+                  ? ({ kind: "success" } as const)
+                  : result._tag === "Left" && mutationOwnsCurrentDate
+                    ? ({
+                        kind: "failure",
+                        message: result.left,
+                      } as const)
+                    : ({ kind: "ignored" } as const),
               mutationError: result._tag === "Left" ? result.left : undefined,
               mutationSequence,
               shouldReconcile,
@@ -177,13 +197,14 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
           ),
         );
       if (outcome?.shouldReconcile) {
-        yield* reconcileHistoryMutationEffect({
+        return yield* reconcileHistoryMutationEffect({
           date: selectedDate,
           mutationSequence: outcome.mutationSequence,
           originatingError: outcome.mutationError,
           periodId: selectedPeriodId,
         });
       }
+      return outcome?.actionResult ?? ({ kind: "ignored" } as const);
     });
   }
 

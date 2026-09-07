@@ -191,6 +191,7 @@ export function createDashboardPageController(getData: () => PageData) {
     openDayEntry: dayEntryController.openDayEntry,
     closeDayEntry: dayEntryController.closeDayEntry,
     submitDayEntry: dayEntryController.submitDayEntry,
+    retryHistory: historyController.retryHistory,
     updateHistory: historyController.updateHistory,
     deleteHistory: historyController.deleteHistory,
     updateCreatePeriodRange: periodController.updateCreatePeriodRange,

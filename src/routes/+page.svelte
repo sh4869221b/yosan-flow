@@ -79,6 +79,7 @@
     onCloseAutoFocus={(event) =>
       restoreDayEntryFocus(event, controller.dayEntryCloseReason)}
     save={controller.submitDayEntry}
+    retryHistory={controller.retryHistory}
     updateHistory={controller.updateHistory}
     deleteHistory={controller.deleteHistory}
   />

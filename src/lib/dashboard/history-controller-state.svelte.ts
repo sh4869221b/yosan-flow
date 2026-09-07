@@ -5,6 +5,7 @@ import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import { createHistoryMutationLifecycle } from "$lib/dashboard/history-mutation-lifecycle";
 import type {
   DeleteHistoryPayload,
+  HistoryActionResult,
   HistoryItem,
   HistoryMutationResponse,
   HistoryResponse,
@@ -45,10 +46,12 @@ export function createHistoryControllerState(
     );
   }
 
-  function loadHistoryEffect(date: string): Effect.Effect<void, never> {
+  function loadHistoryResultEffect(
+    date: string,
+  ): Effect.Effect<HistoryActionResult, never> {
     const selectedPeriodId = dependencies.getSelectedPeriodId();
     if (selectedPeriodId == null) {
-      return Effect.void;
+      return Effect.succeed({ kind: "ignored" });
     }
     const retained = retainedHistories.replay(
       selectedPeriodId,
@@ -87,6 +90,10 @@ export function createHistoryControllerState(
         historyLoading = false;
         activeHistoryRequest = null;
       }
+      if (!requestIsCurrent) return { kind: "ignored" } as const;
+      return result._tag === "Right"
+        ? ({ kind: "success" } as const)
+        : ({ kind: "failure", message: result.left } as const);
     });
   }
 
@@ -128,7 +135,7 @@ export function createHistoryControllerState(
     getSelectedPeriodId: dependencies.getSelectedPeriodId,
     getSummary: () => dependencies.getSummary?.() ?? null,
     invalidateHistoryLoads,
-    loadHistoryEffect,
+    loadHistoryEffect: loadHistoryResultEffect,
     retainHistories: (periodId, date, body, revision, mutationSequence) => {
       retainedHistories.retain(
         periodId,
@@ -144,7 +151,7 @@ export function createHistoryControllerState(
 
   function updateHistoryEffect(
     payload: UpdateHistoryPayload,
-  ): Effect.Effect<void, never> {
+  ): Effect.Effect<HistoryActionResult, never> {
     return historyMutations.mutateEffect(
       payload.historyId,
       {
@@ -161,7 +168,7 @@ export function createHistoryControllerState(
 
   function deleteHistoryEffect(
     payload: DeleteHistoryPayload,
-  ): Effect.Effect<void, never> {
+  ): Effect.Effect<HistoryActionResult, never> {
     return historyMutations.mutateEffect(
       payload.historyId,
       { method: "DELETE" },
@@ -191,14 +198,19 @@ export function createHistoryControllerState(
       historyError = null;
     },
     loadHistory(date: string): void {
-      runClientEffect(loadHistoryEffect(date));
+      runClientEffect(loadHistoryResultEffect(date).pipe(Effect.asVoid));
     },
-    loadHistoryEffect,
-    updateHistory(payload: UpdateHistoryPayload): void {
-      runClientEffect(updateHistoryEffect(payload));
+    loadHistoryEffect(date: string): Effect.Effect<void, never> {
+      return loadHistoryResultEffect(date).pipe(Effect.asVoid);
     },
-    deleteHistory(payload: DeleteHistoryPayload): void {
-      runClientEffect(deleteHistoryEffect(payload));
+    retryHistory(date: string): Promise<HistoryActionResult> {
+      return Effect.runPromise(loadHistoryResultEffect(date));
+    },
+    updateHistory(payload: UpdateHistoryPayload): Promise<HistoryActionResult> {
+      return Effect.runPromise(updateHistoryEffect(payload));
+    },
+    deleteHistory(payload: DeleteHistoryPayload): Promise<HistoryActionResult> {
+      return Effect.runPromise(deleteHistoryEffect(payload));
     },
   };
 }

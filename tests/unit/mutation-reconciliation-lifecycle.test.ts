@@ -47,7 +47,7 @@ it("releases a history slot before reconciling an unreadable success", async () 
     loadHistoryEffect: () =>
       Effect.sync(() => {
         error = null;
-      }),
+      }).pipe(Effect.as({ kind: "success" } as const)),
     retainHistories: vi.fn(),
     setError: (nextError) => {
       error = nextError;
@@ -105,7 +105,7 @@ it("preserves a history mutation error when reconciliation also fails", async ()
     loadHistoryEffect: () =>
       Effect.sync(() => {
         error = null;
-      }),
+      }).pipe(Effect.as({ kind: "success" } as const)),
     retainHistories: vi.fn(),
     setError: (nextError) => {
       error = nextError;

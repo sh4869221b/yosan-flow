@@ -1,17 +1,8 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import HistoryRow from "./day-entry/HistoryRow.svelte";
+  import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
   import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
-
-  type HistoryItem = {
-    id: string;
-    date: string;
-    operationType: "add" | "overwrite";
-    inputYen: number;
-    beforeTotalYen: number;
-    afterTotalYen: number;
-    memo: string | null;
-    createdAt: string;
-  };
 
   type Props = {
     date?: string | null;
@@ -21,13 +12,19 @@
     loading?: boolean;
     errorMessage?: string | null;
     historyMutatingId?: string | null;
+    retryHistory?: (_date: string) => Promise<HistoryActionResult>;
     updateHistory?: (_payload: {
       historyId: string;
       inputYen: number;
       memo: string;
-    }) => void;
-    deleteHistory?: (_payload: { historyId: string }) => void;
+    }) => Promise<HistoryActionResult>;
+    deleteHistory?: (_payload: {
+      historyId: string;
+    }) => Promise<HistoryActionResult>;
   };
+
+  type RetryOperation = { readonly date: string };
+  type EditOperation = { readonly date: string; readonly historyId: string };
 
   let {
     date = null,
@@ -37,8 +34,9 @@
     loading = false,
     errorMessage = null,
     historyMutatingId = null,
-    updateHistory = () => {},
-    deleteHistory = () => {},
+    retryHistory = async () => ({ kind: "ignored" }),
+    updateHistory = async () => ({ kind: "ignored" }),
+    deleteHistory = async () => ({ kind: "ignored" }),
   }: Props = $props();
 
   let editingHistoryId = $state<string | null>(null);
@@ -46,21 +44,25 @@
   let editMemo = $state("");
   let pendingSaveHistoryId = $state<string | null>(null);
   let inputError = $state<string | null>(null);
-
-  $effect(() => {
-    if (
-      pendingSaveHistoryId != null &&
-      historyMutatingId === null &&
-      errorMessage == null
-    ) {
-      cancelEdit();
-    }
-  });
+  let activeRetry = $state.raw<RetryOperation | null>(null);
+  let activeEdit = $state.raw<EditOperation | null>(null);
+  let historyHeading = $state<HTMLHeadingElement | null>(null);
 
   $effect(() => {
     if (!isOpen) {
       cancelEdit();
+      activeRetry = null;
     }
+    return () => {
+      activeEdit = null;
+      activeRetry = null;
+    };
+  });
+
+  $effect(() => {
+    date;
+    cancelEdit();
+    activeRetry = null;
   });
 
   function startEdit(history: HistoryItem): void {
@@ -78,54 +80,79 @@
     editInputYen = "";
     editMemo = "";
     pendingSaveHistoryId = null;
+    activeEdit = null;
     inputError = null;
   }
 
-  function saveEdit(historyId: string): void {
+  async function saveEdit(historyId: string): Promise<HistoryActionResult> {
     const parsed = parseNonNegativeIntegerYenInput(editInputYen);
     if (parsed == null) {
       inputError = "入力額は 0 以上の整数で入力してください。";
-      return;
+      return { kind: "failure", message: inputError };
     }
     inputError = null;
-    updateHistory({
+    if (!isOpen || date == null) return { kind: "ignored" };
+    const operation: EditOperation = { date, historyId };
+    activeEdit = operation;
+    pendingSaveHistoryId = historyId;
+    const result = await updateHistory({
       historyId,
       inputYen: parsed,
       memo: editMemo,
     });
-    pendingSaveHistoryId = historyId;
+    if (
+      activeEdit !== operation ||
+      !isOpen ||
+      date !== operation.date ||
+      editingHistoryId !== historyId
+    ) {
+      return result;
+    }
+    activeEdit = null;
+    pendingSaveHistoryId = null;
+    if (result.kind === "success") cancelEdit();
+    return result;
   }
 
-  function removeHistory(historyId: string): void {
+  function removeHistory(historyId: string): Promise<HistoryActionResult> {
     if (editingHistoryId === historyId) {
       cancelEdit();
     }
-    deleteHistory({ historyId });
+    return deleteHistory({ historyId });
+  }
+
+  async function retry(): Promise<void> {
+    if (date == null || loading || activeRetry != null) return;
+    const operation: RetryOperation = { date };
+    activeRetry = operation;
+    const result = await retryHistory(date);
+    if (activeRetry !== operation || !isOpen || date !== operation.date) return;
+    activeRetry = null;
+    if (result.kind === "success") {
+      await tick();
+      historyHeading?.focus();
+    }
   }
 </script>
 
 <section class="history-panel">
   <div class="history-heading">
-    <h2 id={headingId}>履歴表示</h2>
+    <h2 id={headingId} tabindex="-1" bind:this={historyHeading}>履歴表示</h2>
     {#if date}
       <p>対象日: {date}</p>
     {/if}
   </div>
   {#if loading}
-    <p class="status">履歴を読み込み中...</p>
-  {/if}
-  {#if errorMessage}
+    <p class="status" role="status">履歴を読み込み中...</p>
+  {:else if errorMessage}
     <p class="error-message" role="alert">{errorMessage}</p>
-  {/if}
-  {#if inputError}
-    <p class="error-message" role="alert">{inputError}</p>
-  {/if}
-  {#if histories.length === 0}
+  {:else if histories.length === 0}
     <div class="empty-history">
       <p>履歴はまだありません。</p>
       <small>入力を保存すると履歴が表示されます。</small>
     </div>
-  {:else}
+  {/if}
+  {#if histories.length > 0}
     <ul>
       {#each histories as history (history.id)}
         <HistoryRow
@@ -144,6 +171,19 @@
         />
       {/each}
     </ul>
+  {/if}
+  {#if errorMessage || activeRetry != null}
+    <button
+      class="retry-button"
+      type="button"
+      aria-disabled={loading || activeRetry != null}
+      onclick={retry}
+    >
+      {activeRetry != null ? "再試行中..." : "履歴を再試行"}
+    </button>
+  {/if}
+  {#if inputError}
+    <p class="error-message" role="alert">{inputError}</p>
   {/if}
 </section>
 
@@ -205,6 +245,24 @@
     color: #9b2c22;
     font-weight: 800;
     padding: 0.75rem 0.85rem;
+  }
+
+  .retry-button {
+    background: #fffdf8;
+    border: 1px solid #d9cdbc;
+    border-radius: 8px;
+    color: #2f2219;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 900;
+    justify-self: start;
+    min-height: 2.75rem;
+    padding: 0 0.9rem;
+  }
+
+  .retry-button[aria-disabled="true"] {
+    cursor: wait;
+    opacity: 0.65;
   }
 
   ul {

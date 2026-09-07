@@ -1,16 +1,6 @@
 <script lang="ts">
   import { Pencil, Save, Trash2, X } from "@lucide/svelte";
-
-  type HistoryItem = {
-    id: string;
-    date: string;
-    operationType: "add" | "overwrite";
-    inputYen: number;
-    beforeTotalYen: number;
-    afterTotalYen: number;
-    memo: string | null;
-    createdAt: string;
-  };
+  import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
 
   type Props = {
     history: HistoryItem;
@@ -22,8 +12,8 @@
     editMemo?: string;
     onStartEdit?: (_history: HistoryItem) => void;
     onCancelEdit?: () => void;
-    onSaveEdit?: (_historyId: string) => void;
-    onDelete?: (_historyId: string) => void;
+    onSaveEdit?: (_historyId: string) => Promise<HistoryActionResult>;
+    onDelete?: (_historyId: string) => Promise<HistoryActionResult>;
   };
 
   let {
@@ -36,8 +26,8 @@
     editMemo = $bindable(""),
     onStartEdit = () => {},
     onCancelEdit = () => {},
-    onSaveEdit = () => {},
-    onDelete = () => {},
+    onSaveEdit = async () => ({ kind: "ignored" }),
+    onDelete = async () => ({ kind: "ignored" }),
   }: Props = $props();
 </script>
 
@@ -73,7 +63,7 @@
       class="inline-edit"
       onsubmit={(event) => {
         event.preventDefault();
-        onSaveEdit(history.id);
+        void onSaveEdit(history.id);
       }}
     >
       <label>
@@ -107,12 +97,22 @@
       </div>
     </form>
   {:else}
-    <p>
-      入力 {history.inputYen} 円 / 変更前 {history.beforeTotalYen} 円 / 変更後
-      {history.afterTotalYen} 円
+    <p class="history-input">
+      <span>入力</span>
+      <strong>{history.inputYen} 円</strong>
     </p>
+    <dl class="history-change">
+      <div>
+        <dt>変更前</dt>
+        <dd>{history.beforeTotalYen} 円</dd>
+      </div>
+      <div>
+        <dt>変更後</dt>
+        <dd>{history.afterTotalYen} 円</dd>
+      </div>
+    </dl>
     {#if history.memo}
-      <small>{history.memo}</small>
+      <p class="history-memo"><span>メモ</span>{history.memo}</p>
     {/if}
   {/if}
 </li>
@@ -143,6 +143,47 @@
 
   strong {
     color: #397d3d;
+  }
+
+  .history-input {
+    align-items: baseline;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .history-input span,
+  dt,
+  .history-memo span {
+    color: #76675b;
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .history-change {
+    display: flex;
+    gap: 1rem;
+    margin: 0;
+  }
+
+  .history-change div {
+    align-items: baseline;
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  dd {
+    color: #2f2219;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .history-memo {
+    overflow-wrap: anywhere;
+  }
+
+  .history-memo span {
+    display: block;
+    margin-bottom: 0.15rem;
   }
 
   button,
@@ -225,7 +266,6 @@
   }
 
   p,
-  small,
   time {
     color: #76675b;
     font-size: 0.84rem;
@@ -238,6 +278,8 @@
   @media (max-width: 760px) {
     .history-row-header,
     .history-meta,
+    .history-change,
+    .history-change div,
     .row-actions,
     .edit-actions {
       align-items: stretch;
