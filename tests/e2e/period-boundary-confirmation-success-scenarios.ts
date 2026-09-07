@@ -68,6 +68,20 @@ export function registerPeriodBoundarySuccessScenarios(): void {
     await expect(page.getByTestId("current-period-range-end")).toHaveValue(
       target.endDate,
     );
+    const calendar = page.locator("[data-range-calendar-root]").first();
+    await calendar.getByRole("button", { name: "次の月" }).click();
+    await expect(
+      calendar.locator('[data-range-calendar-day][data-value="2026-07-20"]'),
+    ).toHaveAttribute("data-selected", "");
+    await expect(
+      calendar.locator('[data-range-calendar-day][data-value="2026-07-21"]'),
+    ).not.toHaveAttribute("data-selected", "");
+    if (process.env.YOSAN_FLOW_EVIDENCE_DIR) {
+      await page.screenshot({
+        path: `${process.env.YOSAN_FLOW_EVIDENCE_DIR}/task-4-boundary-cancel-reset.png`,
+        fullPage: true,
+      });
+    }
 
     await proposeBoundaryChange(page);
     await expect(dialog).toHaveCount(1);

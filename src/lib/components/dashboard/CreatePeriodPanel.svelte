@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
   import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
+  import { getPeriodRangeValidation } from "$lib/components/period-range-state";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 
@@ -10,6 +11,86 @@
   };
 
   let { variant, controller }: Props = $props();
+
+  function getControllerRange(): { startDate: string; endDate: string } {
+    return {
+      startDate: controller.createStartDate,
+      endDate: controller.createEndDate,
+    };
+  }
+
+  let rangeDraft = $state(getControllerRange());
+  let syncedRange = $state(getControllerRange());
+  let touchedStart = $state(false);
+  let touchedEnd = $state(false);
+  let applyAttempted = $state(false);
+
+  const rangeValidation = $derived(getPeriodRangeValidation(rangeDraft));
+  const showStartError = $derived(
+    touchedStart || applyAttempted ? rangeValidation.startError : null,
+  );
+  const showEndError = $derived(
+    touchedEnd || applyAttempted ? rangeValidation.endError : null,
+  );
+  const showRangeError = $derived(
+    touchedStart || touchedEnd || applyAttempted
+      ? rangeValidation.rangeError
+      : null,
+  );
+  const rangeDisabled = $derived(
+    controller.periodSaving || controller.periodInteractionDisabled,
+  );
+
+  $effect(() => {
+    const nextRange = {
+      startDate: controller.createStartDate,
+      endDate: controller.createEndDate,
+    };
+    if (
+      nextRange.startDate === syncedRange.startDate &&
+      nextRange.endDate === syncedRange.endDate
+    ) {
+      return;
+    }
+    syncedRange = nextRange;
+    rangeDraft = { ...nextRange };
+    touchedStart = false;
+    touchedEnd = false;
+    applyAttempted = false;
+  });
+
+  function updateRange(value: { startDate: string; endDate: string }): void {
+    rangeDraft = value;
+  }
+
+  function markBlurred(field: "start" | "end"): void {
+    if (field === "start") touchedStart = true;
+    else touchedEnd = true;
+  }
+
+  function applyRange(): void {
+    applyAttempted = true;
+    if (!rangeValidation.isValid) {
+      document
+        .getElementById(
+          rangeValidation.startError || rangeValidation.rangeError
+            ? `${getRangePrefix()}-start`
+            : `${getRangePrefix()}-end`,
+        )
+        ?.focus();
+      return;
+    }
+    touchedStart = false;
+    touchedEnd = false;
+    applyAttempted = false;
+    controller.updateCreatePeriodRange(rangeDraft);
+  }
+
+  function getRangePrefix(): string {
+    return variant === "empty-state"
+      ? "initial-period-range"
+      : "create-period-range";
+  }
 </script>
 
 {#if variant === "empty-state"}
@@ -25,13 +106,27 @@
       placeholder="p-2026-04-20"
     />
   </label>
+  <h2>期間設定</h2>
   <PeriodRangePicker
-    startDate={controller.createStartDate}
-    endDate={controller.createEndDate}
-    saving={controller.periodSaving}
+    value={rangeDraft}
+    onValueChange={updateRange}
+    onFieldBlur={markBlurred}
+    disabled={rangeDisabled}
+    startId="initial-period-range-start"
+    endId="initial-period-range-end"
+    startError={showStartError}
+    endError={showEndError}
+    rangeError={showRangeError}
     testIdPrefix="initial-period-range"
-    change={controller.updateCreatePeriodRange}
   />
+  <button
+    type="button"
+    data-testid="initial-period-range-apply"
+    disabled={rangeDisabled}
+    onclick={applyRange}
+  >
+    {controller.periodSaving ? "保存中..." : "期間を反映"}
+  </button>
   <label>
     新規予算額 (円)
     <input
@@ -64,13 +159,27 @@
       placeholder="p-2026-04-20"
     />
   </label>
+  <h2>期間設定</h2>
   <PeriodRangePicker
-    startDate={controller.createStartDate}
-    endDate={controller.createEndDate}
-    saving={controller.periodSaving}
+    value={rangeDraft}
+    onValueChange={updateRange}
+    onFieldBlur={markBlurred}
+    disabled={rangeDisabled}
+    startId="create-period-range-start"
+    endId="create-period-range-end"
+    startError={showStartError}
+    endError={showEndError}
+    rangeError={showRangeError}
     testIdPrefix="create-period-range"
-    change={controller.updateCreatePeriodRange}
   />
+  <button
+    type="button"
+    data-testid="create-period-range-apply"
+    disabled={rangeDisabled}
+    onclick={applyRange}
+  >
+    {controller.periodSaving ? "保存中..." : "期間を反映"}
+  </button>
   <label>
     新規予算額 (円)
     <input
@@ -90,6 +199,14 @@
 {/if}
 
 <style>
+  h2 {
+    color: #2f2219;
+    font-size: clamp(1.25rem, 2vw, 1.55rem);
+    letter-spacing: 0;
+    line-height: 1.15;
+    margin: 0.75rem 0 0;
+  }
+
   label {
     display: grid;
     font-weight: 700;
