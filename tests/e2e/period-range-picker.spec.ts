@@ -382,7 +382,7 @@ test("calendar keeps day controls usable on a mobile viewport", async ({
   }
 });
 
-test("create apply updates initial and additional range only after valid apply", async ({
+test("create apply preserves raw drafts until valid and reaches both create POST flows", async ({
   page,
   request,
 }) => {
@@ -404,6 +404,15 @@ test("create apply updates initial and additional range only after valid apply",
   await expect(page.getByTestId("initial-period-range-end")).toHaveValue(
     "2026-10-31",
   );
+  const initialCreate = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url() === `${getBaseUrl()}/api/periods`,
+  );
+  await page.getByRole("button", { name: "期間を作成" }).click();
+  expect((await initialCreate).status()).toBe(201);
+  await expect(page.getByTestId("period-id")).toContainText("p-2026-10-01");
+  await expect(page.getByText("期間: 2026-10-01 - 2026-10-31")).toBeVisible();
 
   await resetTestData(request);
   await seedPeriod(request, getBaseUrl(), {
@@ -421,4 +430,13 @@ test("create apply updates initial and additional range only after valid apply",
   await expect(additionalId).toHaveValue("custom-additional-id");
   await page.getByTestId("create-period-range-apply").click();
   await expect(additionalId).toHaveValue("p-2026-10-01");
+  const additionalCreate = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url() === `${getBaseUrl()}/api/periods`,
+  );
+  await page.getByRole("button", { name: "期間を作成" }).click();
+  expect((await additionalCreate).status()).toBe(201);
+  await expect(page.getByTestId("period-id")).toContainText("p-2026-10-01");
+  await expect(page.getByText("期間: 2026-10-01 - 2026-10-31")).toBeVisible();
 });
