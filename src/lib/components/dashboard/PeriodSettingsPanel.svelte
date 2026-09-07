@@ -2,6 +2,7 @@
   import { Settings2 } from "@lucide/svelte";
   import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
   import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
+  import { getPeriodRangeValidation } from "$lib/components/period-range-state";
   import BudgetPeriodForm from "./BudgetPeriodForm.svelte";
   import PeriodBoundaryConfirmationDialog from "./PeriodBoundaryConfirmationDialog.svelte";
 
@@ -13,12 +14,75 @@
 
   let { controller }: Props = $props();
 
-  const rangeError = $derived(
-    controller.range.validationErrors.startDate ??
-      controller.range.validationErrors.endDate ??
-      controller.range.validationErrors.range ??
-      controller.range.serverError,
+  let touchedStart = $state(false);
+  let touchedEnd = $state(false);
+  let applyAttempted = $state(false);
+  let syncedRange = $state(getRangeDraft());
+  let localEdit = false;
+
+  function getRangeDraft(): { startDate: string; endDate: string } {
+    return { ...controller.range.draft };
+  }
+
+  const rangeValidation = $derived(
+    getPeriodRangeValidation(controller.range.draft),
   );
+  const showStartError = $derived(
+    touchedStart || applyAttempted ? rangeValidation.startError : null,
+  );
+  const showEndError = $derived(
+    touchedEnd || applyAttempted ? rangeValidation.endError : null,
+  );
+  const showRangeError = $derived(
+    touchedStart || touchedEnd || applyAttempted
+      ? rangeValidation.rangeError
+      : null,
+  );
+  const rangeDisabled = $derived(
+    controller.range.saving || controller.periodInteractionDisabled,
+  );
+
+  $effect(() => {
+    const nextRange = controller.range.draft;
+    if (
+      nextRange.startDate === syncedRange.startDate &&
+      nextRange.endDate === syncedRange.endDate
+    ) {
+      return;
+    }
+    if (!localEdit) {
+      touchedStart = false;
+      touchedEnd = false;
+      applyAttempted = false;
+    }
+    localEdit = false;
+    syncedRange = { ...nextRange };
+  });
+
+  function updateRange(value: { startDate: string; endDate: string }): void {
+    localEdit = true;
+    controller.range.edit(value);
+  }
+
+  function markBlurred(field: "start" | "end"): void {
+    if (field === "start") touchedStart = true;
+    else touchedEnd = true;
+  }
+
+  function applyRange(): void {
+    applyAttempted = true;
+    if (!rangeValidation.isValid) {
+      document
+        .getElementById(
+          rangeValidation.startError
+            ? "current-period-range-start"
+            : "current-period-range-end",
+        )
+        ?.focus();
+      return;
+    }
+    controller.saveRange();
+  }
 
   function submitPeriod(event: Event): void {
     event.preventDefault();
@@ -45,15 +109,28 @@
     </section>
 
     <PeriodRangePicker
-      startDate={controller.rangeStartDate}
-      endDate={controller.rangeEndDate}
-      saving={controller.range.saving}
-      interactionDisabled={controller.periodInteractionDisabled}
+      value={controller.range.draft}
+      onValueChange={updateRange}
+      onFieldBlur={markBlurred}
+      disabled={rangeDisabled}
+      startId="current-period-range-start"
+      endId="current-period-range-end"
+      startError={showStartError}
+      endError={showEndError}
+      rangeError={showRangeError}
       testIdPrefix="current-period-range"
-      change={controller.handleRangeChange}
     />
-    {#if rangeError}
-      <p role="alert">{rangeError}</p>
+    <button
+      class="range-apply"
+      type="button"
+      data-testid="current-period-range-apply"
+      disabled={rangeDisabled}
+      onclick={applyRange}
+    >
+      {controller.range.saving ? "保存中..." : "期間を反映"}
+    </button>
+    {#if controller.range.serverError}
+      <p role="alert">{controller.range.serverError}</p>
     {/if}
   </div>
 </details>
@@ -109,6 +186,25 @@
     border-top: 1px solid #e2d7c4;
     margin-top: 1rem;
     padding-top: 1rem;
+  }
+
+  .range-apply {
+    background: #2f6d3b;
+    border: 0;
+    border-radius: 8px;
+    box-sizing: border-box;
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 800;
+    max-width: 100%;
+    min-height: 2.65rem;
+    padding: 0 1rem;
+  }
+
+  .range-apply:disabled {
+    cursor: wait;
+    opacity: 0.65;
   }
 
   @media (max-width: 760px) {

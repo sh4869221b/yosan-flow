@@ -13,6 +13,13 @@ export type PeriodRangeSelection = {
   readonly isValid: boolean;
 };
 
+export type PeriodRangeValidation = {
+  readonly startError: string | null;
+  readonly endError: string | null;
+  readonly rangeError: string | null;
+  readonly isValid: boolean;
+};
+
 function toDateValue(value: string): DateValue | undefined {
   if (!value) {
     return undefined;
@@ -70,5 +77,23 @@ export function getPeriodRangeSelection(
     startDate,
     endDate,
     isValid: Boolean(startDate && endDate && startDate <= endDate),
+  };
+}
+
+export function getPeriodRangeValidation(input: {
+  readonly startDate: string;
+  readonly endDate: string;
+}): PeriodRangeValidation {
+  const selection = getPeriodRangeSelection(createPeriodRange(input));
+  const rangeError =
+    selection.startDate && selection.endDate && !selection.isValid
+      ? "終了日は開始日以降にしてください。"
+      : null;
+
+  return {
+    startError: selection.startDate ? null : "有効な開始日を入力してください。",
+    endError: selection.endDate ? null : "有効な終了日を入力してください。",
+    rangeError,
+    isValid: selection.isValid,
   };
 }
