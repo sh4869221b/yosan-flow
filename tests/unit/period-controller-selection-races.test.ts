@@ -168,6 +168,37 @@ it("clears summary loading when a superseding period-list request fails", async 
   expect(controller.summary).toEqual(initialSummary);
 });
 
+it("does not supersede a selection request for an invalid create", async () => {
+  const selectionStarted = Promise.withResolvers<void>();
+  const selectionResponse = Promise.withResolvers<Response>();
+  const selectedSummary = forPeriod(createSummary(0), otherPeriod.id);
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith(`/${otherPeriod.id}`)) {
+      selectionStarted.resolve();
+      return selectionResponse.promise;
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const controller = createPeriodController(createSummary(0));
+
+  controller.handleSelectPeriod({ periodId: otherPeriod.id });
+  try {
+    await settled(selectionStarted.promise);
+    controller.createBudgetInput = "invalid";
+    controller.createInitialPeriod();
+    await settled(executions[1]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(controller.createError).not.toBeNull();
+  } finally {
+    selectionResponse.resolve(jsonResponse(selectedSummary));
+    await settled(executions[0]);
+  }
+  expect(controller.selectedPeriodId).toBe(otherPeriod.id);
+  expect(controller.summary).toEqual(selectedSummary);
+});
+
 it("keeps selection owned by the visible summary when a created period summary fails", async () => {
   const initialSummary = createSummary(0);
   const createdPeriod = {
@@ -204,7 +235,139 @@ it("keeps selection owned by the visible summary when a created period summary f
   expect(controller.selectedPeriodId).toBe(period.id);
   expect(controller.summary).toEqual(initialSummary);
   expect(controller.summaryLoading).toBe(false);
-  expect(controller.summaryError).toBe("再取得に失敗しました。");
+  expect(controller.summaryError).toBeNull();
+  expect(controller.createError).toBe("再取得に失敗しました。");
+});
+
+it.each(["list", "summary"] as const)(
+  "rejects a created period %s response superseded by selection",
+  async (stage) => {
+    const responseStarted = Promise.withResolvers<void>();
+    const staleResponse = Promise.withResolvers<Response>();
+    const initialSummary = createSummary(0);
+    const selectedSummary = forPeriod(createSummary(0), otherPeriod.id);
+    const createdPeriod = {
+      ...otherPeriod,
+      id: "period-3",
+      startDate: "2026-07-16",
+      endDate: "2026-07-17",
+    };
+    const createdSummary = forPeriod(createSummary(0), createdPeriod.id);
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (method === "POST") {
+        return Promise.resolve(jsonResponse({ id: createdPeriod.id }));
+      }
+      if (url === "/api/periods") {
+        if (stage === "list") {
+          responseStarted.resolve();
+          return staleResponse.promise;
+        }
+        return Promise.resolve(
+          jsonResponse({ periods: [period, otherPeriod, createdPeriod] }),
+        );
+      }
+      if (url.endsWith(`/${createdPeriod.id}`)) {
+        responseStarted.resolve();
+        return staleResponse.promise;
+      }
+      if (url.endsWith(`/${otherPeriod.id}`)) {
+        return Promise.resolve(jsonResponse(selectedSummary));
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = createPeriodController(initialSummary);
+
+    controller.createInitialPeriod();
+    try {
+      await settled(responseStarted.promise);
+      controller.handleSelectPeriod({ periodId: otherPeriod.id });
+      await settled(executions[1]);
+      expect(controller.selectedPeriodId).toBe(otherPeriod.id);
+      expect(controller.summary).toEqual(selectedSummary);
+    } finally {
+      staleResponse.resolve(
+        stage === "list"
+          ? jsonResponse({ periods: [period, otherPeriod, createdPeriod] })
+          : jsonResponse(createdSummary),
+      );
+      await settled(executions[0]);
+    }
+    expect(controller.selectedPeriodId).toBe(otherPeriod.id);
+    expect(controller.summary).toEqual(selectedSummary);
+    expect(controller.createdPeriodId).toBe(createdPeriod.id);
+    expect(controller.createdRefreshPending).toBe(true);
+    expect(controller.createError).toBeNull();
+    expect(controller.summaryError).toBeNull();
+    expect(controller.summaryLoading).toBe(false);
+    expect(controller.budget.draft).toBe(String(selectedSummary.budgetYen));
+  },
+);
+
+it("keeps newer selection loading when a stale created summary settles", async () => {
+  const createdSummaryStarted = Promise.withResolvers<void>();
+  const createdSummaryResponse = Promise.withResolvers<Response>();
+  const selectionStarted = Promise.withResolvers<void>();
+  const selectionResponse = Promise.withResolvers<Response>();
+  const initialSummary = createSummary(0);
+  const selectedSummary = forPeriod(createSummary(0), otherPeriod.id);
+  const createdPeriod = {
+    ...otherPeriod,
+    id: "period-3",
+    startDate: "2026-07-16",
+    endDate: "2026-07-17",
+  };
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (method === "POST") {
+      return Promise.resolve(jsonResponse({ id: createdPeriod.id }));
+    }
+    if (url === "/api/periods") {
+      return Promise.resolve(
+        jsonResponse({ periods: [period, otherPeriod, createdPeriod] }),
+      );
+    }
+    if (url.endsWith(`/${createdPeriod.id}`)) {
+      createdSummaryStarted.resolve();
+      return createdSummaryResponse.promise;
+    }
+    if (url.endsWith(`/${otherPeriod.id}`)) {
+      selectionStarted.resolve();
+      return selectionResponse.promise;
+    }
+    throw new Error(`Unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const controller = createPeriodController(initialSummary);
+
+  controller.createInitialPeriod();
+  try {
+    await settled(createdSummaryStarted.promise);
+    controller.handleSelectPeriod({ periodId: otherPeriod.id });
+    await settled(selectionStarted.promise);
+    expect(controller.summaryLoading).toBe(true);
+    createdSummaryResponse.resolve(
+      jsonResponse(forPeriod(createSummary(0), createdPeriod.id)),
+    );
+    await settled(executions[0]);
+    expect(controller.summaryLoading).toBe(true);
+    expect(controller.selectedPeriodId).toBe(period.id);
+    expect(controller.summary).toEqual(initialSummary);
+    expect(controller.createError).toBeNull();
+    expect(controller.summaryError).toBeNull();
+  } finally {
+    createdSummaryResponse.resolve(
+      jsonResponse(forPeriod(createSummary(0), createdPeriod.id)),
+    );
+    selectionResponse.resolve(jsonResponse(selectedSummary));
+    await settled(executions[1]);
+  }
+  expect(controller.summaryLoading).toBe(false);
+  expect(controller.selectedPeriodId).toBe(otherPeriod.id);
+  expect(controller.summary).toEqual(selectedSummary);
 });
 
 it("does not let a queued period update reclaim a newer selection", async () => {

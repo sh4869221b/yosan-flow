@@ -17,6 +17,13 @@ export function createPeriodCreateState(initialState: InitialState) {
     createdRefreshPending: false,
   });
 
+  function recordDraftEdit(): void {
+    createError = null;
+    if (!recovery.createdRefreshPending && recovery.createdPeriodId != null) {
+      recovery.createdPeriodId = null;
+    }
+  }
+
   return {
     get createStartDate() {
       return createStartDate;
@@ -28,13 +35,17 @@ export function createPeriodCreateState(initialState: InitialState) {
       return createPeriodId;
     },
     set createPeriodId(value: string) {
-      if (value !== createPeriodId) manuallyEditedPeriodId = true;
+      if (value !== createPeriodId) {
+        manuallyEditedPeriodId = true;
+        recordDraftEdit();
+      }
       createPeriodId = value;
     },
     get createBudgetInput() {
       return createBudgetInput;
     },
     set createBudgetInput(value: string) {
+      if (value !== createBudgetInput) recordDraftEdit();
       createBudgetInput = value;
     },
     get createSaving() {
@@ -64,7 +75,25 @@ export function createPeriodCreateState(initialState: InitialState) {
     setError(value: string | null): void {
       createError = value;
     },
+    setCreatedRefreshing(value: boolean): void {
+      recovery.createdRefreshing = value;
+    },
+    retainCreatedPeriod(periodId: string): void {
+      recovery.createdPeriodId = periodId;
+      recovery.createdRefreshPending = true;
+    },
+    completeCreatedRefresh(periodId: string): void {
+      if (recovery.createdPeriodId === periodId) {
+        recovery.createdRefreshPending = false;
+      }
+    },
     updateRange(range: CreateRange): void {
+      if (
+        range.startDate !== createStartDate ||
+        range.endDate !== createEndDate
+      ) {
+        recordDraftEdit();
+      }
       createStartDate = range.startDate;
       createEndDate = range.endDate;
       if (!manuallyEditedPeriodId) createPeriodId = toPeriodId(range.startDate);

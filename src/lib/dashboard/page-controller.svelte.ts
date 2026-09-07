@@ -187,6 +187,7 @@ export function createDashboardPageController(getData: () => PageData) {
     cancelPeriodUpdateConfirmation:
       periodController.cancelPeriodUpdateConfirmation,
     createInitialPeriod: periodController.createInitialPeriod,
+    refreshCreatedPeriod: periodController.refreshCreatedPeriod,
     openDayEntry: dayEntryController.openDayEntry,
     closeDayEntry: dayEntryController.closeDayEntry,
     submitDayEntry: dayEntryController.submitDayEntry,

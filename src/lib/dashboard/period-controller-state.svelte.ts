@@ -7,7 +7,6 @@ import type {
 } from "$lib/dashboard/controller-types";
 import { createPeriodControllerActions } from "$lib/dashboard/period-controller-actions.svelte";
 import { createPeriodCreateState } from "$lib/dashboard/period-create-state.svelte";
-import { createPeriodCreationEffect } from "$lib/dashboard/period-controller-create-effect";
 import {
   createPeriodConfirmEffect,
   createPeriodUpdateEffect,
@@ -156,13 +155,13 @@ export function createPeriodControllerState(
     periodUpdateDependencies,
   );
 
-  const createInitialPeriodEffect = () =>
-    createPeriodCreationEffect({
-      createState,
-      getPeriods: () => periods,
-      refreshPeriodListEffect: (id) =>
-        refreshPeriodListEffect(id).pipe(Effect.asVoid),
-    });
+  const createDependencies = {
+    ...periodUpdateDependencies,
+    createState,
+    getPeriods: () => periods,
+    setPeriods: (nextPeriods: PeriodOption[]) => (periods = nextPeriods),
+    setSummaryLoading: (loading: boolean) => (summaryLoading = loading),
+  };
 
   return {
     budget: settings.budget,
@@ -243,12 +242,11 @@ export function createPeriodControllerState(
       beginPeriodConfirmation: confirmationState.beginConfirmation,
       clearPeriodConfirmation: confirmationState.clear,
       confirmPeriodUpdateEffect,
-      createInitialPeriodEffect,
+      creation: createDependencies,
       getConfirmSaving: () => confirmationState.confirmSaving,
       settings,
       getInteractionDisabled: interactionDisabled,
       getSummaryLoading: () => summaryLoading,
-      setCreateSaving: createState.setSaving,
       getSummary: () => summary,
       refreshSummaryEffect,
       savePeriodUpdateEffect: savePeriodUpdate,
