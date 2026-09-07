@@ -85,6 +85,18 @@ export function createDashboardPageController(getData: () => PageData) {
     get periodError() {
       return periodController.periodError;
     },
+    get createSaving() {
+      return periodController.createSaving;
+    },
+    get createError() {
+      return periodController.createError;
+    },
+    get createdPeriodId() {
+      return periodController.createdPeriodId;
+    },
+    get createdRefreshPending() {
+      return periodController.createdRefreshPending;
+    },
     get rangeStartDate() {
       return periodController.rangeStartDate;
     },
@@ -175,6 +187,7 @@ export function createDashboardPageController(getData: () => PageData) {
     cancelPeriodUpdateConfirmation:
       periodController.cancelPeriodUpdateConfirmation,
     createInitialPeriod: periodController.createInitialPeriod,
+    refreshCreatedPeriod: periodController.refreshCreatedPeriod,
     openDayEntry: dayEntryController.openDayEntry,
     closeDayEntry: dayEntryController.closeDayEntry,
     submitDayEntry: dayEntryController.submitDayEntry,

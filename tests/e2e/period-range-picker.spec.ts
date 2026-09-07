@@ -397,7 +397,7 @@ test("create apply preserves raw drafts until valid and reaches both create POST
   await page.getByTestId("initial-period-range-end").fill("2026-10-31");
   await expect(initialId).toHaveValue("custom-initial-id");
   await page.getByTestId("initial-period-range-apply").click();
-  await expect(initialId).toHaveValue("p-2026-10-01");
+  await expect(initialId).toHaveValue("custom-initial-id");
   await expect(page.getByTestId("initial-period-range-start")).toHaveValue(
     "2026-10-01",
   );
@@ -410,8 +410,14 @@ test("create apply preserves raw drafts until valid and reaches both create POST
       response.url() === `${getBaseUrl()}/api/periods`,
   );
   await page.getByRole("button", { name: "期間を作成" }).click();
-  expect((await initialCreate).status()).toBe(201);
-  await expect(page.getByTestId("period-id")).toContainText("p-2026-10-01");
+  const initialResponse = await initialCreate;
+  expect(initialResponse.status()).toBe(201);
+  expect(initialResponse.request().postDataJSON()).toMatchObject({
+    id: "custom-initial-id",
+  });
+  await expect(page.getByTestId("period-id")).toContainText(
+    "custom-initial-id",
+  );
   await expect(page.getByText("期間: 2026-10-01 - 2026-10-31")).toBeVisible();
 
   await resetTestData(request);
@@ -429,14 +435,20 @@ test("create apply preserves raw drafts until valid and reaches both create POST
   await page.getByTestId("create-period-range-end").fill("2026-10-31");
   await expect(additionalId).toHaveValue("custom-additional-id");
   await page.getByTestId("create-period-range-apply").click();
-  await expect(additionalId).toHaveValue("p-2026-10-01");
+  await expect(additionalId).toHaveValue("custom-additional-id");
   const additionalCreate = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       response.url() === `${getBaseUrl()}/api/periods`,
   );
   await page.getByRole("button", { name: "期間を作成" }).click();
-  expect((await additionalCreate).status()).toBe(201);
-  await expect(page.getByTestId("period-id")).toContainText("p-2026-10-01");
+  const additionalResponse = await additionalCreate;
+  expect(additionalResponse.status()).toBe(201);
+  expect(additionalResponse.request().postDataJSON()).toMatchObject({
+    id: "custom-additional-id",
+  });
+  await expect(page.getByTestId("period-id")).toContainText(
+    "custom-additional-id",
+  );
   await expect(page.getByText("期間: 2026-10-01 - 2026-10-31")).toBeVisible();
 });

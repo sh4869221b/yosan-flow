@@ -11,6 +11,7 @@ const controllerModules = [
   "src/lib/dashboard/controller-types.ts",
   "src/lib/dashboard/page-controller.svelte.ts",
   "src/lib/dashboard/period-controller-actions.svelte.ts",
+  "src/lib/dashboard/period-create-state.svelte.ts",
   "src/lib/dashboard/period-controller-initial-state.ts",
   "src/lib/dashboard/period-controller-state.svelte.ts",
   "src/lib/dashboard/day-entry-controller-state.svelte.ts",

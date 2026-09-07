@@ -212,8 +212,10 @@ test("keeps the current draft while an exact period GET is loading", async ({
 test("keeps a failed additional create error visible while settings stay closed", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const today = getCurrentJstDate();
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
   await seedPeriod(request, getBaseUrl(), {
     periodId: "p-shell-current",
     startDate: today,
@@ -228,12 +230,15 @@ test("keeps a failed additional create error visible while settings stay closed"
   await expect(settings).not.toHaveAttribute("open", "");
   const additionalCreate = page.getByTestId("create-period-panel");
   await additionalCreate.locator("summary").click();
-  await additionalCreate.getByLabel("期間ID").fill("p-shell-failed-create");
+  const createPeriodId = "p-shell-failed-create";
+  await additionalCreate.getByLabel("期間ID").fill(createPeriodId);
+  let postCount = 0;
   await page.route(`${getBaseUrl()}/api/periods`, async (route) => {
     if (route.request().method() !== "POST") {
       await route.continue();
       return;
     }
+    postCount += 1;
     await route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -250,5 +255,17 @@ test("keeps a failed additional create error visible while settings stay closed"
   await expect(additionalCreate.getByRole("alert")).toContainText(
     "期間の作成に失敗しました。",
   );
+  expect(postCount).toBe(1);
+  await expect(additionalCreate.getByLabel("期間ID")).toHaveValue(
+    createPeriodId,
+  );
+  await expect(
+    additionalCreate.getByRole("button", { name: "期間を作成" }),
+  ).toBeEnabled();
   await expect(settings).not.toHaveAttribute("open", "");
+  await page.screenshot({
+    path: testInfo.outputPath("issue-378-create-error.png"),
+    fullPage: true,
+  });
+  expect(pageErrors).toEqual([]);
 });

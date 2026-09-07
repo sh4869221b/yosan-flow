@@ -1083,9 +1083,10 @@ it.each(["POST", "list", "summary"] as const)(
     expect(controller.range.draft).toEqual(changedRange);
     expect(controller.budget.serverError).toBeNull();
     expect(controller.range.serverError).toBeNull();
-    expect(
-      failure === "summary" ? controller.summaryError : controller.periodError,
-    ).toBe(`${failure === "POST" ? "create" : failure}-failure`);
+    expect(controller.periodError).toBe(
+      `${failure === "POST" ? "create" : failure}-failure`,
+    );
+    expect(controller.summaryError).toBeNull();
   },
 );
 
@@ -1412,8 +1413,10 @@ it("holds create-only saving through its successful list and summary refresh", a
     expect(executions).toHaveLength(1);
   }
   try {
+    expect(controller.createSaving).toBe(true);
     assertCreating();
     await settled(listStarted.promise);
+    expect(controller.createSaving).toBe(false);
     assertCreating();
     listResponse.resolve(jsonResponse({ periods: [period, createdPeriod] }));
     await settled(summaryStarted.promise);

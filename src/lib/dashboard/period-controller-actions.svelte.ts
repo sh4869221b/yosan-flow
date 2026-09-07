@@ -1,7 +1,11 @@
 import { Effect } from "effect";
 import { runClientEffect } from "$lib/dashboard/client-effect";
-import { toPeriodId } from "$lib/dashboard/date";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import {
+  createPeriodCreationEffect,
+  createPeriodRecoveryEffect,
+  type PeriodCreationDependencies,
+} from "$lib/dashboard/period-controller-create-effect";
 import type { PendingPeriodUpdateConfirmation } from "$lib/dashboard/period-update-confirmation-state.svelte";
 import type { SavePeriodPayload } from "$lib/dashboard/types";
 import type {
@@ -10,11 +14,10 @@ import type {
 } from "$lib/dashboard/period-settings-state.svelte";
 
 type PeriodControllerActionDependencies = {
-  readonly createInitialPeriodEffect: () => Effect.Effect<void, never>;
+  readonly creation: PeriodCreationDependencies;
   readonly settings: PeriodSettingsState;
   readonly getInteractionDisabled: () => boolean;
   readonly getSummaryLoading: () => boolean;
-  readonly setCreateSaving: (_saving: boolean) => void;
   readonly getSummary: () => PeriodSummary | null;
   readonly beginPeriodConfirmation: () => PendingPeriodUpdateConfirmation | null;
   readonly clearPeriodConfirmation: () => void;
@@ -29,9 +32,10 @@ type PeriodControllerActionDependencies = {
     _payload: SavePeriodPayload,
     _operation: PeriodSetting,
   ) => Effect.Effect<void, never>;
-  readonly setCreateEndDate: (_value: string) => void;
-  readonly setCreatePeriodId: (_value: string) => void;
-  readonly setCreateStartDate: (_value: string) => void;
+  readonly updateCreatePeriodRange: (_range: {
+    endDate: string;
+    startDate: string;
+  }) => void;
 };
 
 export function createPeriodControllerActions(
@@ -101,6 +105,7 @@ export function createPeriodControllerActions(
     },
     handleSelectPeriod(payload: { periodId: string }): void {
       dependencies.clearPeriodConfirmation();
+      dependencies.creation.createState.setError(null);
       runClientEffect(dependencies.refreshSummaryEffect(payload.periodId));
     },
     confirmPeriodUpdate(): void {
@@ -115,25 +120,29 @@ export function createPeriodControllerActions(
       dependencies.settings.range.reset();
     },
     createInitialPeriod(): void {
-      if (dependencies.getInteractionDisabled()) return;
-      dependencies.setCreateSaving(true);
-      runClientEffect(
-        dependencies
-          .createInitialPeriodEffect()
-          .pipe(
-            Effect.ensuring(
-              Effect.sync(() => dependencies.setCreateSaving(false)),
-            ),
-          ),
-      );
+      if (
+        dependencies.getInteractionDisabled() ||
+        dependencies.creation.createState.createdRefreshPending
+      )
+        return;
+      dependencies.creation.createState.setSaving(true);
+      runClientEffect(createPeriodCreationEffect(dependencies.creation));
+    },
+    refreshCreatedPeriod(): void {
+      if (
+        dependencies.getInteractionDisabled() ||
+        !dependencies.creation.createState.createdRefreshPending ||
+        dependencies.creation.createState.createdPeriodId == null
+      )
+        return;
+      dependencies.creation.createState.setCreatedRefreshing(true);
+      runClientEffect(createPeriodRecoveryEffect(dependencies.creation));
     },
     updateCreatePeriodRange(payload: {
       endDate: string;
       startDate: string;
     }): void {
-      dependencies.setCreateStartDate(payload.startDate);
-      dependencies.setCreateEndDate(payload.endDate);
-      dependencies.setCreatePeriodId(toPeriodId(payload.startDate));
+      dependencies.updateCreatePeriodRange(payload);
     },
   };
 }
