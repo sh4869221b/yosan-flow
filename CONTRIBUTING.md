@@ -4,8 +4,8 @@
 
 Requirements:
 
-- Node.js 24.15 or newer
-- pnpm 11.2.0 or newer
+- Node.js: use the version specified in [.node_version](.node_version).
+- pnpm: use the exact version specified by `packageManager` in [package.json](package.json).
 - Cloudflare account for D1/Workers checks
 
 Install dependencies and prepare local D1:

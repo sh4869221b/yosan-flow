@@ -6,7 +6,7 @@
 
 ## Overview
 
-`yosan-flow` is a period-first budget application built with SvelteKit 2, Svelte 5, Effect, Drizzle, Cloudflare Workers, and D1. The primary UX answers how much can be spent today within the selected budget period; category analysis and month-first compatibility are intentionally outside the default design.
+`yosan-flow` is a period-first budget application built with SvelteKit, Svelte, Effect, Drizzle, Cloudflare Workers, and D1. The primary UX answers how much can be spent today within the selected budget period; category analysis and month-first compatibility are intentionally outside the default design.
 
 ## Structure
 
@@ -78,7 +78,15 @@ Before editing, read `README.md`, `CONTRIBUTING.md`, and every deeper `AGENTS.md
 - Route handlers parse, run Effect-backed services, and serialize JSON. Domain decisions stay in `src/lib/server/**`.
 - `.svelte.ts` dashboard modules own rune state; ordinary `.ts` modules own Effect flows, trackers, reconciliation, and pure helpers.
 - Code is primarily English; Japanese is used for product text and nearby user-facing documentation.
-- `package.json` and CI pin `pnpm@11.10.0`; use that exact version for parity.
+
+## Dependency and Tool Versions
+
+- Read version definitions from the current checkout before installing dependencies or running checks; do not copy version numbers into AGENTS.md or setup documentation, since Renovate updates the definitions.
+- pnpm: use the exact version in `package.json` → `packageManager`.
+- Node.js: use the version in `.node_version`; GitHub Actions reads it through `actions/setup-node` → `node-version-file`.
+- Dependencies and development tools: `package.json` → `dependencies` / `devDependencies` define requested ranges; `pnpm-lock.yaml` records resolved versions. Run tools through package scripts or `pnpm exec` to use project dependencies.
+- Installation policy lives in `pnpm-workspace.yaml`; automated update policy lives in `renovate.json`. Use `pnpm install --frozen-lockfile` when reproducing CI without updating dependencies.
+- GitHub Actions versions and workflow-specific tool settings live in `.github/workflows/*.yml`. If their pnpm/Node.js settings disagree with the definitions above, report the mismatch rather than selecting a version from old documentation.
 
 ## Anti-Patterns
 
