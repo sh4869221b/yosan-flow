@@ -16,7 +16,7 @@
 
 - Keep the visual hierarchy centered on current-period budget, today's allowance, today's usage, and today's remaining amount.
 - Avoid category-analysis and month-first UI concepts unless explicitly requested.
-- Use nearby Svelte 5 patterns and pass typed controller data/actions; do not fetch inside components.
+- Use nearby Svelte patterns compatible with the version defined in the root `package.json` and pass typed controller data/actions; do not fetch inside components.
 - Preserve Japanese product wording and existing `data-testid` hooks used by Playwright.
 - Prefer accessible labels/roles for user controls; reserve test IDs for stable dynamic structure and values.
 - Keep fixed-format summary elements stable across responsive widths; loading/error text must not create avoidable layout shifts.

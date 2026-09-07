@@ -10,6 +10,9 @@
   "prHourlyLimit": 2,
   "prCreation": "immediate",
   "rangeStrategy": "bump",
+  "nodenv": {
+    "managerFilePatterns": ["/^\\.node_version$/"]
+  },
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["before 8am on monday"]
