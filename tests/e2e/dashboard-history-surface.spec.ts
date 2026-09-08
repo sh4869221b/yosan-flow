@@ -391,8 +391,204 @@ test("accepts a same-value save and leaves a newer draft focused", async ({
   await expect(secondRow.getByRole("status")).toContainText(
     "履歴を更新しました。",
   );
+  await firstRow.getByRole("button", { name: "編集" }).click();
+  await expect(secondRow.getByText("履歴を更新しました。")).toHaveCount(0);
+  await secondEdit.getByRole("button", { name: "キャンセル" }).click();
   await page.screenshot({
     path: "test-results/issue-351/task2-edit-success.png",
     fullPage: true,
   });
+});
+
+test("keeps history deletion local until confirmation and restores its trigger", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  const memo = "confirm before delete";
+  await seedHistory(request, periodId, todayDate, memo);
+  let deleteCount = 0;
+  await page.route("**/history/*", async (route) => {
+    if (route.request().method() === "DELETE") {
+      deleteCount += 1;
+    }
+    await route.continue();
+  });
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const modal = await openHistoryWithEntries(page, periodId, todayDate);
+  const row = modal.locator("li").filter({ hasText: memo });
+  const deleteButton = row.getByRole("button", { name: "削除" });
+  await deleteButton.click();
+  const cancelButton = row.getByRole("button", { name: "取消" });
+  await expect(row.getByText("「追加 1200 円」を削除しますか？")).toBeVisible();
+  await expect(cancelButton).toBeFocused();
+  await page.screenshot({
+    path: "test-results/issue-351/task3-delete-confirm-desktop.png",
+    fullPage: true,
+  });
+  await cancelButton.click();
+  await expect(deleteButton).toBeFocused();
+  expect(deleteCount).toBe(0);
+
+  await deleteButton.click();
+  await cancelButton.press("Escape");
+  await expect(deleteButton).toBeFocused();
+  await expect(modal).toBeVisible();
+  expect(deleteCount).toBe(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await deleteButton.click();
+  await page.screenshot({
+    path: "test-results/issue-351/task3-delete-confirm-mobile.png",
+    fullPage: true,
+  });
+  await cancelButton.click();
+});
+
+test("retries a failed confirmed deletion once and restores deletion focus", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  const memo = "delete retry";
+  await seedHistory(request, periodId, todayDate, memo);
+  const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history/`;
+  const deleteRequested = Promise.withResolvers<void>();
+  const releaseDelete = Promise.withResolvers<void>();
+  let deleteCount = 0;
+  await page.route(`**${historyPath}*`, async (route) => {
+    if (route.request().method() !== "DELETE") {
+      await route.continue();
+      return;
+    }
+    deleteCount += 1;
+    if (deleteCount === 1) {
+      deleteRequested.resolve();
+      await releaseDelete.promise;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ error: {} }),
+        status: 503,
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const modal = await openHistoryWithEntries(page, periodId, todayDate);
+  const row = modal.locator("li").filter({ hasText: memo });
+  await row.getByRole("button", { name: "削除" }).click();
+  const confirmButton = row.getByRole("button", { name: "削除を確定" });
+  await confirmButton.click();
+  await deleteRequested.promise;
+  await expect(row.getByText("履歴を削除中です。")).toBeVisible();
+  await row.getByRole("button", { name: "削除中..." }).dispatchEvent("click");
+  expect(deleteCount).toBe(1);
+  releaseDelete.resolve();
+
+  await expect(row.getByRole("alert")).toContainText(
+    "履歴の削除に失敗しました。",
+  );
+  await expect(confirmButton).toBeFocused();
+  await confirmButton.click();
+  await expect(row).toHaveCount(0);
+  await expect(modal.getByRole("heading", { name: "履歴表示" })).toBeFocused();
+  await expect(modal.getByRole("status")).toContainText("履歴を削除しました。");
+  expect(deleteCount).toBe(2);
+});
+
+test("restores history delete focus in visible order and ignores a closed session", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  await seedHistory(request, periodId, todayDate, "first history");
+  await seedHistory(request, periodId, todayDate, "middle history");
+  await seedHistory(request, periodId, todayDate, "last history");
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const modal = await openHistoryWithEntries(page, periodId, todayDate);
+  const firstRow = modal.locator("li").filter({ hasText: "first history" });
+  const middleRow = modal.locator("li").filter({ hasText: "middle history" });
+  const lastRow = modal.locator("li").filter({ hasText: "last history" });
+  await middleRow.getByRole("button", { name: "削除" }).click();
+  await middleRow.getByRole("button", { name: "削除を確定" }).click();
+  await expect(middleRow).toHaveCount(0);
+  await expect(lastRow.getByRole("button", { name: "編集" })).toBeFocused();
+
+  await lastRow.getByRole("button", { name: "削除" }).click();
+  await lastRow.getByRole("button", { name: "削除を確定" }).click();
+  await expect(lastRow).toHaveCount(0);
+  await expect(firstRow.getByRole("button", { name: "編集" })).toBeFocused();
+
+  const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history/`;
+  const deleteRequested = Promise.withResolvers<void>();
+  const releaseDelete = Promise.withResolvers<void>();
+  await page.route(`**${historyPath}*`, async (route) => {
+    if (route.request().method() !== "DELETE") {
+      await route.continue();
+      return;
+    }
+    deleteRequested.resolve();
+    await releaseDelete.promise;
+    await route.continue();
+  });
+  await firstRow.getByRole("button", { name: "削除" }).click();
+  await firstRow.getByRole("button", { name: "削除を確定" }).click();
+  await deleteRequested.promise;
+  await page.keyboard.press("Escape");
+  await expect(modal).toBeHidden();
+
+  await page.getByTestId(`calendar-day-${todayDate}`).click();
+  await expect(modal).toBeVisible();
+  const dayEntryAmount = modal.locator("#day-entry-amount");
+  await dayEntryAmount.focus();
+  releaseDelete.resolve();
+  await expect(dayEntryAmount).toBeFocused();
+  await expect(modal.getByText("履歴を削除しました。")).toHaveCount(0);
+});
+
+test("keeps a newer history draft focused after a delayed deletion resolves", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  await seedHistory(request, periodId, todayDate, "delayed deletion");
+  await seedHistory(request, periodId, todayDate, "newer draft");
+  const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history/`;
+  const deleteRequested = Promise.withResolvers<void>();
+  const releaseDelete = Promise.withResolvers<void>();
+  await page.route(`**${historyPath}*`, async (route) => {
+    if (route.request().method() !== "DELETE") {
+      await route.continue();
+      return;
+    }
+    deleteRequested.resolve();
+    await releaseDelete.promise;
+    await route.continue();
+  });
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const modal = await openHistoryWithEntries(page, periodId, todayDate);
+  const deleteRow = modal.locator("li").filter({ hasText: "delayed deletion" });
+  const draftRow = modal.locator("li").filter({ hasText: "newer draft" });
+  await deleteRow.getByRole("button", { name: "削除" }).click();
+  await deleteRow
+    .getByRole("button", { name: "削除を確定" })
+    .dispatchEvent("click");
+  await expect(deleteRow.getByText("履歴を削除中です。")).toBeVisible();
+  await deleteRequested.promise;
+
+  await draftRow.getByRole("button", { name: "編集" }).click();
+  const draftAmount = modal.locator("li.editing").getByLabel("入力額 (円)");
+  await draftAmount.fill("1300");
+  await expect(draftAmount).toBeFocused();
+  releaseDelete.resolve();
+
+  await expect(deleteRow).toHaveCount(0);
+  await expect(draftAmount).toHaveValue("1300");
+  await expect(draftAmount).toBeFocused();
+  await expect(modal.getByText("履歴を削除しました。")).toHaveCount(0);
 });

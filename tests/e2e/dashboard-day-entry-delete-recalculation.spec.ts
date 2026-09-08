@@ -44,6 +44,7 @@ test("deletes history rows and keeps recalculated values after reload", async ({
   await page.getByTestId(`calendar-day-${todayDate}`).click();
   const deleteRow = modal.locator("li").filter({ hasText: "入力 1000 円" });
   await deleteRow.getByRole("button", { name: "削除" }).click();
+  await deleteRow.getByRole("button", { name: "削除を確定" }).click();
   await expect(
     page
       .getByTestId(`calendar-day-${todayDate}`)
@@ -53,6 +54,7 @@ test("deletes history rows and keeps recalculated values after reload", async ({
 
   const lastRow = modal.locator("li").filter({ hasText: "入力 2000 円" });
   await lastRow.getByRole("button", { name: "削除" }).click();
+  await lastRow.getByRole("button", { name: "削除を確定" }).click();
   await expect(modal.getByText("履歴はまだありません。")).toBeVisible();
   await expect(
     page

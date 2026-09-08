@@ -24,6 +24,12 @@
 
   type RetryOperation = { readonly date: string };
   type EditOperation = { readonly date: string; readonly historyId: string };
+  type DeleteOperation = {
+    readonly date: string;
+    readonly historyId: string;
+    readonly nextHistoryId: string | null;
+    readonly previousHistoryId: string | null;
+  };
 
   let {
     date = null,
@@ -43,17 +49,26 @@
   let editMemo = $state("");
   let pendingSaveHistoryId = $state<string | null>(null);
   let editFailureHistoryId = $state<string | null>(null);
+  let confirmingDeleteHistoryId = $state<string | null>(null);
+  let pendingDeleteHistoryId = $state<string | null>(null);
+  let deleteFailureHistoryId = $state<string | null>(null);
+  let deleteFailureMessage = $state<string | null>(null);
+  let deleteSuccessMessage = $state<string | null>(null);
+  let saveSuccessHistoryId = $state<string | null>(null);
   let activeRetry = $state.raw<RetryOperation | null>(null);
   let activeEdit = $state.raw<EditOperation | null>(null);
+  let activeDelete = $state.raw<DeleteOperation | null>(null);
   let historyHeading = $state<HTMLHeadingElement | null>(null);
 
   $effect(() => {
     if (!isOpen) {
       cancelEdit();
+      resetDelete();
       activeRetry = null;
     }
     return () => {
       activeEdit = null;
+      activeDelete = null;
       activeRetry = null;
     };
   });
@@ -61,14 +76,25 @@
   $effect(() => {
     void date;
     cancelEdit();
+    resetDelete();
     activeRetry = null;
   });
+
+  function clearDeleteSuccess(): void {
+    deleteSuccessMessage = null;
+    saveSuccessHistoryId = null;
+  }
 
   function startEdit(history: HistoryItem): void {
     if (editingHistoryId != null && editingHistoryId !== history.id) {
       return;
     }
     activeEdit = null;
+    activeDelete = null;
+    confirmingDeleteHistoryId = null;
+    deleteFailureHistoryId = null;
+    deleteFailureMessage = null;
+    clearDeleteSuccess();
     editFailureHistoryId = null;
     editingHistoryId = history.id;
     editInputYen = String(history.inputYen);
@@ -82,6 +108,37 @@
     pendingSaveHistoryId = null;
     activeEdit = null;
     editFailureHistoryId = null;
+    clearDeleteSuccess();
+  }
+
+  function resetDelete(): void {
+    confirmingDeleteHistoryId = null;
+    pendingDeleteHistoryId = null;
+    deleteFailureHistoryId = null;
+    deleteFailureMessage = null;
+    deleteSuccessMessage = null;
+    activeDelete = null;
+  }
+
+  function startDelete(history: HistoryItem): void {
+    if (historyMutatingId != null || pendingDeleteHistoryId != null) {
+      return;
+    }
+    activeDelete = null;
+    confirmingDeleteHistoryId = history.id;
+    deleteFailureHistoryId = null;
+    deleteFailureMessage = null;
+    clearDeleteSuccess();
+  }
+
+  function cancelDelete(): void {
+    if (pendingDeleteHistoryId != null) {
+      return;
+    }
+    confirmingDeleteHistoryId = null;
+    deleteFailureHistoryId = null;
+    deleteFailureMessage = null;
+    clearDeleteSuccess();
   }
 
   async function saveEdit(historyId: string): Promise<HistoryActionResult> {
@@ -107,15 +164,86 @@
     if (result.kind === "failure") {
       editFailureHistoryId = historyId;
       editingHistoryId = historyId;
+    } else if (result.kind === "success") {
+      saveSuccessHistoryId = historyId;
     }
     return result;
   }
 
-  function removeHistory(historyId: string): Promise<HistoryActionResult> {
-    if (editingHistoryId === historyId) {
-      cancelEdit();
+  async function restoreDeletedFocus(
+    operation: DeleteOperation,
+  ): Promise<void> {
+    await tick();
+    if (activeDelete !== operation || !isOpen || date !== operation.date) {
+      return;
     }
-    return deleteHistory({ historyId });
+    const editButtons = [
+      ...(historyHeading
+        ?.closest(".history-panel")
+        ?.querySelectorAll<HTMLButtonElement>("[data-history-edit-id]") ?? []),
+    ];
+    const findEditButton = (
+      historyId: string | null,
+    ): HTMLButtonElement | null =>
+      editButtons.find(
+        (button) => button.dataset.historyEditId === historyId,
+      ) ?? null;
+    const focusTarget =
+      findEditButton(operation.nextHistoryId) ??
+      findEditButton(operation.previousHistoryId) ??
+      historyHeading;
+    focusTarget?.focus();
+  }
+
+  async function removeHistory(
+    historyId: string,
+  ): Promise<HistoryActionResult> {
+    if (!isOpen || date == null) {
+      return { kind: "ignored" };
+    }
+    const historyIndex = histories.findIndex(
+      (history) => history.id === historyId,
+    );
+    if (historyIndex === -1) {
+      return { kind: "ignored" };
+    }
+    const operation: DeleteOperation = {
+      date,
+      historyId,
+      nextHistoryId: histories[historyIndex + 1]?.id ?? null,
+      previousHistoryId: histories[historyIndex - 1]?.id ?? null,
+    };
+    activeDelete = operation;
+    pendingDeleteHistoryId = historyId;
+    deleteFailureHistoryId = null;
+    deleteFailureMessage = null;
+    const result = await deleteHistory({ historyId });
+    if (activeDelete !== operation || !isOpen || date !== operation.date) {
+      if (pendingDeleteHistoryId === historyId) {
+        pendingDeleteHistoryId = null;
+      }
+      return { kind: "ignored" };
+    }
+    pendingDeleteHistoryId = null;
+    await tick();
+    if (result.kind === "failure") {
+      if (histories.some((history) => history.id === historyId)) {
+        deleteFailureHistoryId = historyId;
+        deleteFailureMessage = result.message;
+      } else {
+        await restoreDeletedFocus(operation);
+      }
+    } else if (result.kind === "success") {
+      confirmingDeleteHistoryId = null;
+      deleteSuccessMessage = "履歴を削除しました。";
+      if (!histories.some((history) => history.id === historyId)) {
+        await restoreDeletedFocus(operation);
+      }
+    }
+    if (activeDelete === operation) {
+      activeDelete = null;
+    }
+    return result;
   }
 
   async function retry(): Promise<void> {
@@ -139,9 +267,12 @@
       <p>対象日: {date}</p>
     {/if}
   </div>
+  {#if deleteSuccessMessage}
+    <p class="status" role="status">{deleteSuccessMessage}</p>
+  {/if}
   {#if loading}
     <p class="status" role="status">履歴を読み込み中...</p>
-  {:else if errorMessage && editFailureHistoryId == null}
+  {:else if errorMessage && editFailureHistoryId == null && deleteFailureHistoryId == null}
     <p class="error-message" role="alert">{errorMessage}</p>
   {:else if histories.length === 0}
     <div class="empty-history">
@@ -163,18 +294,27 @@
             pendingSaveHistoryId !== history.id}
           canDelete={historyMutatingId == null &&
             pendingSaveHistoryId == null &&
-            editingHistoryId == null}
+            editingHistoryId == null &&
+            confirmingDeleteHistoryId == null}
+          isDeleteConfirming={confirmingDeleteHistoryId === history.id}
+          isDeleting={pendingDeleteHistoryId === history.id}
+          isSaveSuccessful={saveSuccessHistoryId === history.id}
+          deleteError={deleteFailureHistoryId === history.id
+            ? deleteFailureMessage
+            : null}
           bind:editInputYen
           bind:editMemo
           onStartEdit={startEdit}
           onCancelEdit={cancelEdit}
+          onStartDelete={startDelete}
+          onCancelDelete={cancelDelete}
           onSaveEdit={saveEdit}
           onDelete={removeHistory}
         />
       {/each}
     </ul>
   {/if}
-  {#if (errorMessage && editFailureHistoryId == null) || activeRetry != null}
+  {#if (errorMessage && editFailureHistoryId == null && deleteFailureHistoryId == null) || activeRetry != null}
     <button
       class="retry-button"
       type="button"

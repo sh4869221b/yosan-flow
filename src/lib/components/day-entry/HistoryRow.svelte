@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Pencil, Save, Trash2, X } from "@lucide/svelte";
-  import { tick } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
   import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
 
@@ -16,10 +16,16 @@
     mutationUnavailable?: boolean;
     canStartEdit?: boolean;
     canDelete?: boolean;
+    isDeleteConfirming?: boolean;
+    isDeleting?: boolean;
+    isSaveSuccessful?: boolean;
+    deleteError?: string | null;
     editInputYen?: string;
     editMemo?: string;
     onStartEdit?: (_history: HistoryItem) => void;
     onCancelEdit?: () => void;
+    onStartDelete?: (_history: HistoryItem) => void;
+    onCancelDelete?: () => void;
     onSaveEdit?: (_historyId: string) => Promise<HistoryActionResult>;
     onDelete?: (_historyId: string) => Promise<HistoryActionResult>;
   };
@@ -32,10 +38,16 @@
     mutationUnavailable = false,
     canStartEdit = true,
     canDelete = true,
+    isDeleteConfirming = false,
+    isDeleting = false,
+    isSaveSuccessful = false,
+    deleteError = null,
     editInputYen = $bindable(""),
     editMemo = $bindable(""),
     onStartEdit = () => {},
     onCancelEdit = () => {},
+    onStartDelete = () => {},
+    onCancelDelete = () => {},
     onSaveEdit = async () => ({ kind: "ignored" }),
     onDelete = async () => ({ kind: "ignored" }),
   }: Props = $props();
@@ -44,16 +56,20 @@
   let memoInput = $state<HTMLTextAreaElement | null>(null);
   let editButton = $state<HTMLButtonElement | null>(null);
   let saveButton = $state<HTMLButtonElement | null>(null);
+  let deleteButton = $state<HTMLButtonElement | null>(null);
+  let deleteCancelButton = $state<HTMLButtonElement | null>(null);
   let focusedEditElement = $state<HTMLElement | null>(null);
   let focusedEditTarget = $state<EditFocusTarget | null>(null);
   let stopPendingFocusTracking = $state<(() => void) | null>(null);
   let inputError = $state<string | null>(null);
   let saveError = $state<string | null>(null);
-  let saveSuccess = $state<string | null>(null);
   let submitting = $state(false);
+  let deleting = $state(false);
   let shouldFocusAmount = $state(false);
+  let shouldFocusDeleteCancel = $state(false);
 
   const isPending = $derived(submitting || isMutating || isSaving);
+  const isDeletePending = $derived(deleting || isDeleting);
 
   $effect(() => {
     if (!isEditing || !shouldFocusAmount) {
@@ -73,18 +89,65 @@
     }
   });
 
+  $effect(() => {
+    if (!isDeleteConfirming || !shouldFocusDeleteCancel) {
+      return;
+    }
+    void tick().then(() => {
+      if (isDeleteConfirming && shouldFocusDeleteCancel && !isDeletePending) {
+        shouldFocusDeleteCancel = false;
+        deleteCancelButton?.focus();
+      }
+    });
+  });
+
+  onDestroy(() => stopPendingFocusTracking?.());
+
   function handleStartEdit(): void {
     shouldFocusAmount = true;
     inputError = null;
     saveError = null;
-    saveSuccess = null;
     onStartEdit(history);
+  }
+
+  function handleStartDelete(): void {
+    shouldFocusDeleteCancel = true;
+    inputError = null;
+    saveError = null;
+    onStartDelete(history);
+  }
+
+  async function handleCancelDelete(): Promise<void> {
+    if (isDeletePending) {
+      return;
+    }
+    shouldFocusDeleteCancel = false;
+    onCancelDelete();
+    await tick();
+    deleteButton?.focus();
+  }
+
+  async function handleConfirmDelete(): Promise<void> {
+    if (isDeletePending) {
+      return;
+    }
+    deleting = true;
+    await onDelete(history.id);
+    deleting = false;
+  }
+
+  function handleDeleteKeydown(event: KeyboardEvent): void {
+    if (event.key !== "Escape" || isDeletePending) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    void handleCancelDelete();
   }
 
   async function handleCancelEdit(): Promise<void> {
     inputError = null;
     saveError = null;
-    saveSuccess = null;
     onCancelEdit();
     await tick();
     editButton?.focus();
@@ -174,7 +237,6 @@
     }
     submitting = false;
     if (result.kind === "success") {
-      saveSuccess = "履歴を更新しました。";
       await tick();
       editButton?.focus();
     } else if (result.kind === "failure") {
@@ -209,6 +271,7 @@
         bind:this={editButton}
         class="icon-button"
         type="button"
+        data-history-edit-id={history.id}
         onclick={handleStartEdit}
         disabled={!canStartEdit}
       >
@@ -216,16 +279,52 @@
         編集
       </button>
       <button
+        bind:this={deleteButton}
         class="icon-button danger"
         type="button"
-        onclick={() => onDelete(history.id)}
-        disabled={!canDelete}
+        onclick={handleStartDelete}
+        disabled={!canDelete || isDeleteConfirming}
       >
         <Trash2 size={16} strokeWidth={2.4} aria-hidden="true" />
         削除
       </button>
     </div>
   </div>
+  {#if isDeleteConfirming}
+    <div class="delete-confirmation">
+      <p>
+        「{history.operationType === "add" ? "追加" : "調整"}
+        {history.inputYen} 円」を削除しますか？
+      </p>
+      <div class="delete-actions">
+        <button
+          bind:this={deleteCancelButton}
+          class="cancel-button"
+          type="button"
+          onclick={handleCancelDelete}
+          aria-disabled={isDeletePending}
+          onkeydown={handleDeleteKeydown}
+        >
+          取消
+        </button>
+        <button
+          class="delete-confirm-button"
+          type="button"
+          onclick={() => void handleConfirmDelete()}
+          aria-disabled={isDeletePending}
+          onkeydown={handleDeleteKeydown}
+        >
+          {isDeletePending ? "削除中..." : "削除を確定"}
+        </button>
+      </div>
+      {#if isDeletePending}
+        <p class="edit-status" role="status">履歴を削除中です。</p>
+      {/if}
+      {#if deleteError}
+        <p class="error-message" role="alert">{deleteError}</p>
+      {/if}
+    </div>
+  {/if}
   {#if isEditing}
     <form class="inline-edit" onsubmit={handleSaveEdit}>
       <label>
@@ -317,8 +416,8 @@
     {/if}
     {#if isPending}
       <p class="edit-status" role="status">履歴を更新中です。</p>
-    {:else if saveSuccess}
-      <p class="edit-status" role="status">{saveSuccess}</p>
+    {:else if isSaveSuccessful}
+      <p class="edit-status" role="status">履歴を更新しました。</p>
     {/if}
   {/if}
 </li>
@@ -390,6 +489,37 @@
   .history-memo span {
     display: block;
     margin-bottom: 0.15rem;
+  }
+
+  .delete-confirmation {
+    background: #fff1f0;
+    border: 1px solid #efc3bd;
+    border-radius: 8px;
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .delete-confirmation p {
+    margin: 0;
+  }
+
+  .delete-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .delete-confirm-button {
+    background: #9b2c22;
+    border: 1px solid #9b2c22;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 900;
+    min-height: 2.75rem;
+    padding: 0 0.85rem;
   }
 
   .error-message {
