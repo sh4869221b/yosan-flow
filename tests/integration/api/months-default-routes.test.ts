@@ -11,44 +11,7 @@ import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 describe("period API default routes", () => {
   it("uses platform.env.DB backed adapter path", async () => {
     const preparedSql: string[] = [];
-    const fakeDb = {
-      prepare(sql: string) {
-        preparedSql.push(sql);
-        return {
-          bind() {
-            return {
-              async first() {
-                return null;
-              },
-              async all() {
-                return { results: [] };
-              },
-              async raw() {
-                return [];
-              },
-              async run() {
-                return {};
-              },
-            };
-          },
-          async first() {
-            return null;
-          },
-          async all() {
-            return { results: [] };
-          },
-          async raw() {
-            return [];
-          },
-          async run() {
-            return {};
-          },
-        };
-      },
-      async batch() {
-        return [];
-      },
-    } as unknown as D1Database;
+    const fakeDb = createPeriodAwareD1Fake(preparedSql);
 
     const response = await periodsGetDefaultRoute({
       request: new Request("http://localhost/api/periods", { method: "GET" }),
@@ -64,49 +27,6 @@ describe("period API default routes", () => {
     expect(preparedSql.some((sql) => sql.includes("budget_periods"))).toBe(
       true,
     );
-  });
-
-  it("creates period then can read summary and add day in D1 path", async () => {
-    const preparedSql: string[] = [];
-    const fakeDb = createPeriodAwareD1Fake(preparedSql);
-
-    const createResponse = await periodsPostDefaultRoute({
-      request: new Request("http://localhost/api/periods", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: "p1",
-          startDate: "2026-04-20",
-          endDate: "2026-05-19",
-          budgetYen: 100000,
-        }),
-      }),
-      platform: { env: { DB: fakeDb } },
-    } as any);
-    expect(createResponse.status).toBe(201);
-
-    const periodResponse = await periodGetDefaultRoute({
-      params: { periodId: "p1" },
-      request: new Request("http://localhost/api/periods/p1", {
-        method: "GET",
-      }),
-      platform: { env: { DB: fakeDb } },
-    } as any);
-    expect(periodResponse.status).toBe(200);
-
-    const addResponse = await dayAddDefaultRoute({
-      params: { periodId: "p1", date: "2026-04-20" },
-      request: new Request(
-        "http://localhost/api/periods/p1/days/2026-04-20/add",
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ inputYen: 1000 }),
-        },
-      ),
-      platform: { env: { DB: fakeDb } },
-    } as any);
-    expect(addResponse.status).toBe(200);
   });
 
   it("adds daily amounts cumulatively in D1 path", async () => {

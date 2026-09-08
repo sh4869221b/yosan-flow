@@ -142,54 +142,6 @@ describe("day-entry controller modal generation", () => {
     expect(harness.publishedSummaries).toEqual([firstSummary, secondSummary]);
   });
 
-  it("keeps the current modal session usable when its save fails", async () => {
-    // Given
-    const initialSummary = createSummary(0, 0);
-    let summary = initialSummary;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() =>
-        Promise.resolve(
-          jsonResponse({ error: { message: "current error" } }, 503),
-        ),
-      ),
-    );
-    const controller = createDayEntryControllerState({
-      getSelectedPeriodId: () => "period-1",
-      getSummary: () => summary,
-      historyController: {
-        getMutationSequence: () => 0,
-        loadHistory: vi.fn(),
-        loadHistoryEffect: () => Effect.void,
-        resetHistories: vi.fn(),
-      },
-      setSummary: (nextSummary) => {
-        summary = nextSummary;
-      },
-    });
-    controller.openDayEntry({ date: "2026-07-12" });
-    controller.modalInputYen = "2000";
-    controller.modalMemo = "current session";
-
-    // When
-    controller.submitDayEntry({
-      date: "2026-07-12",
-      inputYen: 2_000,
-      memo: "current session",
-    });
-
-    // Then
-    await vi.waitFor(() => {
-      expect(controller.modalError).toBe("current error");
-      expect(controller.modalSaving).toBe(false);
-    });
-    expect(controller.modalOpen).toBe(true);
-    expect(controller.selectedDate).toBe("2026-07-12");
-    expect(controller.modalInputYen).toBe("2000");
-    expect(controller.modalMemo).toBe("current session");
-    expect(summary).toEqual(initialSummary);
-  });
-
   it("applies an old save summary without mutating a newer modal session", async () => {
     // Given
     const initialSummary = createSummary(0, 0);

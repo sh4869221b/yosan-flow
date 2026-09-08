@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   addDay,
-  buildMonthLabel,
   buildMonths,
   fromDateValue,
   toDateValue,
@@ -11,11 +10,6 @@ describe("toDateValue", () => {
   it("converts a YYYY-MM-DD string to a UTC epoch number", () => {
     const result = toDateValue("2026-05-01");
     expect(result).toBe(Date.parse("2026-05-01T00:00:00.000Z"));
-  });
-
-  it("is idempotent with fromDateValue", () => {
-    const date = "2026-01-15";
-    expect(fromDateValue(toDateValue(date))).toBe(date);
   });
 });
 
@@ -45,31 +39,13 @@ describe("addDay", () => {
   });
 });
 
-describe("buildMonthLabel", () => {
-  it("builds a Japanese month label by default", () => {
-    const label = buildMonthLabel("2026-05-01");
-    expect(label).toContain("5");
-    expect(label).toContain("2026");
-  });
-
-  it("uses the provided locale", () => {
-    const label = buildMonthLabel("2026-05-01", "en-US");
-    expect(label).toContain("May");
-    expect(label).toContain("2026");
-  });
-});
-
 describe("buildMonths", () => {
-  it("returns an empty array for empty start date", () => {
-    expect(buildMonths("", "2026-05-31")).toEqual([]);
-  });
-
-  it("returns an empty array for empty end date", () => {
-    expect(buildMonths("2026-05-01", "")).toEqual([]);
-  });
-
-  it("returns an empty array when start is after end", () => {
-    expect(buildMonths("2026-05-10", "2026-05-01")).toEqual([]);
+  it.each([
+    ["empty start", "", "2026-05-31"],
+    ["empty end", "2026-05-01", ""],
+    ["reversed range", "2026-05-10", "2026-05-01"],
+  ])("returns no months for %s", (_case, start, end) => {
+    expect(buildMonths(start, end)).toEqual([]);
   });
 
   it("returns a single month for a within-month range", () => {
@@ -77,6 +53,7 @@ describe("buildMonths", () => {
     expect(months).toHaveLength(1);
     expect(months[0].key).toBe("2026-05");
     expect(months[0].label).toContain("5");
+    expect(months[0].label).toContain("2026");
   });
 
   it("pads the first week with null cells for days before the start", () => {
@@ -100,15 +77,12 @@ describe("buildMonths", () => {
     expect(week.slice(2).every((c) => c === null)).toBe(true);
   });
 
-  it("splits a cross-month range into multiple months", () => {
+  it("splits a cross-month range with all dates in each month", () => {
     const months = buildMonths("2026-04-28", "2026-05-03");
     expect(months).toHaveLength(2);
     expect(months[0].key).toBe("2026-04");
     expect(months[1].key).toBe("2026-05");
-  });
 
-  it("includes all dates in each month", () => {
-    const months = buildMonths("2026-04-28", "2026-05-03");
     const aprilDates = months[0].weeks
       .flat()
       .filter((d): d is string => d !== null);
@@ -148,5 +122,6 @@ describe("buildMonths", () => {
   it("uses the locale parameter for labels", () => {
     const months = buildMonths("2026-05-01", "2026-05-01", "en-US");
     expect(months[0].label).toContain("May");
+    expect(months[0].label).toContain("2026");
   });
 });

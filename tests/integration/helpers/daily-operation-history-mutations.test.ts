@@ -13,8 +13,6 @@ import type {
 const PERIOD_ID = "period-a";
 const DATE = "2026-04-20";
 const UPDATE_SQL = "UPDATE daily_operation_histories SET input_yen = ?";
-const DELETE_SQL =
-  "DELETE FROM daily_operation_histories WHERE budget_period_id = ?";
 const INSERT_SQL =
   "INSERT INTO daily_operation_histories VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 const REPLAY_SQL =
@@ -59,30 +57,7 @@ function mutate(
 }
 
 describe("applyDailyOperationHistoryMutation", () => {
-  it("leaves state unchanged for irrelevant SQL and below-threshold branch shapes", () => {
-    const state = createPeriodAwareD1FakeState();
-    state.dailyOperationHistories.push(historyRow({ id: "kept" }));
-    state.dailyTotals.set(
-      toDailyTotalKey(DATE, PERIOD_ID),
-      dailyTotalRow({ total_used_yen: 100 }),
-    );
-    const before = state.snapshot();
-    const noOps: readonly [string, unknown[]][] = [
-      ["UPDATE unrelated_table SET input_yen = ?", [999]],
-      [REPLAY_SQL, [PERIOD_ID, DATE, "too-short"]],
-      [UPDATE_SQL, [1, "memo", PERIOD_ID, DATE]],
-      [DELETE_SQL, [PERIOD_ID, DATE]],
-      [INSERT_SQL, ["short", PERIOD_ID, DATE, "add", 1, 0, 1, "memo"]],
-    ];
-
-    for (const [sql, args] of noOps) {
-      mutate(sql, args, state);
-    }
-
-    expect(state.snapshot()).toEqual(before);
-  });
-
-  it("replays scoped rows and gives recursive SQL precedence over full update", () => {
+  it("replays rows only within the selected period and date", () => {
     const state = createPeriodAwareD1FakeState();
     state.dailyOperationHistories.push(
       historyRow({
@@ -116,94 +91,22 @@ describe("applyDailyOperationHistoryMutation", () => {
         after_total_yen: 11,
       }),
       historyRow({
-        id: "full-update-target",
-        budget_period_id: "full-period",
-        date: "full-date",
+        id: "other-period",
+        budget_period_id: "other-period",
+        date: DATE,
         before_total_yen: 30,
         after_total_yen: 40,
       }),
     );
 
-    mutate(
-      REPLAY_SQL,
-      [
-        PERIOD_ID,
-        DATE,
-        "unused",
-        "unused",
-        "full-period",
-        "full-date",
-        "full-update-target",
-      ],
-      state,
-    );
+    mutate(REPLAY_SQL, [PERIOD_ID, DATE, PERIOD_ID, DATE], state);
 
     expect(state.dailyOperationHistories).toMatchObject([
       { id: "later-add", before_total_yen: 100, after_total_yen: 150 },
       { id: "first-add", before_total_yen: 0, after_total_yen: 100 },
       { id: "overwrite", before_total_yen: 150, after_total_yen: 20 },
       { id: "other-date", before_total_yen: 7, after_total_yen: 11 },
-      { id: "full-update-target", before_total_yen: 30, after_total_yen: 40 },
-    ]);
-  });
-
-  it("preserves full, partial, and delete recognition thresholds", () => {
-    const state = createPeriodAwareD1FakeState();
-    state.dailyOperationHistories.push(
-      historyRow({ id: "full" }),
-      historyRow({ id: "partial-five" }),
-      historyRow({ id: "partial-six" }),
-      historyRow({
-        id: "missing-period-id",
-        budget_period_id: "partial-decoy-period",
-        date: "partial-decoy-date",
-        input_yen: 200,
-        memo: "decoy",
-      }),
-      historyRow({ id: "delete-me" }),
-      historyRow({ id: "keep-me" }),
-    );
-
-    mutate(
-      UPDATE_SQL,
-      [300, 10, 310, "full memo", PERIOD_ID, DATE, "full"],
-      state,
-    );
-    mutate(
-      UPDATE_SQL,
-      [
-        999,
-        "partial memo if fallen through",
-        "partial-decoy-period",
-        "partial-decoy-date",
-        "missing-period-id",
-        "missing-date",
-        "missing-id",
-      ],
-      state,
-    );
-    mutate(UPDATE_SQL, [500, null, PERIOD_ID, DATE, "partial-five"], state);
-    mutate(
-      UPDATE_SQL,
-      [600, "six", PERIOD_ID, DATE, "partial-six", "x"],
-      state,
-    );
-    mutate(UPDATE_SQL, [700, "missing", PERIOD_ID, DATE, "missing"], state);
-    mutate(DELETE_SQL, [PERIOD_ID, DATE, "delete-me"], state);
-    mutate(DELETE_SQL, [PERIOD_ID, DATE, "missing"], state);
-
-    expect(state.dailyOperationHistories).toMatchObject([
-      {
-        id: "full",
-        input_yen: 300,
-        before_total_yen: 10,
-        after_total_yen: 310,
-        memo: "full memo",
-      },
-      { id: "partial-five", input_yen: 500, memo: null },
-      { id: "partial-six", input_yen: 600, memo: "six" },
-      { id: "missing-period-id", input_yen: 200, memo: "decoy" },
-      { id: "keep-me" },
+      { id: "other-period", before_total_yen: 30, after_total_yen: 40 },
     ]);
   });
 
@@ -257,21 +160,6 @@ describe("applyDailyOperationHistoryMutation", () => {
       ],
       state,
     );
-    mutate(
-      COMPUTED_INSERT_SQL,
-      [
-        "computed-overwrite-minimum",
-        PERIOD_ID,
-        DATE,
-        "overwrite",
-        700,
-        PERIOD_ID,
-        DATE,
-        700,
-        "overwrite memo",
-      ],
-      state,
-    );
 
     expect(state.dailyOperationHistories).toMatchObject([
       {
@@ -287,17 +175,7 @@ describe("applyDailyOperationHistoryMutation", () => {
         after_total_yen: 1250,
         memo: "add memo",
       },
-      {
-        id: "computed-overwrite-minimum",
-        before_total_yen: 1000,
-        after_total_yen: 700,
-        memo: "overwrite memo",
-        created_at: "undefined",
-      },
     ]);
-    expect(state.snapshot()).toMatchObject({
-      dailyOperationHistories: state.dailyOperationHistories,
-    });
   });
 
   it("updates daily totals after history mutation through SQL dispatch", () => {

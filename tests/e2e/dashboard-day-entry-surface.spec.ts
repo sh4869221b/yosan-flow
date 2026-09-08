@@ -162,8 +162,17 @@ test("blocks dismissal and resubmission while saving", async ({
   await expect(modal).toBeVisible();
   await expect(modal).toContainText(`対象日: ${todayDate}`);
   expect(addRequestCount).toBe(1);
+  const addResponse = page.waitForResponse((response) =>
+    isExactDayEntryAddResponse(response, addUrl),
+  );
   releaseSave.resolve();
+  expect((await addResponse).ok()).toBe(true);
   await expect(modal).toBeHidden();
+  await expect(
+    page
+      .getByTestId(`calendar-day-${todayDate}`)
+      .getByTestId(`used-${todayDate}`),
+  ).toHaveText("1200 円");
 });
 
 test("returns focus to the calendar origin and announces an accepted save", async ({

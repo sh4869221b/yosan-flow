@@ -20,9 +20,6 @@ export function applyDailyOperationHistoryMutation(
   if (tryApplyRecursiveReplay(normalizedSql, args, state)) {
     return;
   }
-  if (tryApplyFullUpdate(normalizedSql, args, state)) {
-    return;
-  }
   if (tryApplyPartialUpdate(normalizedSql, args, state)) {
     return;
   }
@@ -50,31 +47,6 @@ function tryApplyRecursiveReplay(
     String(args[1]),
     state.dailyOperationHistories,
   );
-  return true;
-}
-
-function tryApplyFullUpdate(
-  normalizedSql: string,
-  args: unknown[],
-  state: PeriodAwareD1FakeState,
-): boolean {
-  if (!normalizedSql.includes("update") || args.length < 7) {
-    return false;
-  }
-
-  const existing = findDailyOperationHistory(state.dailyOperationHistories, {
-    periodId: String(args[4]),
-    date: String(args[5]),
-    id: String(args[6]),
-  });
-  if (!existing) {
-    return true;
-  }
-
-  existing.input_yen = Number(args[0]);
-  existing.before_total_yen = Number(args[1]);
-  existing.after_total_yen = Number(args[2]);
-  existing.memo = args[3] === null ? null : String(args[3]);
   return true;
 }
 
