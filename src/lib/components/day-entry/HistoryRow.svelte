@@ -1,11 +1,17 @@
 <script lang="ts">
   import { Pencil, Save, Trash2, X } from "@lucide/svelte";
+  import { tick } from "svelte";
   import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
+  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+
+  const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
 
   type Props = {
     history: HistoryItem;
     isEditing?: boolean;
     isMutating?: boolean;
+    isSaving?: boolean;
+    mutationUnavailable?: boolean;
     canStartEdit?: boolean;
     canDelete?: boolean;
     editInputYen?: string;
@@ -20,6 +26,8 @@
     history,
     isEditing = false,
     isMutating = false,
+    isSaving = false,
+    mutationUnavailable = false,
     canStartEdit = true,
     canDelete = true,
     editInputYen = $bindable(""),
@@ -29,6 +37,96 @@
     onSaveEdit = async () => ({ kind: "ignored" }),
     onDelete = async () => ({ kind: "ignored" }),
   }: Props = $props();
+
+  let amountInput = $state<HTMLInputElement | null>(null);
+  let editButton = $state<HTMLButtonElement | null>(null);
+  let saveButton = $state<HTMLButtonElement | null>(null);
+  let inputError = $state<string | null>(null);
+  let saveError = $state<string | null>(null);
+  let saveSuccess = $state<string | null>(null);
+  let submitting = $state(false);
+  let shouldFocusAmount = $state(false);
+
+  const isPending = $derived(submitting || isMutating || isSaving);
+
+  $effect(() => {
+    if (!isEditing || !shouldFocusAmount) {
+      return;
+    }
+    void tick().then(() => {
+      if (isEditing && shouldFocusAmount && !submitting) {
+        shouldFocusAmount = false;
+        amountInput?.focus();
+      }
+    });
+  });
+
+  function handleStartEdit(): void {
+    shouldFocusAmount = true;
+    inputError = null;
+    saveError = null;
+    saveSuccess = null;
+    onStartEdit(history);
+  }
+
+  async function handleCancelEdit(): Promise<void> {
+    inputError = null;
+    saveError = null;
+    saveSuccess = null;
+    onCancelEdit();
+    await tick();
+    editButton?.focus();
+  }
+
+  function handleInput(): void {
+    if (
+      inputError != null &&
+      parseNonNegativeIntegerYenInput(editInputYen) != null
+    ) {
+      inputError = null;
+    }
+    saveError = null;
+  }
+
+  async function handleSaveEdit(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (isPending || mutationUnavailable) {
+      return;
+    }
+    const parsed = parseNonNegativeIntegerYenInput(editInputYen);
+    if (parsed == null) {
+      inputError = AMOUNT_ERROR;
+      await tick();
+      amountInput?.focus();
+      return;
+    }
+    inputError = null;
+    saveError = null;
+    const submittedFromSaveButton = event.submitter === saveButton;
+    submitting = true;
+    const result = await onSaveEdit(history.id);
+    submitting = false;
+    if (result.kind === "success") {
+      saveSuccess = "履歴を更新しました。";
+      await tick();
+      editButton?.focus();
+    } else if (result.kind === "failure") {
+      saveError = result.message;
+      await tick();
+      if (submittedFromSaveButton) {
+        saveButton?.focus();
+      }
+    }
+  }
+
+  function handleEditKeydown(event: KeyboardEvent): void {
+    if (event.key !== "Escape" || isPending) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    void handleCancelEdit();
+  }
 </script>
 
 <li class:editing={isEditing}>
@@ -39,9 +137,10 @@
     </div>
     <div class="row-actions" aria-label="履歴操作">
       <button
+        bind:this={editButton}
         class="icon-button"
         type="button"
-        onclick={() => onStartEdit(history)}
+        onclick={handleStartEdit}
         disabled={!canStartEdit}
       >
         <Pencil size={16} strokeWidth={2.4} aria-hidden="true" />
@@ -59,42 +158,71 @@
     </div>
   </div>
   {#if isEditing}
-    <form
-      class="inline-edit"
-      onsubmit={(event) => {
-        event.preventDefault();
-        void onSaveEdit(history.id);
-      }}
-    >
+    <form class="inline-edit" onsubmit={handleSaveEdit}>
       <label>
         入力額 (円)
         <input
           type="text"
           inputmode="numeric"
+          bind:this={amountInput}
           bind:value={editInputYen}
-          disabled={isMutating}
+          aria-invalid={inputError != null}
+          aria-describedby={inputError
+            ? `history-edit-${history.id}-amount-error`
+            : undefined}
+          disabled={isPending}
+          oninput={handleInput}
+          onkeydown={handleEditKeydown}
         />
       </label>
+      {#if inputError}
+        <p
+          id={`history-edit-${history.id}-amount-error`}
+          class="error-message"
+          role="alert"
+        >
+          {inputError}
+        </p>
+      {/if}
       <label>
         メモ
-        <textarea rows="2" bind:value={editMemo} disabled={isMutating}
-        ></textarea>
+        <textarea
+          rows="2"
+          bind:value={editMemo}
+          disabled={isPending}
+          oninput={() => (saveError = null)}
+          onkeydown={handleEditKeydown}></textarea>
       </label>
       <div class="edit-actions">
-        <button class="save-button" type="submit" disabled={isMutating}>
+        <button
+          bind:this={saveButton}
+          class="save-button"
+          type="submit"
+          disabled={isPending || mutationUnavailable}
+          onkeydown={handleEditKeydown}
+        >
           <Save size={16} strokeWidth={2.4} aria-hidden="true" />
-          保存
+          {isPending ? "保存中..." : "保存"}
         </button>
         <button
           class="cancel-button"
           type="button"
-          onclick={onCancelEdit}
-          disabled={isMutating}
+          onclick={handleCancelEdit}
+          disabled={isPending}
+          onkeydown={handleEditKeydown}
         >
           <X size={16} strokeWidth={2.4} aria-hidden="true" />
           キャンセル
         </button>
       </div>
+      {#if isPending}
+        <p class="edit-status" role="status">履歴を更新中です。</p>
+      {:else if mutationUnavailable}
+        <p class="edit-status" role="status">別の履歴を更新中です。</p>
+      {/if}
+      {#if saveError}
+        <p class="error-message" role="alert">{saveError}</p>
+      {/if}
     </form>
   {:else}
     <p class="history-input">
@@ -113,6 +241,11 @@
     </dl>
     {#if history.memo}
       <p class="history-memo"><span>メモ</span>{history.memo}</p>
+    {/if}
+    {#if isPending}
+      <p class="edit-status" role="status">履歴を更新中です。</p>
+    {:else if saveSuccess}
+      <p class="edit-status" role="status">{saveSuccess}</p>
     {/if}
   {/if}
 </li>
@@ -184,6 +317,16 @@
   .history-memo span {
     display: block;
     margin-bottom: 0.15rem;
+  }
+
+  .error-message {
+    color: #9b2c22;
+    font-weight: 800;
+  }
+
+  .edit-status {
+    color: #276432;
+    font-weight: 800;
   }
 
   button,

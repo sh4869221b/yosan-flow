@@ -2,7 +2,6 @@
   import { tick } from "svelte";
   import HistoryRow from "./day-entry/HistoryRow.svelte";
   import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
 
   type Props = {
     date?: string | null;
@@ -43,7 +42,7 @@
   let editInputYen = $state("");
   let editMemo = $state("");
   let pendingSaveHistoryId = $state<string | null>(null);
-  let inputError = $state<string | null>(null);
+  let editFailureHistoryId = $state<string | null>(null);
   let activeRetry = $state.raw<RetryOperation | null>(null);
   let activeEdit = $state.raw<EditOperation | null>(null);
   let historyHeading = $state<HTMLHeadingElement | null>(null);
@@ -60,7 +59,7 @@
   });
 
   $effect(() => {
-    date;
+    void date;
     cancelEdit();
     activeRetry = null;
   });
@@ -69,10 +68,11 @@
     if (editingHistoryId != null && editingHistoryId !== history.id) {
       return;
     }
+    activeEdit = null;
+    editFailureHistoryId = null;
     editingHistoryId = history.id;
     editInputYen = String(history.inputYen);
     editMemo = history.memo ?? "";
-    inputError = null;
   }
 
   function cancelEdit(): void {
@@ -81,36 +81,33 @@
     editMemo = "";
     pendingSaveHistoryId = null;
     activeEdit = null;
-    inputError = null;
+    editFailureHistoryId = null;
   }
 
   async function saveEdit(historyId: string): Promise<HistoryActionResult> {
-    const parsed = parseNonNegativeIntegerYenInput(editInputYen);
-    if (parsed == null) {
-      inputError = "入力額は 0 以上の整数で入力してください。";
-      return { kind: "failure", message: inputError };
-    }
-    inputError = null;
     if (!isOpen || date == null) return { kind: "ignored" };
+    editFailureHistoryId = null;
     const operation: EditOperation = { date, historyId };
     activeEdit = operation;
     pendingSaveHistoryId = historyId;
+    editingHistoryId = null;
     const result = await updateHistory({
       historyId,
-      inputYen: parsed,
+      inputYen: Number(editInputYen.trim()),
       memo: editMemo,
     });
-    if (
-      activeEdit !== operation ||
-      !isOpen ||
-      date !== operation.date ||
-      editingHistoryId !== historyId
-    ) {
-      return result;
+    if (activeEdit !== operation || !isOpen || date !== operation.date) {
+      if (pendingSaveHistoryId === historyId) {
+        pendingSaveHistoryId = null;
+      }
+      return { kind: "ignored" };
     }
     activeEdit = null;
     pendingSaveHistoryId = null;
-    if (result.kind === "success") cancelEdit();
+    if (result.kind === "failure") {
+      editFailureHistoryId = historyId;
+      editingHistoryId = historyId;
+    }
     return result;
   }
 
@@ -144,7 +141,7 @@
   </div>
   {#if loading}
     <p class="status" role="status">履歴を読み込み中...</p>
-  {:else if errorMessage}
+  {:else if errorMessage && editFailureHistoryId == null}
     <p class="error-message" role="alert">{errorMessage}</p>
   {:else if histories.length === 0}
     <div class="empty-history">
@@ -159,9 +156,14 @@
           {history}
           isEditing={editingHistoryId === history.id}
           isMutating={historyMutatingId === history.id}
-          canStartEdit={historyMutatingId == null &&
-            (editingHistoryId == null || editingHistoryId === history.id)}
-          canDelete={historyMutatingId == null && editingHistoryId == null}
+          isSaving={pendingSaveHistoryId === history.id}
+          mutationUnavailable={historyMutatingId != null &&
+            historyMutatingId !== history.id}
+          canStartEdit={editingHistoryId == null &&
+            pendingSaveHistoryId !== history.id}
+          canDelete={historyMutatingId == null &&
+            pendingSaveHistoryId == null &&
+            editingHistoryId == null}
           bind:editInputYen
           bind:editMemo
           onStartEdit={startEdit}
@@ -172,7 +174,7 @@
       {/each}
     </ul>
   {/if}
-  {#if errorMessage || activeRetry != null}
+  {#if (errorMessage && editFailureHistoryId == null) || activeRetry != null}
     <button
       class="retry-button"
       type="button"
@@ -181,9 +183,6 @@
     >
       {activeRetry != null ? "再試行中..." : "履歴を再試行"}
     </button>
-  {/if}
-  {#if inputError}
-    <p class="error-message" role="alert">{inputError}</p>
   {/if}
 </section>
 
