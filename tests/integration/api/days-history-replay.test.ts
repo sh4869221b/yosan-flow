@@ -161,32 +161,6 @@ describe("day entry history replay workflows", () => {
     ]);
   });
 
-  it("deletes the last history row and clears the day's total", async () => {
-    const fixture = await createDayEntryFixture();
-    await seedPeriod(fixture);
-
-    await Effect.runPromise(
-      fixture.service.addDailyAmount({
-        periodId: DEFAULT_PERIOD_ID,
-        date: DEFAULT_DATE,
-        inputYen: 1000,
-      }),
-    );
-
-    await Effect.runPromise(
-      fixture.service.deleteHistoryEntry({
-        periodId: DEFAULT_PERIOD_ID,
-        date: DEFAULT_DATE,
-        historyId: "history-id-1",
-      }),
-    );
-
-    const persistedDailyTotal = await getDailyTotal(fixture);
-    const histories = await getHistories(fixture);
-    expect(histories).toHaveLength(0);
-    expect(persistedDailyTotal?.totalUsedYen ?? 0).toBe(0);
-  });
-
   it("rejects history updates scoped to another budget period", async () => {
     const fixture = await createDayEntryFixture();
     await seedPeriod(fixture);

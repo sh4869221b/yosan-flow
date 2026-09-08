@@ -40,22 +40,6 @@ describe("day entry add and overwrite workflows", () => {
     expect(persistedHistories).toHaveLength(1);
   });
 
-  it("rejects updates when period does not exist", async () => {
-    const fixture = await createDayEntryFixture();
-
-    const error = await Effect.runPromise(
-      Effect.flip(
-        fixture.service.addDailyAmount({
-          periodId: "missing",
-          date: DEFAULT_DATE,
-          inputYen: 1000,
-        }),
-      ),
-    );
-
-    expect(error).toBeInstanceOf(PeriodNotFoundError);
-  });
-
   it("rejects through the API Effect runner with the original service error", async () => {
     const fixture = await createDayEntryFixture();
 

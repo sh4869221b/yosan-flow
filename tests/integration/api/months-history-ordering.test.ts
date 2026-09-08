@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runApiEffect } from "$lib/server/effect/runtime";
 import { createD1ApiServices } from "$lib/server/services/month-summary-service";
-import { _createPeriodDayHistoryHandler } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
 import { GET as dayHistoryDefaultRoute } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
 import { PATCH as dayHistoryPatchDefaultRoute } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/[historyId]/+server";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
@@ -57,7 +56,6 @@ describe("period daily history ordering", () => {
       }),
     );
 
-    const getHistory = _createPeriodDayHistoryHandler({ services });
     const historyResponse = await dayHistoryDefaultRoute({
       params: { periodId: "p-history", date: "2026-04-20" },
       request: new Request(
@@ -66,17 +64,8 @@ describe("period daily history ordering", () => {
       ),
       platform: { env: { DB: fakeDb } },
     } as any);
-    const injectedHistoryResponse = await getHistory({
-      params: { periodId: "p-history", date: "2026-04-20" },
-      request: new Request(
-        "http://localhost/api/periods/p-history/days/2026-04-20/history",
-        { method: "GET" },
-      ),
-    } as any);
-
     expect(historyResponse.status).toBe(200);
-    expect(injectedHistoryResponse.status).toBe(200);
-    await expect(injectedHistoryResponse.json()).resolves.toMatchObject({
+    await expect(historyResponse.json()).resolves.toMatchObject({
       histories: [
         {
           id: "history-z",
