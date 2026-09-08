@@ -516,12 +516,12 @@ test("restores history delete focus in visible order and ignores a closed sessio
   await middleRow.getByRole("button", { name: "削除" }).click();
   await middleRow.getByRole("button", { name: "削除を確定" }).click();
   await expect(middleRow).toHaveCount(0);
-  await expect(lastRow.getByRole("button", { name: "編集" })).toBeFocused();
-
-  await lastRow.getByRole("button", { name: "削除" }).click();
-  await lastRow.getByRole("button", { name: "削除を確定" }).click();
-  await expect(lastRow).toHaveCount(0);
   await expect(firstRow.getByRole("button", { name: "編集" })).toBeFocused();
+
+  await firstRow.getByRole("button", { name: "削除" }).click();
+  await firstRow.getByRole("button", { name: "削除を確定" }).click();
+  await expect(firstRow).toHaveCount(0);
+  await expect(lastRow.getByRole("button", { name: "編集" })).toBeFocused();
 
   const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history/`;
   const deleteRequested = Promise.withResolvers<void>();
@@ -535,8 +535,8 @@ test("restores history delete focus in visible order and ignores a closed sessio
     await releaseDelete.promise;
     await route.continue();
   });
-  await firstRow.getByRole("button", { name: "削除" }).click();
-  await firstRow.getByRole("button", { name: "削除を確定" }).click();
+  await lastRow.getByRole("button", { name: "削除" }).click();
+  await lastRow.getByRole("button", { name: "削除を確定" }).click();
   await deleteRequested.promise;
   await page.keyboard.press("Escape");
   await expect(modal).toBeHidden();
