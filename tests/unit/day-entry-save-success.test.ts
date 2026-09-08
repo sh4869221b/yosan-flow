@@ -251,7 +251,8 @@ describe("day-entry accepted save success", () => {
         Promise.resolve(jsonResponse({ error: { message: "failed" } }, 500)),
       ),
     );
-    const { controller } = createController();
+    const harness = createController();
+    const { controller } = harness;
     controller.openDayEntry({ date });
     controller.modalInputYen = "1200";
     controller.modalMemo = "昼食";
@@ -260,9 +261,14 @@ describe("day-entry accepted save success", () => {
     controller.submitDayEntry({ date, inputYen: 1_200, memo: "昼食" });
 
     // Then
-    await vi.waitFor(() => expect(controller.modalError).toBe("failed"));
+    await vi.waitFor(() => {
+      expect(controller.modalError).toBe("failed");
+      expect(controller.modalSaving).toBe(false);
+    });
     expect(controller.daySaveSuccess).toBeNull();
     expect(controller.modalOpen).toBe(true);
+    expect(controller.selectedDate).toBe(date);
+    expect(harness.summary).toEqual(createSummary(0));
     expect(controller.modalInputYen).toBe("1200");
     expect(controller.modalMemo).toBe("昼食");
   });

@@ -9,7 +9,7 @@
 - `day-entry-controller-*`, `history-*`, `period-controller-*`, `cross-kind-*`, `mutation-*`: async ownership, revision, and reconciliation.
 - `month-summary-*`, `budget-period.test.ts`, `day-entry-replay.test.ts`: period math and replay invariants.
 - `calendar-grid.test.ts`, `client-yen-input.test.ts`, `dashboard-api.test.ts`, `jst.test.ts`: pure boundaries.
-- `api-error-response.test.ts`, `db-boundary.test.ts`, `non-migration-drizzle-guard.test.ts`: server architecture.
+- `api-error-response.test.ts`, `non-migration-drizzle-guard.test.ts`: server architecture.
 - `dashboard-controller-structure.test.ts`, `budget-summary-structure.test.ts`: required splits and LOC ceilings.
 
 ## Race-Test Rules

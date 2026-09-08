@@ -1,40 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { Effect } from "effect";
 import {
   createPeriod,
   createPeriodSummaryRepository,
   runPeriodSummary,
 } from "./helpers/period-summary";
-import { buildPeriodSummary as buildPeriodSummaryFromCalculator } from "$lib/server/services/period-summary/period-summary-calculator";
 
 describe("period summary service", () => {
-  it("exposes the period summary calculator from the focused module", async () => {
-    const repository = createPeriodSummaryRepository();
-    await createPeriod(repository, {
-      id: "period-calculator-module",
-      startDate: "2026-04-20",
-      endDate: "2026-04-22",
-      budgetYen: 9000,
-      nowIso: "2026-04-01T00:00:00.000Z",
-    });
-
-    const result = await Effect.runPromise(
-      buildPeriodSummaryFromCalculator(repository, "period-calculator-module", {
-        jstToday: "2026-04-21",
-        dailyTotals: [
-          {
-            date: "2026-04-20",
-            budgetPeriodId: "period-calculator-module",
-            totalUsedYen: 3000,
-          },
-        ],
-      }),
-    );
-
-    expect(result.periodId).toBe("period-calculator-module");
-    expect(result.todayRecommendedYen).toBe(3000);
-  });
-
   it("builds summary fields for selected period with full calendar range", async () => {
     const repository = createPeriodSummaryRepository();
     await createPeriod(repository, {

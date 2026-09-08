@@ -85,41 +85,6 @@ describe("day-entry controller refresh failure", () => {
     refreshResponse.resolve(jsonResponse(summary));
   });
 
-  it("finishes a successful save before history reconciliation completes", async () => {
-    const summary = createSummary();
-    const historyFinished = Effect.runSync(Deferred.make<void>());
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(summary))
-      .mockResolvedValueOnce(jsonResponse(summary));
-    vi.stubGlobal("fetch", fetchMock);
-    const loadHistoryEffect = vi.fn(() => Deferred.await(historyFinished));
-    const controller = createDayEntryControllerState({
-      getSelectedPeriodId: () => "period-1",
-      getSummary: () => summary,
-      historyController: {
-        getMutationSequence: () => 0,
-        loadHistory: vi.fn(),
-        loadHistoryEffect,
-        resetHistories: vi.fn(),
-      },
-      setSummary: vi.fn(),
-    });
-    controller.openDayEntry({ date: "2026-07-12" });
-
-    controller.submitDayEntry({
-      date: "2026-07-12",
-      inputYen: 2_000,
-      memo: "committed before history",
-    });
-
-    await vi.waitFor(() => expect(loadHistoryEffect).toHaveBeenCalledOnce());
-    expect(controller.modalOpen).toBe(false);
-    expect(controller.modalSaving).toBe(false);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    Effect.runSync(Deferred.succeed(historyFinished, undefined));
-  });
-
   it("reconciles the summary while history remains pending", async () => {
     // Given
     const submittedSummary = createSummary();
@@ -136,13 +101,14 @@ describe("day-entry controller refresh failure", () => {
       .mockResolvedValueOnce(jsonResponse(authoritativeSummary));
     vi.stubGlobal("fetch", fetchMock);
     const setSummary = vi.fn();
+    const loadHistoryEffect = vi.fn(() => Deferred.await(historyFinished));
     const controller = createDayEntryControllerState({
       getSelectedPeriodId: () => "period-1",
       getSummary: () => submittedSummary,
       historyController: {
         getMutationSequence: () => 0,
         loadHistory: vi.fn(),
-        loadHistoryEffect: () => Deferred.await(historyFinished),
+        loadHistoryEffect,
         resetHistories: vi.fn(),
       },
       setSummary,
@@ -158,6 +124,9 @@ describe("day-entry controller refresh failure", () => {
 
     // Then
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(loadHistoryEffect).toHaveBeenCalledOnce());
+    expect(controller.modalOpen).toBe(false);
+    expect(controller.modalSaving).toBe(false);
     expect(setSummary).toHaveBeenLastCalledWith(authoritativeSummary);
     Effect.runSync(Deferred.succeed(historyFinished, undefined));
   });
