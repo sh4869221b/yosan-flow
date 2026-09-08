@@ -15,20 +15,16 @@ test.beforeEach(async ({ browser, request }) => {
   await warmUpBrowser(browser);
 });
 
-test("shows period creation form on empty dashboard", async ({ page }) => {
-  await page.goto(`${getBaseUrl()}/`);
-
-  await expect(page.getByTestId("create-period-panel")).toBeVisible();
-  await expect(page.getByLabel("期間ID")).toBeVisible();
-  await expect(page.getByLabel("新規予算額 (円)")).toBeVisible();
-  await expect(page.getByRole("button", { name: "期間を作成" })).toBeVisible();
-});
-
 test("creates period", async ({ page }) => {
   const today = getCurrentJstDate();
   const endDate = addDays(today, 29);
 
   await page.goto(`${getBaseUrl()}/`);
+  await expect(page.getByTestId("create-period-panel")).toBeVisible();
+  await expect(page.getByLabel("期間ID")).toBeVisible();
+  await expect(page.getByLabel("新規予算額 (円)")).toBeVisible();
+  await expect(page.getByRole("button", { name: "期間を作成" })).toBeVisible();
+
   await page.getByLabel("期間ID").fill(`p-${today}`);
   await page.getByRole("button", { name: "期間を作成" }).click();
 

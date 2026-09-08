@@ -38,21 +38,6 @@ export type SuccessfulDayEntrySaveOptions = DayEntrySaveResponseOptions & {
   readonly responseAssertionContext?: string;
 };
 
-export class SuccessfulDayEntrySaveError extends Error {
-  readonly status: number;
-  readonly url: string;
-  readonly context: string | undefined;
-
-  constructor(status: number, url: string, context?: string) {
-    const contextSuffix = context === undefined ? "" : ` (${context})`;
-    super(`Day-entry add failed with HTTP ${status}${contextSuffix}: ${url}`);
-    this.name = new.target.name;
-    this.status = status;
-    this.url = url;
-    this.context = context;
-  }
-}
-
 export function configureDashboardDayEntryE2E(): void {
   test.describe.configure({ mode: "serial", timeout: 120_000 });
 
@@ -164,13 +149,14 @@ export async function saveDayEntrySuccessfully({
     date,
   });
 
-  if (!response.ok()) {
-    throw new SuccessfulDayEntrySaveError(
-      response.status(),
-      response.url(),
-      responseAssertionContext,
-    );
-  }
+  const contextSuffix =
+    responseAssertionContext === undefined
+      ? ""
+      : ` (${responseAssertionContext})`;
+  expect(
+    response.ok(),
+    `Day-entry add failed with HTTP ${response.status()}${contextSuffix}: ${response.url()}`,
+  ).toBe(true);
 
   await expect(modal).toBeHidden();
 }
