@@ -6,6 +6,8 @@
 
   const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
 
+  type EditFocusTarget = "amount" | "memo" | "save";
+
   type Props = {
     history: HistoryItem;
     isEditing?: boolean;
@@ -39,8 +41,12 @@
   }: Props = $props();
 
   let amountInput = $state<HTMLInputElement | null>(null);
+  let memoInput = $state<HTMLTextAreaElement | null>(null);
   let editButton = $state<HTMLButtonElement | null>(null);
   let saveButton = $state<HTMLButtonElement | null>(null);
+  let focusedEditElement = $state<HTMLElement | null>(null);
+  let focusedEditTarget = $state<EditFocusTarget | null>(null);
+  let stopPendingFocusTracking = $state<(() => void) | null>(null);
   let inputError = $state<string | null>(null);
   let saveError = $state<string | null>(null);
   let saveSuccess = $state<string | null>(null);
@@ -61,6 +67,12 @@
     });
   });
 
+  $effect(() => {
+    if (!isEditing && !isSaving && !isMutating) {
+      stopPendingFocusTracking?.();
+    }
+  });
+
   function handleStartEdit(): void {
     shouldFocusAmount = true;
     inputError = null;
@@ -78,6 +90,14 @@
     editButton?.focus();
   }
 
+  function captureEditFocus(
+    target: EditFocusTarget,
+    element: EventTarget | null,
+  ): void {
+    focusedEditTarget = target;
+    focusedEditElement = element instanceof HTMLElement ? element : null;
+  }
+
   function handleInput(): void {
     if (
       inputError != null &&
@@ -86,6 +106,27 @@
       inputError = null;
     }
     saveError = null;
+  }
+
+  function restoreFailureFocus(
+    submitFocusElement: Element | null,
+    submitFocusTarget: EditFocusTarget | null,
+    focusMovedWhilePending: boolean,
+  ): void {
+    if (
+      submitFocusTarget == null ||
+      submitFocusElement?.isConnected ||
+      focusMovedWhilePending
+    ) {
+      return;
+    }
+    if (submitFocusTarget === "amount") {
+      amountInput?.focus();
+    } else if (submitFocusTarget === "memo") {
+      memoInput?.focus();
+    } else {
+      saveButton?.focus();
+    }
   }
 
   async function handleSaveEdit(event: SubmitEvent): Promise<void> {
@@ -102,9 +143,35 @@
     }
     inputError = null;
     saveError = null;
-    const submittedFromSaveButton = event.submitter === saveButton;
+    const submitFocusElement = focusedEditElement;
+    const submitFocusTarget = focusedEditTarget;
+    let focusMovedWhilePending = false;
+    const trackPendingInteraction = (pendingEvent: Event): void => {
+      if (pendingEvent.target !== submitFocusElement) {
+        focusMovedWhilePending = true;
+      }
+    };
     submitting = true;
-    const result = await onSaveEdit(history.id);
+    const resultPromise = onSaveEdit(history.id);
+    await tick();
+    const stopTracking = (): void => {
+      window.removeEventListener("focusin", trackPendingInteraction, true);
+      window.removeEventListener("pointerdown", trackPendingInteraction, true);
+      window.removeEventListener("input", trackPendingInteraction, true);
+      if (stopPendingFocusTracking === stopTracking) {
+        stopPendingFocusTracking = null;
+      }
+    };
+    stopPendingFocusTracking = stopTracking;
+    window.addEventListener("focusin", trackPendingInteraction, true);
+    window.addEventListener("pointerdown", trackPendingInteraction, true);
+    window.addEventListener("input", trackPendingInteraction, true);
+    let result: HistoryActionResult;
+    try {
+      result = await resultPromise;
+    } finally {
+      stopTracking();
+    }
     submitting = false;
     if (result.kind === "success") {
       saveSuccess = "履歴を更新しました。";
@@ -113,9 +180,11 @@
     } else if (result.kind === "failure") {
       saveError = result.message;
       await tick();
-      if (submittedFromSaveButton) {
-        saveButton?.focus();
-      }
+      restoreFailureFocus(
+        submitFocusElement,
+        submitFocusTarget,
+        focusMovedWhilePending,
+      );
     }
   }
 
@@ -172,6 +241,7 @@
             : undefined}
           disabled={isPending}
           oninput={handleInput}
+          onfocus={(event) => captureEditFocus("amount", event.currentTarget)}
           onkeydown={handleEditKeydown}
         />
       </label>
@@ -188,9 +258,11 @@
         メモ
         <textarea
           rows="2"
+          bind:this={memoInput}
           bind:value={editMemo}
           disabled={isPending}
           oninput={() => (saveError = null)}
+          onfocus={(event) => captureEditFocus("memo", event.currentTarget)}
           onkeydown={handleEditKeydown}></textarea>
       </label>
       <div class="edit-actions">
@@ -199,6 +271,7 @@
           class="save-button"
           type="submit"
           disabled={isPending || mutationUnavailable}
+          onfocus={(event) => captureEditFocus("save", event.currentTarget)}
           onkeydown={handleEditKeydown}
         >
           <Save size={16} strokeWidth={2.4} aria-hidden="true" />

@@ -269,8 +269,10 @@ test("keeps a failed history save focused with its draft and submits once", asyn
   const memo = "failed history edit";
   await seedHistory(request, periodId, todayDate, memo);
   const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history/`;
-  const patchRequested = Promise.withResolvers<void>();
-  const releasePatch = Promise.withResolvers<void>();
+  const firstPatchRequested = Promise.withResolvers<void>();
+  const releaseFirstPatch = Promise.withResolvers<void>();
+  const secondPatchRequested = Promise.withResolvers<void>();
+  const releaseSecondPatch = Promise.withResolvers<void>();
   let patchCount = 0;
   await page.route(`**${historyPath}*`, async (route) => {
     if (route.request().method() !== "PATCH") {
@@ -278,8 +280,13 @@ test("keeps a failed history save focused with its draft and submits once", asyn
       return;
     }
     patchCount += 1;
-    patchRequested.resolve();
-    await releasePatch.promise;
+    if (patchCount === 1) {
+      firstPatchRequested.resolve();
+      await releaseFirstPatch.promise;
+    } else if (patchCount === 2) {
+      secondPatchRequested.resolve();
+      await releaseSecondPatch.promise;
+    }
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ error: {} }),
@@ -295,12 +302,12 @@ test("keeps a failed history save focused with its draft and submits once", asyn
   const amount = editingRow.getByLabel("入力額 (円)");
   await amount.fill("500");
   await editingRow.getByLabel("メモ").fill("draft on failure");
-  await editingRow.getByRole("button", { name: "保存", exact: true }).click();
-  await patchRequested.promise;
+  await amount.press("Enter");
+  await firstPatchRequested.promise;
   await expect(row.getByRole("button", { name: "編集" })).toBeDisabled();
   await expect(row.getByRole("button", { name: "保存" })).toHaveCount(0);
   expect(patchCount).toBe(1);
-  releasePatch.resolve();
+  releaseFirstPatch.resolve();
 
   await expect(editingRow.getByRole("alert")).toContainText(
     "履歴の更新に失敗しました。",
@@ -308,10 +315,24 @@ test("keeps a failed history save focused with its draft and submits once", asyn
   await expect(modal.locator(".history-panel > .error-message")).toHaveCount(0);
   await expect(amount).toHaveValue("500");
   await expect(editingRow.getByLabel("メモ")).toHaveValue("draft on failure");
-  await expect(editingRow.getByRole("button", { name: "保存" })).toBeFocused();
+  await expect(amount).toBeFocused();
   await editingRow.screenshot({
     path: "test-results/issue-351/task2-edit-failure.png",
   });
+
+  await amount.press("Enter");
+  await secondPatchRequested.promise;
+  const dayEntryAmount = modal.locator("#day-entry-amount");
+  await dayEntryAmount.click();
+  await dayEntryAmount.fill("321");
+  await expect(dayEntryAmount).toBeFocused();
+  releaseSecondPatch.resolve();
+
+  await expect(editingRow.getByRole("alert")).toContainText(
+    "履歴の更新に失敗しました。",
+  );
+  await expect(dayEntryAmount).toBeFocused();
+  expect(patchCount).toBe(2);
 });
 
 test("accepts a same-value save and leaves a newer draft focused", async ({
