@@ -21,7 +21,7 @@ it("cleans up an interrupted day-entry mutation lifecycle", async () => {
     getSelectedDate: () => "2026-07-12",
     getSelectedPeriodId: () => "period-1",
     getSummary: () => createSummary(0),
-    loadHistoryEffect: () => Effect.void,
+    loadHistoryEffect: () => Effect.succeed({ kind: "success" } as const),
     publishSaveSuccess: vi.fn(),
     setError: vi.fn(),
     setSaving: (nextSaving) => {
@@ -66,7 +66,7 @@ it("cleans up an interrupted history mutation lifecycle", async () => {
     getSelectedPeriodId: () => "period-1",
     getSummary: () => createSummary(0),
     invalidateHistoryLoads: vi.fn(),
-    loadHistoryEffect: () => Effect.void,
+    loadHistoryEffect: () => Effect.succeed({ kind: "success" } as const),
     retainHistories: vi.fn(),
     setError: vi.fn(),
     summaryRevision: revision,

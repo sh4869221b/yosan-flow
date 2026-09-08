@@ -76,7 +76,10 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
             histories = [...(body.histories ?? [])];
           }),
         ),
-        Effect.orElseSucceed(() => undefined),
+        Effect.as({ kind: "success" } as const),
+        Effect.catchAll((message) =>
+          Effect.succeed({ kind: "failure", message } as const),
+        ),
       ),
     retainHistories: vi.fn(),
     setError: vi.fn(),

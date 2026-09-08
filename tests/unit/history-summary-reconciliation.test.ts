@@ -15,7 +15,7 @@ it("waits for an active mutation before recovering histories without a summary r
   const fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
   const applySummary = vi.fn();
-  const loadHistory = vi.fn(() => Effect.void);
+  const loadHistory = vi.fn(() => Effect.succeed({ kind: "success" } as const));
   const reconcile = createHistorySummaryReconciliation({
     applySummary,
     getMutationSequence: () => 1,
@@ -52,7 +52,7 @@ it("abandons active-mutation recovery after a later history sequence takes owner
   const revision = createPeriodSummaryRevision();
   const activeMutation = revision.beginMutation("period-1");
   let historySequence = 1;
-  const loadHistory = vi.fn(() => Effect.void);
+  const loadHistory = vi.fn(() => Effect.succeed({ kind: "success" } as const));
   const reconcile = createHistorySummaryReconciliation({
     applySummary: vi.fn(),
     getMutationSequence: () => historySequence,
@@ -85,7 +85,7 @@ it("loads histories without publishing a summary invalidated by a later period m
   vi.stubGlobal("fetch", fetchMock);
   const revision = createPeriodSummaryRevision();
   const applySummary = vi.fn();
-  const loadHistory = vi.fn(() => Effect.void);
+  const loadHistory = vi.fn(() => Effect.succeed({ kind: "success" } as const));
   const reconcile = createHistorySummaryReconciliation({
     applySummary,
     getMutationSequence: () => 1,

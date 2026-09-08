@@ -3,13 +3,16 @@ import { periodSummaryUrl } from "$lib/dashboard/api-urls";
 import type { PeriodSummary } from "$lib/dashboard/controller-types";
 import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
 import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import type { HistoryActionResult } from "$lib/dashboard/types";
 
 type Dependencies = {
   readonly applySummary: (_summary: PeriodSummary) => void;
   readonly getMutationSequence: (_periodId: string) => number;
   readonly getSelectedDate: () => string | null;
   readonly getSelectedPeriodId: () => string | null;
-  readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
+  readonly loadHistoryEffect: (
+    _date: string,
+  ) => Effect.Effect<HistoryActionResult, never>;
   readonly setError: (_error: string) => void;
   readonly summaryRevision: PeriodSummaryRevision;
 };
@@ -37,10 +40,10 @@ export function createHistorySummaryReconciliation(dependencies: Dependencies) {
   function recoverHistories(
     request: ReconciliationRequest,
     reconciliationError?: string,
-  ): Effect.Effect<void, never> {
+  ): Effect.Effect<HistoryActionResult, never> {
     const { date, mutationSequence, originatingError, periodId } = request;
     if (!ownsSelection(periodId, date, mutationSequence)) {
-      return Effect.void;
+      return Effect.succeed({ kind: "ignored" });
     }
     if (dependencies.summaryRevision.isMutationActive(periodId)) {
       const activeMutation =
@@ -55,21 +58,26 @@ export function createHistorySummaryReconciliation(dependencies: Dependencies) {
           ),
         );
     }
-    return dependencies.loadHistoryEffect(date).pipe(
-      Effect.andThen(
-        Effect.sync(() => {
-          if (!ownsSelection(periodId, date, mutationSequence)) return;
-          if (originatingError != null) {
-            dependencies.setError(originatingError);
-          } else if (reconciliationError != null) {
-            dependencies.setError(reconciliationError);
-          }
-        }),
-      ),
-    );
+    return Effect.gen(function* () {
+      const loadResult = yield* dependencies.loadHistoryEffect(date);
+      if (!ownsSelection(periodId, date, mutationSequence)) {
+        return { kind: "ignored" } as const;
+      }
+      if (originatingError != null) {
+        dependencies.setError(originatingError);
+        return { kind: "failure", message: originatingError } as const;
+      }
+      if (reconciliationError != null) {
+        dependencies.setError(reconciliationError);
+        return { kind: "failure", message: reconciliationError } as const;
+      }
+      return loadResult;
+    });
   }
 
-  return (request: ReconciliationRequest): Effect.Effect<void, never> => {
+  return (
+    request: ReconciliationRequest,
+  ): Effect.Effect<HistoryActionResult, never> => {
     const { periodId } = request;
     if (dependencies.summaryRevision.isMutationActive(periodId)) {
       return recoverHistories(request);
@@ -88,17 +96,21 @@ export function createHistorySummaryReconciliation(dependencies: Dependencies) {
         dependencies.summaryRevision.getMutationSequence(periodId) ===
           reconciliationMutation &&
         dependencies.summaryRevision.get(periodId) === reconciliationRevision;
-      if (
+      const summaryWasApplied =
         result._tag === "Right" &&
         summaryReconciliationIsCurrent &&
-        result.right.periodId === periodId
-      ) {
+        result.right.periodId === periodId;
+      if (summaryWasApplied && result._tag === "Right") {
         dependencies.applySummary(result.right);
       }
-      yield* recoverHistories(
+      const recoveryResult = yield* recoverHistories(
         request,
         result._tag === "Left" ? result.left : undefined,
       );
+      if (recoveryResult.kind !== "success") return recoveryResult;
+      return summaryWasApplied
+        ? ({ kind: "success" } as const)
+        : ({ kind: "ignored" } as const);
     });
   };
 }

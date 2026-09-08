@@ -1,44 +1,263 @@
 <script lang="ts">
   import { Pencil, Save, Trash2, X } from "@lucide/svelte";
+  import { onDestroy, tick } from "svelte";
+  import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
+  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
 
-  type HistoryItem = {
-    id: string;
-    date: string;
-    operationType: "add" | "overwrite";
-    inputYen: number;
-    beforeTotalYen: number;
-    afterTotalYen: number;
-    memo: string | null;
-    createdAt: string;
-  };
+  const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
+
+  type EditFocusTarget = "amount" | "memo" | "save";
 
   type Props = {
     history: HistoryItem;
     isEditing?: boolean;
     isMutating?: boolean;
+    isSaving?: boolean;
+    mutationUnavailable?: boolean;
     canStartEdit?: boolean;
     canDelete?: boolean;
+    isDeleteConfirming?: boolean;
+    isDeleting?: boolean;
+    isSaveSuccessful?: boolean;
+    deleteError?: string | null;
     editInputYen?: string;
     editMemo?: string;
     onStartEdit?: (_history: HistoryItem) => void;
     onCancelEdit?: () => void;
-    onSaveEdit?: (_historyId: string) => void;
-    onDelete?: (_historyId: string) => void;
+    onStartDelete?: (_history: HistoryItem) => void;
+    onCancelDelete?: () => void;
+    onSaveEdit?: (_historyId: string) => Promise<HistoryActionResult>;
+    onDelete?: (_historyId: string) => Promise<HistoryActionResult>;
   };
 
   let {
     history,
     isEditing = false,
     isMutating = false,
+    isSaving = false,
+    mutationUnavailable = false,
     canStartEdit = true,
     canDelete = true,
+    isDeleteConfirming = false,
+    isDeleting = false,
+    isSaveSuccessful = false,
+    deleteError = null,
     editInputYen = $bindable(""),
     editMemo = $bindable(""),
     onStartEdit = () => {},
     onCancelEdit = () => {},
-    onSaveEdit = () => {},
-    onDelete = () => {},
+    onStartDelete = () => {},
+    onCancelDelete = () => {},
+    onSaveEdit = async () => ({ kind: "ignored" }),
+    onDelete = async () => ({ kind: "ignored" }),
   }: Props = $props();
+
+  let amountInput = $state<HTMLInputElement | null>(null);
+  let memoInput = $state<HTMLTextAreaElement | null>(null);
+  let editButton = $state<HTMLButtonElement | null>(null);
+  let saveButton = $state<HTMLButtonElement | null>(null);
+  let deleteButton = $state<HTMLButtonElement | null>(null);
+  let deleteCancelButton = $state<HTMLButtonElement | null>(null);
+  let focusedEditElement = $state<HTMLElement | null>(null);
+  let focusedEditTarget = $state<EditFocusTarget | null>(null);
+  let stopPendingFocusTracking = $state<(() => void) | null>(null);
+  let inputError = $state<string | null>(null);
+  let saveError = $state<string | null>(null);
+  let submitting = $state(false);
+  let deleting = $state(false);
+  let shouldFocusAmount = $state(false);
+  let shouldFocusDeleteCancel = $state(false);
+
+  const isPending = $derived(submitting || isMutating || isSaving);
+  const isDeletePending = $derived(deleting || isDeleting);
+
+  $effect(() => {
+    if (!isEditing || !shouldFocusAmount) {
+      return;
+    }
+    void tick().then(() => {
+      if (isEditing && shouldFocusAmount && !submitting) {
+        shouldFocusAmount = false;
+        amountInput?.focus();
+      }
+    });
+  });
+
+  $effect(() => {
+    if (!isEditing && !isSaving && !isMutating) {
+      stopPendingFocusTracking?.();
+    }
+  });
+
+  $effect(() => {
+    if (!isDeleteConfirming || !shouldFocusDeleteCancel) {
+      return;
+    }
+    void tick().then(() => {
+      if (isDeleteConfirming && shouldFocusDeleteCancel && !isDeletePending) {
+        shouldFocusDeleteCancel = false;
+        deleteCancelButton?.focus();
+      }
+    });
+  });
+
+  onDestroy(() => stopPendingFocusTracking?.());
+
+  function handleStartEdit(): void {
+    shouldFocusAmount = true;
+    inputError = null;
+    saveError = null;
+    onStartEdit(history);
+  }
+
+  function handleStartDelete(): void {
+    shouldFocusDeleteCancel = true;
+    inputError = null;
+    saveError = null;
+    onStartDelete(history);
+  }
+
+  async function handleCancelDelete(): Promise<void> {
+    if (isDeletePending) {
+      return;
+    }
+    shouldFocusDeleteCancel = false;
+    onCancelDelete();
+    await tick();
+    deleteButton?.focus();
+  }
+
+  async function handleConfirmDelete(): Promise<void> {
+    if (isDeletePending) {
+      return;
+    }
+    deleting = true;
+    await onDelete(history.id);
+    deleting = false;
+  }
+
+  function handleDeleteKeydown(event: KeyboardEvent): void {
+    if (event.key !== "Escape" || isDeletePending) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    void handleCancelDelete();
+  }
+
+  async function handleCancelEdit(): Promise<void> {
+    inputError = null;
+    saveError = null;
+    onCancelEdit();
+    await tick();
+    editButton?.focus();
+  }
+
+  function captureEditFocus(
+    target: EditFocusTarget,
+    element: EventTarget | null,
+  ): void {
+    focusedEditTarget = target;
+    focusedEditElement = element instanceof HTMLElement ? element : null;
+  }
+
+  function handleInput(): void {
+    if (
+      inputError != null &&
+      parseNonNegativeIntegerYenInput(editInputYen) != null
+    ) {
+      inputError = null;
+    }
+    saveError = null;
+  }
+
+  function restoreFailureFocus(
+    submitFocusElement: Element | null,
+    submitFocusTarget: EditFocusTarget | null,
+    focusMovedWhilePending: boolean,
+  ): void {
+    if (
+      submitFocusTarget == null ||
+      submitFocusElement?.isConnected ||
+      focusMovedWhilePending
+    ) {
+      return;
+    }
+    if (submitFocusTarget === "amount") {
+      amountInput?.focus();
+    } else if (submitFocusTarget === "memo") {
+      memoInput?.focus();
+    } else {
+      saveButton?.focus();
+    }
+  }
+
+  async function handleSaveEdit(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (isPending || mutationUnavailable) {
+      return;
+    }
+    const parsed = parseNonNegativeIntegerYenInput(editInputYen);
+    if (parsed == null) {
+      inputError = AMOUNT_ERROR;
+      await tick();
+      amountInput?.focus();
+      return;
+    }
+    inputError = null;
+    saveError = null;
+    const submitFocusElement = focusedEditElement;
+    const submitFocusTarget = focusedEditTarget;
+    let focusMovedWhilePending = false;
+    const trackPendingInteraction = (pendingEvent: Event): void => {
+      if (pendingEvent.target !== submitFocusElement) {
+        focusMovedWhilePending = true;
+      }
+    };
+    submitting = true;
+    const resultPromise = onSaveEdit(history.id);
+    await tick();
+    const stopTracking = (): void => {
+      window.removeEventListener("focusin", trackPendingInteraction, true);
+      window.removeEventListener("pointerdown", trackPendingInteraction, true);
+      window.removeEventListener("input", trackPendingInteraction, true);
+      if (stopPendingFocusTracking === stopTracking) {
+        stopPendingFocusTracking = null;
+      }
+    };
+    stopPendingFocusTracking = stopTracking;
+    window.addEventListener("focusin", trackPendingInteraction, true);
+    window.addEventListener("pointerdown", trackPendingInteraction, true);
+    window.addEventListener("input", trackPendingInteraction, true);
+    let result: HistoryActionResult;
+    try {
+      result = await resultPromise;
+    } finally {
+      stopTracking();
+    }
+    submitting = false;
+    if (result.kind === "success") {
+      await tick();
+      editButton?.focus();
+    } else if (result.kind === "failure") {
+      saveError = result.message;
+      await tick();
+      restoreFailureFocus(
+        submitFocusElement,
+        submitFocusTarget,
+        focusMovedWhilePending,
+      );
+    }
+  }
+
+  function handleEditKeydown(event: KeyboardEvent): void {
+    if (event.key !== "Escape" || isPending) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    void handleCancelEdit();
+  }
 </script>
 
 <li class:editing={isEditing}>
@@ -49,70 +268,156 @@
     </div>
     <div class="row-actions" aria-label="履歴操作">
       <button
+        bind:this={editButton}
         class="icon-button"
         type="button"
-        onclick={() => onStartEdit(history)}
+        data-history-edit-id={history.id}
+        onclick={handleStartEdit}
         disabled={!canStartEdit}
       >
         <Pencil size={16} strokeWidth={2.4} aria-hidden="true" />
         編集
       </button>
       <button
+        bind:this={deleteButton}
         class="icon-button danger"
         type="button"
-        onclick={() => onDelete(history.id)}
-        disabled={!canDelete}
+        onclick={handleStartDelete}
+        disabled={!canDelete || isDeleteConfirming}
       >
         <Trash2 size={16} strokeWidth={2.4} aria-hidden="true" />
         削除
       </button>
     </div>
   </div>
+  {#if isDeleteConfirming}
+    <div class="delete-confirmation">
+      <p>
+        「{history.operationType === "add" ? "追加" : "調整"}
+        {history.inputYen} 円」を削除しますか？
+      </p>
+      <div class="delete-actions">
+        <button
+          bind:this={deleteCancelButton}
+          class="cancel-button"
+          type="button"
+          onclick={handleCancelDelete}
+          aria-disabled={isDeletePending}
+          onkeydown={handleDeleteKeydown}
+        >
+          取消
+        </button>
+        <button
+          class="delete-confirm-button"
+          type="button"
+          onclick={() => void handleConfirmDelete()}
+          aria-disabled={isDeletePending}
+          onkeydown={handleDeleteKeydown}
+        >
+          {isDeletePending ? "削除中..." : "削除を確定"}
+        </button>
+      </div>
+      {#if isDeletePending}
+        <p class="edit-status" role="status">履歴を削除中です。</p>
+      {/if}
+      {#if deleteError}
+        <p class="error-message" role="alert">{deleteError}</p>
+      {/if}
+    </div>
+  {/if}
   {#if isEditing}
-    <form
-      class="inline-edit"
-      onsubmit={(event) => {
-        event.preventDefault();
-        onSaveEdit(history.id);
-      }}
-    >
+    <form class="inline-edit" onsubmit={handleSaveEdit}>
       <label>
         入力額 (円)
         <input
           type="text"
           inputmode="numeric"
+          bind:this={amountInput}
           bind:value={editInputYen}
-          disabled={isMutating}
+          aria-invalid={inputError != null}
+          aria-describedby={inputError
+            ? `history-edit-${history.id}-amount-error`
+            : undefined}
+          disabled={isPending}
+          oninput={handleInput}
+          onfocus={(event) => captureEditFocus("amount", event.currentTarget)}
+          onkeydown={handleEditKeydown}
         />
       </label>
+      {#if inputError}
+        <p
+          id={`history-edit-${history.id}-amount-error`}
+          class="error-message"
+          role="alert"
+        >
+          {inputError}
+        </p>
+      {/if}
       <label>
         メモ
-        <textarea rows="2" bind:value={editMemo} disabled={isMutating}
-        ></textarea>
+        <textarea
+          rows="2"
+          bind:this={memoInput}
+          bind:value={editMemo}
+          disabled={isPending}
+          oninput={() => (saveError = null)}
+          onfocus={(event) => captureEditFocus("memo", event.currentTarget)}
+          onkeydown={handleEditKeydown}></textarea>
       </label>
       <div class="edit-actions">
-        <button class="save-button" type="submit" disabled={isMutating}>
+        <button
+          bind:this={saveButton}
+          class="save-button"
+          type="submit"
+          disabled={isPending || mutationUnavailable}
+          onfocus={(event) => captureEditFocus("save", event.currentTarget)}
+          onkeydown={handleEditKeydown}
+        >
           <Save size={16} strokeWidth={2.4} aria-hidden="true" />
-          保存
+          {isPending ? "保存中..." : "保存"}
         </button>
         <button
           class="cancel-button"
           type="button"
-          onclick={onCancelEdit}
-          disabled={isMutating}
+          onclick={handleCancelEdit}
+          disabled={isPending}
+          onkeydown={handleEditKeydown}
         >
           <X size={16} strokeWidth={2.4} aria-hidden="true" />
           キャンセル
         </button>
       </div>
+      {#if isPending}
+        <p class="edit-status" role="status">履歴を更新中です。</p>
+      {:else if mutationUnavailable}
+        <p class="edit-status" role="status">別の履歴を更新中です。</p>
+      {/if}
+      {#if saveError}
+        <p class="error-message" role="alert">{saveError}</p>
+      {/if}
     </form>
   {:else}
-    <p>
-      入力 {history.inputYen} 円 / 変更前 {history.beforeTotalYen} 円 / 変更後
-      {history.afterTotalYen} 円
+    <p class="history-input">
+      <span>入力</span>
+      <strong>{history.inputYen} 円</strong>
     </p>
+    <dl class="history-change">
+      <div>
+        <dt>変更前</dt>
+        <dd>{history.beforeTotalYen} 円</dd>
+      </div>
+      <div>
+        <dt>変更後</dt>
+        <dd>{history.afterTotalYen} 円</dd>
+      </div>
+    </dl>
     {#if history.memo}
-      <small>{history.memo}</small>
+      <p class="history-memo"><span>メモ</span>{history.memo}</p>
+    {/if}
+    {#if isPending}
+      <p class="edit-status" role="status">履歴を更新中です。</p>
+    {:else if isSaveSuccessful}
+      <p class="edit-status" role="status">履歴を更新しました。</p>
     {/if}
   {/if}
 </li>
@@ -143,6 +448,88 @@
 
   strong {
     color: #397d3d;
+  }
+
+  .history-input {
+    align-items: baseline;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .history-input span,
+  dt,
+  .history-memo span {
+    color: #76675b;
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .history-change {
+    display: flex;
+    gap: 1rem;
+    margin: 0;
+  }
+
+  .history-change div {
+    align-items: baseline;
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  dd {
+    color: #2f2219;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .history-memo {
+    overflow-wrap: anywhere;
+  }
+
+  .history-memo span {
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+
+  .delete-confirmation {
+    background: #fff1f0;
+    border: 1px solid #efc3bd;
+    border-radius: 8px;
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .delete-confirmation p {
+    margin: 0;
+  }
+
+  .delete-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .delete-confirm-button {
+    background: #9b2c22;
+    border: 1px solid #9b2c22;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 900;
+    min-height: 2.75rem;
+    padding: 0 0.85rem;
+  }
+
+  .error-message {
+    color: #9b2c22;
+    font-weight: 800;
+  }
+
+  .edit-status {
+    color: #276432;
+    font-weight: 800;
   }
 
   button,
@@ -225,7 +612,6 @@
   }
 
   p,
-  small,
   time {
     color: #76675b;
     font-size: 0.84rem;
@@ -238,6 +624,8 @@
   @media (max-width: 760px) {
     .history-row-header,
     .history-meta,
+    .history-change,
+    .history-change div,
     .row-actions,
     .edit-actions {
       align-items: stretch;

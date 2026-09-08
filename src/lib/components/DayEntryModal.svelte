@@ -6,6 +6,7 @@
   import DayEntryForm from "$lib/components/day-entry/DayEntryForm.svelte";
   import HistoryPanel from "$lib/components/HistoryPanel.svelte";
   import type { DayEntryCloseReason } from "$lib/dashboard/controller-types";
+  import type { HistoryActionResult } from "$lib/dashboard/types";
 
   type HistoryItem = {
     id: string;
@@ -49,8 +50,13 @@
     close?: (_reason: DayEntryCloseReason) => void;
     onCloseAutoFocus?: (_event: Event) => void;
     save?: (_payload: SavePayload) => void;
-    updateHistory?: (_payload: UpdateHistoryPayload) => void;
-    deleteHistory?: (_payload: { historyId: string }) => void;
+    retryHistory?: (_date: string) => Promise<HistoryActionResult>;
+    updateHistory?: (
+      _payload: UpdateHistoryPayload,
+    ) => Promise<HistoryActionResult>;
+    deleteHistory?: (_payload: {
+      historyId: string;
+    }) => Promise<HistoryActionResult>;
   };
 
   let {
@@ -72,8 +78,9 @@
     close = () => {},
     onCloseAutoFocus = () => {},
     save = () => {},
-    updateHistory = () => {},
-    deleteHistory = () => {},
+    retryHistory = async () => ({ kind: "ignored" }),
+    updateHistory = async () => ({ kind: "ignored" }),
+    deleteHistory = async () => ({ kind: "ignored" }),
   }: Props = $props();
 
   let dialogTitle = $state<HTMLElement | null>(null);
@@ -183,6 +190,7 @@
             loading={historyLoading}
             errorMessage={historyErrorMessage}
             {historyMutatingId}
+            {retryHistory}
             {updateHistory}
             {deleteHistory}
             headingId="day-entry-history-heading"

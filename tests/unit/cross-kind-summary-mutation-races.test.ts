@@ -151,17 +151,18 @@ it("runs a history mutation after an active period update", async () => {
     },
     revision,
   );
+  let historyExecution:
+    ReturnType<typeof historyController.updateHistory> | undefined;
 
   periodController.handleSavePeriod({ budgetYen: 12_000 });
   try {
     await settled(putStarted.promise);
     expect(fetchMock).toHaveBeenCalledOnce();
-    historyController.updateHistory({
+    historyExecution = historyController.updateHistory({
       historyId: "history-1",
       inputYen: 1_000,
       memo: "edit",
     });
-    expect(executions).toHaveLength(2);
     expect(fetchMock).toHaveBeenCalledOnce();
     putResponse.resolve(jsonResponse(updatedPeriodSummary));
     await settled(historyStarted.promise);
@@ -173,7 +174,12 @@ it("runs a history mutation after an active period update", async () => {
     historyResponse.resolve(
       jsonResponse({ summary: completeSummary, histories }),
     );
-    await settled(Promise.all(executions));
+    await settled(
+      Promise.all([
+        ...executions,
+        ...(historyExecution === undefined ? [] : [historyExecution]),
+      ]),
+    );
   }
   expect(historyController.historyMutatingId).toBeNull();
 

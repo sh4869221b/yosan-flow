@@ -67,10 +67,13 @@ test("supports add and history row edit in day modal, and keeps values after rel
   await expect(modal.getByLabel("入力額 (円)")).toBeVisible();
   await expect(modal.getByText(longMemo)).toBeVisible();
   const historyRow = modal.locator("li").filter({ hasText: longMemo });
-  await historyRow.getByRole("button", { name: "編集" }).click();
+  const editButton = historyRow.getByRole("button", { name: "編集" });
+  await editButton.click();
   const editingRow = modal.locator("li.editing");
+  const editAmount = editingRow.getByLabel("入力額 (円)");
+  await expect(editAmount).toBeFocused();
   for (const input of ["", "1e3", "1000abc"]) {
-    await editingRow.getByLabel("入力額 (円)").fill(input);
+    await editAmount.fill(input);
     await editingRow.getByRole("button", { name: "保存", exact: true }).click();
     await expect(
       page
@@ -79,6 +82,12 @@ test("supports add and history row edit in day modal, and keeps values after rel
     ).toHaveText("2000 円");
     await expect(editingRow).toBeVisible();
   }
+  await expect(editAmount).toHaveAttribute("aria-invalid", "true");
+  await expect(editAmount).toHaveAttribute("aria-describedby", /history-edit-/);
+  await expect(editingRow.getByRole("alert")).toContainText(
+    "入力額は 0 以上の整数で入力してください。",
+  );
+  await expect(editAmount).toBeFocused();
 
   await editingRow.getByLabel("入力額 (円)").fill("1000");
   await editingRow.getByRole("button", { name: "保存", exact: true }).click();
@@ -87,6 +96,10 @@ test("supports add and history row edit in day modal, and keeps values after rel
       .getByTestId(`calendar-day-${todayDate}`)
       .getByTestId(`used-${todayDate}`),
   ).toHaveText("1000 円");
+  await expect(editButton).toBeFocused();
+  await expect(historyRow.getByRole("status")).toContainText(
+    "履歴を更新しました。",
+  );
 
   await page.reload();
   await expect(

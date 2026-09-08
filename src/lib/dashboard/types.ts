@@ -21,6 +21,11 @@ export type HistoryResponse = {
   histories?: HistoryItem[];
 };
 
+export type HistoryActionResult =
+  | { readonly kind: "success" }
+  | { readonly kind: "failure"; readonly message: string }
+  | { readonly kind: "ignored" };
+
 export type HistoryMutationResponse<TPeriodSummary> = {
   summary: TPeriodSummary;
   histories: HistoryItem[];
