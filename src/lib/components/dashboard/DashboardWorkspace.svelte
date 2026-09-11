@@ -30,6 +30,35 @@
   }: Props = $props();
   let focusIntent = $state<"selection" | "retry" | null>(null);
   let requestedPeriodId = $state<string | null>(null);
+  let additionalCreateDetails: HTMLDetailsElement | undefined = $state();
+  let initialCreateActive = $state(false);
+  let createFocusIntent = $state<"initial" | "additional" | null>(null);
+  let createSourceElement: HTMLElement | null = null;
+
+  function submitCreate(surface: "initial" | "additional"): void {
+    createFocusIntent = surface;
+    createSourceElement =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    if (surface === "initial") initialCreateActive = true;
+    controller.createInitialPeriod();
+  }
+
+  function retryCreate(surface: "initial" | "additional"): void {
+    createFocusIntent = surface;
+    controller.refreshCreatedPeriod();
+  }
+
+  function closeAdditionalCreate(): void {
+    createFocusIntent = null;
+    if (additionalCreateDetails) {
+      additionalCreateDetails.open = false;
+      additionalCreateDetails.querySelector("summary")?.focus();
+    } else {
+      document.getElementById("period-settings-heading")?.focus();
+    }
+  }
 
   function focusTarget(selector: string): void {
     void tick().then(() =>
@@ -45,6 +74,7 @@
   }
 
   function selectPeriod(payload: { readonly periodId: string }): void {
+    createFocusIntent = null;
     requestedPeriodId = payload.periodId;
     focusIntent = "selection";
     controller.handleSelectPeriod(payload);
@@ -102,10 +132,69 @@
       focusIntent = null;
     }
   });
+
+  $effect(() => {
+    const surface = createFocusIntent;
+    if (!surface || controller.createSaving || controller.createdRefreshing)
+      return;
+    const periodId = controller.createdPeriodId;
+    const pending = controller.createdRefreshPending;
+    const error = controller.createError;
+    const succeeded =
+      !pending &&
+      !error &&
+      periodId != null &&
+      controller.selectedPeriodId === periodId &&
+      controller.summary?.periodId === periodId;
+    if (!pending) initialCreateActive = false;
+
+    void tick().then(() => {
+      if (
+        createFocusIntent !== surface ||
+        controller.createSaving ||
+        controller.createdRefreshing
+      )
+        return;
+      if (surface === "additional" && !additionalCreateDetails?.open) {
+        createFocusIntent = null;
+        return;
+      }
+      if (
+        succeeded &&
+        !controller.createdRefreshPending &&
+        controller.createdPeriodId === periodId &&
+        controller.selectedPeriodId === periodId &&
+        controller.summary?.periodId === periodId
+      ) {
+        document.getElementById("selected-period-heading")?.focus();
+      } else if (
+        pending &&
+        error &&
+        controller.createdRefreshPending &&
+        controller.createdPeriodId === periodId
+      ) {
+        document
+          .getElementById(
+            surface === "initial"
+              ? "initial-period-created-heading"
+              : "create-period-created-heading",
+          )
+          ?.focus();
+      } else if (
+        !pending &&
+        error &&
+        document.activeElement === document.body &&
+        createSourceElement?.isConnected
+      ) {
+        createSourceElement.focus();
+      }
+      createFocusIntent = null;
+    });
+  });
 </script>
 
 <section class="workspace-shell">
-  {#if controller.periods.length === 0 && !controller.summaryLoading && !controller.summaryError}
+  {#if initialCreateActive || (controller.periods.length === 0 && !controller.summaryLoading && !controller.summaryError)}
     <section
       class="empty-state card"
       data-testid="create-period-panel"
@@ -119,7 +208,12 @@
       <p>
         まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。
       </p>
-      <CreatePeriodPanel variant="empty-state" {controller} />
+      <CreatePeriodPanel
+        variant="empty-state"
+        {controller}
+        onSubmit={() => submitCreate("initial")}
+        onRetry={() => retryCreate("initial")}
+      />
     </section>
   {:else}
     <DashboardPeriodHeader
@@ -193,13 +287,30 @@
 
     <section class="secondary-actions">
       <section aria-labelledby="period-settings-heading">
-        <h2 id="period-settings-heading">期間設定</h2>
+        <h2 id="period-settings-heading" tabindex="-1">期間設定</h2>
         <PeriodSettingsPanel {controller} />
       </section>
-      <details class="card" data-testid="create-period-panel">
+      <details
+        bind:this={additionalCreateDetails}
+        class="card"
+        data-testid="create-period-panel"
+        ontoggle={() => {
+          if (
+            !additionalCreateDetails?.open &&
+            createFocusIntent === "additional"
+          )
+            createFocusIntent = null;
+        }}
+      >
         <summary>次の予算期間を作成する</summary>
         <div class="details-body">
-          <CreatePeriodPanel variant="secondary-action" {controller} />
+          <CreatePeriodPanel
+            variant="secondary-action"
+            {controller}
+            onSubmit={() => submitCreate("additional")}
+            onRetry={() => retryCreate("additional")}
+            onCancel={closeAdditionalCreate}
+          />
         </div>
       </details>
     </section>
@@ -242,10 +353,7 @@
     color: #76675b;
   }
 
-  .secondary-actions h2 {
-    display: none;
-  }
-
+  #period-settings-heading,
   #period-calendar-heading {
     height: 1px;
     margin: -1px;

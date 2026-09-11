@@ -239,6 +239,7 @@ test("keeps a failed additional create error visible while settings stay closed"
       return;
     }
     postCount += 1;
+    if (postCount > 1) return route.continue();
     await route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -251,11 +252,12 @@ test("keeps a failed additional create error visible while settings stay closed"
     });
   });
 
-  await additionalCreate.getByRole("button", { name: "期間を作成" }).click();
+  await additionalCreate.getByLabel("期間ID").press("Enter");
   await expect(additionalCreate.getByRole("alert")).toContainText(
     "期間の作成に失敗しました。",
   );
   expect(postCount).toBe(1);
+  await expect(additionalCreate.getByLabel("期間ID")).toBeFocused();
   await expect(additionalCreate.getByLabel("期間ID")).toHaveValue(
     createPeriodId,
   );
@@ -267,5 +269,9 @@ test("keeps a failed additional create error visible while settings stay closed"
     path: testInfo.outputPath("issue-378-create-error.png"),
     fullPage: true,
   });
+  await additionalCreate.getByRole("button", { name: "期間を作成" }).click();
+  await expect(page.getByTestId("period-select")).toHaveValue(createPeriodId);
+  await expect(page.locator("#selected-period-heading")).toBeFocused();
+  expect(postCount).toBe(2);
   expect(pageErrors).toEqual([]);
 });

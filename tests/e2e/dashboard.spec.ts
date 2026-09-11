@@ -33,6 +33,7 @@ test("creates period", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByTestId("period-id")).toContainText(`p-${today}`);
   await expect(page.getByTestId("period-select")).toHaveValue(`p-${today}`);
+  await expect(page.locator("#selected-period-heading")).toBeFocused();
   await expect(page.getByText(`期間: ${today} - ${endDate}`)).toBeVisible();
   await expect(page.getByTestId("budget-value")).toContainText("120,000");
   await expect(page.getByTestId("today-food-allowance")).toContainText(
@@ -273,6 +274,7 @@ test("creates the next budget period from secondary settings", async ({
   await page.getByRole("button", { name: "期間を作成" }).click();
 
   await expect(page.getByTestId("period-id")).toContainText(nextPeriodId);
+  await expect(page.locator("#selected-period-heading")).toBeFocused();
   await expect(
     page.getByText(`期間: ${nextStartDate} - ${nextEndDate}`),
   ).toBeVisible();

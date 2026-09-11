@@ -223,6 +223,9 @@ export function createPeriodControllerState(
     get createSaving() {
       return createState.createSaving;
     },
+    get createdRefreshing() {
+      return createState.createdRefreshing;
+    },
     get createError() {
       return createState.createError;
     },
