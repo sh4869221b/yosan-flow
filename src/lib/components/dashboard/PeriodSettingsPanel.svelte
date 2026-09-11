@@ -14,6 +14,7 @@
 
   let { controller }: Props = $props();
 
+  let budgetVisible = $state(false);
   let touchedStart = $state(false);
   let touchedEnd = $state(false);
   let applyAttempted = $state(false);
@@ -97,7 +98,7 @@
   }
 </script>
 
-<details class="card">
+<details class="card" bind:open={budgetVisible}>
   <summary>
     <Settings2 size={20} strokeWidth={2.4} aria-hidden="true" />
     期間の終了日や予算を変更する
@@ -110,6 +111,8 @@
         loading={controller.summaryLoading}
         interactionDisabled={controller.periodInteractionDisabled}
         summary={controller.summary}
+        selectedPeriodId={controller.selectedPeriodId}
+        visible={budgetVisible}
         dirty={controller.budget.dirty}
         validationError={controller.budget.validationError}
         serverError={controller.budget.serverError}

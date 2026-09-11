@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import type { PeriodSummary } from "$lib/dashboard/controller-types";
 
   type Props = {
     budgetInput: string;
     summary: PeriodSummary | null;
+    selectedPeriodId: string | null;
+    visible: boolean;
     dirty: boolean;
     saving: boolean;
     loading: boolean;
@@ -18,6 +21,8 @@
   let {
     budgetInput = $bindable(""),
     summary,
+    selectedPeriodId,
+    visible,
     dirty,
     saving,
     loading,
@@ -31,15 +36,81 @@
   }: Props = $props();
   const disabled = $derived(saving || interactionDisabled || loading);
 
+  let form: HTMLFormElement | undefined = $state();
+  let input: HTMLInputElement | undefined = $state();
+  let heading: HTMLHeadingElement | undefined = $state();
+  let focusIntent = $state<{
+    periodId: string | null;
+    source: HTMLElement | null;
+  } | null>(null);
+
+  function focus(element: HTMLElement | undefined | null): void {
+    element?.focus();
+    element?.scrollIntoView({ block: "nearest" });
+  }
+
+  function reset(): void {
+    focusIntent = null;
+    onreset();
+    focus(input);
+  }
+
+  $effect(() => {
+    const intent = focusIntent;
+    if (!intent) return;
+    if (!visible || selectedPeriodId !== intent.periodId) {
+      focusIntent = null;
+      return;
+    }
+    if (saving || loading) return;
+    const failed = serverError || settingChanged;
+    const target = validationError
+      ? input
+      : failed
+        ? intent.source
+        : success
+          ? heading
+          : null;
+    if (!target && !failed) {
+      focusIntent = null;
+      return;
+    }
+    void tick().then(() => {
+      if (focusIntent !== intent) return;
+      focusIntent = null;
+      if (!visible || selectedPeriodId !== intent.periodId || disabled) return;
+      const active = document.activeElement;
+      if (
+        !failed ||
+        active === document.body ||
+        active === intent.source ||
+        active?.matches(":disabled")
+      ) {
+        focus(target?.isConnected ? target : heading);
+      }
+      form
+        ?.querySelector("[role='alert']")
+        ?.scrollIntoView({ block: "nearest" });
+    });
+  });
+
   function submit(event: SubmitEvent): void {
     event.preventDefault();
+    focusIntent = null;
     if (disabled || !dirty || settingChanged) return;
+    const active = document.activeElement;
+    focusIntent = {
+      periodId: selectedPeriodId,
+      source:
+        active instanceof HTMLElement && form?.contains(active) ? active : null,
+    };
     onsubmit();
   }
 </script>
 
-<h2 id="budget-settings-heading" tabindex="-1">予算設定</h2>
+<h2 bind:this={heading} id="budget-settings-heading" tabindex="-1">予算設定</h2>
 <form
+  bind:this={form}
   aria-labelledby="budget-settings-heading"
   aria-busy={saving || loading}
   onsubmit={submit}
@@ -59,6 +130,7 @@
   {/if}
   <label for="budget-settings-input">期間予算 (円)</label>
   <input
+    bind:this={input}
     id="budget-settings-input"
     type="text"
     inputmode="numeric"
@@ -88,7 +160,7 @@
       type="button"
       disabled={disabled ||
         !(dirty || validationError || serverError || success || settingChanged)}
-      onclick={onreset}
+      onclick={reset}
       >{settingChanged ? "最新の予算に戻す" : "キャンセル"}</button
     >
   </div>
@@ -165,6 +237,7 @@
     opacity: 0.65;
   }
   p[role="alert"] {
+    text-wrap: balance;
     color: #8b3a3a;
     font-weight: 700;
   }
