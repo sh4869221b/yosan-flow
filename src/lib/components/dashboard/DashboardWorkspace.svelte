@@ -30,6 +30,13 @@
   }: Props = $props();
   let focusIntent = $state<"selection" | "retry" | null>(null);
   let requestedPeriodId = $state<string | null>(null);
+  let additionalCreateDetails: HTMLDetailsElement | undefined = $state();
+
+  function closeAdditionalCreate(): void {
+    if (!additionalCreateDetails) return;
+    additionalCreateDetails.open = false;
+    additionalCreateDetails.querySelector("summary")?.focus();
+  }
 
   function focusTarget(selector: string): void {
     void tick().then(() =>
@@ -196,10 +203,18 @@
         <h2 id="period-settings-heading">期間設定</h2>
         <PeriodSettingsPanel {controller} />
       </section>
-      <details class="card" data-testid="create-period-panel">
+      <details
+        bind:this={additionalCreateDetails}
+        class="card"
+        data-testid="create-period-panel"
+      >
         <summary>次の予算期間を作成する</summary>
         <div class="details-body">
-          <CreatePeriodPanel variant="secondary-action" {controller} />
+          <CreatePeriodPanel
+            variant="secondary-action"
+            {controller}
+            onCancel={closeAdditionalCreate}
+          />
         </div>
       </details>
     </section>
