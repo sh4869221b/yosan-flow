@@ -14,6 +14,7 @@
 
   let { controller }: Props = $props();
 
+  let budgetVisible = $state(false);
   let touchedStart = $state(false);
   let touchedEnd = $state(false);
   let applyAttempted = $state(false);
@@ -92,13 +93,12 @@
     controller.saveRange();
   }
 
-  function submitPeriod(event: Event): void {
-    event.preventDefault();
+  function submitPeriod(): void {
     controller.saveBudget();
   }
 </script>
 
-<details class="card">
+<details class="card" bind:open={budgetVisible}>
   <summary>
     <Settings2 size={20} strokeWidth={2.4} aria-hidden="true" />
     期間の終了日や予算を変更する
@@ -110,8 +110,15 @@
         saving={controller.budget.saving}
         loading={controller.summaryLoading}
         interactionDisabled={controller.periodInteractionDisabled}
-        errorMessage={controller.budget.validationError ??
-          controller.budget.serverError}
+        summary={controller.summary}
+        selectedPeriodId={controller.selectedPeriodId}
+        visible={budgetVisible}
+        dirty={controller.budget.dirty}
+        validationError={controller.budget.validationError}
+        serverError={controller.budget.serverError}
+        success={controller.budget.success}
+        settingChanged={controller.budget.settingChanged}
+        onreset={() => controller.budget.reset()}
         onsubmit={submitPeriod}
       />
     </section>
