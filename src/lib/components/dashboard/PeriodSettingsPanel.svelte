@@ -92,8 +92,7 @@
     controller.saveRange();
   }
 
-  function submitPeriod(event: Event): void {
-    event.preventDefault();
+  function submitPeriod(): void {
     controller.saveBudget();
   }
 </script>
@@ -110,8 +109,13 @@
         saving={controller.budget.saving}
         loading={controller.summaryLoading}
         interactionDisabled={controller.periodInteractionDisabled}
-        errorMessage={controller.budget.validationError ??
-          controller.budget.serverError}
+        summary={controller.summary}
+        dirty={controller.budget.dirty}
+        validationError={controller.budget.validationError}
+        serverError={controller.budget.serverError}
+        success={controller.budget.success}
+        settingChanged={controller.budget.settingChanged}
+        onreset={() => controller.budget.reset()}
         onsubmit={submitPeriod}
       />
     </section>

@@ -164,6 +164,12 @@ test.describe("independent period operations", () => {
         for (const barrier of barriers) {
           expect((await barrier.arrived).status()).toBe(200);
           await expectManagementDisabled(page);
+          await expect(
+            ui.budgetRegion.getByRole("button", {
+              name: "キャンセル",
+              exact: true,
+            }),
+          ).toBeDisabled();
           await expect(ui.budget).toHaveText(
             budgetSaving ? "保存中..." : /^(期間を更新|読込中\.\.\.)$/,
           );

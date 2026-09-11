@@ -25,7 +25,10 @@ export function controls(page: Page) {
   const createPanel = page.getByTestId("create-period-panel");
   return {
     budgetRegion,
-    budget: budgetRegion.getByRole("button", { includeHidden: true }),
+    budget: budgetRegion.getByRole("button", {
+      name: /^(期間を更新|保存中\.\.\.|読込中\.\.\.)$/,
+      includeHidden: true,
+    }),
     range: page.getByTestId("current-period-range-apply"),
     createPanel,
     create: createPanel.getByRole("button", {
@@ -66,7 +69,7 @@ export async function waitForUpdate(page: Page, status = 200, url = periodUrl) {
   expect(put.status()).toBe(status);
   expect(list.status()).toBe(200);
   expect(summary.status()).toBe(200);
-  await expect(controls(page).budget).toBeEnabled();
+  await expect(page.getByLabel("期間予算 (円)")).toBeEnabled();
   return put;
 }
 
