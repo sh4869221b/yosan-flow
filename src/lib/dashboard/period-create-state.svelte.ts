@@ -4,10 +4,16 @@ type CreateRange = Readonly<{ endDate: string; startDate: string }>;
 type InitialState = Readonly<{ startDate: string }>;
 
 export function createPeriodCreateState(initialState: InitialState) {
-  let createStartDate = $state(initialState.startDate);
-  let createEndDate = $state(addDays(initialState.startDate, 29));
-  let createPeriodId = $state(toPeriodId(initialState.startDate));
-  let createBudgetInput = $state("120000");
+  const defaults = {
+    startDate: initialState.startDate,
+    endDate: addDays(initialState.startDate, 29),
+    periodId: toPeriodId(initialState.startDate),
+    budgetInput: "120000",
+  };
+  let createStartDate = $state(defaults.startDate);
+  let createEndDate = $state(defaults.endDate);
+  let createPeriodId = $state(defaults.periodId);
+  let createBudgetInput = $state(defaults.budgetInput);
   let manuallyEditedPeriodId = $state(false);
   let createSaving = $state(false);
   let createError = $state<string | null>(null);
@@ -86,6 +92,15 @@ export function createPeriodCreateState(initialState: InitialState) {
       if (recovery.createdPeriodId === periodId) {
         recovery.createdRefreshPending = false;
       }
+    },
+    resetDraft(): void {
+      createStartDate = defaults.startDate;
+      createEndDate = defaults.endDate;
+      createPeriodId = defaults.periodId;
+      createBudgetInput = defaults.budgetInput;
+      manuallyEditedPeriodId = false;
+      createError = null;
+      recovery.createdPeriodId = null;
     },
     updateRange(range: CreateRange): void {
       if (

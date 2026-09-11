@@ -119,6 +119,22 @@ export function createPeriodControllerActions(
       dependencies.clearPeriodConfirmation();
       dependencies.settings.range.reset();
     },
+    resetCreatePeriod(): void {
+      if (
+        dependencies.getInteractionDisabled() ||
+        dependencies.creation.createState.createdRefreshPending
+      )
+        return;
+      dependencies.creation.createState.resetDraft();
+    },
+    clearCreateError(): void {
+      if (
+        dependencies.getInteractionDisabled() ||
+        dependencies.creation.createState.createdRefreshPending
+      )
+        return;
+      dependencies.creation.createState.setError(null);
+    },
     createInitialPeriod(): void {
       if (
         dependencies.getInteractionDisabled() ||

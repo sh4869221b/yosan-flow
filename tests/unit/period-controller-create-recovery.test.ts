@@ -78,6 +78,45 @@ it("preserves edited create ID when applying a create range", () => {
   expect(controller.createdRefreshPending).toBe(false);
 });
 
+it("resets create drafts to their initial values and restores automatic IDs", async () => {
+  const controller = createController();
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  controller.budget.draft = "130000";
+  controller.range.edit({
+    startDate: "2026-09-02",
+    endDate: "2026-09-29",
+  });
+  controller.createPeriodId = "p-custom";
+  controller.updateCreatePeriodRange({
+    startDate: "2026-11-01",
+    endDate: "2026-11-30",
+  });
+  controller.createBudgetInput = "invalid";
+  controller.createInitialPeriod();
+  await settled(executions[0]);
+  expect(controller.createError).not.toBeNull();
+
+  controller.resetCreatePeriod();
+
+  expect(controller.createStartDate).toBe("2026-10-01");
+  expect(controller.createEndDate).toBe("2026-10-30");
+  expect(controller.createPeriodId).toBe("p-2026-10-01");
+  expect(controller.createBudgetInput).toBe("120000");
+  expect(controller.createError).toBeNull();
+  expect(controller.budget.draft).toBe("130000");
+  expect(controller.range.draft).toEqual({
+    startDate: "2026-09-02",
+    endDate: "2026-09-29",
+  });
+  controller.updateCreatePeriodRange({
+    startDate: "2026-12-01",
+    endDate: "2026-12-30",
+  });
+  expect(controller.createPeriodId).toBe("p-2026-12-01");
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
 it("rejects invalid create budget without changing settings state", async () => {
   const controller = createController();
   const fetchMock = vi.fn();
@@ -141,6 +180,11 @@ it("retries created period with GET only", async () => {
   expect(controller.createError).toBe("summary unavailable");
   expect(controller.selectedPeriodId).toBe(period.id);
 
+  controller.resetCreatePeriod();
+  controller.clearCreateError();
+  expect(controller.createdPeriodId).toBe(createdPeriod.id);
+  expect(controller.createdRefreshPending).toBe(true);
+  expect(controller.createError).toBe("summary unavailable");
   controller.createPeriodId = "p-edited-after-post";
   expect(controller.createError).toBeNull();
   controller.refreshCreatedPeriod();
@@ -167,6 +211,38 @@ it("retries created period with GET only", async () => {
   expect(controller.createdPeriodId).toBeNull();
   expect(controller.createdRefreshPending).toBe(false);
   expect(controller.createPeriodId).toBe("p-edited-after-post");
+});
+
+it("clears the completed created ID and uses original defaults after success", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return Promise.resolve(jsonResponse({ id: createdPeriod.id }));
+      }
+      return Promise.resolve(
+        jsonResponse(
+          String(input) === "/api/periods"
+            ? { periods: [period, createdPeriod] }
+            : createdSummary,
+        ),
+      );
+    }),
+  );
+  const controller = createController();
+  controller.createInitialPeriod();
+  await settled(executions[0]);
+  expect(controller.createdPeriodId).toBe(createdPeriod.id);
+  expect(controller.selectedPeriodId).toBe(createdPeriod.id);
+
+  controller.resetCreatePeriod();
+
+  expect(controller.createdPeriodId).toBeNull();
+  expect(controller.createdRefreshPending).toBe(false);
+  expect(controller.createStartDate).toBe("2026-10-01");
+  expect(controller.createEndDate).toBe("2026-10-30");
+  expect(controller.selectedPeriodId).toBe(createdPeriod.id);
+  expect(executions).toHaveLength(1);
 });
 
 it.each(["list", "missing", "summary", "mismatch"] as const)(
@@ -374,16 +450,35 @@ it("guards create submission during POST and allows resubmission after POST fail
   );
   const controller = createController();
 
+  controller.createPeriodId = "p-custom";
+  controller.createBudgetInput = "130000";
+  controller.updateCreatePeriodRange({
+    startDate: "2026-11-01",
+    endDate: "2026-11-30",
+  });
   controller.createInitialPeriod();
   controller.createInitialPeriod();
+  controller.resetCreatePeriod();
+  controller.clearCreateError();
   expect(postCount).toBe(1);
   expect(controller.createSaving).toBe(true);
+  expect(controller.createPeriodId).toBe("p-custom");
+  expect(controller.createBudgetInput).toBe("130000");
+  expect(controller.createStartDate).toBe("2026-11-01");
+  expect(controller.createEndDate).toBe("2026-11-30");
   firstPost.resolve(jsonResponse({ error: { message: "first failure" } }, 503));
   await settled(executions[0]);
   expect(controller.createdPeriodId).toBeNull();
   expect(controller.createdRefreshPending).toBe(false);
   expect(controller.createError).toBe("first failure");
 
+  controller.clearCreateError();
+  expect(controller.createError).toBeNull();
+  expect(controller.createPeriodId).toBe("p-custom");
+  expect(controller.createBudgetInput).toBe("130000");
+  expect(controller.createStartDate).toBe("2026-11-01");
+  expect(controller.createEndDate).toBe("2026-11-30");
+  expect(postCount).toBe(1);
   controller.createInitialPeriod();
   await settled(executions[1]);
   expect(postCount).toBe(2);
@@ -417,10 +512,14 @@ it("guards create submission through GET and pending recovery", async () => {
     await settled(listStarted.promise);
     expect(controller.createSaving).toBe(false);
     expect(controller.periodSaving).toBe(true);
+    expect(controller.createdRefreshing).toBe(true);
     expect(controller.createdPeriodId).toBe(createdPeriod.id);
     expect(controller.createdRefreshPending).toBe(true);
     controller.createInitialPeriod();
     controller.refreshCreatedPeriod();
+    controller.resetCreatePeriod();
+    controller.clearCreateError();
+    expect(controller.createdPeriodId).toBe(createdPeriod.id);
     expect(executions).toHaveLength(1);
   } finally {
     listResponse.resolve(
@@ -429,6 +528,12 @@ it("guards create submission through GET and pending recovery", async () => {
     await settled(executions[0]);
   }
   controller.createInitialPeriod();
+  controller.resetCreatePeriod();
+  controller.clearCreateError();
+  expect(controller.createdRefreshing).toBe(false);
+  expect(controller.createdPeriodId).toBe(createdPeriod.id);
+  expect(controller.createdRefreshPending).toBe(true);
+  expect(controller.createError).toBe("list unavailable");
   expect(executions).toHaveLength(1);
   expect(requests).toEqual(["POST /api/periods", "GET /api/periods"]);
 });
