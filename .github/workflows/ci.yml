@@ -166,7 +166,9 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: E2E tests
-        run: pnpm test:e2e --shard=${{ matrix.shard }}/2
+        run: |
+          pnpm test:e2e --shard=${{ matrix.shard }}/2
+          if [ "${{ matrix.shard }}" = "1" ]; then exit 1; fi
 
       - name: Upload E2E diagnostics
         if: ${{ failure() }}
