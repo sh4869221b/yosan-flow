@@ -58,6 +58,16 @@ describe("budget summary component structure", () => {
       "src/lib/components/dashboard/DashboardWorkspace.svelte",
     );
     expect(workspaceSource).toMatch(/<DashboardPeriodHeader(?:\s|>)/);
+    expect(workspaceSource).toMatch(/<CreatePeriodPanel(?:\s|>)/);
+    expect(workspaceSource).toMatch(/<PeriodCalendar(?:\s|>)/);
+    expect(workspaceSource).toMatch(/<PeriodSettingsPanel(?:\s|>)/);
+
+    const dayEntrySource = readProjectFile(
+      "src/lib/components/DayEntryModal.svelte",
+    );
+    expect(dayEntrySource).toMatch(/<DayEntryForm(?:\s|>)/);
+    expect(dayEntrySource).toMatch(/<DayEntryPreview(?:\s|>)/);
+    expect(dayEntrySource).toMatch(/<HistoryPanel(?:\s|>)/);
 
     const settingsSource = readProjectFile(
       "src/lib/components/dashboard/PeriodSettingsPanel.svelte",
@@ -71,6 +81,19 @@ describe("budget summary component structure", () => {
       /bind:budgetInput=\{controller\.budget\.draft\}/,
     );
     expect(settingsSource).toMatch(/controller\.saveBudget\(\)/);
+    expect(settingsSource).toMatch(/<PeriodRangeForm(?:\s|>)/);
+    expect(settingsSource).toMatch(/range=\{controller\.range\}/);
+    expect(settingsSource).toMatch(/controller\.saveRange\(\)/);
+    expect(settingsSource).toMatch(/<PeriodBoundaryConfirmationDialog(?:\s|>)/);
+    expect(settingsSource).toMatch(
+      /proposal=\{controller\.periodUpdateProposal\}/,
+    );
+    expect(settingsSource).toMatch(
+      /confirm=\{controller\.confirmPeriodUpdate\}/,
+    );
+    expect(settingsSource).toMatch(
+      /cancel=\{controller\.cancelPeriodUpdateConfirmation\}/,
+    );
     const settingsStateSource = readProjectFile(
       "src/lib/dashboard/period-settings-state.svelte.ts",
     );

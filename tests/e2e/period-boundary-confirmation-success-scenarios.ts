@@ -16,7 +16,7 @@ export function registerPeriodBoundarySuccessScenarios(): void {
   test("shows an accessible boundary confirmation and cancels without writing", async ({
     page,
     request,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await seedBoundaryPair(request);
     let confirmPutCount = 0;
@@ -58,7 +58,7 @@ export function registerPeriodBoundarySuccessScenarios(): void {
     await expect(page.getByTestId("period-select")).toBeDisabled();
 
     await page.screenshot({
-      path: ".omo/evidence/issue-237/task-5-desktop.png",
+      path: testInfo.outputPath("desktop.png"),
     });
     await cancelButton.click();
     await expect(dialog).toHaveCount(0);
@@ -97,7 +97,7 @@ export function registerPeriodBoundarySuccessScenarios(): void {
 
     const cancelledPair = await assertUnchangedPair(request);
     await writeFile(
-      ".omo/evidence/issue-237/task-5-api.json",
+      testInfo.outputPath("api.json"),
       `${JSON.stringify(cancelledPair, null, 2)}\n`,
     );
   });
@@ -106,7 +106,7 @@ export function registerPeriodBoundarySuccessScenarios(): void {
     test("confirms one linked boundary update on desktop and mobile", async ({
       page,
       request,
-    }) => {
+    }, testInfo) => {
       const actions: Array<Record<string, unknown>> = [];
       const apiStates: Record<string, unknown> = {};
 
@@ -116,7 +116,7 @@ export function registerPeriodBoundarySuccessScenarios(): void {
       await proposeBoundaryChange(page);
       await assertExactDialog(page);
       await page.screenshot({
-        path: ".omo/evidence/issue-237/task-6-desktop-proposal.png",
+        path: testInfo.outputPath("desktop-proposal.png"),
       });
 
       const releaseConfirm = Promise.withResolvers<void>();
@@ -182,7 +182,7 @@ export function registerPeriodBoundarySuccessScenarios(): void {
         page.getByText("期間: 2026-06-21 - 2026-07-21"),
       ).toBeVisible();
       await page.screenshot({
-        path: ".omo/evidence/issue-237/task-6-desktop.png",
+        path: testInfo.outputPath("desktop.png"),
       });
       apiStates.desktop = { ...desktopPair, list: desktopList };
       actions.push({ phase: "desktop-complete", confirmPutCount });
@@ -204,7 +204,7 @@ export function registerPeriodBoundarySuccessScenarios(): void {
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(390);
       await page.screenshot({
-        path: ".omo/evidence/issue-237/task-6-mobile-proposal.png",
+        path: testInfo.outputPath("mobile-proposal.png"),
       });
       await dialog.getByRole("button", { name: "変更する" }).click();
       await expect(dialog).toHaveCount(0);
@@ -214,17 +214,17 @@ export function registerPeriodBoundarySuccessScenarios(): void {
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(390);
       await page.screenshot({
-        path: ".omo/evidence/issue-237/task-6-mobile.png",
+        path: testInfo.outputPath("mobile.png"),
       });
       apiStates.mobile = mobilePair;
       actions.push({ phase: "mobile-complete", horizontalOverflow: false });
 
       await writeFile(
-        ".omo/evidence/issue-237/task-6-api.json",
+        testInfo.outputPath("api.json"),
         `${JSON.stringify(apiStates, null, 2)}\n`,
       );
       await writeFile(
-        ".omo/evidence/issue-237/task-6-actions.json",
+        testInfo.outputPath("actions.json"),
         `${JSON.stringify(actions, null, 2)}\n`,
       );
     });
