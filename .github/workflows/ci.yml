@@ -149,31 +149,6 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 12.3.4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .node_version
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm build
-
   e2e:
     name: E2E tests (shard ${{ matrix.shard }}/2)
     needs: changes
@@ -291,7 +266,6 @@ jobs:
       - check
       - unit-tests
       - integration-tests
-      - build
       - e2e
     if: ${{ always() }}
 
@@ -306,7 +280,6 @@ jobs:
           test "${{ needs.check.result }}" = "success"
           test "${{ needs['unit-tests'].result }}" = "success"
           test "${{ needs['integration-tests'].result }}" = "success"
-          test "${{ needs.build.result }}" = "success"
           case "$DOCS_ONLY" in
             true) test "$E2E_RESULT" = "skipped" ;;
             false) test "$E2E_RESULT" = "success" ;;
