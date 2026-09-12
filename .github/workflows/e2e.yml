@@ -45,3 +45,47 @@ jobs:
           if-no-files-found: warn
           include-hidden-files: true
           retention-days: 7
+
+      - name: Upload E2E timing
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-timing-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/results.json
+            .tmp-e2e-timing.json
+          if-no-files-found: warn
+          include-hidden-files: true
+          retention-days: 7
+
+  e2e-summary:
+    name: E2E timing summary
+    needs: e2e
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+
+      - name: Summarize completed E2E job
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .tmp-e2e-summary
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" > .tmp-e2e-summary/jobs.json
+          artifact_name="e2e-timing-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          artifact_id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" --jq ".artifacts[] | select(.name == \"$artifact_name\") | .id")
+          if [ -n "$artifact_id" ]; then
+            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir .tmp-e2e-summary
+          fi
+          node scripts/e2e-summary.ts --report .tmp-e2e-summary/test-results/results.json --timing .tmp-e2e-summary/.tmp-e2e-timing.json --jobs .tmp-e2e-summary/jobs.json --job-name "Playwright E2E" | tee -a "$GITHUB_STEP_SUMMARY"

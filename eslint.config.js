@@ -60,6 +60,7 @@ export default defineConfig(
       "vite.config.ts",
       "vitest.config.ts",
       "playwright.config.ts",
+      "scripts/e2e-*.ts",
       "tests/**/*.ts",
     ],
     languageOptions: {
