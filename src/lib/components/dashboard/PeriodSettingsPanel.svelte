@@ -14,6 +14,10 @@
   let { controller }: Props = $props();
 
   let budgetVisible = $state(false);
+  $effect(() => {
+    if (controller.confirmation.recoveryRequired)
+      controller.refreshPeriodConfirmation();
+  });
   function submitPeriod(): void {
     controller.saveBudget();
   }
@@ -46,6 +50,8 @@
 
     <PeriodRangeForm
       range={controller.range}
+      confirmation={controller.confirmation}
+      onretry={controller.refreshPeriodConfirmation}
       summary={controller.summary}
       selectedPeriodId={controller.selectedPeriodId}
       visible={budgetVisible}

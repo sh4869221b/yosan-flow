@@ -6,7 +6,10 @@ import {
   createPeriodRecoveryEffect,
   type PeriodCreationDependencies,
 } from "$lib/dashboard/period-controller-create-effect";
-import type { PendingPeriodUpdateConfirmation } from "$lib/dashboard/period-update-confirmation-state.svelte";
+import type {
+  PendingPeriodUpdateConfirmation,
+  PeriodUpdateConfirmationState,
+} from "$lib/dashboard/period-update-confirmation-state.svelte";
 import type { SavePeriodPayload } from "$lib/dashboard/types";
 import type {
   PeriodSetting,
@@ -14,6 +17,8 @@ import type {
 } from "$lib/dashboard/period-settings-state.svelte";
 
 type PeriodControllerActionDependencies = {
+  readonly confirmationState: PeriodUpdateConfirmationState;
+  readonly refreshConfirmationEffect: () => Effect.Effect<void, never>;
   readonly creation: PeriodCreationDependencies;
   readonly settings: PeriodSettingsState;
   readonly getInteractionDisabled: () => boolean;
@@ -108,8 +113,15 @@ export function createPeriodControllerActions(
       dependencies.creation.createState.setError(null);
       runClientEffect(dependencies.refreshSummaryEffect(payload.periodId));
     },
+    refreshPeriodConfirmation(): void {
+      if (dependencies.getConfirmSaving()) return;
+      runClientEffect(dependencies.refreshConfirmationEffect());
+    },
     confirmPeriodUpdate(): void {
       const pending = dependencies.beginPeriodConfirmation();
+      if (pending == null && dependencies.confirmationState.recoveryRequired) {
+        runClientEffect(dependencies.refreshConfirmationEffect());
+      }
       if (pending != null) {
         runClientEffect(dependencies.confirmPeriodUpdateEffect(pending));
       }
@@ -118,6 +130,9 @@ export function createPeriodControllerActions(
       if (dependencies.getConfirmSaving()) return;
       dependencies.clearPeriodConfirmation();
       dependencies.settings.range.reset();
+      const periodId = dependencies.getSummary()?.periodId;
+      if (periodId)
+        dependencies.confirmationState.report({ periodId, kind: "cancelled" });
     },
     resetCreatePeriod(): void {
       if (

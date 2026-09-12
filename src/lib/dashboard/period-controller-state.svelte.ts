@@ -1,17 +1,12 @@
-import { Effect } from "effect";
-import { periodSummaryUrl, periodsUrl } from "$lib/dashboard/api-urls";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
+import { createPeriodRefreshEffects } from "$lib/dashboard/period-controller-refresh-effect";
+import { createPeriodConfirmationEffects } from "$lib/dashboard/period-controller-confirm-effect";
 import type {
   PeriodOption,
   PeriodSummary,
 } from "$lib/dashboard/controller-types";
 import { createPeriodControllerActions } from "$lib/dashboard/period-controller-actions.svelte";
 import { createPeriodCreateState } from "$lib/dashboard/period-create-state.svelte";
-import {
-  createPeriodConfirmEffect,
-  createPeriodUpdateEffect,
-  type PeriodRefreshError,
-} from "$lib/dashboard/period-controller-update-effect";
+import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
 import { getInitialPeriodControllerState } from "$lib/dashboard/period-controller-initial-state";
 import { createPeriodUpdateConfirmationState } from "$lib/dashboard/period-update-confirmation-state.svelte";
 import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
@@ -20,7 +15,6 @@ import {
   createPeriodSettingsState,
   type PeriodSettingsSubmission,
 } from "$lib/dashboard/period-settings-state.svelte";
-import type { PeriodListResponse } from "$lib/dashboard/types";
 import type { PageData } from "../../routes/$types";
 
 export function createPeriodControllerState(
@@ -49,6 +43,7 @@ export function createPeriodControllerState(
     settings.range.saving ||
     createState.periodSaving ||
     confirmationState.confirmSaving ||
+    confirmationState.refreshing ||
     confirmationState.pending != null;
   const settings = createPeriodSettingsState({
     getSummary: () => summary,
@@ -71,71 +66,25 @@ export function createPeriodControllerState(
     else confirmationState.dropIfStale();
   }
 
-  function refreshSummaryEffect(
-    periodId: string,
-    reportError: PeriodRefreshError = true,
-    submission?: PeriodSettingsSubmission,
-  ): Effect.Effect<void, never> {
-    const request = summaryRequests.start(periodId);
-    return Effect.gen(function* () {
-      summaryLoading = true;
-      summaryError = null;
-      if (request.mutationWasActive) {
-        yield* summaryRevision.awaitMutationSettlement(
-          periodId,
-          request.mutationSequence,
-        );
-        if (summaryRequests.owns(request))
-          yield* refreshSummaryEffect(periodId, reportError, submission);
-        return;
-      }
-      const result = yield* fetchJsonEffect<PeriodSummary>(
-        periodSummaryUrl(periodId),
-        undefined,
-        "再取得に失敗しました。",
-      ).pipe(Effect.either);
-      if (summaryRequests.isFresh(request)) {
-        if (result._tag === "Left") {
-          if (typeof reportError === "function") reportError(result.left);
-          else if (reportError) summaryError = result.left;
-        } else if (result.right.periodId === periodId) {
-          publishSummary(result.right, submission);
-        }
-      }
-      if (summaryRequests.owns(request)) summaryLoading = false;
-    });
-  }
-
-  function refreshPeriodListEffect(
-    preferredPeriodId?: string,
-    reportSummaryError: PeriodRefreshError = true,
-    submission?: PeriodSettingsSubmission,
-  ): Effect.Effect<void | boolean, string> {
-    const request = summaryRequests.start(
-      preferredPeriodId ?? selectedPeriodId,
-    );
-    summaryLoading = false;
-    return Effect.gen(function* () {
-      const result = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
-        periodsUrl(),
-        undefined,
-        "保存に失敗しました。",
-      ).pipe(Effect.either);
-      if (!summaryRequests.owns(request)) return false;
-      if (result._tag === "Left") return yield* Effect.fail(result.left);
-      periods = result.right.periods ?? [];
-      if (periods.length === 0) {
+  const { refreshSummaryEffect, refreshPeriodListEffect } =
+    createPeriodRefreshEffects({
+      summaryRequests,
+      summaryRevision,
+      publishSummary,
+      getSelectedPeriodId: () => selectedPeriodId,
+      setLoading: (value) => {
+        summaryLoading = value;
+      },
+      setError: (value) => {
+        summaryError = value;
+      },
+      setPeriods: (value) => {
+        periods = value;
+      },
+      selectEmpty: () => {
         selectedPeriodId = null;
-        publishSummary(null);
-        return;
-      }
-      const matched =
-        periods.find((period) => period.id === preferredPeriodId) ??
-        periods.find((period) => period.id === selectedPeriodId) ??
-        periods[periods.length - 1];
-      yield* refreshSummaryEffect(matched.id, reportSummaryError, submission);
+      },
     });
-  }
 
   const periodUpdateDependencies = {
     confirmationState,
@@ -151,9 +100,10 @@ export function createPeriodControllerState(
     summaryRevision,
   };
   const savePeriodUpdate = createPeriodUpdateEffect(periodUpdateDependencies);
-  const confirmPeriodUpdateEffect = createPeriodConfirmEffect(
-    periodUpdateDependencies,
-  );
+  const confirmationEffects = createPeriodConfirmationEffects({
+    ...periodUpdateDependencies,
+    resetRange: settings.range.reset,
+  });
 
   const createDependencies = {
     ...periodUpdateDependencies,
@@ -187,6 +137,7 @@ export function createPeriodControllerState(
     get confirmSaving() {
       return confirmationState.confirmSaving;
     },
+    confirmation: confirmationState,
     get periodUpdateProposal() {
       return confirmationState.pending?.proposal ?? null;
     },
@@ -244,7 +195,9 @@ export function createPeriodControllerState(
     ...createPeriodControllerActions({
       beginPeriodConfirmation: confirmationState.beginConfirmation,
       clearPeriodConfirmation: confirmationState.clear,
-      confirmPeriodUpdateEffect,
+      confirmPeriodUpdateEffect: confirmationEffects.confirm,
+      refreshConfirmationEffect: confirmationEffects.refresh,
+      confirmationState,
       creation: createDependencies,
       getConfirmSaving: () => confirmationState.confirmSaving,
       settings,

@@ -19,7 +19,10 @@ import type {
 } from "$lib/dashboard/period-settings-state.svelte";
 
 export type PeriodRefreshError = boolean | ((_error: string) => void);
-type Dependencies = {
+export type PeriodRefreshCompletion = (
+  _result: "accepted" | "failed" | "dropped",
+) => void;
+export type PeriodUpdateDependencies = {
   readonly confirmationState?: PeriodUpdateConfirmationState;
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary: () => PeriodSummary | null;
@@ -32,11 +35,13 @@ type Dependencies = {
     _periodId: string,
     _reportSummaryError?: PeriodRefreshError,
     _submission?: PeriodSettingsSubmission,
+    _complete?: PeriodRefreshCompletion,
   ) => Effect.Effect<void | boolean, string>;
   readonly refreshSummaryEffect: (
     _periodId: string,
     _reportError?: PeriodRefreshError,
     _submission?: PeriodSettingsSubmission,
+    _complete?: PeriodRefreshCompletion,
   ) => Effect.Effect<void, never>;
   readonly setError: (
     _error: string | null,
@@ -65,7 +70,7 @@ function requestEffect(
 }
 
 function reconcileEffect(
-  dependencies: Dependencies,
+  dependencies: PeriodUpdateDependencies,
   periodId: string,
   reportError: boolean,
   mutationIsFresh: boolean,
@@ -94,7 +99,7 @@ function reconcileEffect(
 }
 
 function publishUpdatedSummary(
-  dependencies: Dependencies,
+  dependencies: PeriodUpdateDependencies,
   periodId: string,
   outcome: Extract<PeriodUpdateApiOutcome, { readonly kind: "updated" }>,
   mutationIsFresh: boolean,
@@ -112,7 +117,9 @@ function publishUpdatedSummary(
   return false;
 }
 
-export function createPeriodUpdateEffect(dependencies: Dependencies) {
+export function createPeriodUpdateEffect(
+  dependencies: PeriodUpdateDependencies,
+) {
   let saveSequence = 0;
   const savingSequences = { budget: 0, range: 0 };
 
@@ -229,76 +236,4 @@ export function createPeriodUpdateEffect(dependencies: Dependencies) {
       ),
     );
   };
-}
-
-export function createPeriodConfirmEffect(dependencies: Dependencies) {
-  return (
-    pending: PendingPeriodUpdateConfirmation,
-  ): Effect.Effect<void, never> =>
-    dependencies.summaryRevision
-      .withMutationSlot(
-        pending.ownership.targetId,
-        "period",
-        Effect.gen(function* () {
-          const confirmationState = dependencies.confirmationState;
-          if (confirmationState == null || !confirmationState.owns(pending)) {
-            confirmationState?.clearOwned(pending);
-            return;
-          }
-          const periodId = pending.ownership.targetId;
-          const request = dependencies.summaryRequests.start(periodId);
-          dependencies.setError(null);
-          const mutation = dependencies.summaryRevision.beginMutation(periodId);
-          const outcome = yield* requestEffect(periodId, pending.request).pipe(
-            Effect.ensuring(
-              Effect.sync(() =>
-                dependencies.summaryRevision.completeMutation(
-                  periodId,
-                  mutation,
-                ),
-              ),
-            ),
-          );
-          confirmationState.clearOwned(pending);
-          if (outcome.kind === "updated") {
-            const selected = dependencies.getSelectedPeriodId() === periodId;
-            const ownsRequest = dependencies.summaryRequests.owns(request);
-            if (
-              selected &&
-              ownsRequest &&
-              outcome.summary.periodId === periodId
-            ) {
-              dependencies.publishSummary(outcome.summary, {
-                operation: "range",
-                payload: pending.request,
-              });
-            } else {
-              dependencies.summaryRevision.advance(periodId);
-            }
-            dependencies.summaryRevision.advance(pending.ownership.successorId);
-            if (selected && ownsRequest) {
-              yield* reconcileEffect(dependencies, periodId, true, true);
-            }
-            return;
-          }
-          if (
-            dependencies.summaryRequests.owns(request) &&
-            dependencies.getSelectedPeriodId() === periodId
-          ) {
-            dependencies.setError(
-              outcome.kind === "error"
-                ? outcome.message
-                : "保存に失敗しました。",
-            );
-            yield* reconcileEffect(dependencies, periodId, false, true);
-          }
-        }),
-      )
-      .pipe(
-        Effect.ensuring(
-          Effect.sync(() =>
-            dependencies.confirmationState?.finishConfirmation(),
-          ),
-        ),
-      );
 }
