@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     name: Classify changed paths
@@ -219,7 +223,7 @@ jobs:
           retention-days: 7
 
       - name: Upload E2E timing
-        if: ${{ always() }}
+        if: ${{ always() && !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: e2e-timing-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
@@ -233,7 +237,7 @@ jobs:
   e2e-summary:
     name: E2E timing summary
     needs: [changes, e2e]
-    if: ${{ always() }}
+    if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
