@@ -53,6 +53,8 @@ export function createDashboardPageController(getData: () => PageData) {
   }
 
   return {
+    confirmation: periodController.confirmation,
+    refreshPeriodConfirmation: periodController.refreshPeriodConfirmation,
     budget: periodController.budget,
     range: periodController.range,
     get periods() {

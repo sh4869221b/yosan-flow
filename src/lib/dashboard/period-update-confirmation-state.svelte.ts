@@ -19,6 +19,17 @@ export type PendingPeriodUpdateConfirmation = {
   readonly ownership: PeriodUpdateConfirmationOwnership;
 };
 
+export type ConfirmationResult = {
+  readonly periodId: string;
+  readonly kind: "cancelled" | "saved" | "reedit" | "error";
+  readonly message?: string;
+};
+
+export type ConfirmationRecovery = {
+  readonly periodId: string;
+  readonly saved: boolean;
+};
+
 type Dependencies = {
   readonly getSelectedPeriodId: () => string | null;
   readonly summaryRevision: PeriodSummaryRevision;
@@ -29,6 +40,9 @@ export function createPeriodUpdateConfirmationState(
 ) {
   let pending = $state<PendingPeriodUpdateConfirmation | null>(null);
   let confirmSaving = $state(false);
+  let refreshing = $state(false);
+  let recovery = $state<ConfirmationRecovery | null>(null);
+  let result = $state<ConfirmationResult | null>(null);
 
   function isOwned(candidate: PendingPeriodUpdateConfirmation): boolean {
     const { ownership } = candidate;
@@ -44,11 +58,52 @@ export function createPeriodUpdateConfirmationState(
   }
 
   function getPending(): PendingPeriodUpdateConfirmation | null {
-    if (pending != null && !isOwned(pending)) pending = null;
+    if (pending != null && !isOwned(pending)) {
+      if (dependencies.getSelectedPeriodId() === pending.ownership.targetId) {
+        recovery = { periodId: pending.ownership.targetId, saved: false };
+        result = null;
+      }
+      pending = null;
+    }
     return pending;
   }
 
   return {
+    get result() {
+      return result;
+    },
+    get recovery() {
+      return recovery;
+    },
+    get refreshing() {
+      return refreshing;
+    },
+    get recoveryRequired() {
+      getPending();
+      return recovery != null && result == null && !refreshing;
+    },
+    report(next: ConfirmationResult): void {
+      result = next;
+    },
+    recover(periodId: string, saved: boolean): void {
+      pending = null;
+      recovery = { periodId, saved };
+      result = null;
+    },
+    beginRecovery(): ConfirmationRecovery | null {
+      if (refreshing || recovery == null) return null;
+      refreshing = true;
+      result = null;
+      return recovery;
+    },
+    finishRecovery(candidate: ConfirmationRecovery): boolean {
+      if (recovery !== candidate) return false;
+      refreshing = false;
+      return dependencies.getSelectedPeriodId() === candidate.periodId;
+    },
+    completeRecovery(): void {
+      recovery = null;
+    },
     get pending() {
       return getPending();
     },
@@ -64,6 +119,8 @@ export function createPeriodUpdateConfirmationState(
       ) {
         return false;
       }
+      recovery = null;
+      result = null;
       pending = nextPending;
       if (!isOwned(nextPending)) {
         pending = null;
@@ -73,6 +130,9 @@ export function createPeriodUpdateConfirmationState(
     },
     clear(): void {
       pending = null;
+      recovery = null;
+      result = null;
+      refreshing = false;
     },
     clearOwned(candidate: PendingPeriodUpdateConfirmation): void {
       if (

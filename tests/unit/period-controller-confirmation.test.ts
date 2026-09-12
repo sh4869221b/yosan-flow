@@ -252,9 +252,17 @@ it.each([targetPeriod.id, successorPeriod.id])(
   "rejects confirmation when %s becomes stale inside the mutation-slot wait",
   async (stalePeriodId) => {
     const revision = createPeriodSummaryRevision();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(jsonResponse(confirmationBody, 409));
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PUT")
+        return Promise.resolve(jsonResponse(confirmationBody, 409));
+      return Promise.resolve(
+        jsonResponse(
+          String(input) === "/api/periods"
+            ? { periods: [targetPeriod, successorPeriod] }
+            : createSummary(0),
+        ),
+      );
+    });
     vi.stubGlobal("fetch", fetchMock);
     const controller = createController(revision);
     controller.budget.draft = "13000";
@@ -292,7 +300,9 @@ it.each([targetPeriod.id, successorPeriod.id])(
       await settled(Promise.all(executions));
     }
 
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(controller.confirmation.result?.kind).toBe("reedit");
+    expect(controller.range.dirty).toBe(false);
     expect(controller.periodUpdateProposal).toBeNull();
     expect(controller.confirmSaving).toBe(false);
     expect(controller.periodInteractionDisabled).toBe(false);
@@ -370,9 +380,10 @@ it("drops stale proposals and preserves conflicts", async () => {
   expect(controller.confirmSaving).toBe(false);
 
   expect(controller.periodUpdateProposal).toBeNull();
-  expect(controller.range.serverError).toBe(conflictMessage);
+  expect(controller.range.serverError).toBeNull();
+  expect(controller.confirmation.result?.kind).toBe("reedit");
   expect(controller.range.success).toBe(false);
-  expect(controller.range.dirty).toBe(true);
+  expect(controller.range.dirty).toBe(false);
   expect(controller.budget.draft).toBe("13000");
   expect(controller.budget.serverError).toBeNull();
   expect(controller.budget.success).toBe(false);
@@ -559,3 +570,131 @@ it("ignores a preview superseded by a newer save request", async () => {
   expect(errors.range).toBeNull();
   expect(saving).toEqual({ budget: false, range: false });
 });
+
+it.each(["list", "summary", "saved-list"])(
+  "retries %s failure with GET only and preserves budget draft",
+  async (failure) => {
+    let puts = 0;
+    let fail = true;
+    const saved = failure === "saved-list";
+    const latest = saved
+      ? updatedTargetSummary()
+      : { ...createSummary(0), endDate: "2026-07-12" };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const list = String(input) === "/api/periods";
+      if (init?.method === "PUT") {
+        puts++;
+        return Promise.resolve(
+          puts === 1
+            ? jsonResponse(confirmationBody, 409)
+            : saved
+              ? jsonResponse(latest)
+              : jsonResponse(
+                  {
+                    error: {
+                      code: "PERIOD_UPDATE_CONFLICT",
+                      message: "変更されました。",
+                    },
+                  },
+                  409,
+                ),
+        );
+      }
+      if (fail && list === (failure !== "summary"))
+        return Promise.resolve(
+          jsonResponse({ error: { message: "再取得エラー" } }, 500),
+        );
+      return Promise.resolve(
+        jsonResponse(
+          list ? { periods: [targetPeriod, successorPeriod] } : latest,
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = createController();
+    controller.budget.draft = "13000";
+    controller.handleRangeChange(proposal.target.after);
+    await settled(executions[0]);
+    controller.confirmPeriodUpdate();
+    await settled(executions[1]);
+    expect(controller.confirmation.result?.kind).toBe("error");
+    expect(controller.confirmation.recovery?.saved).toBe(saved);
+    expect(controller.periodUpdateProposal).toBeNull();
+    controller.refreshPeriodConfirmation();
+    controller.refreshPeriodConfirmation();
+    await settled(Promise.all(executions));
+    expect(controller.confirmation.result?.kind).toBe("error");
+    fail = false;
+    controller.refreshPeriodConfirmation();
+    await settled(Promise.all(executions));
+    expect(controller.confirmation.result?.kind).toBe(
+      saved ? "saved" : "reedit",
+    );
+    expect(controller.confirmation.recovery).toBeNull();
+    expect(controller.range.draft).toEqual({
+      startDate: latest.startDate,
+      endDate: latest.endDate,
+    });
+    expect(controller.range.dirty).toBe(false);
+    expect(controller.budget.draft).toBe("13000");
+    expect(puts).toBe(2);
+  },
+);
+
+it.each(["wrong-id", "revision", "selection"])(
+  "drops %s recovery completion without feedback or draft reset",
+  async (change) => {
+    const held = Promise.withResolvers<Response>();
+    const started = Promise.withResolvers<void>();
+    const revision = createPeriodSummaryRevision();
+    let puts = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === "PUT")
+          return Promise.resolve(
+            ++puts === 1
+              ? jsonResponse(confirmationBody, 409)
+              : jsonResponse(
+                  {
+                    error: { code: "PERIOD_UPDATE_CONFLICT", message: "競合" },
+                  },
+                  409,
+                ),
+          );
+        if (String(input) === "/api/periods")
+          return Promise.resolve(
+            jsonResponse({ periods: [targetPeriod, successorPeriod] }),
+          );
+        if (String(input).endsWith(successorPeriod.id))
+          return Promise.resolve(
+            jsonResponse(forPeriod(createSummary(0), successorPeriod.id)),
+          );
+        started.resolve();
+        return held.promise;
+      }),
+    );
+    const controller = createController(revision);
+    controller.handleRangeChange(proposal.target.after);
+    await settled(executions[0]);
+    controller.confirmPeriodUpdate();
+    await settled(started.promise);
+    if (change === "revision") revision.advance(targetPeriod.id);
+    if (change === "selection") {
+      controller.handleSelectPeriod({ periodId: successorPeriod.id });
+      await settled(executions[2]);
+    }
+    const draft = { ...controller.range.draft };
+    held.resolve(
+      jsonResponse(
+        change === "wrong-id"
+          ? forPeriod(createSummary(0), successorPeriod.id)
+          : createSummary(0),
+      ),
+    );
+    await settled(executions[1]);
+    expect(controller.confirmation.result).toBeNull();
+    expect(controller.range.draft).toEqual(draft);
+    expect(controller.confirmation.refreshing).toBe(false);
+  },
+);
