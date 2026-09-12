@@ -19,7 +19,7 @@ export function registerPeriodBoundaryAdversarialScenarios(): void {
     test("rejects a stale confirmation through the real public API", async ({
       page,
       request,
-    }) => {
+    }, testInfo) => {
       await seedBoundaryPair(request);
       await gotoTarget(page);
       await proposeBoundaryChange(page);
@@ -74,7 +74,7 @@ export function registerPeriodBoundaryAdversarialScenarios(): void {
         budgetYen: 91_000,
       });
       await writeFile(
-        ".omo/evidence/issue-237/task-6-stale-api.json",
+        testInfo.outputPath("stale-api.json"),
         `${JSON.stringify({ target: targetState, successor: successorState }, null, 2)}\n`,
       );
     });
