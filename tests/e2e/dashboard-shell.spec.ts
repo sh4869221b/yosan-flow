@@ -5,12 +5,10 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
-  warmUpBrowser,
 } from "./dashboard-shared";
 
-test.beforeEach(async ({ browser, request }) => {
+test.beforeEach(async ({ request }) => {
   await resetTestData(request);
-  await warmUpBrowser(browser);
 });
 
 test("shows shell regions in document order", async ({ page, request }) => {

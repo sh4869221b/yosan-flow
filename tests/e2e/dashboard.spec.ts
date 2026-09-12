@@ -5,14 +5,12 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
-  warmUpBrowser,
 } from "./dashboard-shared";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
 
-test.beforeEach(async ({ browser, request }) => {
+test.beforeEach(async ({ request }) => {
   await resetTestData(request);
-  await warmUpBrowser(browser);
 });
 
 test("creates period", async ({ page }) => {

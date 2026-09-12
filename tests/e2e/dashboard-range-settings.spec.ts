@@ -10,7 +10,6 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
-  warmUpBrowser,
 } from "./dashboard-shared";
 import {
   holdResponse,
@@ -19,9 +18,8 @@ import {
 } from "./period-operation-state-helpers";
 
 test.describe.configure({ timeout: 120_000 });
-test.beforeEach(async ({ browser, request }) => {
+test.beforeEach(async ({ request }) => {
   await resetTestData(request);
-  await warmUpBrowser(browser);
 });
 
 const periodId = "p-range-settings";

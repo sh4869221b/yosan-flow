@@ -129,6 +129,37 @@ The median is the third sorted observation for each metric, computed before roun
 | Post Check out repository        |     1 |     0 |     0 |     1 |     0 |      0 |
 | Complete job                     |     0 |     0 |     0 |     0 |     0 |      0 |
 
+#### Per-test warm-up removal (#340)
+
+The following ten sequential manual E2E runs were collected on 2026-09-12 from `codex/issue-340-remove-e2e-warmup`, frozen at implementation revision [`6bb3b48`](https://github.com/sh4869221b/yosan-flow/commit/6bb3b48). They use the same 112-test suite, `ubuntu-latest` runner label, one worker, dependency definitions and startup/retry/reset/diagnostic settings as the #339 baseline above. The implementation removes the separate-page warm-up and its fixed 500ms wait before each test. This measurement record was added afterward in a documentation-only commit; no implementation, test, configuration or dependency changes occurred during the sequence.
+
+All ten attempted hosted runs and their summary jobs succeeded on attempt 1: each reported 112 expected, 0 failed, 0 flaky and 0 skipped, with no test retries, failed runs, reruns or exclusions. Dispatching paused for about 2.5 hours between runs 5 and 6 because of an agent usage limit; no workflow was interrupted. Every run's first test, `updates a seeded period budget`, passed. Each run also logged 116 database resets, all with zero rows afterward in `budgetPeriods`, `dailyOperationHistories` and `dailyTotals`, including resets with nonzero rows beforehand in all three tables.
+
+| Run / top-five summary                                                                                                                                                           | Attempt | Tests | Job (s) | E2E step (s) | Startup (s) | Playwright (s) | Attempts (s) |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------: | ----: | ------: | -----------: | ----------: | -------------: | -----------: |
+| [34681246460](https://github.com/sh4869221b/yosan-flow/actions/runs/34681246460) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34681246460/job/103520504221) |       1 |   112 |     178 |          136 |      20.885 |        133.753 |      109.467 |
+| [34681433950](https://github.com/sh4869221b/yosan-flow/actions/runs/34681433950) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34681433950/job/103521002533) |       1 |   112 |     179 |          127 |      16.028 |        124.675 |      104.605 |
+| [34681604777](https://github.com/sh4869221b/yosan-flow/actions/runs/34681604777) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34681604777/job/103521478106) |       1 |   112 |     182 |          135 |      20.483 |        133.100 |      109.331 |
+| [34681784095](https://github.com/sh4869221b/yosan-flow/actions/runs/34681784095) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34681784095/job/103521947444) |       1 |   112 |     182 |          134 |      20.613 |        131.636 |      107.752 |
+| [34681953797](https://github.com/sh4869221b/yosan-flow/actions/runs/34681953797) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34681953797/job/103522448690) |       1 |   112 |     196 |          142 |      20.880 |        139.537 |      115.391 |
+| [34688332655](https://github.com/sh4869221b/yosan-flow/actions/runs/34688332655) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34688332655/job/103539451364) |       1 |   112 |     160 |          117 |      15.873 |        115.484 |       97.011 |
+| [34688535031](https://github.com/sh4869221b/yosan-flow/actions/runs/34688535031) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34688535031/job/103540005506) |       1 |   112 |     172 |          133 |      19.824 |        130.368 |      107.289 |
+| [34688721765](https://github.com/sh4869221b/yosan-flow/actions/runs/34688721765) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34688721765/job/103540475502) |       1 |   112 |     170 |          119 |      16.841 |        117.657 |       96.979 |
+| [34688895903](https://github.com/sh4869221b/yosan-flow/actions/runs/34688895903) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34688895903/job/103540923152) |       1 |   112 |     176 |          137 |      20.836 |        133.717 |      109.548 |
+| [34689063054](https://github.com/sh4869221b/yosan-flow/actions/runs/34689063054) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34689063054/job/103541379821) |       1 |   112 |     190 |          141 |      21.149 |        138.953 |      113.319 |
+
+Each candidate median averages the fifth and sixth sorted raw observations before rounding. Differences use `candidate median - baseline median` and `(candidate median / baseline median - 1) * 100`; negative values mean faster. Values below are rounded to three decimal places.
+
+| Metric     | #339 baseline median (s) | #340 median (s) | Difference (s) | Difference (%) |
+| ---------- | -----------------------: | --------------: | -------------: | -------------: |
+| Job        |                  248.000 |         178.500 |        -69.500 |        -28.024 |
+| E2E step   |                  205.000 |         134.500 |        -70.500 |        -34.390 |
+| Startup    |                   21.155 |          20.548 |         -0.607 |         -2.869 |
+| Playwright |                  202.727 |         132.368 |        -70.359 |        -34.706 |
+| Attempts   |                  177.972 |         108.542 |        -69.431 |        -39.012 |
+
+The measured E2E step median decreased by 70.5 seconds. Hosted-runner variation and the dispatch pause limit attribution of the entire difference to warm-up removal. The overlapping metrics remain separate; these results do not establish the parent epic's overall performance target.
+
 For historical context, these successful main CI runs predate instrumentation. Their test counts differ, so this heterogeneous sample is unsuitable for a controlled speedup comparison. Historical startup and full JSON measurements are unavailable; the old job duration also excludes the new measurement upload.
 
 | Historical run                                                                   | Tests | Job (s) | E2E step (s) |

@@ -7,7 +7,7 @@
 ## Harness
 
 - `playwright.config.ts` uses one worker, disables full parallelism, clears temp state, builds, migrates local D1, then starts Wrangler.
-- Day-entry specs use `configureDashboardDayEntryE2E()` for serial mode, timeout, reset, and browser warm-up.
+- Day-entry specs use `configureDashboardDayEntryE2E()` for serial mode, timeout, and reset.
 - `dashboard-shared.ts` owns guarded reset and shared dashboard helpers.
 - `helpers/db.ts` seeds through public period/day APIs; do not bypass the product boundary with hidden state mutation.
 

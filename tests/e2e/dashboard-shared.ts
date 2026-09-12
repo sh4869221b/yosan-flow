@@ -1,4 +1,4 @@
-import type { APIRequestContext, Browser } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4173;
@@ -29,16 +29,6 @@ export function addDays(date: string, days: number): string {
   return new Date(dateValue + days * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
-}
-
-export async function warmUpBrowser(browser: Browser): Promise<void> {
-  const page = await browser.newPage();
-  try {
-    await page.goto(`${baseUrl}/`);
-    await page.waitForTimeout(500);
-  } finally {
-    await page.close();
-  }
 }
 
 export async function resetTestData(request: APIRequestContext): Promise<void> {
