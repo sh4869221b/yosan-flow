@@ -698,3 +698,69 @@ it.each(["wrong-id", "revision", "selection"])(
     expect(controller.confirmation.refreshing).toBe(false);
   },
 );
+
+it("does not release a new confirmation lock when an old recovery GET settles", async () => {
+  const oldList = Promise.withResolvers<Response>();
+  const retryStarted = Promise.withResolvers<void>();
+  const newConfirm = Promise.withResolvers<Response>();
+  const confirmStarted = Promise.withResolvers<void>();
+  let puts = 0;
+  let lists = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        puts++;
+        if (puts === 1 || puts === 3)
+          return Promise.resolve(jsonResponse(confirmationBody, 409));
+        if (puts === 2)
+          return Promise.resolve(
+            jsonResponse(
+              { error: { code: "PERIOD_UPDATE_CONFLICT", message: "競合" } },
+              409,
+            ),
+          );
+        confirmStarted.resolve();
+        return newConfirm.promise;
+      }
+      if (String(input) === "/api/periods") {
+        lists++;
+        if (lists === 1)
+          return Promise.resolve(
+            jsonResponse({ error: { message: "再取得失敗" } }, 500),
+          );
+        if (lists === 2) {
+          retryStarted.resolve();
+          return oldList.promise;
+        }
+        return Promise.resolve(
+          jsonResponse({ periods: [targetPeriod, successorPeriod] }),
+        );
+      }
+      return Promise.resolve(jsonResponse(createSummary(0)));
+    }),
+  );
+  const controller = createController();
+  controller.handleRangeChange(proposal.target.after);
+  await settled(executions[0]);
+  controller.confirmPeriodUpdate();
+  await settled(executions[1]);
+  controller.refreshPeriodConfirmation();
+  await settled(retryStarted.promise);
+  controller.handleSelectPeriod({ periodId: targetPeriod.id });
+  await settled(executions[3]);
+  controller.handleRangeChange(proposal.target.after);
+  await settled(executions[4]);
+  controller.confirmPeriodUpdate();
+  await settled(confirmStarted.promise);
+  try {
+    oldList.resolve(jsonResponse({ periods: [targetPeriod, successorPeriod] }));
+    await settled(executions[2]);
+    expect(controller.confirmSaving).toBe(true);
+    controller.cancelPeriodUpdateConfirmation();
+    expect(controller.periodUpdateProposal).toEqual(proposal);
+  } finally {
+    newConfirm.resolve(jsonResponse(updatedTargetSummary()));
+    await settled(executions[5]);
+  }
+});

@@ -40,8 +40,8 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
         ),
         Effect.ensuring(
           Effect.sync(() => {
-            state.finishConfirmation();
             if (!state.finishRecovery(recovery)) return;
+            state.finishConfirmation();
             if (dropped) {
               state.completeRecovery();
               return;
