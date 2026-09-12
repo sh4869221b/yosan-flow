@@ -151,8 +151,6 @@ jobs:
 
   build:
     name: Build
-    needs: changes
-    if: ${{ needs.changes.outputs.docs_only == 'false' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -176,27 +174,12 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Archive build output
-        run: tar -czf .tmp-ci-build.tar.gz .svelte-kit/cloudflare .svelte-kit/cloudflare-tmp .svelte-kit/output/server
-
-      - name: Upload build output
-        uses: actions/upload-artifact@v7
-        with:
-          name: ci-build-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .tmp-ci-build.tar.gz
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 7
-
   e2e:
     name: E2E tests (shard ${{ matrix.shard }}/2)
-    needs: [changes, build]
+    needs: changes
     if: ${{ needs.changes.outputs.docs_only == 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions:
-      contents: read
-      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -223,16 +206,7 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Download build output
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "ci-build-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --dir .tmp-issue-343-build
-          tar -xzf .tmp-issue-343-build/.tmp-ci-build.tar.gz
-
       - name: E2E tests
-        env:
-          YOSAN_FLOW_E2E_PREBUILT: "1"
         run: pnpm test:e2e --shard=${{ matrix.shard }}/2
 
       - name: Upload E2E diagnostics
@@ -326,21 +300,15 @@ jobs:
         env:
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
           E2E_RESULT: ${{ needs.e2e.result }}
-          BUILD_RESULT: ${{ needs.build.result }}
         run: |
           test "${{ needs.changes.result }}" = "success"
           test "${{ needs['format-lint'].result }}" = "success"
           test "${{ needs.check.result }}" = "success"
           test "${{ needs['unit-tests'].result }}" = "success"
           test "${{ needs['integration-tests'].result }}" = "success"
+          test "${{ needs.build.result }}" = "success"
           case "$DOCS_ONLY" in
-            true)
-              test "$BUILD_RESULT" = "skipped"
-              test "$E2E_RESULT" = "skipped"
-              ;;
-            false)
-              test "$BUILD_RESULT" = "success"
-              test "$E2E_RESULT" = "success"
-              ;;
+            true) test "$E2E_RESULT" = "skipped" ;;
+            false) test "$E2E_RESULT" = "success" ;;
             *) exit 1 ;;
           esac
