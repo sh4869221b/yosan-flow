@@ -1,5 +1,4 @@
 name: CI
-# Issue #343 comparison baseline; workflow behavior is unchanged.
 
 on:
   pull_request:
@@ -8,6 +7,41 @@ on:
       - main
 
 jobs:
+  changes:
+    name: Classify changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.docs.outputs.docs_only }}
+
+    steps:
+      - name: Check out repository
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+
+      - name: Classify changed paths
+        id: docs
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            result=$(git diff --no-renames --name-only -z "$PR_BASE...$PR_HEAD" | node scripts/ci-docs-only.ts)
+          else
+            result=docs_only=false
+          fi
+          printf '%s\n' "$result" >> "$GITHUB_OUTPUT"
+
   format-lint:
     name: Format and lint
     runs-on: ubuntu-latest
@@ -138,6 +172,8 @@ jobs:
 
   e2e:
     name: E2E tests (shard ${{ matrix.shard }}/2)
+    needs: changes
+    if: ${{ needs.changes.outputs.docs_only == 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -196,7 +232,7 @@ jobs:
 
   e2e-summary:
     name: E2E timing summary
-    needs: e2e
+    needs: [changes, e2e]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -212,7 +248,12 @@ jobs:
         with:
           node-version-file: .node_version
 
+      - name: Report documentation-only E2E skip
+        if: ${{ needs.changes.outputs.docs_only == 'true' }}
+        run: echo "E2E skipped because all changed paths are allowed documentation." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Summarize completed E2E job
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -241,6 +282,7 @@ jobs:
     name: Quality checks
     runs-on: ubuntu-latest
     needs:
+      - changes
       - format-lint
       - check
       - unit-tests
@@ -251,10 +293,18 @@ jobs:
 
     steps:
       - name: Verify required CI jobs
+        env:
+          DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+          E2E_RESULT: ${{ needs.e2e.result }}
         run: |
+          test "${{ needs.changes.result }}" = "success"
           test "${{ needs['format-lint'].result }}" = "success"
           test "${{ needs.check.result }}" = "success"
           test "${{ needs['unit-tests'].result }}" = "success"
           test "${{ needs['integration-tests'].result }}" = "success"
           test "${{ needs.build.result }}" = "success"
-          test "${{ needs.e2e.result }}" = "success"
+          case "$DOCS_ONLY" in
+            true) test "$E2E_RESULT" = "skipped" ;;
+            false) test "$E2E_RESULT" = "success" ;;
+            *) exit 1 ;;
+          esac
