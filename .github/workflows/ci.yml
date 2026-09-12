@@ -1,4 +1,5 @@
 name: CI
+# Issue #343 comparison baseline; workflow behavior is unchanged.
 
 on:
   pull_request:
