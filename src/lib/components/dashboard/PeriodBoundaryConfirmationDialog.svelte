@@ -47,7 +47,7 @@
           2つの期間を一括で更新します。キャンセルした場合は、どちらも保存されません。
         </p>
         <dl>
-          {#each [{ label: "変更する期間", value: proposal.target }, { label: "直接の後続期間", value: proposal.successor }] as period}
+          {#each [{ label: "変更する期間", value: proposal.target }, { label: "直接の後続期間", value: proposal.successor }] as period (period.value.before.id)}
             <div>
               <dt>{period.label}</dt>
               <dd class="period-id">期間ID: {period.value.before.id}</dd>
