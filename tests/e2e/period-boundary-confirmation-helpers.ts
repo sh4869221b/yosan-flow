@@ -166,10 +166,10 @@ export async function assertExactDialog(page: Page): Promise<void> {
     "この変更により、後続の予算期間の開始日も変更されます。",
   );
   await expect(dialog).toContainText(
-    "変更する期間 2026-06-21 ～ 2026-07-20 → 2026-06-21 ～ 2026-07-21",
+    "変更する期間 期間ID: boundary-target 変更前2026-06-21 ～ 2026-07-20 → 変更後2026-06-21 ～ 2026-07-21",
   );
   await expect(dialog).toContainText(
-    "後続期間 2026-07-21 ～ 2026-08-19 → 2026-07-22 ～ 2026-08-19",
+    "直接の後続期間 期間ID: boundary-successor 変更前2026-07-21 ～ 2026-08-19 → 変更後2026-07-22 ～ 2026-08-19",
   );
 }
 

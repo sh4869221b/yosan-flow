@@ -34,6 +34,7 @@
         class="period-boundary-content"
         onOpenAutoFocus={handleOpenAutoFocus}
         onEscapeKeydown={handleEscapeKeydown}
+        onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <AlertDialog.Title level={2}>
           予算期間の境界を変更しますか？
@@ -42,35 +43,27 @@
           この変更により、後続の予算期間の開始日も変更されます。内容を確認してください。
         </AlertDialog.Description>
 
+        <p class="explanation">
+          2つの期間を一括で更新します。キャンセルした場合は、どちらも保存されません。
+        </p>
         <dl>
-          <div>
-            <dt>変更する期間</dt>
-            <dd>
-              <span
-                >{proposal.target.before.startDate} ～ {proposal.target.before
-                  .endDate}</span
-              >
-              <span class="arrow" aria-hidden="true">→</span>
-              <span
-                >{proposal.target.after.startDate} ～ {proposal.target.after
-                  .endDate}</span
-              >
-            </dd>
-          </div>
-          <div>
-            <dt>後続期間</dt>
-            <dd>
-              <span
-                >{proposal.successor.before.startDate} ～ {proposal.successor
-                  .before.endDate}</span
-              >
-              <span class="arrow" aria-hidden="true">→</span>
-              <span
-                >{proposal.successor.after.startDate} ～ {proposal.successor
-                  .after.endDate}</span
-              >
-            </dd>
-          </div>
+          {#each [{ label: "変更する期間", value: proposal.target }, { label: "直接の後続期間", value: proposal.successor }] as period}
+            <div>
+              <dt>{period.label}</dt>
+              <dd class="period-id">期間ID: {period.value.before.id}</dd>
+              <dd class="ranges">
+                <span
+                  ><strong>変更前</strong>{period.value.before.startDate} ～ {period
+                    .value.before.endDate}</span
+                >
+                <span class="arrow" aria-hidden="true">→</span>
+                <span
+                  ><strong>変更後</strong>{period.value.after.startDate} ～ {period
+                    .value.after.endDate}</span
+                >
+              </dd>
+            </div>
+          {/each}
         </dl>
 
         <div class="period-boundary-actions">
@@ -151,7 +144,7 @@
     margin-bottom: 0.45rem;
   }
 
-  dd {
+  .ranges {
     align-items: center;
     display: grid;
     font-variant-numeric: tabular-nums;
@@ -160,8 +153,24 @@
     margin: 0;
   }
 
-  dd span:not(.arrow) {
-    white-space: nowrap;
+  .ranges strong {
+    display: block;
+    font-size: 0.875rem;
+    color: #67584c;
+  }
+  .ranges span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .period-id {
+    margin: 0 0 0.65rem;
+    overflow-wrap: anywhere;
+    color: #67584c;
+  }
+  .explanation {
+    margin: 0;
+    line-height: 1.7;
+    color: #67584c;
   }
 
   .arrow {
@@ -213,7 +222,7 @@
       padding: 1.1rem;
     }
 
-    dd {
+    .ranges {
       align-items: start;
       grid-template-columns: 1fr;
     }

@@ -147,6 +147,14 @@ export function registerPeriodBoundarySuccessScenarios(): void {
           .getByRole("alertdialog")
           .getByRole("button", { name: "変更中..." }),
       ).toBeDisabled();
+      await expect(
+        page
+          .getByRole("alertdialog")
+          .getByRole("button", { name: "キャンセル" }),
+      ).toBeDisabled();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("alertdialog")).toHaveCount(1);
+      expect(confirmPutCount).toBe(1);
       actions.push({
         phase: "desktop-blocked",
         confirmPutCount,
