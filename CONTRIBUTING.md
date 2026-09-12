@@ -91,7 +91,7 @@ Required CI gate policy:
 
 ### E2E timing and baseline
 
-Both CI and the manual E2E workflow publish an **E2E timing summary** after the E2E job completes. Open the workflow run's summary or the `Summarize completed E2E job` log for timing, outcome counts and the five slowest individual tests.
+Both CI and the manual E2E workflow run shards `1/2` and `2/2` on independent hosted runners, with one Playwright worker and runner-local Wrangler/D1 state per shard. `fail-fast: false` lets the other shard finish after a failure, and `Quality checks` requires both CI shards to succeed. The **E2E timing summary** runs after both shards complete and publishes a separate section for each shard. Open the workflow run's summary or the `Summarize completed E2E job` log for timing, outcome counts and the five slowest individual tests in each shard.
 
 - **Job** is the completed E2E job's `completed_at - started_at`, excluding queue time and the dependent summary job. It includes the measurement upload.
 - **E2E step** is the existing `pnpm test:e2e` step interval. Every other completed step has its own interval; their sum need not equal job wall-clock.
@@ -99,7 +99,7 @@ Both CI and the manual E2E workflow publish an **E2E timing summary** after the 
 - **Playwright** is the JSON report's `stats.duration`. **Attempts** sums every individual test/project entry's attempt durations, including retries. The top five rank those individual entries by their summed durations.
 - Counts use final report outcomes: expected, unexpected/failed, flaky and skipped. A test that passes after a failed attempt is flaky, not an additional failed test.
 
-All durations are reported in seconds. These measurements overlap and must not be added together. Missing test reports or incomplete startup produce `Unavailable`, while valid zero-test reports remain zero. Collection or malformed-data errors fail the summary job without changing the E2E job's result. Ordinary failures retain the existing JSON/HTML/Wrangler diagnostics; the timing artifact contains only `test-results/results.json` and `.tmp-e2e-timing.json`. Both artifact types have seven-day retention. A forcibly cancelled workflow may not publish them.
+All durations are reported in seconds. These measurements overlap and must not be added together. Missing test reports or incomplete startup produce `Unavailable`, while valid zero-test reports remain zero. Collection or malformed-data errors fail the summary job without changing the E2E job's result, after allowing the other shard's summary to run. Ordinary failures retain the existing JSON/HTML/Wrangler diagnostics; the timing artifact contains only `test-results/results.json` and `.tmp-e2e-timing.json`. Artifact names include the run ID, attempt and `-shard-1` or `-shard-2`; each shard is downloaded into its own directory. Both artifact types have seven-day retention. A forcibly cancelled workflow may not publish them.
 
 The following pre-optimization baseline was collected sequentially on 2026-09-12 from the manual workflow on `codex/issue-339-e2e-timing`, frozen at [`cd14999`](https://github.com/sh4869221b/yosan-flow/commit/cd14999). All five attempted runs and their summary jobs succeeded on attempt 1, with no failed runs, reruns or exclusions. Each ran the same 112 tests with one worker and unchanged Playwright startup, retry, reset and diagnostic settings. Every run reported 112 expected, 0 failed, 0 flaky and 0 skipped. Runtime/dependency versions are defined by `.node_version`, `package.json#packageManager` and `pnpm-lock.yaml` at that revision.
 
@@ -159,6 +159,48 @@ Each candidate median averages the fifth and sixth sorted raw observations befor
 | Attempts   |                  177.972 |         108.542 |        -69.431 |        -39.012 |
 
 The measured E2E step median decreased by 70.5 seconds. Hosted-runner variation and the dispatch pause limit attribution of the entire difference to warm-up removal. The overlapping metrics remain separate; these results do not establish the parent epic's overall performance target.
+
+#### Two isolated shards (#341)
+
+Five consecutive manual workflow attempts were dispatched sequentially on 2026-09-12 from `codex/issue-341-e2e-two-shards`, fixed at [`d23fb85`](https://github.com/sh4869221b/yosan-flow/commit/d23fb85). All five attempts and their summary jobs succeeded on attempt 1, without retries, reruns, exclusions or changes during the series. The later documentation commit leaves the measured implementation unchanged. Runtime/dependency versions remain defined by `.node_version`, `package.json#packageManager` and `pnpm-lock.yaml` at that revision.
+
+Every actual report's file, full test title and project tuples matched its assigned inventory: shard 1 ran 58 tests and shard 2 ran 54, with no overlap and a union equal to the complete 112-test inventory. Each shard used one worker with `fullyParallel: false`. All results were expected, with 0 failed, flaky or skipped tests and one successful attempt per test. Distinct runner IDs, separate build logs and startup timing confirm independent execution of the unchanged build/migration/server sequence. Each run logged 58 D1 resets per shard (116 total), all with zero rows afterward in `budgetPeriods`, `dailyOperationHistories` and `dailyTotals`; 56/57 resets respectively had nonempty tables beforehand.
+
+**Job envelope** is the latest shard job completion minus the earliest shard job start, excluding queue time and the summary job. **E2E step envelope** uses the same calculation on the two `Run E2E tests` steps. **Start skew** is the difference between their start timestamps. Neither envelope sums shard durations or overlapping startup/Playwright measurements.
+
+| Run / per-shard top-five summary                                                                                                                                                 | Attempt | Job envelope (s) | E2E step envelope (s) | Job start skew (s) | E2E step start skew (s) |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------: | ---------------: | --------------------: | -----------------: | ----------------------: |
+| [34691034561](https://github.com/sh4869221b/yosan-flow/actions/runs/34691034561) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34691034561/job/103546459391) |       1 |              144 |                   103 |                  0 |                      12 |
+| [34691177405](https://github.com/sh4869221b/yosan-flow/actions/runs/34691177405) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34691177405/job/103546899283) |       1 |              157 |                   114 |                  1 |                      33 |
+| [34691338220](https://github.com/sh4869221b/yosan-flow/actions/runs/34691338220) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34691338220/job/103547267091) |       1 |              135 |                    93 |                  1 |                      23 |
+| [34691504391](https://github.com/sh4869221b/yosan-flow/actions/runs/34691504391) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34691504391/job/103547695852) |       1 |              128 |                    85 |                  0 |                       4 |
+| [34691666870](https://github.com/sh4869221b/yosan-flow/actions/runs/34691666870) / [summary](https://github.com/sh4869221b/yosan-flow/actions/runs/34691666870/job/103548144698) |       1 |              134 |                    84 |                  0 |                       1 |
+
+The following per-shard values use the same run order. Outcomes are `expected / failed / flaky / skipped`; all durations are seconds, rounded only for display.
+
+| Run | Shard | Outcomes       | Job (s) | E2E step (s) | Startup (s) | Playwright (s) | Attempts (s) |
+| --: | ----: | -------------- | ------: | -----------: | ----------: | -------------: | -----------: |
+|   1 |   1/2 | 58 / 0 / 0 / 0 |     144 |           91 |      18.178 |         89.303 |       67.577 |
+|   1 |   2/2 | 54 / 0 / 0 / 0 |     124 |           83 |      21.204 |         80.928 |       57.264 |
+|   2 |   1/2 | 58 / 0 / 0 / 0 |     116 |           73 |      17.720 |         70.644 |       50.641 |
+|   2 |   2/2 | 54 / 0 / 0 / 0 |     157 |           81 |      20.562 |         79.264 |       56.314 |
+|   3 |   1/2 | 58 / 0 / 0 / 0 |     134 |           70 |      15.793 |         68.459 |       48.854 |
+|   3 |   2/2 | 54 / 0 / 0 / 0 |     123 |           82 |      20.682 |         79.691 |       56.586 |
+|   4 |   1/2 | 58 / 0 / 0 / 0 |     128 |           81 |      20.475 |         78.373 |       53.758 |
+|   4 |   2/2 | 54 / 0 / 0 / 0 |     122 |           81 |      20.531 |         78.077 |       55.127 |
+|   5 |   1/2 | 58 / 0 / 0 / 0 |     131 |           80 |      20.553 |         78.370 |       54.697 |
+|   5 |   2/2 | 54 / 0 / 0 / 0 |     134 |           84 |      21.096 |         81.351 |       57.804 |
+
+Each five-run envelope median is the third sorted raw observation. Differences use `candidate - baseline` and `(candidate / baseline - 1) * 100`, rounded to three decimals after calculation. The #340 baseline used one runner, so its job and step durations correspond to the candidate envelopes.
+
+| Metric   | #340 baseline median (s) | #341 envelope median (s) | Difference (s) | Difference (%) |
+| -------- | -----------------------: | -----------------------: | -------------: | -------------: |
+| Job      |                  178.500 |                  135.000 |        -43.500 |        -24.370 |
+| E2E step |                  134.500 |                   93.000 |        -41.500 |        -30.855 |
+
+Both measured medians improved, with no observed failures or retries in this five-run sample. Hosted-runner variability remains visible: job starts differed by at most one second, while E2E step starts differed by up to 33 seconds after setup. Both runners independently pay installation, build, migration and startup costs, so lower elapsed time does not imply lower total runner usage. These observations do not establish the parent epic's overall target or justify spec balancing or build reuse by themselves.
+
+Failure handling was checked separately before measurement: [fault CI 34690734637](https://github.com/sh4869221b/yosan-flow/actions/runs/34690734637) deliberately exited 1 only in shard 1 after its 58 tests passed. Shard 2 completed all 54 tests, both timing artifacts and summary sections were produced, shard 1 uploaded JSON/HTML/Wrangler diagnostics, and `Quality checks` failed. This synthetic step failure did not generate a test-failure trace. The injection was then removed through an ordinary commit; [restored CI 34690902845](https://github.com/sh4869221b/yosan-flow/actions/runs/34690902845) passed both shards, the summary and all required quality checks. Neither CI run belongs to the five-run sample.
 
 For historical context, these successful main CI runs predate instrumentation. Their test counts differ, so this heterogeneous sample is unsuitable for a controlled speedup comparison. Historical startup and full JSON measurements are unavailable; the old job duration also excludes the new measurement upload.
 
