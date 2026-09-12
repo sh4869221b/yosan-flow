@@ -13,7 +13,6 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
-  warmUpBrowser,
 } from "./dashboard-shared";
 
 export type SeededDayEntryPeriod = {
@@ -41,9 +40,8 @@ export type SuccessfulDayEntrySaveOptions = DayEntrySaveResponseOptions & {
 export function configureDashboardDayEntryE2E(): void {
   test.describe.configure({ mode: "serial", timeout: 120_000 });
 
-  test.beforeEach(async ({ browser, request }) => {
+  test.beforeEach(async ({ request }) => {
     await resetTestData(request);
-    await warmUpBrowser(browser);
   });
 }
 

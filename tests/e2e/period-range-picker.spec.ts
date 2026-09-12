@@ -1,12 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
-import { getBaseUrl, resetTestData, warmUpBrowser } from "./dashboard-shared";
+import { getBaseUrl, resetTestData } from "./dashboard-shared";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
 
-test.beforeEach(async ({ browser, request }) => {
+test.beforeEach(async ({ request }) => {
   await resetTestData(request);
-  await warmUpBrowser(browser);
 });
 
 test("raw input retains invalid text, associates errors, and makes no mutation", async ({

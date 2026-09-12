@@ -16,13 +16,11 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
-  warmUpBrowser,
 } from "./dashboard-shared";
 
 test.describe.configure({ timeout: 120_000 });
-test.beforeEach(async ({ browser, request }) => {
+test.beforeEach(async ({ request }) => {
   await resetTestData(request);
-  await warmUpBrowser(browser);
 });
 
 test("updates a seeded period budget", async ({ page, request }) => {
