@@ -114,7 +114,7 @@ describe("E2E timing summary", () => {
       "| Playwright run (stats.duration) | 12.346 s |",
     );
     expect(markdown).toContain(
-      "| Build start → Playwright HTTP-ready observation | 2.456 s |",
+      "| E2E startup sequence → Playwright HTTP-ready observation | 2.456 s |",
     );
     expect(markdown).toContain("settings &#124; \\`edit\\` \\[link\\]");
   });
@@ -196,7 +196,7 @@ describe("E2E timing summary", () => {
     expect(summary).toContain("| Completed E2E job wall-clock | 60.000 s |");
     expect(summary).toContain("| Run tests | 30.000 s |");
     expect(summary).toContain(
-      "| Build start → Playwright HTTP-ready observation | Unavailable |",
+      "| E2E startup sequence → Playwright HTTP-ready observation | Unavailable |",
     );
     expect(summary).toContain("Unavailable: Playwright JSON report");
   });
