@@ -49,9 +49,21 @@ export function registerPeriodBoundaryAdversarialScenarios(): void {
             "確認後に予算期間が変更されたため、もう一度操作してください。",
         },
       });
-      await expect(page.getByRole("alert")).toContainText(
-        "確認後に予算期間が変更されたため、もう一度操作してください。",
+      await expect(page.locator("#range-confirmation-feedback")).toContainText(
+        "もう一度編集してください。",
       );
+      await expect(
+        page.getByTestId("current-period-range-start"),
+      ).toBeFocused();
+      await expect(page.getByTestId("current-period-range-end")).toHaveValue(
+        target.endDate,
+      );
+      await proposeBoundaryChange(page);
+      await assertExactDialog(page);
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "キャンセル" })
+        .click();
       const targetState = await readPeriod(request, target.periodId);
       const successorState = await readPeriod(request, successor.periodId);
       expect(targetState).toMatchObject(target);

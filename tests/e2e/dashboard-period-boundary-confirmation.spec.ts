@@ -1,3 +1,4 @@
+import { registerPeriodBoundaryRecoveryScenarios } from "./period-boundary-confirmation-recovery-scenarios";
 import { test } from "@playwright/test";
 import { resetTestData } from "./dashboard-shared";
 import { registerPeriodBoundaryAdversarialScenarios } from "./period-boundary-confirmation-adversarial-scenarios";
@@ -9,3 +10,5 @@ test.beforeEach(async ({ request }) => {
 
 registerPeriodBoundarySuccessScenarios();
 registerPeriodBoundaryAdversarialScenarios();
+
+registerPeriodBoundaryRecoveryScenarios();

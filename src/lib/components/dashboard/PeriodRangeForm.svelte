@@ -1,5 +1,9 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import type {
+    ConfirmationResult,
+    PeriodUpdateConfirmationState,
+  } from "$lib/dashboard/period-update-confirmation-state.svelte";
   import type { PeriodSummary } from "$lib/dashboard/controller-types";
   import type { PeriodSettingsState } from "$lib/dashboard/period-settings-state.svelte";
   import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
@@ -7,6 +11,8 @@
 
   type Props = {
     range: PeriodSettingsState["range"];
+    confirmation: PeriodUpdateConfirmationState;
+    onretry: () => void;
     summary: PeriodSummary | null;
     selectedPeriodId: string | null;
     visible: boolean;
@@ -17,6 +23,8 @@
   };
   let {
     range,
+    confirmation,
+    onretry,
     summary,
     selectedPeriodId,
     visible,
@@ -25,6 +33,7 @@
     proposalPending,
     onsubmit,
   }: Props = $props();
+  let handledConfirmation: ConfirmationResult | null = null;
   let form: HTMLFormElement | undefined = $state();
   let heading: HTMLHeadingElement | undefined = $state();
   let touchedStart = $state(false);
@@ -36,7 +45,12 @@
     source: HTMLElement | null;
   } | null>(null);
   const validation = $derived(getPeriodRangeValidation(range.draft));
-  const disabled = $derived(range.saving || loading || interactionDisabled);
+  const disabled = $derived(
+    range.saving ||
+      loading ||
+      interactionDisabled ||
+      confirmation.recovery != null,
+  );
 
   function clearValidation(): void {
     touchedStart = touchedEnd = submitAttempted = false;
@@ -48,6 +62,7 @@
   });
 
   function edit(value: { startDate: string; endDate: string }): void {
+    confirmation.dismissResult();
     range.edit(value);
     editedDraft = range.draft;
   }
@@ -60,6 +75,7 @@
   function reset(): void {
     if (disabled) return;
     focusIntent = null;
+    confirmation.dismissResult();
     range.reset();
     clearValidation();
     focus(document.getElementById("current-period-range-start"));
@@ -115,10 +131,36 @@
     });
   });
 
+  $effect(() => {
+    const result = confirmation.result;
+    if (!result || result === handledConfirmation) return;
+    handledConfirmation = result;
+    if (!visible || selectedPeriodId !== result.periodId) return;
+    void tick().then(() => {
+      if (
+        confirmation.result !== result ||
+        !visible ||
+        selectedPeriodId !== result.periodId ||
+        proposalPending ||
+        confirmation.refreshing ||
+        loading
+      )
+        return;
+      const target =
+        result.kind === "error"
+          ? document.getElementById("range-confirmation-error-heading")
+          : result.kind === "saved"
+            ? heading
+            : document.getElementById("current-period-range-start");
+      if (target?.isConnected) focus(target);
+    });
+  });
+
   function submit(event: SubmitEvent): void {
     event.preventDefault();
     focusIntent = null;
     if (disabled || !range.dirty || range.settingChanged) return;
+    confirmation.dismissResult();
     submitAttempted = true;
     const active = document.activeElement;
     focusIntent = {
@@ -134,9 +176,46 @@
 <form
   bind:this={form}
   aria-labelledby="range-settings-heading"
-  aria-busy={range.saving || loading}
+  aria-busy={range.saving || loading || confirmation.refreshing}
+  aria-describedby={confirmation.result
+    ? "range-confirmation-feedback"
+    : undefined}
   onsubmit={submit}
 >
+  {#if confirmation.result?.kind === "error"}
+    <div
+      id="range-confirmation-feedback"
+      role="alert"
+      class="confirmation-error"
+    >
+      <h3 id="range-confirmation-error-heading" tabindex="-1">
+        {confirmation.recovery?.saved
+          ? "最新情報を再取得できませんでした"
+          : "期間の変更を完了できませんでした"}
+      </h3>
+      {#if confirmation.recovery}
+        <button
+          type="button"
+          onclick={onretry}
+          disabled={confirmation.refreshing}>最新情報を再取得</button
+        >
+      {/if}
+      <p>{confirmation.result.message}</p>
+    </div>
+  {:else if confirmation.result?.kind === "reedit"}
+    <p id="range-confirmation-feedback" role="status">
+      最新の期間を取得しました。変更内容を確認し、もう一度編集してください。
+    </p>
+  {:else if confirmation.result}
+    <p id="range-confirmation-feedback" role="status">
+      {confirmation.result.kind === "saved"
+        ? "期間を保存しました。"
+        : "変更を取り消しました。保存はしていません。"}
+    </p>
+  {/if}
+  {#if confirmation.refreshing}<p role="status">
+      最新情報を再取得しています。
+    </p>{/if}
   {#if summary}
     <p class="context">対象期間: {selectedPeriodId}</p>
     <p class="context">
@@ -207,7 +286,7 @@
   {#if range.serverError}<p id="range-settings-server-error" role="alert">
       {#if range.success}期間の保存は完了していますが、最新情報の再取得に失敗しました。{/if}{range.serverError}
     </p>{/if}
-  {#if range.success && !range.saving && !loading}
+  {#if range.success && !range.saving && !loading && !confirmation.result && !confirmation.refreshing}
     <p role="status" aria-live="polite">期間を保存しました。</p>
   {/if}
 </form>
@@ -260,6 +339,18 @@
   button[aria-disabled="true"] {
     cursor: default;
     opacity: 0.65;
+  }
+  .confirmation-error {
+    display: grid;
+    gap: 0.75rem;
+    color: #8b3a3a;
+  }
+  .confirmation-error h3 {
+    margin: 0;
+    font-size: 1rem;
+  }
+  .confirmation-error button {
+    justify-self: start;
   }
   p[role="alert"] {
     text-wrap: balance;

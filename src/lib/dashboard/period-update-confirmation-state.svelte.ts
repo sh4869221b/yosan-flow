@@ -82,6 +82,9 @@ export function createPeriodUpdateConfirmationState(
       getPending();
       return recovery != null && result == null && !refreshing;
     },
+    dismissResult(): void {
+      result = null;
+    },
     report(next: ConfirmationResult): void {
       result = next;
     },

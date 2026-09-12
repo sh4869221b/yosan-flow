@@ -641,7 +641,13 @@ it.each(["list", "summary", "saved-list"])(
   },
 );
 
-it.each(["wrong-id", "revision", "selection"])(
+it.each([
+  "wrong-id",
+  "revision",
+  "selection",
+  "list-revision",
+  "list-selection",
+])(
   "drops %s recovery completion without feedback or draft reset",
   async (change) => {
     const held = Promise.withResolvers<Response>();
@@ -662,6 +668,10 @@ it.each(["wrong-id", "revision", "selection"])(
                   409,
                 ),
           );
+        if (String(input) === "/api/periods" && change.startsWith("list-")) {
+          started.resolve();
+          return held.promise;
+        }
         if (String(input) === "/api/periods")
           return Promise.resolve(
             jsonResponse({ periods: [targetPeriod, successorPeriod] }),
@@ -679,17 +689,19 @@ it.each(["wrong-id", "revision", "selection"])(
     await settled(executions[0]);
     controller.confirmPeriodUpdate();
     await settled(started.promise);
-    if (change === "revision") revision.advance(targetPeriod.id);
-    if (change === "selection") {
+    if (change.endsWith("revision")) revision.advance(targetPeriod.id);
+    if (change.endsWith("selection")) {
       controller.handleSelectPeriod({ periodId: successorPeriod.id });
       await settled(executions[2]);
     }
     const draft = { ...controller.range.draft };
     held.resolve(
       jsonResponse(
-        change === "wrong-id"
-          ? forPeriod(createSummary(0), successorPeriod.id)
-          : createSummary(0),
+        change.startsWith("list-")
+          ? { periods: [targetPeriod, successorPeriod] }
+          : change === "wrong-id"
+            ? forPeriod(createSummary(0), successorPeriod.id)
+            : createSummary(0),
       ),
     );
     await settled(executions[1]);
