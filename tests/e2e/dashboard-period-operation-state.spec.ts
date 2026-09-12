@@ -174,7 +174,7 @@ test.describe("independent period operations", () => {
             budgetSaving ? "保存中..." : /^(期間を更新|読込中\.\.\.)$/,
           );
           await expect(ui.range).toHaveText(
-            budgetSaving ? "期間を反映" : "保存中...",
+            budgetSaving ? /^(期間を反映|読込中\.\.\.)$/ : "保存中...",
           );
           await expect(ui.create).toHaveText("期間を作成");
           await expect(page.getByRole("alert")).toHaveCount(0);
@@ -187,7 +187,7 @@ test.describe("independent period operations", () => {
       }
       await expect(ui.budget).toHaveText("期間を更新");
       await expect(ui.range).toHaveText("期間を反映");
-      await expect(ui.range).toBeEnabled();
+      await expect(ui.range).toBeEnabled({ enabled: budgetSaving });
       await expect(ui.create).toBeEnabled();
       await expect(ui.selector).toBeEnabled();
       await expect(page.getByLabel("期間予算 (円)")).toHaveValue("130000");
@@ -232,6 +232,19 @@ for (const confirm of [false, true]) {
     }
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toHaveCount(1);
+    await expect(
+      dialog.getByRole("button", { name: "キャンセル", exact: true }),
+    ).toBeFocused();
+    await expect(page.locator("#range-settings-heading")).not.toBeFocused();
+    await expect(
+      page
+        .getByRole("form", {
+          name: "期間設定",
+          exact: true,
+          includeHidden: true,
+        })
+        .getByRole("status", { includeHidden: true }),
+    ).toHaveCount(0);
     await expectManagementDisabled(page);
     await expect(controls(page).range).toHaveText("期間を反映");
     await expect(page.getByRole("alert", { includeHidden: true })).toHaveCount(
