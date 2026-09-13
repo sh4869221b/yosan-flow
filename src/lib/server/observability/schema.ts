@@ -5,6 +5,8 @@ export const OPERATIONS = [
   "period.create",
   "period.read",
   "period.update",
+  "period.boundary.propose",
+  "period.boundary.confirm",
   "day.add",
   "day.overwrite",
   "history.list",
@@ -13,6 +15,36 @@ export const OPERATIONS = [
 ] as const;
 
 export type Operation = (typeof OPERATIONS)[number];
+
+const ERROR_CODES = [
+  "INVALID_PERIOD_ID",
+  "INVALID_BODY",
+  "INVALID_AMOUNT",
+  "INVALID_DATE",
+  "INVALID_HISTORY_ID",
+  "INVALID_MEMO",
+  "DATE_OUT_OF_PERIOD",
+  "PERIOD_CONTINUITY_VIOLATION",
+  "PERIOD_PREDECESSOR_NOT_FOUND",
+  "INVALID_PERIOD_RANGE",
+  "PERIOD_HAS_OUT_OF_RANGE_ENTRIES",
+  "PERIOD_NOT_FOUND",
+  "HISTORY_NOT_FOUND",
+  "PERIOD_OVERLAP",
+  "PERIOD_MULTIPLE_SUCCESSORS",
+  "PERIOD_UPDATE_CONFLICT",
+  "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
+  "INTERNAL_ERROR",
+  "UNKNOWN_ERROR",
+] as const;
+
+export type TelemetryErrorCode = (typeof ERROR_CODES)[number];
+
+export function isTelemetryErrorCode(
+  input: unknown,
+): input is TelemetryErrorCode {
+  return ERROR_CODES.some((code) => code === input);
+}
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 const OUTCOMES = [
@@ -29,6 +61,7 @@ export type TelemetryEvent = {
   readonly method: (typeof METHODS)[number];
   readonly outcome: (typeof OUTCOMES)[number];
   readonly status: number;
+  readonly error_code?: TelemetryErrorCode;
 };
 
 export function isOperation(input: unknown): input is Operation {
@@ -48,6 +81,7 @@ export function sanitizeEvent(input: unknown): TelemetryEvent | undefined {
   const rawMethod = ownField(input, "method");
   const rawOutcome = ownField(input, "outcome");
   const status = ownField(input, "status");
+  const errorCode = ownField(input, "error_code");
   const route = ROUTE_TEMPLATES.find((value) => value === rawRoute);
   const method = METHODS.find((value) => value === rawMethod);
   const outcome = OUTCOMES.find((value) => value === rawOutcome);
@@ -66,5 +100,13 @@ export function sanitizeEvent(input: unknown): TelemetryEvent | undefined {
     return undefined;
   }
 
-  return { event, operation, route, method, outcome, status };
+  return {
+    event,
+    operation,
+    route,
+    method,
+    outcome,
+    status,
+    ...(isTelemetryErrorCode(errorCode) ? { error_code: errorCode } : {}),
+  };
 }
