@@ -177,11 +177,30 @@ linked boundary の確認要求は `period.boundary.propose` / `PERIOD_BOUNDARY_
 
 サービス初期化だけが失敗した場合は、元の例外を伝播したまま `unexpected_error` / 500 / `INTERNAL_ERROR` を一度記録します。この 500 は初期化失敗の分類であり、SvelteKit が生成した最終応答の観測値ではありません。通常のログ sink 例外は再分類せず伝播し、初期化失敗と sink 失敗が重なった場合だけ元の初期化例外を優先します。エラー応答自体を構築できない場合は既存の throw を維持し、存在しない完了応答のイベントは作りません。
 
-Workers では `tracing-workers.ts` の `workersTracing` を使い、Node のテストなどでは `tracing.ts` の `noopTracing`、または native `enterSpan` を注入する `createTracing(native)` を使います。共通の `TracingAdapter.withSpan(operation, callback, attributes?)` は固定の operation 名と任意の `TelemetryEvent` を受け取り、callback に native Span を渡しません。不正な operation では span を作らず callback を実行し、不正な属性や operation が一致しない属性は付与しません。callback の同期 return / throw、Promise の resolve / reject をそのまま伝え、戻り値やエラーをログにしません。
+API / page は request ごとに `getRequestTracing(platform)` で `platform.ctx.tracing` を取得し、`createTracing(native)` に渡します。native tracing がなければ `noopTracing` を使い、request の adapter をサービスキャッシュに保存しません。Workers 専用の `tracing-workers.ts` も native module から adapter を作る入口として利用できます。
+
+業務 span は次の八つの固定名です。
+
+| span 名                                     | 囲む処理                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------- |
+| `api.budget_period.create`                  | 期間作成の入力解析から応答構築・終端ログまで                              |
+| `api.budget_period.update`                  | 通常更新・linked 更新の入力解析から応答構築・終端ログまで                 |
+| `api.budget_period.linked_boundary.propose` | 更新親 span 内の、確認要求に必要な両期間の範囲検査と proposal 結果生成    |
+| `api.budget_period.linked_boundary.confirm` | 更新親 span 内の、確認時の再判定・proposal 比較・両期間の atomic 更新     |
+| `api.daily_total.upsert`                    | 日次加算・上書きの入力解析から summary 再取得・応答構築・終端ログまで     |
+| `api.history.update`                        | 履歴更新の入力解析から summary / histories 再取得・応答構築・終端ログまで |
+| `api.history.delete`                        | 履歴削除の入力解析から summary / histories 再取得・応答構築・終端ログまで |
+| `summary.calculate`                         | 日次集計と期間の読み込みを含む summary 計算全体                           |
+
+`summary.calculate` は mutation 後の再取得では mutation span の子、期間 GET / page load では invocation 配下になります。linked 更新の初期期間・後続期間の読み込みは更新親 span 内にあり、通常更新には proposal / confirm の子 span を作りません。サービス初期化失敗は業務 span の開始前です。期間削除 API は存在しないため、`api.budget_period.delete` は導入していません。D1 のクエリごとの手動 span は追加せず、自動計装を使います。
+
+業務 span の属性は、選んだ固定 span 名と一致する `app.operation` と、既存 route template の任意の `app.route` だけです。加算・上書きは同じ span 名でも異なる固定 route を使い、linked 子 span の route は `/api/periods/[periodId]`、summary では route を省略します。`outcome` / `error_code` は既存の終端ログに残します。属性 supplier は native span に入った後、`isTraced` が true の場合だけ評価・検証し、余分な属性は捨てます。unsampled / no-op では supplier を呼びません。
+
+共通の `TracingAdapter.withSpan` は、既存の固定 operation 名と任意の `TelemetryEvent` を受け取る形式も維持します。既存属性の検証・付与も `isTraced` が true の場合だけ行います。callback に native Span は渡さず、不正な名前では span を作らず work を一度実行し、同期 return / throw と Promise 自体の同一性を維持します。`withTracingEffect` は Effect 実行時に span を開始し、元の成功・失敗・defect を保ったまま完了を待ち、中断時は内部処理の finalizer 完了を待ちます。戻り値やエラーを span 属性やログにコピーしません。
 
 この契約はアプリケーションが作る payload / カスタム span に適用します。Cloudflare が付加する URL・ID・SQL などの標準メタデータは、所有者が承認した例外であり、この sanitizer の対象外です。保存される telemetry 全体の無害化は保証しません。アプリケーション側でこれらの値を payload にコピーすることも禁止します。標準属性は [Cloudflare の Spans and attributes](https://developers.cloudflare.com/workers/observability/traces/spans-and-attributes/) を参照してください。この一覧から D1 の bind 値が SQL に含まれるとは断定しません。
 
-業務 span の展開は行っていません。リモート環境での検証は [#338](https://github.com/sh4869221b/yosan-flow/issues/338) で扱います。
+業務 span のコード導入と、認証付き preview で custom span / 自動 D1 span の親子関係を確認する受け入れ検証は [#337](https://github.com/sh4869221b/yosan-flow/issues/337) の対象です。ローカルテストの native fake は実 Workers の計装を証明しないため、preview の実 trace による確認が必要です。運用手順の整備は [#338](https://github.com/sh4869221b/yosan-flow/issues/338) で扱います。
 
 ## D1 migration 運用メモ
 
