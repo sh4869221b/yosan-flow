@@ -38,6 +38,57 @@ function recordingTracing() {
 }
 
 describe("request tracing Effect bridge", () => {
+  it("keeps deferred child work in its own request while another request executes", async () => {
+    const { context, spans, tracing } = recordingTracing();
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const first = context.run("first-request", () =>
+      runApiEffect(
+        withTracingEffect(
+          tracing,
+          "api.budget_period.update",
+          Effect.promise(async () => {
+            started.resolve();
+            await release.promise;
+            return runApiEffect(
+              withTracingEffect(
+                tracing,
+                "summary.calculate",
+                Effect.succeed("first"),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+    await started.promise;
+    const second = await context.run("second-request", () =>
+      runApiEffect(
+        withTracingEffect(
+          tracing,
+          "api.history.delete",
+          Effect.succeed("second"),
+        ),
+      ),
+    );
+    expect(second).toBe("second");
+    release.resolve();
+    await expect(first).resolves.toBe("first");
+    expect(spans).toEqual([
+      {
+        name: "api.budget_period.update",
+        parent: "first-request",
+        pending: false,
+      },
+      { name: "api.history.delete", parent: "second-request", pending: false },
+      {
+        name: "summary.calculate",
+        parent: "api.budget_period.update",
+        pending: false,
+      },
+    ]);
+  });
+
   it("is lazy and retains native parent context through asynchronous settlement", async () => {
     const { context, spans, tracing } = recordingTracing();
     const started = Promise.withResolvers<void>();

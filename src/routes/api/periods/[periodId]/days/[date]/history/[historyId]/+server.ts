@@ -1,4 +1,6 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
+import type { TracingAdapter } from "$lib/server/observability/tracing";
+import { getRequestTracing } from "$lib/server/observability/tracing-platform";
 import { runApiEffect } from "$lib/server/effect/runtime";
 import {
   observeMutationInitialization,
@@ -18,15 +20,17 @@ import { parsePeriodId } from "$lib/server/validation/month";
 
 export type PeriodDayHistoryMutationRouteDependencies = {
   services: InMemoryApiServices;
+  tracing?: TracingAdapter;
 };
 
 async function buildHistoryMutationResponse(
   services: InMemoryApiServices,
   periodId: string,
   date: string,
+  tracing?: TracingAdapter,
 ): Promise<Response> {
   const [summary, histories] = await Promise.all([
-    runApiEffect(getPeriodSummaryFromServices(services, periodId)),
+    runApiEffect(getPeriodSummaryFromServices(services, periodId, tracing)),
     runApiEffect(services.listHistoryByDate(periodId, date)),
   ]);
   return json({
@@ -43,53 +47,63 @@ export function _createPeriodDayHistoryMutationHandler(
 } {
   return {
     PATCH: async ({ params, request }) =>
-      runMutationResponse("history.update", async () => {
-        const periodId = parsePeriodId(params.periodId);
-        const date = parseDate(params.date);
-        const historyId = parseHistoryId(params.historyId);
-        const input = await runApiEffect(parseDayMutationInput(request));
+      runMutationResponse(
+        "history.update",
+        async () => {
+          const periodId = parsePeriodId(params.periodId);
+          const date = parseDate(params.date);
+          const historyId = parseHistoryId(params.historyId);
+          const input = await runApiEffect(parseDayMutationInput(request));
 
-        await runApiEffect(
-          dependencies.services.dayEntryService.updateHistoryEntry({
-            periodId,
-            date,
-            historyId,
-            inputYen: input.inputYen,
-            memo: input.memo,
-          }),
-        );
+          await runApiEffect(
+            dependencies.services.dayEntryService.updateHistoryEntry({
+              periodId,
+              date,
+              historyId,
+              inputYen: input.inputYen,
+              memo: input.memo,
+            }),
+          );
 
-        return {
-          response: await buildHistoryMutationResponse(
-            dependencies.services,
-            periodId,
-            date,
-          ),
-        };
-      }),
+          return {
+            response: await buildHistoryMutationResponse(
+              dependencies.services,
+              periodId,
+              date,
+              dependencies.tracing,
+            ),
+          };
+        },
+        dependencies.tracing,
+      ),
 
     DELETE: async ({ params }) =>
-      runMutationResponse("history.delete", async () => {
-        const periodId = parsePeriodId(params.periodId);
-        const date = parseDate(params.date);
-        const historyId = parseHistoryId(params.historyId);
+      runMutationResponse(
+        "history.delete",
+        async () => {
+          const periodId = parsePeriodId(params.periodId);
+          const date = parseDate(params.date);
+          const historyId = parseHistoryId(params.historyId);
 
-        await runApiEffect(
-          dependencies.services.dayEntryService.deleteHistoryEntry({
-            periodId,
-            date,
-            historyId,
-          }),
-        );
+          await runApiEffect(
+            dependencies.services.dayEntryService.deleteHistoryEntry({
+              periodId,
+              date,
+              historyId,
+            }),
+          );
 
-        return {
-          response: await buildHistoryMutationResponse(
-            dependencies.services,
-            periodId,
-            date,
-          ),
-        };
-      }),
+          return {
+            response: await buildHistoryMutationResponse(
+              dependencies.services,
+              periodId,
+              date,
+              dependencies.tracing,
+            ),
+          };
+        },
+        dependencies.tracing,
+      ),
   };
 }
 
@@ -98,6 +112,7 @@ export const PATCH: RequestHandler = async (event) => {
     services: observeMutationInitialization("history.update", () =>
       getApiServicesFromPlatform(event.platform),
     ),
+    tracing: getRequestTracing(event.platform),
   }).PATCH(event);
 };
 
@@ -106,5 +121,6 @@ export const DELETE: RequestHandler = async (event) => {
     services: observeMutationInitialization("history.delete", () =>
       getApiServicesFromPlatform(event.platform),
     ),
+    tracing: getRequestTracing(event.platform),
   }).DELETE(event);
 };

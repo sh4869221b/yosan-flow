@@ -1,4 +1,6 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
+import type { TracingAdapter } from "$lib/server/observability/tracing";
+import { getRequestTracing } from "$lib/server/observability/tracing-platform";
 import { runApiEffect, toEffectError } from "$lib/server/effect/runtime";
 import {
   observeMutationInitialization,
@@ -19,6 +21,7 @@ import { PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR } from "$lib/server/service
 
 export type PeriodRouteDependencies = {
   services: InMemoryApiServices;
+  tracing?: TracingAdapter;
 };
 
 export function _createPeriodGetHandler(
@@ -28,7 +31,11 @@ export function _createPeriodGetHandler(
     try {
       const periodId = parsePeriodId(params.periodId);
       const summary = await runApiEffect(
-        getPeriodSummaryFromServices(dependencies.services, periodId),
+        getPeriodSummaryFromServices(
+          dependencies.services,
+          periodId,
+          dependencies.tracing,
+        ),
       );
       return json(summary);
     } catch (error) {
@@ -43,6 +50,7 @@ export function _createPeriodGetHandler(
 export const GET: RequestHandler = async (event) => {
   return _createPeriodGetHandler({
     services: getApiServicesFromPlatform(event.platform),
+    tracing: getRequestTracing(event.platform),
   })(event);
 };
 
@@ -50,45 +58,57 @@ export function _createPeriodPutHandler(
   dependencies: PeriodRouteDependencies,
 ): RequestHandler {
   return async ({ params, request }) =>
-    runMutationResponse("period.update", async (context) => {
-      try {
-        const periodId = parsePeriodId(params.periodId);
-        const body = await runApiEffect(parseRequestBodyObject(request));
-        const updateRequest = parsePeriodUpdateRequest(body);
-        if (updateRequest.confirmation !== undefined) {
-          context.operation = "period.boundary.confirm";
-        }
-
-        const result = await runApiEffect(
-          dependencies.services.updatePeriod(periodId, updateRequest),
-        );
-        switch (result.kind) {
-          case "confirmation-required":
-            context.operation = "period.boundary.propose";
-            return {
-              errorCode: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
-              response: json(
-                {
-                  error: PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR,
-                  proposal: result.proposal,
-                },
-                { status: 409 },
-              ),
-            };
-          case "updated": {
-            const summary = await runApiEffect(
-              getPeriodSummaryFromServices(dependencies.services, periodId),
-            );
-            return { response: json(summary) };
+    runMutationResponse(
+      "period.update",
+      async (context) => {
+        try {
+          const periodId = parsePeriodId(params.periodId);
+          const body = await runApiEffect(parseRequestBodyObject(request));
+          const updateRequest = parsePeriodUpdateRequest(body);
+          if (updateRequest.confirmation !== undefined) {
+            context.operation = "period.boundary.confirm";
           }
+
+          const result = await runApiEffect(
+            dependencies.services.updatePeriod(
+              periodId,
+              updateRequest,
+              dependencies.tracing,
+            ),
+          );
+          switch (result.kind) {
+            case "confirmation-required":
+              context.operation = "period.boundary.propose";
+              return {
+                errorCode: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
+                response: json(
+                  {
+                    error: PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR,
+                    proposal: result.proposal,
+                  },
+                  { status: 409 },
+                ),
+              };
+            case "updated": {
+              const summary = await runApiEffect(
+                getPeriodSummaryFromServices(
+                  dependencies.services,
+                  periodId,
+                  dependencies.tracing,
+                ),
+              );
+              return { response: json(summary) };
+            }
+          }
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            throw toEffectError(error);
+          }
+          throw error;
         }
-      } catch (error) {
-        if (!(error instanceof Error)) {
-          throw toEffectError(error);
-        }
-        throw error;
-      }
-    });
+      },
+      dependencies.tracing,
+    );
 }
 
 export const PUT: RequestHandler = async (event) => {
@@ -96,5 +116,6 @@ export const PUT: RequestHandler = async (event) => {
     services: observeMutationInitialization("period.update", () =>
       getApiServicesFromPlatform(event.platform),
     ),
+    tracing: getRequestTracing(event.platform),
   })(event);
 };

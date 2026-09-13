@@ -2,6 +2,7 @@ import {
   createInMemoryApiServices,
   type InMemoryApiServices,
 } from "$lib/server/services/month-summary-service";
+import type { TracingAdapter } from "$lib/server/observability/tracing";
 import {
   _createPeriodsHandler,
   _createPeriodsListHandler,
@@ -18,6 +19,7 @@ import { _createPeriodDayHistoryMutationHandler } from "../../../src/routes/api/
 export function createFixture(
   now = new Date("2026-04-20T00:00:00.000Z"),
   createHistoryId?: () => string,
+  tracing?: TracingAdapter,
 ): {
   services: InMemoryApiServices;
   createPeriod: ReturnType<typeof _createPeriodsHandler>;
@@ -36,13 +38,16 @@ export function createFixture(
 
   return {
     services,
-    createPeriod: _createPeriodsHandler({ services }),
+    createPeriod: _createPeriodsHandler({ services, tracing }),
     listPeriods: _createPeriodsListHandler({ services }),
-    getPeriod: _createPeriodGetHandler({ services }),
-    updatePeriod: _createPeriodPutHandler({ services }),
-    addDay: _createPeriodDayAddHandler({ services }),
-    overwriteDay: _createPeriodDayOverwriteHandler({ services }),
+    getPeriod: _createPeriodGetHandler({ services, tracing }),
+    updatePeriod: _createPeriodPutHandler({ services, tracing }),
+    addDay: _createPeriodDayAddHandler({ services, tracing }),
+    overwriteDay: _createPeriodDayOverwriteHandler({ services, tracing }),
     getHistory: _createPeriodDayHistoryHandler({ services }),
-    mutateHistory: _createPeriodDayHistoryMutationHandler({ services }),
+    mutateHistory: _createPeriodDayHistoryMutationHandler({
+      services,
+      tracing,
+    }),
   };
 }

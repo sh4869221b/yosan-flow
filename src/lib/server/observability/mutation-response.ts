@@ -3,6 +3,18 @@ import { toApiErrorResponseResult } from "$lib/server/effect/result";
 import { classifyApiError } from "./error-classification";
 import { createLogger } from "./logger";
 import type { TelemetryErrorCode, TelemetryEvent } from "./schema";
+import { noopTracing, type TracingAdapter } from "./tracing";
+
+const MUTATION_SPANS = {
+  "period.create": "api.budget_period.create",
+  "period.update": "api.budget_period.update",
+  "period.boundary.propose": "api.budget_period.update",
+  "period.boundary.confirm": "api.budget_period.update",
+  "day.add": "api.daily_total.upsert",
+  "day.overwrite": "api.daily_total.upsert",
+  "history.update": "api.history.update",
+  "history.delete": "api.history.delete",
+} as const;
 
 const MUTATIONS = {
   "period.create": { route: "/api/periods", method: "POST" },
@@ -60,27 +72,38 @@ export async function runMutationResponse(
   action: (context: {
     operation: MutationOperation;
   }) => Promise<MutationResponse>,
+  tracing: TracingAdapter = noopTracing,
 ): Promise<Response> {
-  // Linked updates select their fixed terminal operation within this request.
-  const context = { operation };
-  let response: Response;
-  let classification: Pick<TelemetryEvent, "outcome" | "error_code">;
-  try {
-    const result = await action(context);
-    response = result.response;
-    classification =
-      result.errorCode === undefined
-        ? { outcome: "success" }
-        : classifyApiError(response.status, result.errorCode);
-  } catch (error) {
-    const result = toApiErrorResponseResult(error);
-    response = json(result.body, { status: result.status });
-    classification = classifyApiError(result.status, result.body.error.code);
-  }
+  const name = MUTATION_SPANS[operation];
+  return tracing.withSpan(
+    name,
+    async () => {
+      // Linked updates select their fixed terminal operation within this request.
+      const context = { operation };
+      let response: Response;
+      let classification: Pick<TelemetryEvent, "outcome" | "error_code">;
+      try {
+        const result = await action(context);
+        response = result.response;
+        classification =
+          result.errorCode === undefined
+            ? { outcome: "success" }
+            : classifyApiError(response.status, result.errorCode);
+      } catch (error) {
+        const result = toApiErrorResponseResult(error);
+        response = json(result.body, { status: result.status });
+        classification = classifyApiError(
+          result.status,
+          result.body.error.code,
+        );
+      }
 
-  // A sink failure must not become another API error response or terminal event.
-  logCompletion(context.operation, response.status, classification);
-  return response;
+      // A sink failure must not become another API error response or terminal event.
+      logCompletion(context.operation, response.status, classification);
+      return response;
+    },
+    () => ({ "app.operation": name, "app.route": MUTATIONS[operation].route }),
+  );
 }
 
 export function observeMutationInitialization<T>(

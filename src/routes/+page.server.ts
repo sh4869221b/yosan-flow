@@ -1,5 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { runApiEffect } from "$lib/server/effect/runtime";
+import { getRequestTracing } from "$lib/server/observability/tracing-platform";
 import {
   getApiServicesFromPlatform,
   getPeriodSummaryFromServices,
@@ -20,6 +21,7 @@ function resolveRequestedPeriodId(url: URL): string | null {
 
 export const load: PageServerLoad = async ({ platform, url }) => {
   const services = getApiServicesFromPlatform(platform);
+  const tracing = getRequestTracing(platform);
   const requestedPeriodId = resolveRequestedPeriodId(url);
   const periods = await runApiEffect(services.listPeriods());
   const today = services.jstToday();
@@ -46,7 +48,7 @@ export const load: PageServerLoad = async ({ platform, url }) => {
   const selectedPeriod = requestedPeriod ?? currentPeriod ?? latestPeriod;
   const summary = selectedPeriod
     ? await runApiEffect(
-        getPeriodSummaryFromServices(services, selectedPeriod.id),
+        getPeriodSummaryFromServices(services, selectedPeriod.id, tracing),
       )
     : null;
 
