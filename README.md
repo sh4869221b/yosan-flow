@@ -194,23 +194,23 @@ API / page は request ごとに `getRequestTracing(platform)` で `platform.ctx
 
 ### Dashboard での調査手順
 
-Cloudflare Dashboard の **Workers & Pages → 対象 Worker → Observability → Overview** を開きます。preview は `yosan-flow-preview`、production は `yosan-flow` です。現行 deployment version、logs / traces の設定、利用プランを確認し、保持期間内の開始・終了時刻を UTC で固定します。Visualization、Filter、Group By を設定して Run を選びます。操作の詳細は [Query Builder 公式資料](https://developers.cloudflare.com/workers/observability/query-builder/) を参照してください。
+Cloudflare Dashboard の **Workers & Pages → 対象 Worker → Observability** を開きます。preview は `yosan-flow-preview`、production は `yosan-flow` です。2026-09-13 の実画面では Overview 子タブはなく、**Toggle query builder** で折り畳まれた Query Builder を開き、Events / Invocations / Traces / Visualizations を選択できます。現行 version、logs / traces の設定、利用プランを確認し、保持期間内の開始・終了時刻を固定します。記録は UTC に統一し、画面のタイムゾーンも確認してください。[Query Builder 公式資料](https://developers.cloudflare.com/workers/observability/query-builder/)
 
-最初に Events の `operation.completed` を一件展開し、上記ログ契約の各フィールドが格納された実キーを確認します。Filter の **Select key** でそのキーを選択してください。以下の `event` / `operation` / `route` / `outcome` / `status` / `error_code` はアプリのフィールド名であり、Dashboard 内の完全なキー名ではありません。prefix やネストは推測せず、invocation 側の HTTP status・runtime outcome・CPU / wall time・version・trace 関連付けも実イベントから区別します。現時点の実画面確認状況は末尾の受け入れ結果に記録します。
+Events の `event = "operation.completed"` で終端ログを開きます。実イベントでは `event` / `operation` / `route` / `outcome` / `status` / `error_code` は top-level キーです。Cloudflare 側は Worker 名が `$workers.scriptName`、version が `$workers.scriptVersion.id`、HTTP status が `$workers.event.response.status`、runtime outcome が `$workers.outcome`、CPU / wall time が `$workers.cpuTimeMs` / `$workers.wallTimeMs` です。アプリの `outcome` / `status` と混同しないでください。別環境や UI 更新後も Events と **Select key** で実キーを確かめ、未確認の prefix を追加しません。
 
-全行で Worker と時間範囲を固定し、前の調査の Filter を残さず条件を組み直します。アプリの終端ログの Count は操作件数、invocation の Count は呼出し件数です。同じ request のログを全部数えて request 件数にしないでください。
+全行で Worker と時間範囲を固定し、前の調査の Filter を残さず条件を組み直します。**trace から戻ると時間範囲・種別・Filter がリセットされるため、再設定してから実行します。** アプリの終端ログの Count は操作件数、Invocations の Count は呼出し件数です。Events の UI に表示される Success は業務 `outcome=success` 件数ではありません。表の条件文字列を入力したら **Enter で条件を確定して「クエリーを実行」**します。集計時は Visualizations で Count などを選び、必要な Filter / Group By を設定します。
 
-| 調査入口              | Visualization                         | Filter / Group By                                                                                                                              | 結果の読み方・次の画面                                                                                                   |
-| --------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 1. 業務操作の内訳     | Count                                 | `event` Equals `operation.completed`。`operation`、`route`、`outcome` ごとに集計                                                               | 対象操作の Events を開く。GET に mutation 終端ログを期待しない                                                           |
-| 2. 想定外の業務エラー | Count                                 | 終端ログかつ `outcome` Equals `unexpected_error`。`error_code` ごとに集計し、必要なら `operation` / `route` で絞る                             | 終端ログから関連 invocation / trace を開き、失敗箇所と書込み後の再取得を確認                                             |
-| 3. HTTP 5xx           | Count                                 | invocation のイベント種別に限定し、実際の response status を Greater or equals `500`、Less `600`。status ごとに集計                            | アプリの `status` と分けて実 HTTP 応答を確認。該当 invocation のログと trace へ進む                                      |
-| 4. runtime failure    | Count                                 | invocation のイベント種別に限定し、runtime outcome の exception、resource limit、internal error に対応する実値を個別に検索。outcome ごとに集計 | Worker の Metrics の errors と照合し、該当 invocation の例外と trace を調査。アプリの `outcome` とは別条件               |
-| 5. CPU / wall time    | Median (P50)、P95、Max を各指標に設定 | invocation のイベント種別に限定。比較時は同じ version / 対象 route 条件を使用し、数値フィールドと単位を記録                                    | Metrics の CPU Time / Wall Time per execution と確認。遅い invocation の trace で計算と I/O 待ちを切り分ける             |
-| 6. 遅い業務処理と D1  | 上の wall time 集計から Events を開く | 対象操作の終端ログに絞り、関連 trace 内で固定 span 名または `app.operation`、必要なら `app.route` を確認                                       | 業務 span から子孫の自動 D1 span を展開し、時間・重なり・親子関係を比較。span に `outcome` / `error_code` 条件を作らない |
-| 7. deploy 直後の回帰  | Count と同じ CPU / wall time 統計     | 同じ Worker で配備直前 15 分と直後 15 分を別々に実行。version と request mix を記録                                                            | requests、runtime errors / 率、HTTP 5xx / 率、時間分布を比較し、増加した分類から 2〜6 へ進む                             |
+| 調査入口                      | Visualization / 種別                             | Filter / Group By                                                                                                                          | 結果の読み方・次の画面                                                                                                                                             |
+| ----------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1. 業務操作の内訳             | Events、Count                                    | `event = "operation.completed"`。`operation`、`route`、`outcome` ごとに集計                                                                | 対象操作の Events を開く。GET に mutation 終端ログを期待しない                                                                                                     |
+| 2. 想定外の業務エラー         | Events、Count                                    | `event = "operation.completed" AND outcome = "unexpected_error"`。`error_code` ごとに集計し、必要なら `operation` / `route` で絞る         | 終端ログの「呼び出しを表示」または「トレースを表示」から、失敗箇所と書込み後の再取得を確認                                                                         |
+| 3. HTTP 5xx                   | Invocations、Count                               | `$workers.event.response.status >= 500 AND $workers.event.response.status < 600`。同 status キーごとに集計                                 | アプリの `status` と分けて実 HTTP 応答を確認。該当 invocation のログと trace へ進む                                                                                |
+| 4. runtime failure の切り分け | Invocations、Count                               | `exists($workers.outcome) AND $workers.outcome != "ok"`。`$workers.outcome` ごとに集計                                                     | 非 `ok` の実値を確認し、exception / resource / internal error などを切り分ける。非 `ok` 全件を同じ障害と数えず、Metrics の errors と照合                           |
+| 5. CPU / wall time            | Invocations、Median (P50) / P95 / Max            | `$workers.cpuTimeMs` と `$workers.wallTimeMs` を各統計のキーに選択。Worker / 時間範囲を固定し、必要なら `$workers.scriptVersion.id` で絞る | 単位は ms。キー選択や集計が失敗したらエラーを記録し、同じ Worker / 窓の Metrics の CPU Time / Wall Time per execution へ進む。Query Builder の集計成功とは扱わない |
+| 6. 遅い業務処理と D1          | 遅い invocation または対象操作の Events → Traces | 終端ログの `operation` / `route` で対象を絞り「トレースを表示」。trace 内で固定 span 名または `app.operation`、必要なら `app.route` を確認 | 業務 span から子孫の自動 D1 span を展開し、時間・重なり・親子関係を比較。span に `outcome` / `error_code` 条件を作らない                                           |
+| 7. deploy 直後の回帰          | Invocations の Count、同じ時間統計               | 同じ `$workers.scriptName` で配備直前 15 分と直後 15 分を別々に実行。`$workers.scriptVersion.id` と request mix を確認                     | requests、runtime errors / 率、HTTP 5xx / 率、CPU / wall time / request duration を比較。対象 version の標本がなければ比較不能とし、増加した分類は 2〜6 へ進む     |
 
-Events から画面に表示される invocation / trace の関連付けを辿り、trace 内で上記八種の業務 span と自動 D1 span を確認します。関連付けが表示されない場合は trace 収集・sampling・保持期間を確認し、未取得として残します。URL や対応関係を推測して補いません。D1 span の時間だけで SQL、ロック、ネットワークなどの原因を断定せず、親の処理時間と他の子 span を合わせて確認します。
+Events を展開した「呼び出しを表示」/「トレースを表示」から関連付けを辿り、trace 内で上記八種の業務 span と自動 D1 span を確認します。関連付けが表示されない場合は trace 収集・sampling・保持期間を確認し、未取得として残します。URL や対応関係を推測して補いません。D1 span の時間だけで SQL、ロック、ネットワークなどの原因を断定せず、親の処理時間と他の子 span を合わせて確認します。
 
 確認要求の 409 / `PERIOD_BOUNDARY_CONFIRMATION_REQUIRED` は通常の提案経路です。400 / `PERIOD_OVERLAP` もログ分類は `conflict` で、`UNKNOWN_ERROR` は未知コードのログ上の正規化です。詳細は上記分類契約を参照してください。500 でも書込み後の再取得失敗があり得るため、mutation を再送せず、まず GET または画面の再取得で現状態を確認します。
 
@@ -220,7 +220,7 @@ Events から画面に表示される invocation / trace の関連付けを辿�
 
 CPU time は I/O 待ちを除く実行時間です。Wall time は I/O 待ちや `waitUntil()` を含む JavaScript context の経過時間で、クライアントへの応答完了時間とは一致しません。Metrics の quantile は sampling に基づくため、Query Builder の標本・統計と混ぜず取得元を記録します。[Metrics 公式資料](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/)
 
-Request duration 専用 chart は Smart Placement 有効時のみ提供されます。本手順では設定を追加せず、chart を取得できなければ実画面での理由を残し、同種の認証済み通常 GET の **Fetch Handler trace duration** を別名の補助指標として採取します。実 trace も取得できない場合は **ブラウザーネットワーク所要時間** を使い、前後で取得元・操作・単位を揃えます。wall time や補助値を request duration と呼ばず、補助値も取れなければ未取得とします。[Request duration の提供条件](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/#request-duration)
+Request duration は実画面で提供有無を確認し、提供されていればその正式な指標名・統計・単位で記録します。2026-09-13 の production Metrics では、Smart Placement が有効でない旨の案内があっても「リクエスト期間」の P50 / P90 / P99 / P999 カードが表示されました。[公式資料の提供条件](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/#request-duration) だけで取得不能とは判断しません。取得できなければ実画面での理由を残し、同種の認証済み通常 GET の **Fetch Handler trace duration**、それもなければ **ブラウザーネットワーク所要時間** を別名の補助指標として使います。前後で取得元・操作・単位を揃え、wall time や補助値を request duration と呼ばず、補助値も取れなければ未取得とします。Smart Placement 設定は変更しません。
 
 production 反映は preview 受け入れ後に既存の環境別配備手順で行います。同じアプリ版が配備済みで前後の保持データが使える場合は、それを利用し、比較や文書更新のためだけの再配備はしません。production は通常 GET と自然発生トラフィックで確認し、試験用 mutation・負荷試験・故意の障害は加えません。
 
@@ -248,7 +248,7 @@ tail は過去の永続ログを検索する機能ではありません。高負
 
 導入直後、障害調査中、低トラフィックで契約枠・費用に余裕がある場合は 100% を維持します。実際のログ数・span 数、契約枠、費用見込みに問題がある場合は、必要な調査標本が残るか確認して logs / traces 個別の低減案を所有者に提示します。本手順では設定変更や任意の費用上限を追加しません。低減すると稀な障害や対応する trace が欠ける可能性があり、100% 設定でも保持期限やプラットフォーム制限による欠落は別に確認します。
 
-以下は **2026-09-13 に公式資料を確認した値**です。実アカウントのプラン・使用量は Dashboard で別途確認します。
+以下は **2026-09-13 に公式資料を確認した値**です。同日の Dashboard では Free の 200K events / 日表示を確認しました。使用量と契約枠は調査時に再確認します。
 
 | Workers プラン | Workers Logs の書込み枠・追加料金                                | ログ保持期間 |
 | -------------- | ---------------------------------------------------------------- | ------------ |
@@ -261,22 +261,47 @@ tail は過去の永続ログを検索する機能ではありません。高負
 
 ### 受け入れ・配備後確認結果
 
-2026-09-13 時点では、上記のソース契約・公式仕様の照合と、実環境の受け入れを分けて扱います。以下の未検証項目は、過去の [PR #419](https://github.com/sh4869221b/yosan-flow/pull/419) の記録で合格に置き換えません。
+**2026-09-13 確認。受け入れは未完了です。** 認証済み Dashboard で、[PR #419](https://github.com/sh4869221b/yosan-flow/pull/419) の操作時に保存されたログ・trace を開き直しました。今回の確認では新規 mutation・reset・配備を行っていません。
 
-| 対象                | 確認項目                                                                                                                                                      | 現在の結果                                                                                                          |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 両環境 Dashboard    | 現行 version、プラン、配備済み sampling、実キー、7 調査入口、ログ → trace の実導線                                                                            | 未検証。認証付き実画面での確認結果待ち                                                                              |
-| preview tail        | 対象 Worker、接続成立、通常 GET のイベント受信、終了                                                                                                          | `yosan-flow-preview` に接続成立。60 秒以内の受信 0 件、Ctrl-C で終了（exit 130）。認証済み GET の到達・受信は未検証 |
-| production tail     | 対象 Worker、接続成立、通常 GET のイベント受信、終了                                                                                                          | `yosan-flow` に接続成立。60 秒以内の受信 0 件、Ctrl-C で終了（exit 130）。認証済み GET の到達・受信は未検証         |
-| preview 受け入れ    | success / validation / conflict 各 1 件以上、八種 span、自動 D1 の親子関係、privacy                                                                           | 未検証。実操作日時・version・件数を未取得                                                                           |
-| preview 失敗経路    | 不正金額の 400 / `INVALID_AMOUNT` と保存内容不変、確認要求 409 と確定前の範囲不変、5xx / runtime failure の検索                                               | 未検証。検索 0 件とも障害再現済みとも判定しない                                                                     |
-| production 配備前後 | 対応 version、前後各 15 分の窓・request 件数・runtime errors / 率・HTTP 5xx / 率・CPU / wall time、request duration または理由付き補助値、Access・D1・privacy | 未検証。preview 受け入れ未完了のため比較不能                                                                        |
+`wrangler deployments list` と Dashboard で確認した現行 version は、preview が `f1b3b434-bc80-4f78-b05a-f829229708f9`（配備作成 2026-09-13T02:31:50.636Z）、production が `98f6c31c-6368-4e2b-8da4-18720466fcbb`（2026-09-13T02:40:54.690Z）で、それぞれ 100% 配信でした。preview の binding `DB` が参照する D1 は `yosan-flow-preview` です。
 
-同日の `wrangler deployments list` では、preview は `f1b3b434-bc80-4f78-b05a-f829229708f9`（2026-09-13T02:31:50.636Z）、production は `98f6c31c-6368-4e2b-8da4-18720466fcbb`（2026-09-13T02:40:54.690Z）がそれぞれ 100% 配信でした。これは配備先 version の確認であり、Dashboard の実 telemetry やアプリ版対応の受け入れではありません。今回の確認では配備を行っていません。両ホストの未認証 GET `/` は HTTP 403（Cloudflare）で、認証済みアプリへの到達は未確認です。tail は上記の環境別コマンドで実行し、終了後の残存セッションはありません。
+| 対象                                  | 操作・取得条件                                                                                                         | 確認結果・制約                                                                                                                                                                                                           |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 両環境の設定                          | Worker の Settings → Observability                                                                                     | Workers Logs / Traces が有効、各 sampling 100%。invocation logs・logs persist・traces persist の3項目も有効。Free 200K events / 日の表示を確認。保持期間は上記公式資料の値                                               |
+| preview の終端ログ                    | UTC 2026-09-13 02:30–02:40（画面 JST 11:30–11:40）、Events で `event = "operation.completed"`、Visualizations で Count | 11 件。別の確認操作でも Events 11 件と Count 11 を再確認。業務 outcome は success 8、validation 1、conflict 2。UI の「11 Success」は業務成功 11 件を意味しない                                                           |
+| preview の失敗ログ                    | 同じ窓で終端ログを展開                                                                                                 | validation は 400 / `INVALID_AMOUNT`、conflict は確認要求 409 / `PERIOD_BOUNDARY_CONFIRMATION_REQUIRED` と古い確認の 409 / `PERIOD_UPDATE_CONFLICT`。保存内容不変・確定前の範囲不変を現在の GET で再照合する確認は未実施 |
+| preview の障害検索                    | 同じ窓で調査入口 2・3・4 の条件文字列を個別に実行                                                                      | unexpected_error、HTTP 5xx、runtime 非 `ok` は各 0 件、クエリエラーなし。障害再現ではなく保持窓内の検索結果。非 `ok` の個別分類値は未検証                                                                                |
+| preview の業務 span / D1 / privacy    | 同じ窓、version `f1b3b434` の終端ログから「呼び出しを表示」/「トレースを表示」                                         | 下表の八種・計 24 custom spans と実 D1 親子関係を確認。確認した業務 span の独自属性は `app.operation` / `app.route` のみで固定値に一致                                                                                   |
+| Query Builder の CPU / wall time 集計 | 同じ窓で中央値の CPU キーを選択                                                                                        | 「キーの読み込みに失敗しました」「クエリ実行中にエラー」。CPU / wall time の quantile 集計検証は未完了。実イベントの数値キー確認や Metrics の表示と区別する                                                              |
+| preview tail                          | 上記 `--env preview --format pretty`                                                                                   | `yosan-flow-preview` に接続。60 秒以内の受信 0 件、Ctrl-C 終了（exit 130）。認証済み GET の到達・受信は未検証                                                                                                            |
+| production tail                       | 上記 `--env production --format pretty`                                                                                | `yosan-flow` に接続。60 秒以内の受信 0 件、Ctrl-C 終了（exit 130）。認証済み GET の到達・受信は未検証                                                                                                                    |
+| 両ホストへの GET `/`                  | 初回の未認証 HTTP 試行と、その後のブラウザー試行                                                                       | 初回は HTTP 403（Cloudflare）。別試行の最終 HTTP 200 は Access ログイン HTML で、アプリ到達ではない。Dashboard 認証とアプリ Access 通過は別で、認証済みアプリ到達は未確認                                                |
 
-preview では専用検証期間で期間作成・予算更新・日次加算 / 上書き・履歴編集 / 削除・linked 提案 / 確定を確認し、上記 span 一覧と照合します。使用した保持データと今回生成した操作は区別し、検証期間を残した場合も記録します。既存データ削除や reset は行いません。観測の反映待ちは最大 5 分、一回の待機は 60 秒以内とし、不足項目は未確認として残します。
+preview の保持窓内 custom span 数は次のとおりです。全件が同じ preview version `f1b3b434` で、囲む処理と属性の契約は上記一覧を参照してください。
 
-結果更新時には各行へ日時（UTC）、環境、deployment version、実キーと検索条件、件数・単位・表示統計、判定、sampling / 保持期間 / 権限などの制約を追記します。文書の整形確認だけでは実環境の受け入れは完了せず、preview と production の未検証が解消するまでは #338 / 親 #257 の完了根拠にしません。
+| Custom span                                 | 件数 |
+| ------------------------------------------- | ---: |
+| `summary.calculate`                         |   10 |
+| `api.budget_period.update`                  |    4 |
+| `api.budget_period.create`                  |    2 |
+| `api.budget_period.linked_boundary.confirm` |    2 |
+| `api.budget_period.linked_boundary.propose` |    1 |
+| `api.daily_total.upsert`                    |    3 |
+| `api.history.update`                        |    1 |
+| `api.history.delete`                        |    1 |
+
+代表の linked PUT trace は 135 ms、更新親 span 134 ms、confirm 子 span 56 ms、その D1 run 32 ms、summary 子 span 39 ms と D1 read 18 / 20 ms を実画面で確認しました。親子の時間は重なるため合算しません。不正金額の upsert span は 0 ms 表示で、D1 span はありませんでした。これらは保持 trace の検証であり、現在の保存値を GET で検証した結果ではありません。
+
+production は Metrics の分単位で選択できる窓を使い、データの可用性を調べました。以下は厳密な配備前後各 15 分の計測ではありません。
+
+| UTC 2026-09-13 の窓 | Invocations / version             | CPU / wall time / リクエスト期間                    | 判定                                                                                    |
+| ------------------- | --------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 02:25–02:40         | 0 件                              | 時間データなし                                      | 比較用標本なし。error 率を 0/0 = 0% としない                                            |
+| 02:40–02:56         | 旧 version `faae0ee9` の 1 件のみ | CPU 119 ms、wall time 594 ms、リクエスト期間 594 ms | 現行 `98f6c31c` の標本なし。旧版 1 件の表示値で、現行版の性能・配備後値として採用しない |
+
+production Metrics の「リクエスト期間」には P50 / P90 / P99 / P999 カードがあり、Smart Placement 未有効の案内だけで取得不能とは判定しませんでした。ただし、現行 version の標本がなく、CPU / wall time / request duration と runtime errors / 率・HTTP 5xx / 率の前後比較は未完了です。両 tail の残存セッションはありません。
+
+未完了項目は、アプリ Access 通過後の通常 GET と tail 受信、失敗操作後の保存内容・確認前範囲の現在 GET による再照合、Query Builder の CPU / wall time 集計、production 現行版の前後比較です。認証済み Dashboard の保持データ確認でこれらを置き換えず、「回帰なし」や #338 / 親 #257 の完了とは扱いません。
 
 ## D1 migration 運用メモ
 
