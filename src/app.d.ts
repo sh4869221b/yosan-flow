@@ -1,5 +1,6 @@
 import "../worker-runtime.d.ts";
 import type { D1Database } from "$lib/server/db/d1-types";
+import type { NativeTracing } from "$lib/server/observability/tracing";
 
 declare global {
   namespace App {
@@ -10,6 +11,7 @@ declare global {
       };
       cf: unknown;
       ctx: {
+        tracing?: NativeTracing;
         waitUntil(promise: Promise<unknown>): void;
         passThroughOnException?(): void;
       };
