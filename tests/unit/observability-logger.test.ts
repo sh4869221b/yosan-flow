@@ -17,6 +17,27 @@ const event = {
 afterEach(() => vi.restoreAllMocks());
 
 describe("structured telemetry logger", () => {
+  it("includes only an allowlisted own error code", () => {
+    const sink = vi.fn();
+    const failure = { ...event, outcome: "validation", status: 400 };
+
+    createLogger(sink).log({
+      ...failure,
+      error_code: "INVALID_BODY",
+      body: "private-body",
+    });
+    createLogger(sink).log({ ...failure, error_code: "private-code" });
+    createLogger(sink).log(
+      Object.assign(Object.create({ error_code: "INVALID_BODY" }), failure),
+    );
+
+    expect(sink.mock.calls).toEqual([
+      [{ ...failure, error_code: "INVALID_BODY" }],
+      [failure],
+      [failure],
+    ]);
+  });
+
   it("projects only the six own semantic fields without inspecting extra objects", () => {
     const sink = vi.fn();
     const extra = {

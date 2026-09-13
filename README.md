@@ -153,26 +153,35 @@ pnpm wrangler tail yosan-flow --env production --status error --format pretty
 
 共通基盤は [`src/lib/server/observability/`](src/lib/server/observability/) にあります。ログ payload とカスタム span の名前・属性には、金額、期間・履歴などのドメイン ID、具体的な日付、request / response body、認証情報・headers、ユーザー入力、raw Error・message・stack を含めません。
 
-`TelemetryEvent` は次の六つのフィールドだけを持ちます。
+`TelemetryEvent` は次の六つの必須フィールドと、許可リストにある任意の `error_code` を持ちます。
 
-| フィールド  | 許可する値                                                                                                                                             |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `event`     | `operation.completed`                                                                                                                                  |
-| `operation` | `period.list` / `period.create` / `period.read` / `period.update` / `day.add` / `day.overwrite` / `history.list` / `history.update` / `history.delete` |
-| `route`     | `ROUTE_TEMPLATES` の六つの API route template、または `unknown`                                                                                        |
-| `method`    | `GET` / `POST` / `PUT` / `PATCH` / `DELETE`                                                                                                            |
-| `outcome`   | `success` / `validation` / `conflict` / `unexpected_error`                                                                                             |
-| `status`    | HTTP response status（100〜599 の整数）                                                                                                                |
+| フィールド   | 許可する値                                                                                                                                                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `event`      | `operation.completed`                                                                                                                                                                                          |
+| `operation`  | `period.list` / `period.create` / `period.read` / `period.update` / `period.boundary.propose` / `period.boundary.confirm` / `day.add` / `day.overwrite` / `history.list` / `history.update` / `history.delete` |
+| `route`      | `ROUTE_TEMPLATES` の六つの API route template、または `unknown`                                                                                                                                                |
+| `method`     | `GET` / `POST` / `PUT` / `PATCH` / `DELETE`                                                                                                                                                                    |
+| `outcome`    | `success` / `validation` / `conflict` / `unexpected_error`                                                                                                                                                     |
+| `status`     | HTTP response status（100〜599 の整数）                                                                                                                                                                        |
+| `error_code` | `schema.ts` の固定コード集合。未知の API error code はログ上だけ `UNKNOWN_ERROR` に置換し、成功時は省略                                                                                                        |
 
 `normalizeRoute(pathname)` は query / fragment を除去し、既知のパスの動的部分を `[periodId]` / `[date]` / `[historyId]` に置き換えます。末尾の `/` は一つまで許容し、未知のパス、完全な URL、余分なパス要素、テスト用 reset route は `unknown` にします。ID や日付自体の妥当性を検証する関数ではありません。
 
-`sanitizeEvent(input)` は六つの own field を検証して新しいオブジェクトへ取り出し、余分なキーやネストしたデータを捨てます。必須フィールドが不正なら `undefined` を返します。`createLogger(sink?).log(input)` はこの処理を通したイベントだけを一つ出力し、不正な入力は出力しません。既定の sink は単一オブジェクトを受け取る `console.log` です。`outcome` は呼び出し側が選び、この基盤ではエラーの自動分類を行いません。
+`sanitizeEvent(input)` は六つの必須 own field を検証して新しいオブジェクトへ取り出し、任意の `error_code` も own field かつ許可リスト内の場合だけ追加します。余分なキーやネストしたデータ、未登録・継承された任意コードを捨て、必須フィールドが不正なら `undefined` を返します。`createLogger(sink?).log(input)` はこの処理を通したイベントだけを一つ出力し、不正な入力は出力しません。既定の sink は単一オブジェクトを受け取る `console.log` です。
+
+期間作成・更新、日次加算・上書き、履歴更新・削除では、共通の mutation response 処理が応答を組み立てた後に終端イベントを一度だけ出力します。書込み後の summary / histories 再取得に失敗した場合は、成功イベントを先に出さずエラーイベントだけを記録し、書込みは再実行しません。GET や通常の request log は追加しません。期間削除 API は現時点では存在せず、ログ導入の対象もありません。
+
+成功は `success`、既知の未検出を含む通常の 4xx は `validation`、競合コードまたは 409 は `conflict` です。`PERIOD_OVERLAP` は HTTP 400 のまま `conflict` になります。5xx または `INTERNAL_ERROR` はこれらより優先して `unexpected_error` とし、それ以外の非 4xx エラーも `unexpected_error` にします。分類は既存 API error mapper の status / code を利用し、HTTP status / body は変更しません。想定内の 400 / 404 / 409 も `console.log` に出力し、一律 ERROR 扱いにはしません。
+
+linked boundary の確認要求は `period.boundary.propose` / `PERIOD_BOUNDARY_CONFIRMATION_REQUIRED`、解析に成功した confirmation 付きリクエストは `period.boundary.confirm` で記録します。確認要求の 409 と後続の確定リクエストは、それぞれ一つの操作です。解析前・不正な confirmation は `period.update` のままです。
+
+サービス初期化だけが失敗した場合は、元の例外を伝播したまま `unexpected_error` / 500 / `INTERNAL_ERROR` を一度記録します。この 500 は初期化失敗の分類であり、SvelteKit が生成した最終応答の観測値ではありません。通常のログ sink 例外は再分類せず伝播し、初期化失敗と sink 失敗が重なった場合だけ元の初期化例外を優先します。エラー応答自体を構築できない場合は既存の throw を維持し、存在しない完了応答のイベントは作りません。
 
 Workers では `tracing-workers.ts` の `workersTracing` を使い、Node のテストなどでは `tracing.ts` の `noopTracing`、または native `enterSpan` を注入する `createTracing(native)` を使います。共通の `TracingAdapter.withSpan(operation, callback, attributes?)` は固定の operation 名と任意の `TelemetryEvent` を受け取り、callback に native Span を渡しません。不正な operation では span を作らず callback を実行し、不正な属性や operation が一致しない属性は付与しません。callback の同期 return / throw、Promise の resolve / reject をそのまま伝え、戻り値やエラーをログにしません。
 
 この契約はアプリケーションが作る payload / カスタム span に適用します。Cloudflare が付加する URL・ID・SQL などの標準メタデータは、所有者が承認した例外であり、この sanitizer の対象外です。保存される telemetry 全体の無害化は保証しません。アプリケーション側でこれらの値を payload にコピーすることも禁止します。標準属性は [Cloudflare の Spans and attributes](https://developers.cloudflare.com/workers/observability/traces/spans-and-attributes/) を参照してください。この一覧から D1 の bind 値が SQL に含まれるとは断定しません。
 
-現時点では共通基盤のみで、既存 route へのログ追加・業務 span の展開は行っていません。リモート環境での検証は [#338](https://github.com/sh4869221b/yosan-flow/issues/338) で扱います。
+業務 span の展開は行っていません。リモート環境での検証は [#338](https://github.com/sh4869221b/yosan-flow/issues/338) で扱います。
 
 ## D1 migration 運用メモ
 

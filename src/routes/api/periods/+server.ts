@@ -1,6 +1,10 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
 import { runApiEffect } from "$lib/server/effect/runtime";
 import {
+  observeMutationInitialization,
+  runMutationResponse,
+} from "$lib/server/observability/mutation-response";
+import {
   getApiServicesFromPlatform,
   type InMemoryApiServices,
 } from "$lib/server/services/month-summary-service";
@@ -19,8 +23,8 @@ export type PeriodsRouteDependencies = {
 export function _createPeriodsHandler(
   dependencies: PeriodsRouteDependencies,
 ): RequestHandler {
-  return async ({ request }) => {
-    try {
+  return async ({ request }) =>
+    runMutationResponse("period.create", async () => {
       const body = await runApiEffect(parseRequestBodyObject(request));
       const id = parsePeriodId(body.id as string | undefined);
       const startDate = parseDate(body.startDate as string | undefined);
@@ -41,11 +45,8 @@ export function _createPeriodsHandler(
         }),
       );
 
-      return json(period, { status: 201 });
-    } catch (error) {
-      return toApiErrorResponse(error);
-    }
-  };
+      return { response: json(period, { status: 201 }) };
+    });
 }
 
 export function _createPeriodsListHandler(
@@ -63,7 +64,9 @@ export function _createPeriodsListHandler(
 
 export const POST: RequestHandler = async (event) => {
   return _createPeriodsHandler({
-    services: getApiServicesFromPlatform(event.platform),
+    services: observeMutationInitialization("period.create", () =>
+      getApiServicesFromPlatform(event.platform),
+    ),
   })(event);
 };
 
