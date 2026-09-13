@@ -5,6 +5,7 @@ import {
   type NativeTracing,
 } from "$lib/server/observability/tracing";
 import type { TelemetryEvent } from "$lib/server/observability/schema";
+import { CUSTOM_SPAN_NAMES } from "$lib/server/observability/span-schema";
 
 vi.mock("cloudflare:workers", () => ({ tracing: { enterSpan: vi.fn() } }));
 
@@ -17,7 +18,7 @@ const event = {
   status: 200,
 } satisfies TelemetryEvent;
 
-function recordingNative() {
+function recordingNative(isTraced = true) {
   const spans: { name: string; attributes: Record<string, string | number> }[] =
     [];
   const native: NativeTracing = {
@@ -25,6 +26,7 @@ function recordingNative() {
       const attributes: Record<string, string | number> = {};
       spans.push({ name, attributes });
       return callback({
+        isTraced,
         setAttribute(key, value) {
           attributes[key] = value;
         },
@@ -114,6 +116,78 @@ describe.each([
 });
 
 describe("native span output boundary", () => {
+  it.each(CUSTOM_SPAN_NAMES)("sanitizes sampled custom span %s", (name) => {
+    const { native, spans } = recordingNative();
+    const attributes = vi.fn(() => ({
+      "app.operation": name,
+      "app.route": "/api/periods" as const,
+      amount: 1234,
+      periodId: "private-period",
+      get body() {
+        throw new Error("must not read private attributes");
+      },
+    }));
+    createTracing(native).withSpan(name, () => "result", attributes);
+    expect(attributes).toHaveBeenCalledOnce();
+    expect(spans).toEqual([
+      {
+        name,
+        attributes: { "app.operation": name, "app.route": "/api/periods" },
+      },
+    ]);
+  });
+
+  it.each([false, true])("skips lazy metadata with no-op=%s", (noop) => {
+    const { native, spans } = recordingNative(false);
+    const attributes = vi.fn(() => ({
+      "app.operation": "summary.calculate" as const,
+    }));
+    const work = vi.fn(() => "result");
+    const tracing = noop ? noopTracing : createTracing(native);
+    expect(tracing.withSpan("summary.calculate", work, attributes)).toBe(
+      "result",
+    );
+    expect(attributes).not.toHaveBeenCalled();
+    expect(work.mock.calls).toEqual([[]]);
+    expect(spans).toEqual(
+      noop ? [] : [{ name: "summary.calculate", attributes: {} }],
+    );
+  });
+
+  it("does not read legacy event fields when unsampled", () => {
+    const { native, spans } = recordingNative(false);
+    const read = vi.fn(() => "operation.completed" as const);
+    createTracing(native).withSpan("period.read", () => "result", {
+      ...event,
+      get event() {
+        return read();
+      },
+    });
+    expect(read).not.toHaveBeenCalled();
+    expect(spans).toEqual([{ name: "period.read", attributes: {} }]);
+  });
+
+  it.each([
+    [{ "app.operation": "api.history.delete" }, {}],
+    [
+      {
+        "app.operation": "summary.calculate",
+        "app.route": "/api/periods/private-id",
+      },
+      { "app.operation": "summary.calculate" },
+    ],
+  ])("rejects custom mismatches and concrete routes: %j", (input, expected) => {
+    const { native, spans } = recordingNative();
+    Reflect.apply(createTracing(native).withSpan, undefined, [
+      "summary.calculate",
+      () => "result",
+      () => input,
+    ]);
+    expect(spans).toEqual([
+      { name: "summary.calculate", attributes: expected },
+    ]);
+  });
+
   it("emits a static name and only sanitized attributes", () => {
     const { native, spans } = recordingNative();
     const attributes = {

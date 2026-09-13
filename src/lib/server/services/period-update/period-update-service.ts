@@ -1,5 +1,10 @@
 import { Effect } from "effect";
 import {
+  noopTracing,
+  type TracingAdapter,
+} from "$lib/server/observability/tracing";
+import { withTracingEffect } from "$lib/server/observability/tracing-effect";
+import {
   LinkedPeriodBoundaryConflictError,
   type BudgetPeriodRecord,
   type BudgetPeriodRepository,
@@ -86,8 +91,9 @@ export function createPeriodUpdateService(
 ): (
   periodId: string,
   request: PeriodUpdateRequest,
+  tracing?: TracingAdapter,
 ) => Effect.Effect<PeriodUpdateServiceResult, Error> {
-  return (periodId, request) =>
+  return (periodId, request, tracing = noopTracing) =>
     Effect.gen(function* () {
       const target =
         yield* dependencies.budgetPeriodRepository.findById(periodId);
@@ -101,37 +107,48 @@ export function createPeriodUpdateService(
 
       const confirmation = request.confirmation;
       if (confirmation !== undefined) {
-        const decision = yield* Effect.try({
-          try: () =>
-            decidePeriodBoundaryUpdate({
-              target,
-              successors,
-              requested: request,
-            }),
-          catch: () => new PeriodUpdateConflictError(),
-        });
-        switch (decision.kind) {
-          case "ordinary-update":
-            return yield* confirmationConflict();
-          case "confirmation-required": {
-            if (!proposalsMatch(decision.proposal, confirmation)) {
-              return yield* confirmationConflict();
+        return yield* withTracingEffect<PeriodUpdateServiceResult>(
+          tracing,
+          "api.budget_period.linked_boundary.confirm",
+          Effect.gen(function* () {
+            const decision = yield* Effect.try({
+              try: () =>
+                decidePeriodBoundaryUpdate({
+                  target,
+                  successors,
+                  requested: request,
+                }),
+              catch: () => new PeriodUpdateConflictError(),
+            });
+            switch (decision.kind) {
+              case "ordinary-update":
+                return yield* confirmationConflict();
+              case "confirmation-required": {
+                if (!proposalsMatch(decision.proposal, confirmation)) {
+                  return yield* confirmationConflict();
+                }
+                const result = yield* dependencies.budgetPeriodRepository
+                  .updateLinkedBoundary({
+                    target: decision.proposal.target,
+                    successor: decision.proposal.successor,
+                    nowIso: dependencies.nowIso(),
+                  })
+                  .pipe(
+                    Effect.catchIf(
+                      (error) =>
+                        error instanceof LinkedPeriodBoundaryConflictError,
+                      () => confirmationConflict(),
+                    ),
+                  );
+                return { kind: "updated", period: result.target };
+              }
             }
-            const result = yield* dependencies.budgetPeriodRepository
-              .updateLinkedBoundary({
-                target: decision.proposal.target,
-                successor: decision.proposal.successor,
-                nowIso: dependencies.nowIso(),
-              })
-              .pipe(
-                Effect.catchIf(
-                  (error) => error instanceof LinkedPeriodBoundaryConflictError,
-                  () => confirmationConflict(),
-                ),
-              );
-            return { kind: "updated", period: result.target };
-          }
-        }
+          }),
+          () => ({
+            "app.operation": "api.budget_period.linked_boundary.confirm",
+            "app.route": "/api/periods/[periodId]",
+          }),
+        );
       }
 
       const decision = yield* Effect.try({
@@ -160,17 +177,27 @@ export function createPeriodUpdateService(
           return { kind: "updated", period };
         }
         case "confirmation-required":
-          yield* dependencies.assertNoOutOfRangeEntries(
-            decision.proposal.target.after.id,
-            decision.proposal.target.after.startDate,
-            decision.proposal.target.after.endDate,
+          return yield* withTracingEffect(
+            tracing,
+            "api.budget_period.linked_boundary.propose",
+            Effect.gen(function* () {
+              yield* dependencies.assertNoOutOfRangeEntries(
+                decision.proposal.target.after.id,
+                decision.proposal.target.after.startDate,
+                decision.proposal.target.after.endDate,
+              );
+              yield* dependencies.assertNoOutOfRangeEntries(
+                decision.proposal.successor.after.id,
+                decision.proposal.successor.after.startDate,
+                decision.proposal.successor.after.endDate,
+              );
+              return decision;
+            }),
+            () => ({
+              "app.operation": "api.budget_period.linked_boundary.propose",
+              "app.route": "/api/periods/[periodId]",
+            }),
           );
-          yield* dependencies.assertNoOutOfRangeEntries(
-            decision.proposal.successor.after.id,
-            decision.proposal.successor.after.startDate,
-            decision.proposal.successor.after.endDate,
-          );
-          return decision;
       }
     });
 }

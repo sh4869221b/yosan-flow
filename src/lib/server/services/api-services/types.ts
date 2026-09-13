@@ -1,4 +1,5 @@
 import type { Effect } from "effect";
+import type { TracingAdapter } from "$lib/server/observability/tracing";
 import type { DatabaseClient } from "$lib/server/db/client";
 import type { D1Database } from "$lib/server/db/d1-types";
 import type {
@@ -57,6 +58,7 @@ export type InMemoryApiServices = {
   updatePeriod: (
     periodId: string,
     request: PeriodUpdateRequest,
+    tracing?: TracingAdapter,
   ) => Effect.Effect<PeriodUpdateServiceResult, Error>;
   listPeriods: () => Effect.Effect<BudgetPeriodRecord[], Error>;
   listDailyTotalsByPeriodId: (
