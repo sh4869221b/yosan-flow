@@ -133,7 +133,7 @@ pnpm test:coverage
 
 ## 観察可能性
 
-- production は `wrangler.jsonc` で Workers Observability を有効化しています。
+- preview / production は `wrangler.jsonc` で Workers Observability、invocation logs、logs / traces の永続化を有効にしています。Observability / logs / traces の `head_sampling_rate` はすべて `1` で、既存の production の全件サンプリング方針を preview にも適用しています。
 - invocation logs / persistent logs / traces は Cloudflare dashboard の Workers Observability から確認します。
 - runtime log をリアルタイムに見る場合:
 
@@ -148,6 +148,31 @@ pnpm wrangler tail yosan-flow --env production --status error --format pretty
 ```
 
 - production deploy では source maps も upload します。
+
+### アプリケーションのログ・カスタム span のプライバシー契約
+
+共通基盤は [`src/lib/server/observability/`](src/lib/server/observability/) にあります。ログ payload とカスタム span の名前・属性には、金額、期間・履歴などのドメイン ID、具体的な日付、request / response body、認証情報・headers、ユーザー入力、raw Error・message・stack を含めません。
+
+`TelemetryEvent` は次の六つのフィールドだけを持ちます。
+
+| フィールド  | 許可する値                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `event`     | `operation.completed`                                                                                                                                  |
+| `operation` | `period.list` / `period.create` / `period.read` / `period.update` / `day.add` / `day.overwrite` / `history.list` / `history.update` / `history.delete` |
+| `route`     | `ROUTE_TEMPLATES` の六つの API route template、または `unknown`                                                                                        |
+| `method`    | `GET` / `POST` / `PUT` / `PATCH` / `DELETE`                                                                                                            |
+| `outcome`   | `success` / `validation` / `conflict` / `unexpected_error`                                                                                             |
+| `status`    | HTTP response status（100〜599 の整数）                                                                                                                |
+
+`normalizeRoute(pathname)` は query / fragment を除去し、既知のパスの動的部分を `[periodId]` / `[date]` / `[historyId]` に置き換えます。末尾の `/` は一つまで許容し、未知のパス、完全な URL、余分なパス要素、テスト用 reset route は `unknown` にします。ID や日付自体の妥当性を検証する関数ではありません。
+
+`sanitizeEvent(input)` は六つの own field を検証して新しいオブジェクトへ取り出し、余分なキーやネストしたデータを捨てます。必須フィールドが不正なら `undefined` を返します。`createLogger(sink?).log(input)` はこの処理を通したイベントだけを一つ出力し、不正な入力は出力しません。既定の sink は単一オブジェクトを受け取る `console.log` です。`outcome` は呼び出し側が選び、この基盤ではエラーの自動分類を行いません。
+
+Workers では `tracing-workers.ts` の `workersTracing` を使い、Node のテストなどでは `tracing.ts` の `noopTracing`、または native `enterSpan` を注入する `createTracing(native)` を使います。共通の `TracingAdapter.withSpan(operation, callback, attributes?)` は固定の operation 名と任意の `TelemetryEvent` を受け取り、callback に native Span を渡しません。不正な operation では span を作らず callback を実行し、不正な属性や operation が一致しない属性は付与しません。callback の同期 return / throw、Promise の resolve / reject をそのまま伝え、戻り値やエラーをログにしません。
+
+この契約はアプリケーションが作る payload / カスタム span に適用します。Cloudflare が付加する URL・ID・SQL などの標準メタデータは、所有者が承認した例外であり、この sanitizer の対象外です。保存される telemetry 全体の無害化は保証しません。アプリケーション側でこれらの値を payload にコピーすることも禁止します。標準属性は [Cloudflare の Spans and attributes](https://developers.cloudflare.com/workers/observability/traces/spans-and-attributes/) を参照してください。この一覧から D1 の bind 値が SQL に含まれるとは断定しません。
+
+現時点では共通基盤のみで、既存 route へのログ追加・業務 span の展開は行っていません。リモート環境での検証は [#338](https://github.com/sh4869221b/yosan-flow/issues/338) で扱います。
 
 ## D1 migration 運用メモ
 
