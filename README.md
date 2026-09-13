@@ -110,11 +110,13 @@ pnpm test:coverage
 
 ### preview
 
-1. preview 用 D1 を作成して `wrangler.jsonc` の `env.preview.d1_databases[0].database_id` を実 UUID に置き換える
+preview は専用 D1 `yosan-flow-preview` と `yosan-preview.sh4869221b.work` を使用します。UUID と custom domain は `wrangler.jsonc` の `env.preview` に設定されています。
+
+1. 配備前に preview ホストの専用 Cloudflare Access アプリが production と同じ限定された許可対象を持つことを確認する
 2. `pnpm run cf:migrate:preview`
 3. `pnpm build`
 4. `pnpm run deploy:preview`
-5. preview ホストを Cloudflare Access 保護対象に追加
+5. preview ホストで未認証アクセスが Access に転送または拒否され、認証後にアプリへ到達できることを確認する
 
 ### production
 
