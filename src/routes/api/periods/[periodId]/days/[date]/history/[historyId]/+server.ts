@@ -1,6 +1,10 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
 import { runApiEffect } from "$lib/server/effect/runtime";
 import {
+  observeMutationInitialization,
+  runMutationResponse,
+} from "$lib/server/observability/mutation-response";
+import {
   getApiServicesFromPlatform,
   getPeriodSummaryFromServices,
   type InMemoryApiServices,
@@ -10,10 +14,7 @@ import {
   parseDayMutationInput,
   parseHistoryId,
 } from "$lib/server/validation/day";
-import {
-  parsePeriodId,
-  toApiErrorResponse,
-} from "$lib/server/validation/month";
+import { parsePeriodId } from "$lib/server/validation/month";
 
 export type PeriodDayHistoryMutationRouteDependencies = {
   services: InMemoryApiServices;
@@ -41,8 +42,8 @@ export function _createPeriodDayHistoryMutationHandler(
   DELETE: RequestHandler;
 } {
   return {
-    PATCH: async ({ params, request }) => {
-      try {
+    PATCH: async ({ params, request }) =>
+      runMutationResponse("history.update", async () => {
         const periodId = parsePeriodId(params.periodId);
         const date = parseDate(params.date);
         const historyId = parseHistoryId(params.historyId);
@@ -58,18 +59,17 @@ export function _createPeriodDayHistoryMutationHandler(
           }),
         );
 
-        return await buildHistoryMutationResponse(
-          dependencies.services,
-          periodId,
-          date,
-        );
-      } catch (error) {
-        return toApiErrorResponse(error);
-      }
-    },
+        return {
+          response: await buildHistoryMutationResponse(
+            dependencies.services,
+            periodId,
+            date,
+          ),
+        };
+      }),
 
-    DELETE: async ({ params }) => {
-      try {
+    DELETE: async ({ params }) =>
+      runMutationResponse("history.delete", async () => {
         const periodId = parsePeriodId(params.periodId);
         const date = parseDate(params.date);
         const historyId = parseHistoryId(params.historyId);
@@ -82,26 +82,29 @@ export function _createPeriodDayHistoryMutationHandler(
           }),
         );
 
-        return await buildHistoryMutationResponse(
-          dependencies.services,
-          periodId,
-          date,
-        );
-      } catch (error) {
-        return toApiErrorResponse(error);
-      }
-    },
+        return {
+          response: await buildHistoryMutationResponse(
+            dependencies.services,
+            periodId,
+            date,
+          ),
+        };
+      }),
   };
 }
 
 export const PATCH: RequestHandler = async (event) => {
   return _createPeriodDayHistoryMutationHandler({
-    services: getApiServicesFromPlatform(event.platform),
+    services: observeMutationInitialization("history.update", () =>
+      getApiServicesFromPlatform(event.platform),
+    ),
   }).PATCH(event);
 };
 
 export const DELETE: RequestHandler = async (event) => {
   return _createPeriodDayHistoryMutationHandler({
-    services: getApiServicesFromPlatform(event.platform),
+    services: observeMutationInitialization("history.delete", () =>
+      getApiServicesFromPlatform(event.platform),
+    ),
   }).DELETE(event);
 };
