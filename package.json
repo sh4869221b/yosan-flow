@@ -47,7 +47,7 @@
     "@internationalized/date": "^3.12.4",
     "bits-ui": "^2.19.2",
     "drizzle-orm": "^0.45.2",
-    "effect": "^3.22.1",
+    "effect": "^3.22.2",
     "@lucide/svelte": "^1.43.0"
   }
 }
