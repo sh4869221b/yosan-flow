@@ -34,7 +34,7 @@ export default defineConfig({
       ` && "${process.execPath}" scripts/e2e-timing.ts start`,
       ` && ${e2eEnv} pnpm build`,
       ` && ${e2eEnv} pnpm wrangler d1 migrations apply DB --local --persist-to "${persistDir}"`,
-      ` && ${e2eEnv} pnpm wrangler dev --local --persist-to "${persistDir}" --ip ${host} --port ${port} --var YOSAN_FLOW_E2E_RESET_TOKEN:local-e2e-reset-token`,
+      ` && exec env ${e2eEnv} ./node_modules/.bin/wrangler dev --local --persist-to "${persistDir}" --ip ${host} --port ${port} --var YOSAN_FLOW_E2E_RESET_TOKEN:local-e2e-reset-token`,
       "'",
     ].join(""),
     reuseExistingServer: false,
