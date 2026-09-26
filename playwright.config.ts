@@ -27,13 +27,14 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
+    // Run the long-lived Wrangler server directly so Playwright can terminate it cleanly.
     command: [
       "bash -lc '",
       `rm -rf "${persistDir}" "${xdgConfigHome}" .tmp-e2e-timing.json`,
       ` && mkdir -p "${persistDir}" "${xdgConfigHome}/.wrangler/logs"`,
       ` && "${process.execPath}" scripts/e2e-timing.ts start`,
       ` && ${e2eEnv} pnpm build`,
-      // Run Wrangler directly so pnpm does not interfere with its exit status or teardown.\n      ` && ${e2eEnv} ./node_modules/.bin/wrangler d1 migrations apply DB --local --persist-to "${persistDir}"`,
+      ` && ${e2eEnv} pnpm wrangler d1 migrations apply DB --local --persist-to "${persistDir}"`,
       ` && exec env ${e2eEnv} ./node_modules/.bin/wrangler dev --local --persist-to "${persistDir}" --ip ${host} --port ${port} --var YOSAN_FLOW_E2E_RESET_TOKEN:local-e2e-reset-token`,
       "'",
     ].join(""),
