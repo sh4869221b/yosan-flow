@@ -5,12 +5,7 @@ import {
   type APIRequestContext,
 } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
-import {
-  addDays,
-  getBaseUrl,
-  getCurrentJstDate,
-  resetTestData,
-} from "./dashboard-shared";
+import { addDays, getBaseUrl, resetTestData } from "./dashboard-shared";
 import {
   holdResponse,
   waitForResponse,
@@ -25,11 +20,12 @@ test.beforeEach(async ({ request }) => {
 const periodId = "p-range-settings";
 const url = `${getBaseUrl()}/api/periods/${periodId}`;
 async function openRange(page: Page, request: APIRequestContext) {
-  const today = getCurrentJstDate();
-  const endDate = addDays(today, 15);
+  // Range editing does not depend on today. Keep draft selections in one month.
+  const startDate = "2026-04-10";
+  const endDate = addDays(startDate, 15);
   await seedPeriod(request, getBaseUrl(), {
     periodId,
-    startDate: today,
+    startDate,
     endDate,
     budgetYen: 120000,
   });
@@ -37,7 +33,7 @@ async function openRange(page: Page, request: APIRequestContext) {
   await page.getByText("期間の終了日や予算を変更する").click();
   const form = page.getByRole("form", { name: "期間設定", exact: true });
   return {
-    today,
+    startDate,
     endDate,
     form,
     start: form.getByTestId("current-period-range-start"),
@@ -51,16 +47,14 @@ test("shows current and draft range and cancels without writing", async ({
   page,
   request,
 }) => {
-  const { today, endDate, form, start, end, save, cancel } = await openRange(
-    page,
-    request,
-  );
+  const { startDate, endDate, form, start, end, save, cancel } =
+    await openRange(page, request);
   const writes: string[] = [];
   page.on("request", (outgoing) => {
     if (["PUT", "POST", "DELETE"].includes(outgoing.method()))
       writes.push(outgoing.url());
   });
-  await expect(form).toContainText(`現在の期間 ${today} - ${endDate}`);
+  await expect(form).toContainText(`現在の期間 ${startDate} - ${endDate}`);
   await expect(form).toContainText(periodId);
   await expect(save).toBeDisabled();
   await save.focus();
@@ -69,19 +63,19 @@ test("shows current and draft range and cancels without writing", async ({
   await budget.fill("130000");
   const calendar = form.locator("[data-range-calendar-root]");
   await calendar
-    .locator(`[data-range-calendar-day][data-value='${addDays(today, 1)}']`)
+    .locator(`[data-range-calendar-day][data-value='${addDays(startDate, 1)}']`)
     .click();
-  await expect(start).toHaveValue(addDays(today, 1));
+  await expect(start).toHaveValue(addDays(startDate, 1));
   await expect(end).toHaveValue("");
-  await end.fill(addDays(today, 2));
+  await end.fill(addDays(startDate, 2));
   await expect(form.getByText("未保存の変更があります")).toBeVisible();
-  await expect(form).toContainText(`現在の期間 ${today} - ${endDate}`);
+  await expect(form).toContainText(`現在の期間 ${startDate} - ${endDate}`);
   await cancel.click();
-  await expect(start).toHaveValue(today);
+  await expect(start).toHaveValue(startDate);
   await expect(end).toHaveValue(endDate);
   await expect(start).toBeFocused();
   await expect(
-    calendar.locator(`[data-range-calendar-day][data-value='${today}']`),
+    calendar.locator(`[data-range-calendar-day][data-value='${startDate}']`),
   ).toHaveAttribute("data-selected", "");
   await expect(form.getByText("未保存の変更があります")).toHaveCount(0);
   await expect(budget).toHaveValue("130000");
@@ -92,10 +86,8 @@ test("resets range validation and requires reset after an external range change"
   page,
   request,
 }) => {
-  const { today, endDate, form, start, end, save, cancel } = await openRange(
-    page,
-    request,
-  );
+  const { startDate, endDate, form, start, end, save, cancel } =
+    await openRange(page, request);
   let puts = 0;
   page.on("request", (outgoing) => {
     if (outgoing.method() === "PUT") puts += 1;
@@ -115,11 +107,11 @@ test("resets range validation and requires reset after an external range change"
   expect(
     (
       await request.put(url, {
-        data: { budgetYen: 120000, startDate: today, endDate: latestEnd },
+        data: { budgetYen: 120000, startDate, endDate: latestEnd },
       })
     ).status(),
   ).toBe(200);
-  await page.getByTestId(`calendar-day-${today}`).click();
+  await page.getByTestId(`calendar-day-${startDate}`).click();
   const modal = page.getByTestId("day-entry-modal");
   await modal.getByLabel("入力額 (円)").fill("100");
   const refreshed = waitForResponse(page, url, "GET");
@@ -146,10 +138,8 @@ test("saves range with local feedback and retries an ordinary failure", async ({
   page,
   request,
 }) => {
-  const { today, endDate, form, start, end, save, cancel } = await openRange(
-    page,
-    request,
-  );
+  const { startDate, endDate, form, start, end, save, cancel } =
+    await openRange(page, request);
   const nextEnd = addDays(endDate, 1);
   const writes: unknown[] = [];
   page.on("request", (outgoing) => {
@@ -202,10 +192,10 @@ test("saves range with local feedback and retries an ordinary failure", async ({
     await expect(form.getByRole("status")).toHaveText("期間を保存しました。");
     await expect(form.getByRole("alert")).toHaveCount(0);
     await expect(form).toHaveAttribute("aria-busy", "false");
-    await expect(form).toContainText(`現在の期間 ${today} - ${nextEnd}`);
+    await expect(form).toContainText(`現在の期間 ${startDate} - ${nextEnd}`);
     await expect(page.getByLabel("期間予算 (円)")).toHaveValue("130000");
     expect(writes).toEqual(
-      Array(2).fill({ budgetYen: 120000, startDate: today, endDate: nextEnd }),
+      Array(2).fill({ budgetYen: 120000, startDate, endDate: nextEnd }),
     );
     await page.getByLabel("期間予算 (円)").fill("140000");
     await expect(page.getByLabel("期間予算 (円)")).toBeFocused();
@@ -220,10 +210,8 @@ test("shows accepted range separately from refresh failure", async ({
   page,
   request,
 }) => {
-  const { today, endDate, form, start, end, save, cancel } = await openRange(
-    page,
-    request,
-  );
+  const { startDate, endDate, form, start, end, save, cancel } =
+    await openRange(page, request);
   const methods: string[] = [];
   await page.route(url, async (route) => {
     methods.push(route.request().method());
@@ -243,7 +231,7 @@ test("shows accepted range separately from refresh failure", async ({
   );
   await expect(save).toBeFocused();
   await expect(form).toContainText(
-    `現在の期間 ${today} - ${addDays(endDate, 1)}`,
+    `現在の期間 ${startDate} - ${addDays(endDate, 1)}`,
   );
   await cancel.click();
   await expect(start).toBeFocused();
