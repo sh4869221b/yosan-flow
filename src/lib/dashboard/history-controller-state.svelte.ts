@@ -33,6 +33,8 @@ export function createHistoryControllerState(
   let histories = $state<HistoryItem[]>([]);
   let historyRequestSequence = 0;
   let activeHistoryRequest: { periodId: string; date: string } | null = null;
+  // Imperative request-order bookkeeping, never rendered or observed by a rune.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- Reactive subscriptions would couple race guards to UI effects.
   const mutationSequences = new Map<string, number>();
   const retainedHistories = createRetainedHistoryStore();
 

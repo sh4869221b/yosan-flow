@@ -28,7 +28,6 @@ export default defineConfig(
       sourceType: "module",
     },
     rules: {
-      "svelte/prefer-svelte-reactivity": "off",
       "no-unused-vars": [
         "error",
         {
@@ -42,6 +41,7 @@ export default defineConfig(
   {
     files: ["**/*.ts", "**/*.svelte.ts"],
     rules: {
+      // TypeScript-aware analysis replaces the core rule for TS declarations.
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
@@ -97,11 +97,27 @@ export default defineConfig(
       "tests/integration/**/*.test.ts",
     ],
     rules: {
+      // Drizzle/D1 adapters and integration fakes cross intentionally untyped
+      // query boundaries; keep this exception limited to the listed files.
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
   {
     files: ["**/*.svelte", "**/*.svelte.ts", "**/*.svelte.js"],
+    rules: {
+      "svelte/require-each-key": "error",
+      "svelte/button-has-type": "error",
+      // Already enforced by flat/recommended; retain error severity rather than
+      // weakening existing checks to the warning level proposed in #234.
+      "svelte/no-unused-props": "error",
+      // The Svelte-aware replacement preserves $props/$derived declarations.
+      // Ordinary TypeScript files retain the core prefer-const rule.
+      "prefer-const": "off",
+      "svelte/prefer-const": "error",
+      // UI mutations need reactive collections. Nonreactive bookkeeping must
+      // explain a narrowly scoped exception at the individual declaration.
+      "svelte/prefer-svelte-reactivity": "error",
+    },
     languageOptions: {
       parserOptions: {
         parser: ts.parser,

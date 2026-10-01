@@ -33,7 +33,7 @@ jobs:
         run: pnpm format:check
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm lint:ci
 
   check:
     name: Type check
@@ -58,7 +58,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check
-        run: pnpm check
+        run: pnpm check:ci
 
   unit-tests:
     name: Unit tests
