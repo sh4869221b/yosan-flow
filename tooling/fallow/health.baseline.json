@@ -1,0 +1,553 @@
+{
+  "kind": "health",
+  "finding_counts": {
+    "src/lib/components/HistoryPanel.svelte": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 3
+      }
+    },
+    "src/lib/components/PeriodCalendar.svelte": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/calendar/PeriodCalendarMonth.svelte": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/BudgetPeriodForm.svelte": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/CreatePeriodPanel.svelte": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/DashboardWorkspace.svelte": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/lib/components/dashboard/PeriodRangeForm.svelte": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/day-entry/DayEntryForm.svelte": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/day-entry/HistoryRow.svelte": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/lib/dashboard/day-entry-mutation-lifecycle.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/day-entry-summary-reconciliation.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/history-controller-state.svelte.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/history-mutation-lifecycle.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/history-summary-reconciliation.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-controller-confirm-effect.ts": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-controller-create-effect.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-controller-refresh-effect.ts": {
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "src/lib/dashboard/period-controller-update-effect.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/lib/dashboard/period-settings-state.svelte.ts": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-summary-revision.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-update-api.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/lib/server/services/period-summary/period-summary-calculator.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/routes/+page.svelte": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/routes/api/__test/reset/+server.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "tests/e2e/period-boundary-confirmation-helpers.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "tests/e2e/period-boundary-confirmation-recovery-scenarios.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/integration/helpers/daily-operation-history-mutations.test.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/integration/helpers/period-d1-fake-modules/daily-operation-history-mutations.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "tests/integration/helpers/period-d1-fake-modules/daily-total-sql.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/dashboard-history-mutation-races.test.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/dashboard-history-period-return.test.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/day-entry-controller-history-mutation.test.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-confirmation.test.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "tests/unit/period-controller-create-recovery.test.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-operation-state.test.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-selection-races.test.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-summary-races.test.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    }
+  },
+  "identity_finding_counts": {
+    "src/lib/components/HistoryPanel.svelte\u0000<template>": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/HistoryPanel.svelte\u0000removeHistory": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/lib/components/HistoryPanel.svelte\u0000restoreDeletedFocus": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/HistoryPanel.svelte\u0000retry": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/HistoryPanel.svelte\u0000saveEdit": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/PeriodCalendar.svelte\u0000<arrow>": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/calendar/PeriodCalendarMonth.svelte\u0000<template>": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/BudgetPeriodForm.svelte\u0000<arrow>": {
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "src/lib/components/dashboard/BudgetPeriodForm.svelte\u0000<template>": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/BudgetPeriodForm.svelte\u0000submit": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/CreatePeriodPanel.svelte\u0000<template>": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/CreatePeriodPanel.svelte\u0000submit": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/DashboardWorkspace.svelte\u0000<arrow>": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/DashboardWorkspace.svelte\u0000<template>": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/DashboardWorkspace.svelte\u0000requestCalendarDayEntry": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/DashboardWorkspace.svelte\u0000retrySummary": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/PeriodRangeForm.svelte\u0000<arrow>": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/PeriodRangeForm.svelte\u0000<template>": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/PeriodRangeForm.svelte\u0000submit": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/day-entry/DayEntryForm.svelte\u0000handleSubmit": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/day-entry/HistoryRow.svelte\u0000<arrow>": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/day-entry/HistoryRow.svelte\u0000<template>": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "src/lib/components/day-entry/HistoryRow.svelte\u0000handleSaveEdit": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/day-entry/HistoryRow.svelte\u0000restoreFailureFocus": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/day-entry-mutation-lifecycle.ts\u0000outcome": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/day-entry-summary-reconciliation.ts\u0000<anonymous>": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/history-controller-state.svelte.ts\u0000<anonymous>": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/history-mutation-lifecycle.ts\u0000outcome": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/history-summary-reconciliation.ts\u0000<anonymous>": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-controller-confirm-effect.ts\u0000<anonymous>": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-controller-create-effect.ts\u0000<anonymous>": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-controller-refresh-effect.ts\u0000<anonymous>": {
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "src/lib/dashboard/period-controller-update-effect.ts\u0000<anonymous>": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/lib/dashboard/period-settings-state.svelte.ts\u0000adopt": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-summary-revision.ts\u0000release": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-update-api.ts\u0000isPeriodSummary": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/dashboard/period-update-api.ts\u0000parseSnapshot": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/server/services/period-summary/period-summary-calculator.ts\u0000<anonymous>": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/routes/+page.svelte\u0000restoreDayEntryFocus": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/routes/api/__test/reset/+server.ts\u0000POST": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "tests/e2e/period-boundary-confirmation-helpers.ts\u0000parsePublicPeriod": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "tests/e2e/period-boundary-confirmation-recovery-scenarios.ts\u0000<arrow>": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/integration/helpers/daily-operation-history-mutations.test.ts\u0000historyRow": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/integration/helpers/period-d1-fake-modules/daily-operation-history-mutations.ts\u0000tryApplyInsert": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "tests/integration/helpers/period-d1-fake-modules/daily-total-sql.ts\u0000applyDailyTotalMutation": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/dashboard-history-mutation-races.test.ts\u0000fetchMock": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/dashboard-history-period-return.test.ts\u0000fetchMock": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/day-entry-controller-history-mutation.test.ts\u0000fetchMock": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-confirmation.test.ts\u0000<arrow>": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-confirmation.test.ts\u0000fetchMock": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-create-recovery.test.ts\u0000<arrow>": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-operation-state.test.ts\u0000fetchMock": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-selection-races.test.ts\u0000fetchMock": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/unit/period-controller-summary-races.test.ts\u0000fetchMock": {
+      "crap_moderate": {
+        "count": 2
+      }
+    }
+  },
+  "runtime_coverage_findings": [],
+  "target_keys": [
+    "src/lib/dashboard/fetch-json.ts:high impact",
+    "src/lib/dashboard/period-settings-state.svelte.ts:high impact",
+    "src/lib/dashboard/summary-rows.ts:high impact",
+    "src/lib/dashboard/period-update-api.ts:high impact",
+    "src/lib/server/time/jst-format.ts:high impact",
+    "src/lib/components/dashboard/PeriodRangeForm.svelte:complexity",
+    "src/lib/components/day-entry/HistoryRow.svelte:complexity"
+  ]
+}

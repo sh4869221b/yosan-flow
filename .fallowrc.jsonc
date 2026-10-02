@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  // Keep tests and their dependencies in the graph. Built-in SvelteKit, Vitest,
+  // Playwright, Drizzle and Wrangler plugins discover their implicit entries.
+  "production": false,
+  // Check extra exports even in entry files; framework convention exports remain used.
+  "includeEntryExports": true,
+  "framework": [
+    {
+      "name": "yosan-flow-tooling",
+      "enablers": ["@sveltejs/kit"],
+      // These are invoked by Playwright and GitHub Actions, not application imports.
+      "entryPoints": ["scripts/e2e-timing.ts", "scripts/e2e-summary.ts"],
+      "entryPointRole": "support",
+      "usedExports": [
+        { "pattern": "drizzle.config.ts", "exports": ["default"] },
+        { "pattern": "playwright.config.ts", "exports": ["default"] },
+        { "pattern": "scripts/e2e-timing.ts", "exports": ["default"] },
+      ],
+    },
+  ],
+  "ignorePatterns": [
+    // SvelteKit/Cloudflare output and local test state are not authored source.
+    ".svelte-kit/**",
+    ".wrangler/**",
+    ".tmp-*/**",
+    "test-results/**",
+    "playwright-report/**",
+    // Wrangler owns both generated declaration files; src/app.d.ts stays analyzed.
+    "worker-configuration.d.ts",
+    "worker-runtime.d.ts",
+  ],
+}
