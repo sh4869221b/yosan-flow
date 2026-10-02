@@ -1,6 +1,6 @@
 import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
 
-export type PeriodSummaryRequest = {
+type PeriodSummaryRequest = {
   readonly mutationWasActive: boolean;
   readonly mutationSequence: number;
   readonly periodId: string | null;

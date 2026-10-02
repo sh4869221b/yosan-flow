@@ -1,0 +1,15 @@
+.period-settings-form > p[role="alert"] {
+  text-wrap: balance;
+  color: #8b3a3a;
+  font-weight: 700;
+}
+.period-settings-form > p[role="status"] {
+  color: #2f6d3b;
+  font-weight: 700;
+}
+@media (max-width: 760px) {
+  /* Outrank each component's scoped .actions rule regardless of CSS load order. */
+  form.period-settings-form > .actions {
+    display: grid;
+  }
+}

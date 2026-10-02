@@ -2,12 +2,6 @@
   "kind": "health",
   "finding_counts": {
     "src/lib/components/HistoryPanel.svelte": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "complexity_moderate": {
-        "count": 1
-      },
       "crap_critical": {
         "count": 1
       },
@@ -20,15 +14,7 @@
         "count": 1
       }
     },
-    "src/lib/components/calendar/PeriodCalendarMonth.svelte": {
-      "complexity_high": {
-        "count": 1
-      }
-    },
     "src/lib/components/dashboard/BudgetPeriodForm.svelte": {
-      "complexity_moderate": {
-        "count": 1
-      },
       "crap_critical": {
         "count": 2
       },
@@ -37,42 +23,27 @@
       }
     },
     "src/lib/components/dashboard/CreatePeriodPanel.svelte": {
-      "complexity_moderate": {
-        "count": 1
-      },
       "crap_high": {
         "count": 1
       }
     },
     "src/lib/components/dashboard/DashboardWorkspace.svelte": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "complexity_high": {
-        "count": 1
-      },
       "crap_critical": {
         "count": 2
       },
       "crap_high": {
-        "count": 1
+        "count": 2
       },
       "crap_moderate": {
         "count": 2
       }
     },
     "src/lib/components/dashboard/PeriodRangeForm.svelte": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "complexity_high": {
-        "count": 1
-      },
       "crap_critical": {
         "count": 3
       },
       "crap_high": {
-        "count": 1
+        "count": 2
       },
       "crap_moderate": {
         "count": 1
@@ -84,9 +55,6 @@
       }
     },
     "src/lib/components/day-entry/HistoryRow.svelte": {
-      "complexity_high": {
-        "count": 1
-      },
       "crap_high": {
         "count": 1
       },
@@ -110,10 +78,7 @@
       }
     },
     "src/lib/dashboard/history-mutation-lifecycle.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
+      "crap_moderate": {
         "count": 1
       }
     },
@@ -123,9 +88,6 @@
       }
     },
     "src/lib/dashboard/period-controller-confirm-effect.ts": {
-      "complexity_moderate": {
-        "count": 1
-      },
       "crap_moderate": {
         "count": 1
       }
@@ -143,14 +105,6 @@
     "src/lib/dashboard/period-controller-update-effect.ts": {
       "crap_moderate": {
         "count": 2
-      }
-    },
-    "src/lib/dashboard/period-settings-state.svelte.ts": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
       }
     },
     "src/lib/dashboard/period-summary-revision.ts": {
@@ -245,15 +199,7 @@
     }
   },
   "identity_finding_counts": {
-    "src/lib/components/HistoryPanel.svelte\u0000<template>": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "src/lib/components/HistoryPanel.svelte\u0000removeHistory": {
-      "complexity_critical": {
-        "count": 1
-      },
       "crap_critical": {
         "count": 1
       }
@@ -278,28 +224,13 @@
         "count": 1
       }
     },
-    "src/lib/components/calendar/PeriodCalendarMonth.svelte\u0000<template>": {
-      "complexity_high": {
-        "count": 1
-      }
-    },
     "src/lib/components/dashboard/BudgetPeriodForm.svelte\u0000<arrow>": {
       "crap_critical": {
         "count": 2
       }
     },
-    "src/lib/components/dashboard/BudgetPeriodForm.svelte\u0000<template>": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "src/lib/components/dashboard/BudgetPeriodForm.svelte\u0000submit": {
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/components/dashboard/CreatePeriodPanel.svelte\u0000<template>": {
-      "complexity_moderate": {
         "count": 1
       }
     },
@@ -309,23 +240,20 @@
       }
     },
     "src/lib/components/dashboard/DashboardWorkspace.svelte\u0000<arrow>": {
-      "complexity_critical": {
-        "count": 1
-      },
       "crap_critical": {
-        "count": 2
+        "count": 1
       },
       "crap_high": {
-        "count": 1
-      }
-    },
-    "src/lib/components/dashboard/DashboardWorkspace.svelte\u0000<template>": {
-      "complexity_high": {
-        "count": 1
+        "count": 2
       }
     },
     "src/lib/components/dashboard/DashboardWorkspace.svelte\u0000requestCalendarDayEntry": {
       "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/lib/components/dashboard/DashboardWorkspace.svelte\u0000restoreCreatedFocus": {
+      "crap_critical": {
         "count": 1
       }
     },
@@ -335,9 +263,6 @@
       }
     },
     "src/lib/components/dashboard/PeriodRangeForm.svelte\u0000<arrow>": {
-      "complexity_critical": {
-        "count": 1
-      },
       "crap_critical": {
         "count": 3
       },
@@ -345,8 +270,8 @@
         "count": 1
       }
     },
-    "src/lib/components/dashboard/PeriodRangeForm.svelte\u0000<template>": {
-      "complexity_high": {
+    "src/lib/components/dashboard/PeriodRangeForm.svelte\u0000submissionFocusTarget": {
+      "crap_high": {
         "count": 1
       }
     },
@@ -362,11 +287,6 @@
     },
     "src/lib/components/day-entry/HistoryRow.svelte\u0000<arrow>": {
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/components/day-entry/HistoryRow.svelte\u0000<template>": {
-      "complexity_high": {
         "count": 1
       }
     },
@@ -396,10 +316,7 @@
       }
     },
     "src/lib/dashboard/history-mutation-lifecycle.ts\u0000outcome": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
+      "crap_moderate": {
         "count": 1
       }
     },
@@ -409,9 +326,6 @@
       }
     },
     "src/lib/dashboard/period-controller-confirm-effect.ts\u0000<anonymous>": {
-      "complexity_moderate": {
-        "count": 1
-      },
       "crap_moderate": {
         "count": 1
       }
@@ -429,14 +343,6 @@
     "src/lib/dashboard/period-controller-update-effect.ts\u0000<anonymous>": {
       "crap_moderate": {
         "count": 2
-      }
-    },
-    "src/lib/dashboard/period-settings-state.svelte.ts\u0000adopt": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
       }
     },
     "src/lib/dashboard/period-summary-revision.ts\u0000release": {
@@ -546,8 +452,6 @@
     "src/lib/dashboard/period-settings-state.svelte.ts:high impact",
     "src/lib/dashboard/summary-rows.ts:high impact",
     "src/lib/dashboard/period-update-api.ts:high impact",
-    "src/lib/server/time/jst-format.ts:high impact",
-    "src/lib/components/dashboard/PeriodRangeForm.svelte:complexity",
-    "src/lib/components/day-entry/HistoryRow.svelte:complexity"
+    "src/lib/server/time/jst-format.ts:high impact"
   ]
 }

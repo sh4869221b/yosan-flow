@@ -1,22 +1,4 @@
-function assertValidDate(value: string): void {
-  const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!matched) {
-    throw new Error(`Invalid date: ${value}`);
-  }
-
-  const year = Number(matched[1]);
-  const month = Number(matched[2]);
-  const day = Number(matched[3]);
-  const utcDate = new Date(Date.UTC(year, month - 1, day));
-
-  if (
-    utcDate.getUTCFullYear() !== year ||
-    utcDate.getUTCMonth() + 1 !== month ||
-    utcDate.getUTCDate() !== day
-  ) {
-    throw new Error(`Invalid date: ${value}`);
-  }
-}
+import { assertValidDate } from "./daily-entry";
 
 function toDateValue(date: string): number {
   assertValidDate(date);

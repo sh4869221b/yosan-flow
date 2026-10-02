@@ -320,6 +320,10 @@ for (const viewport of [
       request,
     );
     const heading = page.locator("#range-settings-heading");
+    await expect(form.locator(":scope > .actions")).toHaveCSS(
+      "display",
+      viewport.width <= 760 ? "grid" : "flex",
+    );
     await end.fill(addDays(endDate, 1));
     await heading.focus();
     await page.keyboard.press("Tab");
@@ -356,6 +360,10 @@ for (const viewport of [
     await updated;
     await expect(heading).toBeFocused();
     await expect(form.getByRole("status")).toHaveText("期間を保存しました。");
+    await expect(form.getByRole("status")).toHaveCSS(
+      "color",
+      "rgb(47, 109, 59)",
+    );
     expect(runtimeErrors).toEqual([]);
   });
 }

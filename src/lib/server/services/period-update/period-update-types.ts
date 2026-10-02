@@ -47,7 +47,7 @@ export const PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR = {
   message: "この変更には後続期間の確認が必要です。",
 } as const;
 
-export const PERIOD_MULTIPLE_SUCCESSORS_ERROR = {
+const PERIOD_MULTIPLE_SUCCESSORS_ERROR = {
   code: "PERIOD_MULTIPLE_SUCCESSORS",
   message: "後続の予算期間が複数存在するため、変更できません。",
 } as const;
@@ -58,6 +58,7 @@ export const PERIOD_UPDATE_CONFLICT_ERROR = {
 } as const;
 
 export class PeriodMultipleSuccessorsError extends Error {
+  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
   readonly code = PERIOD_MULTIPLE_SUCCESSORS_ERROR.code;
 
   constructor() {
@@ -67,6 +68,7 @@ export class PeriodMultipleSuccessorsError extends Error {
 }
 
 export class PeriodUpdateConflictError extends Error {
+  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
   readonly code = PERIOD_UPDATE_CONFLICT_ERROR.code;
 
   constructor() {

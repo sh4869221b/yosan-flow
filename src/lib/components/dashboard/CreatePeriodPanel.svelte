@@ -65,6 +65,14 @@
     controller.periodInteractionDisabled || controller.createdRefreshPending,
   );
 
+  const submitLabel = $derived(
+    controller.createSaving
+      ? "作成中..."
+      : controller.createdRefreshing
+        ? "表示を再取得中..."
+        : "期間を作成",
+  );
+
   function focusField(id: string): void {
     const field = document.getElementById(id);
     field?.focus();
@@ -135,7 +143,7 @@
   }
 </script>
 
-{#if controller.createdRefreshPending}
+{#snippet createdRecovery()}
   <section
     aria-labelledby={`${prefix}-created-heading`}
     aria-busy={controller.createdRefreshing}
@@ -156,6 +164,10 @@
       <p role="status">表示を再取得しています...</p>
     {/if}
   </section>
+{/snippet}
+
+{#if controller.createdRefreshPending}
+  {@render createdRecovery()}
 {:else}
   <form onsubmit={submit} aria-busy={busy} novalidate>
     {#if variant === "secondary-action"}
@@ -221,11 +233,7 @@
     {/if}
     <div class="actions">
       <button type="submit" aria-disabled={disabled}>
-        {controller.createSaving
-          ? "作成中..."
-          : controller.createdRefreshing
-            ? "表示を再取得中..."
-            : "期間を作成"}
+        {submitLabel}
       </button>
       <button type="button" class="secondary" {disabled} onclick={cancel}>
         取り消す

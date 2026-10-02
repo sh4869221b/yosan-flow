@@ -25,7 +25,7 @@ export type ConfirmationResult = {
   readonly message?: string;
 };
 
-export type ConfirmationRecovery = {
+type ConfirmationRecovery = {
   readonly periodId: string;
   readonly saved: boolean;
 };

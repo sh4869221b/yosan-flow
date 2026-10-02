@@ -45,10 +45,7 @@ export function addDay(date: string): string {
  * Build a human-readable month label like "2026年5月".
  * The locale defaults to "ja-JP" but can be overridden for tests.
  */
-export function buildMonthLabel(
-  date: string,
-  locale: string = "ja-JP",
-): string {
+function buildMonthLabel(date: string, locale: string = "ja-JP"): string {
   const formatter = new Intl.DateTimeFormat(locale, {
     timeZone: "Asia/Tokyo",
     year: "numeric",

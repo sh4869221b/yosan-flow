@@ -1,10 +1,10 @@
-# Fallow adoption baseline (#352)
+# Fallow reviewed baseline (#352 / #353)
 
-## Scope and reproduction
+## Adoption context and reproduction
 
-This is a reviewed inventory, **not a clean bill of health or a CI gate**. Application
-source is unchanged from [`aba727b`](https://github.com/sh4869221b/yosan-flow/commit/aba727b09bcb86e0262cccdf0e26d08fe2389097).
-The snapshot was taken on 2026-10-02 with this PR's tooling configuration and
+This is a reviewed inventory, **not a clean bill of health or a CI gate**. At #352, application
+source was unchanged from [`aba727b`](https://github.com/sh4869221b/yosan-flow/commit/aba727b09bcb86e0262cccdf0e26d08fe2389097).
+The original snapshot was taken on 2026-10-02 with #352's tooling configuration and
 `tests/unit/fallow-config.test.ts`. Runtime/package-manager versions come from
 `.node_version` and `package.json#packageManager`; dependencies come from the lockfile.
 Fallow is pinned exactly to **3.30.0** (Node >=22), the newest release satisfying the
@@ -13,14 +13,14 @@ no supply-chain exception was added. Renovate can update the exact npm dependenc
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm fallow                       # combined advisory report; currently exits 0
+pnpm fallow                       # human combined report; exits 1 with retained findings
 pnpm fallow:dead-code             # currently exits 1: existing findings
 pnpm fallow:dupes                 # currently exits 0: findings, no percentage gate
 pnpm fallow:health                # currently exits 1: existing findings
 ```
 
 The scripts never load these baselines automatically and never apply fixes. Keep
-ESLint and svelte-check; their jobs answer different questions. Cleanup belongs to
+ESLint and svelte-check; their jobs answer different questions. The cleanup below belongs to
 [#353](https://github.com/sh4869221b/yosan-flow/issues/353); CI enforcement belongs to
 [#354](https://github.com/sh4869221b/yosan-flow/issues/354). No GitHub Actions workflow
 or existing quality gate is changed here.
@@ -40,8 +40,9 @@ pnpm exec fallow plugin-check --format json --quiet
 ```
 
 Run each analysis even if the preceding command returns 1. In this pinned version,
-dead-code/health return 1 for findings; the bare combined report and dupes return 0
-without a failure flag/percentage threshold. **Exit 0 alone never means no findings.**
+dead-code/health and the human combined report return 1 for findings. The combined
+JSON report returns 0 without a failure flag, as does dupes without a percentage
+threshold. The format-dependent combined exit behavior is verified for 3.30.0. **Exit 0 alone never means no findings.**
 Other exit statuses are tool/setup errors, not a baseline. Inspect `gate_outcomes`,
 `workspace_diagnostics`, findings and stderr; never append `|| true` to claim a pass.
 
@@ -85,7 +86,96 @@ excluded while authored declarations still produce unresolved-import findings. T
 check tooling behavior, **not repository finding counts**; they introduce no Fallow
 cleanup gate through the unit-test job.
 
-## Captured results
+## Reviewed cleanup snapshot (#353, 2026-10-02)
+
+The native baseline files now describe the focused cleanup built from main
+[`0cacc8c`](https://github.com/sh4869221b/yosan-flow/commit/0cacc8cae8c149a7d67efaa9714af53578150264).
+The historical tables below retain the #352 decisions so each change can be traced.
+No tool version, discovery configuration, threshold, dependency, workflow or CI gate
+was changed. No runtime API/error code, component prop, test-fake facade, mutation
+ownership check, focus guard, or product wording was removed.
+
+| Analysis                             | #352                                | After #353                                             |
+| ------------------------------------ | ----------------------------------- | ------------------------------------------------------ |
+| Dead code                            | 11                                  | 2 retained facade-contract findings                    |
+| Duplication                          | 14 groups / 28 instances, 301 lines | 11 groups / 22 instances, 234 lines (1.177%)           |
+| Actual cyclomatic/cognitive breaches | 14                                  | 1 retained H4 SQL-fake dispatcher                      |
+| Health threshold findings            | 63                                  | 57: the H4 dispatcher plus 56 CRAP-only estimates      |
+| Inline suppression markers           | 3, all lacking reasons              | 5 exact class-member markers, all reasoned, none stale |
+
+Resolved work, mapped to the original inventory:
+
+- All seven dead-code **fix** entries are resolved. Six declarations became local;
+  only the uncalled `updatePeriodRangeInput` helper was deleted after another
+  source/test reference search. The `PeriodRangeField` type remains used by inputs.
+- D07 now reuses `daily-entry.assertValidDate` from the budget-period helpers.
+  Both domain entry points retain identical invalid-date messages, native year
+  handling, leap-date validity and next-day rollover. `domain-date-parity.test.ts`
+  checks both callers, invalid period bounds and leap/year transitions.
+- D11 shares only feedback colors and responsive action layout in
+  `period-settings-form.css`. The two forms opt in via an exact class; direct-child
+  selectors avoid changing nested range-picker styles. Existing desktop/mobile
+  keyboard scenarios now also assert computed action layout and feedback colors.
+- All 13 H1 cyclomatic/cognitive breaches are below the unchanged thresholds.
+  Coherent Svelte blocks became local snippets, preserving DOM, scoped CSS, keyed
+  boundaries, bindings and callbacks. Named form projections separate validation
+  visibility and button availability from markup. History publication/retention,
+  settings adoption, confirmation outcomes and focus-target choice were split at
+  their existing responsibility boundaries. Queue/finalizer placement, revision
+  checks, deferred focus validation and deletion settlement ordering are retained.
+- D13's overlapping focus clone no longer meets the token threshold after extracting
+  range validation's focus-target choice; its ownership guards remain. D10 remains
+  visible. No additional contract cleanup was inferred from this incidental delta.
+
+The two dynamic `code` false positives now have exact `unused-class-member`
+markers. The three pre-existing day-entry markers remain necessary and gained
+inline reasons. Actual error-instance tests pass these five classes through the
+computed-property API mapper, without adding artificial static `.code` reads.
+There were no obsolete markers to remove. No file-wide, duplication, health,
+export or type suppression was added: retaining the reviewed raw exceptions avoids
+hiding a future real complexity or contract change at the same location.
+
+Remaining findings are intentional review work, not newly accepted defects:
+
+- The two facade exports retain their **contract-required** classification. Their
+  public/test contracts have not been narrowed merely to obtain zero dead code.
+- Duplication is exactly the prior D01–D06, D08–D10, D12 and D14 groups. Their
+  prior legitimate-exception/contract-required reasons still apply. No new group
+  was admitted; opaque fingerprint suffixes shifted when three groups disappeared.
+- Eight health identities disappeared (seven templates and settings `adopt`).
+  Five original H1 locations now produce only CRAP estimates. Their separated
+  responsibilities also introduce two named CRAP-only identities:
+  `DashboardWorkspace.restoreCreatedFocus` (CC 17 / Cog 8, estimated CRAP 306)
+  and `PeriodRangeForm.submissionFocusTarget` (7 / 7, estimated CRAP 56).
+  Anonymous identities in those files still require location-level review.
+  These are existing branches relocated without changing behavior, not measured
+  coverage regressions. The original H2/H3/H4 reasoning remains in force. H1's
+  actual complexity defect is resolved; CRAP-only evidence is **contract-required**.
+
+`pnpm fallow` remains outside CI and currently exits 1 with retained findings in
+human format. The same combined analysis with `--format json --quiet` exits 0,
+reporting failed but unenforced gates. This corrects #352's overly broad combined
+exit-0 description; do not infer cleanliness from that JSON status. Raw `dead-code`
+and `health` still exit 1 for the retained findings; `dupes` exits 0.
+All three explicit baseline comparisons succeed after review, with no new or stale
+entries. This does not make a zero-finding or measured-coverage claim and does not
+establish #354's enforcement policy. The raw findings and identities are checked
+again after build so generated output cannot silently change the inventory.
+
+Verification uses format, warning-strict lint/check, all unit/integration suites,
+build, and the full hosted Playwright shards. The refactor also retains the existing
+controller interruption/stale/offscreen race suites and browser keyboard, mobile,
+confirmation, create-recovery, history-edit/delete and modal-return scenarios.
+Local Wrangler startup is unavailable in the restricted execution environment
+(`os.networkInterfaces` / `uv_interface_addresses` returns EPERM); hosted E2E is
+required before reporting browser verification complete. See the cleanup PR's
+exact-head checks for final outcomes. Server/API coverage is separately observable
+with `pnpm test:coverage`, but it is not input to these static Fallow CRAP estimates.
+
+## Historical #352 captured results
+
+The following tables are the **pre-cleanup** inventory, not today's unresolved fix
+list. The native JSON baselines reflect the reviewed #353 snapshot above.
 
 | Analysis                    | Result                                                                                   |
 | --------------------------- | ---------------------------------------------------------------------------------------- |
@@ -288,7 +378,7 @@ pnpm exec fallow health --baseline-mode identity --baseline tooling/fallow/healt
 
 These commands hide known identities **only for review of changes**. A clean comparison
 is not a clean raw report and is not the future #354 enforcement policy. Always inspect
-the full reports first. After #353, remove resolved entries; do not rebaseline new
+the full reports first. When a reviewed change resolves entries, remove them; do not rebaseline new
 problems as a shortcut. Refresh only after reviewing every changed finding:
 
 ```bash

@@ -1,6 +1,6 @@
 import { ROUTE_TEMPLATES, type RouteTemplate } from "./route";
 
-export const OPERATIONS = [
+const OPERATIONS = [
   "period.list",
   "period.create",
   "period.read",

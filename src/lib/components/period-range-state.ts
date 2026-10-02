@@ -56,17 +56,6 @@ export function getPeriodRangeCalendarValue(input: {
   return range;
 }
 
-export function updatePeriodRangeInput(
-  range: PeriodRange,
-  field: PeriodRangeField,
-  value: string,
-): PeriodRange {
-  return {
-    ...range,
-    [field]: toDateValue(value),
-  };
-}
-
 export function getPeriodRangeSelection(
   range: PeriodRange,
 ): PeriodRangeSelection {

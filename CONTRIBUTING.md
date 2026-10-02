@@ -134,9 +134,10 @@ Run `pnpm fallow` for the combined local report, or `pnpm fallow:dead-code`,
 `pnpm fallow:dupes`, and `pnpm fallow:health` separately. These use the exact
 development dependency and project config; ESLint and svelte-check remain required.
 The [reviewed baseline and exception policy](tooling/fallow/README.md) records
-all initial threshold findings and the existing suppression inventory. Baselines
-are not loaded by default. Fallow cleanup and a required CI job are follow-up issues
-#353 and #354; neither is part of this tooling-only adoption.
+the initial threshold findings, #353 cleanup decisions and the current suppression
+inventory. Baselines are not loaded by default. The reviewed cleanup preserves
+contract-required findings and static CRAP-only estimates; a required Fallow CI job
+remains follow-up issue #354.
 
 ### E2E timing and baseline
 

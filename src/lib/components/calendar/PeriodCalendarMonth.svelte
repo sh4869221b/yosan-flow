@@ -49,6 +49,44 @@
   }
 </script>
 
+{#snippet calendarDay(date: string | null)}
+  {#if date}
+    {@const row = rowsByDate.get(date)}
+    {#if row}
+      {@const presentation = buildCalendarDayPresentation({
+        row,
+        today,
+        selected: selectedDate === date,
+        disabled,
+      })}
+      <button
+        type="button"
+        data-testid={`calendar-day-${date}`}
+        onclick={() => requestEdit({ date })}
+        onfocus={() => focusDate({ date })}
+        onkeydown={(event) => handleKeydown(event, date)}
+        tabindex={focusedDate === date ? 0 : -1}
+        aria-label={presentation.accessibleLabel}
+        aria-current={date === today ? "date" : undefined}
+        aria-pressed={presentation.isSelected}
+        aria-disabled={presentation.isDisabled}
+        aria-describedby={disabled ? disabledDescriptionId : undefined}
+        class:today={row.label === "today"}
+        class:spent={row.usedYen > 0}
+        class:selected={presentation.isSelected}
+      >
+        <span class="date-number">{Number(date.slice(8, 10))}</span>
+        <span class="used" data-testid={`used-${date}`}
+          >{presentation.amountLabel}</span
+        >
+        <span class="hint">{presentation.stateLabels.join("・")}</span>
+      </button>
+    {/if}
+  {:else}
+    <span class="empty-cell" aria-hidden="true">-</span>
+  {/if}
+{/snippet}
+
 <article>
   <h3>{month.label}</h3>
   <table>
@@ -68,45 +106,7 @@
         <tr>
           {#each week as date, dayIndex (date ?? `${month.key}-empty-${weekIndex}-${dayIndex}`)}
             <td>
-              {#if date}
-                {@const row = rowsByDate.get(date)}
-                {#if row}
-                  {@const presentation = buildCalendarDayPresentation({
-                    row,
-                    today,
-                    selected: selectedDate === date,
-                    disabled,
-                  })}
-                  <button
-                    type="button"
-                    data-testid={`calendar-day-${date}`}
-                    onclick={() => requestEdit({ date })}
-                    onfocus={() => focusDate({ date })}
-                    onkeydown={(event) => handleKeydown(event, date)}
-                    tabindex={focusedDate === date ? 0 : -1}
-                    aria-label={presentation.accessibleLabel}
-                    aria-current={date === today ? "date" : undefined}
-                    aria-pressed={presentation.isSelected}
-                    aria-disabled={presentation.isDisabled}
-                    aria-describedby={disabled
-                      ? disabledDescriptionId
-                      : undefined}
-                    class:today={row.label === "today"}
-                    class:spent={row.usedYen > 0}
-                    class:selected={presentation.isSelected}
-                  >
-                    <span class="date-number">{Number(date.slice(8, 10))}</span>
-                    <span class="used" data-testid={`used-${date}`}
-                      >{presentation.amountLabel}</span
-                    >
-                    <span class="hint"
-                      >{presentation.stateLabels.join("・")}</span
-                    >
-                  </button>
-                {/if}
-              {:else}
-                <span class="empty-cell" aria-hidden="true">-</span>
-              {/if}
+              {@render calendarDay(date)}
             </td>
           {/each}
         </tr>

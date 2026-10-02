@@ -521,6 +521,10 @@ for (const viewport of [
   }, testInfo) => {
     await page.setViewportSize(viewport);
     const { region, input, save } = await openBudget(page, request);
+    await expect(region.locator(".actions")).toHaveCSS(
+      "display",
+      viewport.width <= 760 ? "grid" : "flex",
+    );
     const heading = region.getByRole("heading", {
       name: "予算設定",
       exact: true,
@@ -529,6 +533,10 @@ for (const viewport of [
     await save.click();
     await expect(input).toBeFocused();
     await expect(region.getByRole("alert")).toBeVisible();
+    await expect(region.getByRole("alert")).toHaveCSS(
+      "color",
+      "rgb(139, 58, 58)",
+    );
     await region.screenshot({
       path: testInfo.outputPath(
         viewport.width === 1440
