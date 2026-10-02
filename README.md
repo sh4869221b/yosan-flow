@@ -68,7 +68,7 @@ pnpm test:e2e
 CI gate policy:
 
 - Pull request and `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm fallow:ci`, `pnpm db:verify`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
-- CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed.
+- CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed. Only complete, explicitly allowlisted docs-only PR diffs skip both E2E shards; all other gates still run, and main pushes always run E2E. Same-PR pushes cancel obsolete CI runs. See [CI runner efficiency](tooling/ci/README.md) for fail-closed classification, measurements, and rollback.
 - Renovate update branch pushes do not run CI directly. Renovate creates PRs immediately after any required Dependency Dashboard approval, and pull request CI is the authoritative validation gate.
 - The `E2E` GitHub Actions workflow is still available through `workflow_dispatch` for manual Playwright checks.
 - `pnpm test:coverage` reports server/API coverage for unit and integration tests. It is a visibility check, not a required PR gate.

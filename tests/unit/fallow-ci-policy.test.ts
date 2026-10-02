@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 const root = resolve(import.meta.dirname, "../..");
 const workflow = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
 const required = [
+  "changes",
   "format-lint",
   "check",
   "fallow",
@@ -13,17 +14,21 @@ const required = [
   "integration-tests",
   "migrations",
   "build",
-  "e2e",
+  "e2e-shard-1",
+  "e2e-shard-2",
 ];
 const quality = workflow.slice(workflow.indexOf("  quality:\n"));
 const command = quality.split("        run: |\n")[1];
 
-function aggregate(results: Record<string, string>) {
+function aggregate(results: Record<string, string>, docsOnly = "false") {
   const script = command.replace(
     /\$\{\{ needs(?:\['([^']+)'\]|\.([^.]+))\.result \}\}/g,
     (_, bracket: string, dot: string) => results[bracket ?? dot],
   );
-  return spawnSync("bash", ["-e", "-c", script], { encoding: "utf8" });
+  return spawnSync("bash", ["-e", "-c", script], {
+    encoding: "utf8",
+    env: { ...process.env, DOCS_ONLY: docsOnly },
+  });
 }
 
 describe("Fallow CI wiring", () => {
@@ -86,6 +91,33 @@ describe("Fallow CI wiring", () => {
       }
     },
   );
+
+  it("only permits both E2E skips for exact true from a successful classifier", () => {
+    const results = Object.fromEntries(required.map((job) => [job, "success"]));
+    results["e2e-shard-1"] = results["e2e-shard-2"] = "skipped";
+    expect(aggregate(results, "true").status).toBe(0);
+    for (const output of [
+      "",
+      "TRUE",
+      " true",
+      "false",
+      "null",
+      "1",
+      "true\nfalse",
+    ]) {
+      expect(aggregate(results, output).status).toBe(1);
+    }
+    for (const job of required) {
+      const expected = results[job];
+      for (const status of ["failure", "cancelled", "skipped"]) {
+        if (status === expected) continue;
+        expect(aggregate({ ...results, [job]: status }, "true").status).toBe(1);
+      }
+    }
+    expect(
+      aggregate({ ...results, "e2e-shard-1": "success" }, "true").status,
+    ).toBe(1);
+  });
 
   it("keeps Fallow exact under Renovate without bypassing release age or major approval", () => {
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
