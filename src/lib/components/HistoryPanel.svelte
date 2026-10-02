@@ -60,6 +60,37 @@
   let activeDelete = $state.raw<DeleteOperation | null>(null);
   let historyHeading = $state<HTMLHeadingElement | null>(null);
 
+  const listError = $derived(
+    errorMessage &&
+      editFailureHistoryId == null &&
+      deleteFailureHistoryId == null,
+  );
+  const canDelete = $derived(
+    historyMutatingId == null &&
+      pendingSaveHistoryId == null &&
+      editingHistoryId == null &&
+      confirmingDeleteHistoryId == null,
+  );
+  const showRetry = $derived(listError || activeRetry != null);
+
+  function rowState(historyId: string) {
+    return {
+      isEditing: editingHistoryId === historyId,
+      isMutating: historyMutatingId === historyId,
+      isSaving: pendingSaveHistoryId === historyId,
+      mutationUnavailable:
+        historyMutatingId != null && historyMutatingId !== historyId,
+      canStartEdit:
+        editingHistoryId == null && pendingSaveHistoryId !== historyId,
+      canDelete,
+      isDeleteConfirming: confirmingDeleteHistoryId === historyId,
+      isDeleting: pendingDeleteHistoryId === historyId,
+      isSaveSuccessful: saveSuccessHistoryId === historyId,
+      deleteError:
+        deleteFailureHistoryId === historyId ? deleteFailureMessage : null,
+    };
+  }
+
   $effect(() => {
     if (!isOpen) {
       cancelEdit();
@@ -195,6 +226,23 @@
     focusTarget?.focus();
   }
 
+  function settleDelete(
+    operation: DeleteOperation,
+    result: HistoryActionResult,
+  ): boolean {
+    const historyId = operation.historyId;
+    if (result.kind === "failure") {
+      if (!histories.some((history) => history.id === historyId)) return true;
+      deleteFailureHistoryId = historyId;
+      deleteFailureMessage = result.message;
+    } else if (result.kind === "success") {
+      confirmingDeleteHistoryId = null;
+      deleteSuccessMessage = "履歴を削除しました。";
+      return !histories.some((history) => history.id === historyId);
+    }
+    return false;
+  }
+
   async function removeHistory(
     historyId: string,
   ): Promise<HistoryActionResult> {
@@ -226,20 +274,7 @@
     }
     pendingDeleteHistoryId = null;
     await tick();
-    if (result.kind === "failure") {
-      if (histories.some((history) => history.id === historyId)) {
-        deleteFailureHistoryId = historyId;
-        deleteFailureMessage = result.message;
-      } else {
-        await restoreDeletedFocus(operation);
-      }
-    } else if (result.kind === "success") {
-      confirmingDeleteHistoryId = null;
-      deleteSuccessMessage = "履歴を削除しました。";
-      if (!histories.some((history) => history.id === historyId)) {
-        await restoreDeletedFocus(operation);
-      }
-    }
+    if (settleDelete(operation, result)) await restoreDeletedFocus(operation);
     if (activeDelete === operation) {
       activeDelete = null;
     }
@@ -272,7 +307,7 @@
   {/if}
   {#if loading}
     <p class="status" role="status">履歴を読み込み中...</p>
-  {:else if errorMessage && editFailureHistoryId == null && deleteFailureHistoryId == null}
+  {:else if listError}
     <p class="error-message" role="alert">{errorMessage}</p>
   {:else if histories.length === 0}
     <div class="empty-history">
@@ -285,23 +320,7 @@
       {#each histories as history (history.id)}
         <HistoryRow
           {history}
-          isEditing={editingHistoryId === history.id}
-          isMutating={historyMutatingId === history.id}
-          isSaving={pendingSaveHistoryId === history.id}
-          mutationUnavailable={historyMutatingId != null &&
-            historyMutatingId !== history.id}
-          canStartEdit={editingHistoryId == null &&
-            pendingSaveHistoryId !== history.id}
-          canDelete={historyMutatingId == null &&
-            pendingSaveHistoryId == null &&
-            editingHistoryId == null &&
-            confirmingDeleteHistoryId == null}
-          isDeleteConfirming={confirmingDeleteHistoryId === history.id}
-          isDeleting={pendingDeleteHistoryId === history.id}
-          isSaveSuccessful={saveSuccessHistoryId === history.id}
-          deleteError={deleteFailureHistoryId === history.id
-            ? deleteFailureMessage
-            : null}
+          {...rowState(history.id)}
           bind:editInputYen
           bind:editMemo
           onStartEdit={startEdit}
@@ -314,7 +333,7 @@
       {/each}
     </ul>
   {/if}
-  {#if (errorMessage && editFailureHistoryId == null && deleteFailureHistoryId == null) || activeRetry != null}
+  {#if showRetry}
     <button
       class="retry-button"
       type="button"

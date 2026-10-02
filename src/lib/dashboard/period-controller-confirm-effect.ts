@@ -1,6 +1,9 @@
 import { Effect } from "effect";
 import { periodSummaryUrl } from "$lib/dashboard/api-urls";
-import { fetchPeriodUpdateEffect } from "$lib/dashboard/period-update-api";
+import {
+  fetchPeriodUpdateEffect,
+  type PeriodUpdateApiOutcome,
+} from "$lib/dashboard/period-update-api";
 import type { PeriodUpdateDependencies } from "$lib/dashboard/period-controller-update-effect";
 import type {
   PendingPeriodUpdateConfirmation,
@@ -67,6 +70,50 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
         Effect.asVoid,
       );
   }
+  function applyOutcome(
+    pending: PendingPeriodUpdateConfirmation,
+    outcome: PeriodUpdateApiOutcome,
+    current: boolean,
+  ): Effect.Effect<void, never> {
+    return Effect.gen(function* () {
+      const periodId = pending.ownership.targetId;
+      switch (outcome.kind) {
+        case "updated":
+          if (current && outcome.summary.periodId === periodId) {
+            dependencies.publishSummary(outcome.summary, {
+              operation: "range",
+              payload: pending.request,
+            });
+          } else dependencies.summaryRevision.advance(periodId);
+          dependencies.summaryRevision.advance(pending.ownership.successorId);
+          if (current) {
+            state.recover(periodId, true);
+            yield* refresh();
+          }
+          return;
+        case "error":
+          if (!current) return;
+          if (outcome.code === "PERIOD_UPDATE_CONFLICT") {
+            state.recover(periodId, false);
+            yield* refresh();
+          } else
+            state.report({
+              periodId,
+              kind: "error",
+              message: outcome.message,
+            });
+          return;
+        case "confirmation-required":
+          if (current)
+            state.report({
+              periodId,
+              kind: "error",
+              message: "保存に失敗しました。",
+            });
+          return;
+      }
+    });
+  }
   function confirm(
     pending: PendingPeriodUpdateConfirmation,
   ): Effect.Effect<void, never> {
@@ -109,43 +156,7 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
           const current =
             dependencies.getSelectedPeriodId() === periodId &&
             dependencies.summaryRequests.owns(request);
-          switch (outcome.kind) {
-            case "updated":
-              if (current && outcome.summary.periodId === periodId) {
-                dependencies.publishSummary(outcome.summary, {
-                  operation: "range",
-                  payload: pending.request,
-                });
-              } else dependencies.summaryRevision.advance(periodId);
-              dependencies.summaryRevision.advance(
-                pending.ownership.successorId,
-              );
-              if (current) {
-                state.recover(periodId, true);
-                yield* refresh();
-              }
-              return;
-            case "error":
-              if (!current) return;
-              if (outcome.code === "PERIOD_UPDATE_CONFLICT") {
-                state.recover(periodId, false);
-                yield* refresh();
-              } else
-                state.report({
-                  periodId,
-                  kind: "error",
-                  message: outcome.message,
-                });
-              return;
-            case "confirmation-required":
-              if (current)
-                state.report({
-                  periodId,
-                  kind: "error",
-                  message: "保存に失敗しました。",
-                });
-              return;
-          }
+          yield* applyOutcome(pending, outcome, current);
         }),
       )
       .pipe(Effect.ensuring(Effect.sync(state.finishConfirmation)));

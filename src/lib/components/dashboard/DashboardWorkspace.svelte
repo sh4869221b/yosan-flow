@@ -133,6 +133,44 @@
     }
   });
 
+  function restoreCreatedFocus(
+    surface: "initial" | "additional",
+    periodId: string | null,
+    succeeded: boolean,
+    pending: boolean,
+    error: string | null,
+  ): void {
+    if (
+      succeeded &&
+      !controller.createdRefreshPending &&
+      controller.createdPeriodId === periodId &&
+      controller.selectedPeriodId === periodId &&
+      controller.summary?.periodId === periodId
+    ) {
+      document.getElementById("selected-period-heading")?.focus();
+    } else if (
+      pending &&
+      error &&
+      controller.createdRefreshPending &&
+      controller.createdPeriodId === periodId
+    ) {
+      document
+        .getElementById(
+          surface === "initial"
+            ? "initial-period-created-heading"
+            : "create-period-created-heading",
+        )
+        ?.focus();
+    } else if (
+      !pending &&
+      error &&
+      document.activeElement === document.body &&
+      createSourceElement?.isConnected
+    ) {
+      createSourceElement.focus();
+    }
+  }
+
   $effect(() => {
     const surface = createFocusIntent;
     if (!surface || controller.createSaving || controller.createdRefreshing)
@@ -159,39 +197,50 @@
         createFocusIntent = null;
         return;
       }
-      if (
-        succeeded &&
-        !controller.createdRefreshPending &&
-        controller.createdPeriodId === periodId &&
-        controller.selectedPeriodId === periodId &&
-        controller.summary?.periodId === periodId
-      ) {
-        document.getElementById("selected-period-heading")?.focus();
-      } else if (
-        pending &&
-        error &&
-        controller.createdRefreshPending &&
-        controller.createdPeriodId === periodId
-      ) {
-        document
-          .getElementById(
-            surface === "initial"
-              ? "initial-period-created-heading"
-              : "create-period-created-heading",
-          )
-          ?.focus();
-      } else if (
-        !pending &&
-        error &&
-        document.activeElement === document.body &&
-        createSourceElement?.isConnected
-      ) {
-        createSourceElement.focus();
-      }
+      restoreCreatedFocus(surface, periodId, succeeded, pending, error);
       createFocusIntent = null;
     });
   });
 </script>
+
+{#snippet primaryWorkspace(summary: NonNullable<Controller["summary"]>)}
+  <section class="primary-workspace" aria-label="日別入力">
+    <div class="workspace-heading">
+      <span class="heading-icon" aria-hidden="true">
+        <CalendarDays size={25} strokeWidth={2.4} />
+      </span>
+      <div>
+        <p class="eyebrow">Step 1</p>
+        <h2>カレンダーの日付を選んで入力</h2>
+        <p>日付を押すと、その日の入力と履歴をまとめて確認できます。</p>
+      </div>
+    </div>
+
+    <section aria-labelledby="period-calendar-heading">
+      <h2 id="period-calendar-heading" tabindex="-1">カレンダー</h2>
+      {#key summary.periodId}
+        <PeriodCalendar
+          rows={summary.dailyRows}
+          startDate={summary.startDate}
+          endDate={summary.endDate}
+          {today}
+          disabled={controller.summaryLoading ||
+            controller.periodInteractionDisabled ||
+            summary.periodId !== controller.selectedPeriodId}
+          disabledReason={controller.summaryLoading
+            ? "期間を読み込み中です"
+            : "期間の操作が完了するまで入力できません"}
+          requestEdit={requestCalendarDayEntry}
+        />
+        {#if daySaveSuccess?.periodId === controller.selectedPeriodId}
+          <p data-testid="day-entry-save-status" role="status">
+            {daySaveSuccess.date} の支出を保存しました。
+          </p>
+        {/if}
+      {/key}
+    </section>
+  </section>
+{/snippet}
 
 <section class="workspace-shell">
   {#if initialCreateActive || (controller.periods.length === 0 && !controller.summaryLoading && !controller.summaryError)}
@@ -247,42 +296,7 @@
     />
 
     {#if controller.summary}
-      <section class="primary-workspace" aria-label="日別入力">
-        <div class="workspace-heading">
-          <span class="heading-icon" aria-hidden="true">
-            <CalendarDays size={25} strokeWidth={2.4} />
-          </span>
-          <div>
-            <p class="eyebrow">Step 1</p>
-            <h2>カレンダーの日付を選んで入力</h2>
-            <p>日付を押すと、その日の入力と履歴をまとめて確認できます。</p>
-          </div>
-        </div>
-
-        <section aria-labelledby="period-calendar-heading">
-          <h2 id="period-calendar-heading" tabindex="-1">カレンダー</h2>
-          {#key controller.summary.periodId}
-            <PeriodCalendar
-              rows={controller.summary.dailyRows}
-              startDate={controller.summary.startDate}
-              endDate={controller.summary.endDate}
-              {today}
-              disabled={controller.summaryLoading ||
-                controller.periodInteractionDisabled ||
-                controller.summary.periodId !== controller.selectedPeriodId}
-              disabledReason={controller.summaryLoading
-                ? "期間を読み込み中です"
-                : "期間の操作が完了するまで入力できません"}
-              requestEdit={requestCalendarDayEntry}
-            />
-            {#if daySaveSuccess?.periodId === controller.selectedPeriodId}
-              <p data-testid="day-entry-save-status" role="status">
-                {daySaveSuccess.date} の支出を保存しました。
-              </p>
-            {/if}
-          {/key}
-        </section>
-      </section>
+      {@render primaryWorkspace(controller.summary)}
     {/if}
 
     <section class="secondary-actions">

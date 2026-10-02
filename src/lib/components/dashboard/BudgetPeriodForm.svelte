@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import "./period-settings-form.css";
   import type { PeriodSummary } from "$lib/dashboard/controller-types";
 
   type Props = {
@@ -35,6 +36,14 @@
     onreset,
   }: Props = $props();
   const disabled = $derived(saving || interactionDisabled || loading);
+
+  const canReset = $derived(
+    dirty || validationError || serverError || success || settingChanged,
+  );
+  const showSaved = $derived(success && !saving && !loading);
+  const submitLabel = $derived(
+    saving ? "保存中..." : loading ? "読込中..." : "期間を更新",
+  );
 
   let form: HTMLFormElement | undefined = $state();
   let input: HTMLInputElement | undefined = $state();
@@ -110,6 +119,7 @@
 
 <h2 bind:this={heading} id="budget-settings-heading" tabindex="-1">予算設定</h2>
 <form
+  class="period-settings-form"
   bind:this={form}
   aria-labelledby="budget-settings-heading"
   aria-busy={saving || loading}
@@ -152,14 +162,12 @@
       aria-disabled={!dirty || settingChanged}
       aria-describedby={serverError
         ? "budget-settings-server-error"
-        : undefined}
-      >{saving ? "保存中..." : loading ? "読込中..." : "期間を更新"}</button
+        : undefined}>{submitLabel}</button
     >
     <button
       class="cancel"
       type="button"
-      disabled={disabled ||
-        !(dirty || validationError || serverError || success || settingChanged)}
+      disabled={disabled || !canReset}
       onclick={reset}
       >{settingChanged ? "最新の予算に戻す" : "キャンセル"}</button
     >
@@ -170,7 +178,7 @@
       {/if}{serverError}
     </p>
   {/if}
-  {#if success && !saving && !loading}
+  {#if showSaved}
     <p role="status" aria-live="polite">予算を保存しました。</p>
   {/if}
 </form>
@@ -235,19 +243,5 @@
   button[aria-disabled="true"] {
     cursor: default;
     opacity: 0.65;
-  }
-  p[role="alert"] {
-    text-wrap: balance;
-    color: #8b3a3a;
-    font-weight: 700;
-  }
-  p[role="status"] {
-    color: #2f6d3b;
-    font-weight: 700;
-  }
-  @media (max-width: 760px) {
-    .actions {
-      display: grid;
-    }
   }
 </style>

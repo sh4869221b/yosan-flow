@@ -64,7 +64,7 @@ export type HistoryReplayResult = {
 };
 
 export class PeriodNotFoundError extends Error {
-  // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
   readonly code = "PERIOD_NOT_FOUND";
 
   constructor(periodId: string) {
@@ -74,7 +74,7 @@ export class PeriodNotFoundError extends Error {
 }
 
 export class DateOutOfPeriodError extends Error {
-  // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
   readonly code = "DATE_OUT_OF_PERIOD";
 
   constructor(date: string, periodId: string) {
@@ -84,7 +84,7 @@ export class DateOutOfPeriodError extends Error {
 }
 
 export class HistoryNotFoundError extends Error {
-  // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
   readonly code = "HISTORY_NOT_FOUND";
 
   constructor(historyId: string) {

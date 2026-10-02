@@ -122,7 +122,7 @@ function parseProposalSide(value: unknown): {
   };
 }
 
-export function parsePeriodBoundaryUpdateProposal(
+function parsePeriodBoundaryUpdateProposal(
   value: unknown,
 ): PeriodBoundaryUpdateProposal {
   if (

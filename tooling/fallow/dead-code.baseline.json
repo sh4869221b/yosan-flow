@@ -10,16 +10,9 @@
   },
   "unused_files": [],
   "unused_exports": [
-    "src/lib/components/calendar/calendar-grid.ts:buildMonthLabel",
-    "src/lib/components/period-range-state.ts:updatePeriodRangeInput",
-    "src/lib/server/db/budget-period-repository.ts:LinkedPeriodBoundaryInvariantError",
-    "src/lib/server/observability/schema.ts:OPERATIONS",
-    "src/lib/server/services/period-update/period-update-types.ts:PERIOD_MULTIPLE_SUCCESSORS_ERROR",
-    "src/lib/server/validation/period-update.ts:parsePeriodBoundaryUpdateProposal"
+    "src/lib/server/db/budget-period-repository.ts:LinkedPeriodBoundaryInvariantError"
   ],
   "unused_types": [
-    "src/lib/dashboard/period-summary-request-tracker.ts:PeriodSummaryRequest",
-    "src/lib/dashboard/period-update-confirmation-state.svelte.ts:ConfirmationRecovery",
     "tests/integration/helpers/period-d1-fake.ts:PeriodAwareD1FakeOptions"
   ],
   "private_type_leaks": [],
@@ -30,10 +23,7 @@
   "re_export_cycles": [],
   "unused_optional_dependencies": [],
   "unused_enum_members": [],
-  "unused_class_members": [
-    "src/lib/server/services/period-update/period-update-types.ts:PeriodMultipleSuccessorsError.code",
-    "src/lib/server/services/period-update/period-update-types.ts:PeriodUpdateConflictError.code"
-  ],
+  "unused_class_members": [],
   "unused_store_members": [],
   "unprovided_injects": [],
   "unrendered_components": [],

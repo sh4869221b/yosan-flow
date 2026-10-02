@@ -85,6 +85,47 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
       : null;
   }
 
+  function adoptBudget(
+    previous: PeriodSummary,
+    next: PeriodSummary,
+    submission?: PeriodSettingsSubmission,
+  ): void {
+    const ownBudget =
+      submission?.operation === "budget" &&
+      !budget.settingChanged &&
+      next.budgetYen === submission.payload.budgetYen;
+    if (ownBudget) {
+      resetBudget(next);
+      budget.success = true;
+    } else if (previous.budgetYen !== next.budgetYen) {
+      if (
+        budget.settingChanged ||
+        parseNonNegativeIntegerYenInput(budget.draft) !== previous.budgetYen
+      ) {
+        budget.settingChanged = true;
+      } else resetBudget(next);
+    }
+  }
+
+  function adoptRange(
+    previous: PeriodSummary,
+    next: PeriodSummary,
+    submission?: PeriodSettingsSubmission,
+  ): void {
+    const ownRange =
+      submission?.operation === "range" &&
+      !range.settingChanged &&
+      sameRange(next, submission.payload);
+    if (ownRange) {
+      resetRange(next);
+      range.success = true;
+    } else if (!sameRange(previous, next)) {
+      if (range.settingChanged || !sameRange(range.draft, previous)) {
+        range.settingChanged = true;
+      } else resetRange(next);
+    }
+  }
+
   return {
     budget: {
       get draft() {
@@ -181,33 +222,8 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
         resetRange(next);
         return;
       }
-      const ownBudget =
-        submission?.operation === "budget" &&
-        !budget.settingChanged &&
-        next.budgetYen === submission.payload.budgetYen;
-      const ownRange =
-        submission?.operation === "range" &&
-        !range.settingChanged &&
-        sameRange(next, submission.payload);
-      if (ownBudget) {
-        resetBudget(next);
-        budget.success = true;
-      } else if (previous.budgetYen !== next.budgetYen) {
-        if (
-          budget.settingChanged ||
-          parseNonNegativeIntegerYenInput(budget.draft) !== previous.budgetYen
-        ) {
-          budget.settingChanged = true;
-        } else resetBudget(next);
-      }
-      if (ownRange) {
-        resetRange(next);
-        range.success = true;
-      } else if (!sameRange(previous, next)) {
-        if (range.settingChanged || !sameRange(range.draft, previous)) {
-          range.settingChanged = true;
-        } else resetRange(next);
-      }
+      adoptBudget(previous, next, submission);
+      adoptRange(previous, next, submission);
     },
   };
 }

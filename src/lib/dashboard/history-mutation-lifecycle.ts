@@ -47,6 +47,66 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
     summaryRevision: dependencies.summaryRevision,
   });
 
+  type MutationContext = {
+    readonly periodId: string;
+    readonly date: string;
+    readonly sequence: number;
+    readonly summaryMutation: number;
+    readonly summaryRevision: number;
+    readonly ownsPeriod: boolean;
+    readonly ownsDate: boolean;
+    readonly ownsSummary: boolean;
+  };
+
+  function publishResponse(
+    body: HistoryMutationResponse<PeriodSummary>,
+    context: MutationContext,
+  ): boolean {
+    if (!context.ownsPeriod || body.summary.periodId !== context.periodId)
+      return false;
+    const summaryIsCompatible = summaryConfigurationMatches(
+      body.summary,
+      dependencies.getSummary(),
+    );
+    const mustReconcile =
+      !context.ownsSummary ||
+      dependencies.summaryRevision.get(context.periodId) !==
+        context.summaryRevision ||
+      !summaryIsCompatible;
+    if (mustReconcile) return false;
+    dependencies.applySummary(body.summary);
+    if (context.ownsDate) dependencies.applyHistories(body);
+    return true;
+  }
+
+  function retainResponse(
+    body: HistoryMutationResponse<PeriodSummary>,
+    context: MutationContext,
+    responseWasPublished: boolean,
+  ): void {
+    const retainedRevision = dependencies.summaryRevision.get(context.periodId);
+    if (
+      !context.ownsDate &&
+      historyMutations.getSequence(context.periodId) === context.sequence &&
+      dependencies.summaryRevision.isMutationFresh(
+        context.periodId,
+        context.summaryMutation,
+      ) &&
+      retainedRevision ===
+        context.summaryRevision + (responseWasPublished ? 1 : 0) &&
+      summaryConfigurationMatches(body.summary, dependencies.getSummary()) &&
+      body.summary.periodId === context.periodId
+    ) {
+      dependencies.retainHistories(
+        context.periodId,
+        context.date,
+        body,
+        retainedRevision,
+        context.summaryMutation,
+      );
+    }
+  }
+
   function mutateEffect(
     historyId: string,
     request: RequestInit,
@@ -118,58 +178,20 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
             if (result._tag === "Left" && mutationOwnsCurrentDate) {
               dependencies.setError(result.left);
             }
-            let shouldReconcile = true;
-            let responseWasPublished = false;
-            if (
-              result._tag === "Right" &&
-              mutationOwnsCurrentPeriod &&
-              result.right.summary.periodId === selectedPeriodId
-            ) {
-              const summaryIsCompatible = summaryConfigurationMatches(
-                result.right.summary,
-                dependencies.getSummary(),
-              );
-              const mustReconcile =
-                !mutationOwnsSummary ||
-                dependencies.summaryRevision.get(selectedPeriodId) !==
-                  mutationSummaryRevision ||
-                !summaryIsCompatible;
-              shouldReconcile = mustReconcile;
-              if (!mustReconcile && summaryIsCompatible) {
-                dependencies.applySummary(result.right.summary);
-                responseWasPublished = true;
-                if (mutationOwnsCurrentDate) {
-                  dependencies.applyHistories(result.right);
-                }
-              }
-            }
-            const retainedRevision =
-              dependencies.summaryRevision.get(selectedPeriodId);
-            if (
-              result._tag === "Right" &&
-              !mutationOwnsCurrentDate &&
-              historyMutations.getSequence(selectedPeriodId) ===
-                mutationSequence &&
-              dependencies.summaryRevision.isMutationFresh(
-                selectedPeriodId,
-                summaryMutation,
-              ) &&
-              retainedRevision ===
-                mutationSummaryRevision + (responseWasPublished ? 1 : 0) &&
-              summaryConfigurationMatches(
-                result.right.summary,
-                dependencies.getSummary(),
-              ) &&
-              result.right.summary.periodId === selectedPeriodId
-            ) {
-              dependencies.retainHistories(
-                selectedPeriodId,
-                selectedDate,
-                result.right,
-                retainedRevision,
-                summaryMutation,
-              );
-            }
+            const context: MutationContext = {
+              periodId: selectedPeriodId,
+              date: selectedDate,
+              sequence: mutationSequence,
+              summaryMutation,
+              summaryRevision: mutationSummaryRevision,
+              ownsPeriod: mutationOwnsCurrentPeriod,
+              ownsDate: mutationOwnsCurrentDate,
+              ownsSummary: mutationOwnsSummary,
+            };
+            const responseWasPublished =
+              result._tag === "Right" && publishResponse(result.right, context);
+            if (result._tag === "Right")
+              retainResponse(result.right, context, responseWasPublished);
             return {
               actionResult:
                 result._tag === "Right" &&
@@ -184,7 +206,7 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
                     : ({ kind: "ignored" } as const),
               mutationError: result._tag === "Left" ? result.left : undefined,
               mutationSequence,
-              shouldReconcile,
+              shouldReconcile: !responseWasPublished,
             };
           }),
         )
