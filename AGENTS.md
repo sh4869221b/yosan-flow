@@ -106,6 +106,7 @@ pnpm dev
 pnpm format:check
 pnpm lint
 pnpm check
+pnpm fallow:ci
 pnpm test:unit
 pnpm test:integration
 pnpm build
@@ -114,7 +115,7 @@ pnpm test:coverage
 pnpm run cf:migrate:local
 ```
 
-CI runs format/lint, check, unit, integration, build, and E2E as independent jobs, then aggregates them in `Quality checks`. Coverage is visibility-only, not a required PR gate.
+CI runs format/lint, check, Fallow, unit, integration, build, and E2E as independent jobs, then aggregates them in `Quality checks`. Coverage is visibility-only, not a required PR gate.
 
 ## Cloudflare Notes
 

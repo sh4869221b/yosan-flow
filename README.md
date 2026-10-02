@@ -53,6 +53,7 @@ pnpm lint
 pnpm format:check
 pnpm lint:ci
 pnpm check:ci
+pnpm fallow:ci
 pnpm test:unit
 pnpm test:integration
 pnpm build
@@ -61,11 +62,11 @@ pnpm test:e2e
 
 通常の開発中は `pnpm lint` / `pnpm check` を使用できます。CI と同じ警告ゼロの確認には `pnpm lint:ci` / `pnpm check:ci` を使ってください。採用ルールと例外の方針は [CONTRIBUTING.md](CONTRIBUTING.md#static-analysis-policy) を参照してください。
 
-コードベース全体の構造検査は `pnpm fallow` で実行できます。Fallow は固定 version の開発依存で、現段階ではローカルの調査用です。初回 finding の分類、生成物・暗黙の entry の扱い、個別コマンドは [Fallow baseline](tooling/fallow/README.md) を参照してください。既存 finding があるため、コマンド終了コードだけで問題なしと判断しないでください。
+コードベース全体の構造検査は `pnpm fallow`、CI と同じ新規 finding / 古い baseline の検証は `pnpm fallow:ci` で実行できます。Fallow 専用 job はレビュー済み baseline と比較し、dead code・重複・health の新規 finding を失敗扱いにします。固定 version、生成物・暗黙の entry、例外方針と失敗時の手順は [Fallow quality gate](tooling/fallow/README.md) を参照してください。生のレポートには既存 finding が残るため、終了コードだけで問題なしと判断しないでください。
 
 CI gate policy:
 
-- Pull request and `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
+- Pull request and `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm fallow:ci`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
 - CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed.
 - Renovate update branch pushes do not run CI directly. Renovate creates PRs immediately after any required Dependency Dashboard approval, and pull request CI is the authoritative validation gate.
 - The `E2E` GitHub Actions workflow is still available through `workflow_dispatch` for manual Playwright checks.

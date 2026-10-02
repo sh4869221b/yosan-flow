@@ -61,6 +61,7 @@ export default defineConfig(
       "vitest.config.ts",
       "playwright.config.ts",
       "scripts/e2e-*.ts",
+      "scripts/fallow-ci.ts",
       "tests/**/*.ts",
     ],
     languageOptions: {

@@ -60,6 +60,46 @@ jobs:
       - name: Check
         run: pnpm check:ci
 
+  fallow:
+    name: Fallow
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.8.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Fallow baselines
+        run: pnpm fallow:ci
+
+      - name: Upload Fallow reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: fallow-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tmp-fallow-ci/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
   unit-tests:
     name: Unit tests
     runs-on: ubuntu-latest
@@ -242,6 +282,7 @@ jobs:
     needs:
       - format-lint
       - check
+      - fallow
       - unit-tests
       - integration-tests
       - build
@@ -253,6 +294,7 @@ jobs:
         run: |
           test "${{ needs['format-lint'].result }}" = "success"
           test "${{ needs.check.result }}" = "success"
+          test "${{ needs.fallow.result }}" = "success"
           test "${{ needs['unit-tests'].result }}" = "success"
           test "${{ needs['integration-tests'].result }}" = "success"
           test "${{ needs.build.result }}" = "success"

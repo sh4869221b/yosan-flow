@@ -1,8 +1,10 @@
-# Fallow reviewed baseline (#352 / #353)
+# Fallow quality gate and reviewed baseline (#352–#354)
 
 ## Adoption context and reproduction
 
-This is a reviewed inventory, **not a clean bill of health or a CI gate**. At #352, application
+The reviewed inventory is **not a clean bill of health**. The #354 CI gate rejects
+new findings relative to this inventory; accepted findings remain visible in raw reports.
+At #352, application
 source was unchanged from [`aba727b`](https://github.com/sh4869221b/yosan-flow/commit/aba727b09bcb86e0262cccdf0e26d08fe2389097).
 The original snapshot was taken on 2026-10-02 with #352's tooling configuration and
 `tests/unit/fallow-config.test.ts`. Runtime/package-manager versions come from
@@ -17,13 +19,14 @@ pnpm fallow                       # human combined report; exits 1 with retained
 pnpm fallow:dead-code             # currently exits 1: existing findings
 pnpm fallow:dupes                 # currently exits 0: findings, no percentage gate
 pnpm fallow:health                # currently exits 1: existing findings
+pnpm fallow:ci                    # CI gate: new findings and stale entries must be zero
 ```
 
-The scripts never load these baselines automatically and never apply fixes. Keep
-ESLint and svelte-check; their jobs answer different questions. The cleanup below belongs to
-[#353](https://github.com/sh4869221b/yosan-flow/issues/353); CI enforcement belongs to
-[#354](https://github.com/sh4869221b/yosan-flow/issues/354). No GitHub Actions workflow
-or existing quality gate is changed here.
+The raw-report scripts do not load baselines. Only `fallow:ci` explicitly loads the
+three checked-in baselines; no script applies fixes. Keep ESLint and svelte-check:
+their jobs answer different questions. The cleanup below belongs to
+[#353](https://github.com/sh4869221b/yosan-flow/issues/353); the dedicated CI gate to
+[#354](https://github.com/sh4869221b/yosan-flow/issues/354).
 
 For machine-readable reports, synchronize first, then invoke the executable directly
 so pnpm/SvelteKit output does not contaminate JSON. Keep stderr separate:
@@ -45,6 +48,86 @@ JSON report returns 0 without a failure flag, as does dupes without a percentage
 threshold. The format-dependent combined exit behavior is verified for 3.30.0. **Exit 0 alone never means no findings.**
 Other exit statuses are tool/setup errors, not a baseline. Inspect `gate_outcomes`,
 `workspace_diagnostics`, findings and stderr; never append `|| true` to claim a pass.
+
+## Required CI gate (#354)
+
+`pnpm fallow:ci` first runs `svelte-kit sync`, then `scripts/fallow-ci.ts` invokes the
+installed executable for the **whole project**, not only changed files:
+
+- Dead code: `--baseline tooling/fallow/dead-code.baseline.json`, `--fail-on-issues`
+  and `--fail-on-parse-error`; the filtered `total_issues` must be zero.
+- Duplication: `--baseline tooling/fallow/dupes.baseline.json`; the filtered
+  `stats.clone_groups` must be zero. In the pinned version even `--fail-on-issues`
+  returns 0 for new clones. The runner checks the JSON count explicitly instead of
+  relying on that exit code or a percentage budget. Fragments are omitted.
+- Health: `--baseline-mode identity --baseline tooling/fallow/health.baseline.json`,
+  `--fail-on-issues` and `--fail-on-parse-error`; filtered `findings` must be empty.
+  Raw health summary counts still include retained findings and are not the delta.
+- All three use `--no-cache`, JSON output and `--fail-on-stale-baseline`. Every
+  process must exit 0, the expected report must parse, the baseline gate must be
+  enforced and pass, and no workspace diagnostic may mark analysis as degraded.
+  Missing/corrupt baselines, malformed output, missing binaries, process failures
+  and timeouts fail closed. The runner attempts all three analyses even if one fails.
+
+PR and `main` push CI run this in the dedicated **Fallow** job. **Quality checks**
+requires its success, as well as format/lint, check, unit, integration, build and both
+E2E shards. Failure, cancellation or skipping of any required job cannot produce a
+successful aggregate. The separate E2E timing summary remains unchanged.
+
+The Fallow job checks out full Git history (`fetch-depth: 0`): default health analysis
+includes churn/hotspots and marks shallow history as degraded, even when threshold
+findings are empty. Fixture projects have independent Git histories so the unit job
+can keep its existing shallow checkout. The job uses the repository Node/pnpm
+versions, `pnpm install --frozen-lockfile`,
+and the same pnpm download-store cache as the existing jobs. Fallow is an npm wrapper
+around platform-specific optional binaries; do not install with `--no-optional`, copy
+`node_modules` across operating systems/architectures or replace the lockfile pin
+with `dlx`/`latest`. A clean frozen install on the current platform restores the
+matching binary. No Fallow analysis cache is restored; every gate scan is fresh.
+
+Read `.tmp-fallow-ci/{dead-code,dupes,health}.json` and matching `.stderr.txt` files
+when a gate fails. CI uploads that ignored directory as
+`fallow-<run-id>-<attempt>` for seven days even on failure (forced cancellation or
+installation failure can prevent reports). The job has read-only repository access,
+never posts comments, never edits source/baselines and never runs autofix.
+
+Failure/review procedure:
+
+1. Reproduce with a frozen install and `pnpm fallow:ci`. Inspect the failing JSON
+   and stderr, then the corresponding raw command above. A dependency/setup/parse
+   failure is not an accepted finding; repair the environment or investigate the parser.
+2. Trace new findings to their callers/contracts and fix real defects. Do not delete
+   required framework/API/test contracts based only on a syntactic finding. For a
+   genuine exception, document the exact identity/rule, rationale and regression
+   evidence in the same reviewed change, using the narrow policy below.
+3. Remove resolved stale entries. Inspect raw findings before any manual baseline
+   refresh; no blanket rebaseline, new count allowance, threshold inflation or CI
+   baseline regeneration is allowed. #353's remaining two facade findings, eleven
+   clone groups and 57 health identities retain their existing recorded reasons.
+4. Re-run fixture tests and the full gate after config, baseline or analyzer changes.
+   `tests/unit/fallow-ci.test.ts` runs the real executable against disposable projects:
+   existing findings pass; new dead code, clones and health findings exit 1; stale or
+   missing baselines and degraded shallow history fail. Policy tests execute the actual aggregate shell block with
+   each required job failed, cancelled and skipped. Production source is never poisoned.
+
+This is an identity-based regression gate, not proof of absence of all code problems.
+Same-named/anonymous health functions in one file can share an identity, and growth
+within an already accepted health category can remain hidden. Duplication identities
+can move after source or analyzer changes. Review the raw reports and changed code
+for those cases; do not claim measured coverage from static CRAP estimates.
+
+### Renovate and analyzer upgrades
+
+Fallow stays an exact npm devDependency. The npm manager updates `package.json` and
+`pnpm-lock.yaml` together; the Fallow-specific `rangeStrategy: pin` preserves the
+exact version. The existing `security:minimumReleaseAgeNpm` preset and pnpm's
+`minimumReleaseAge: 4320` still enforce three days, including optional platform
+packages. Major updates keep Dependency Dashboard approval. No age exclusion or
+separate action/binary version is introduced.
+
+Renovate PRs must pass the same fixtures and gate. If an update changes JSON contracts,
+detection or baseline identities, inspect every delta and update the runner/docs as
+needed; never refresh baselines automatically or waive failures for a bot PR.
 
 ## Discovery and exception policy
 
@@ -80,11 +163,12 @@ Other exit statuses are tool/setup errors, not a baseline. Inspect `gate_outcome
   Avoid whole-file suppressions, rule disabling, threshold inflation, automatic fixes,
   or baseline re-saving merely to make a failing result disappear.
 
-Three fixture-based unit checks prove route/test reachability and unused sentinels,
+The three original `fallow-config.test.ts` fixture checks prove route/test reachability
+and unused sentinels,
 only the declared tooling defaults are exempt, and exact generated declarations are
 excluded while authored declarations still produce unresolved-import findings. These
-check tooling behavior, **not repository finding counts**; they introduce no Fallow
-cleanup gate through the unit-test job.
+check discovery behavior, **not repository finding counts**. The required cleanup
+gate runs separately in the Fallow job; the newer CI fixtures exercise its rejection paths.
 
 ## Reviewed cleanup snapshot (#353, 2026-10-02)
 
@@ -152,14 +236,14 @@ Remaining findings are intentional review work, not newly accepted defects:
   coverage regressions. The original H2/H3/H4 reasoning remains in force. H1's
   actual complexity defect is resolved; CRAP-only evidence is **contract-required**.
 
-`pnpm fallow` remains outside CI and currently exits 1 with retained findings in
+At the #353 snapshot, `pnpm fallow` remained outside CI and exited 1 with retained findings in
 human format. The same combined analysis with `--format json --quiet` exits 0,
 reporting failed but unenforced gates. This corrects #352's overly broad combined
 exit-0 description; do not infer cleanliness from that JSON status. Raw `dead-code`
 and `health` still exit 1 for the retained findings; `dupes` exits 0.
 All three explicit baseline comparisons succeed after review, with no new or stale
-entries. This does not make a zero-finding or measured-coverage claim and does not
-establish #354's enforcement policy. The raw findings and identities are checked
+entries. This does not make a zero-finding or measured-coverage claim; #354 uses the explicit
+enforcement policy above. The raw findings and identities are checked
 again after build so generated output cannot silently change the inventory.
 
 Verification uses format, warning-strict lint/check, all unit/integration suites,
@@ -377,7 +461,7 @@ pnpm exec fallow health --baseline-mode identity --baseline tooling/fallow/healt
 ```
 
 These commands hide known identities **only for review of changes**. A clean comparison
-is not a clean raw report and is not the future #354 enforcement policy. Always inspect
+is not a clean raw report. Use `pnpm fallow:ci` for the enforced policy above. Always inspect
 the full reports first. When a reviewed change resolves entries, remove them; do not rebaseline new
 problems as a shortcut. Refresh only after reviewing every changed finding:
 
