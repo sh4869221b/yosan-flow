@@ -119,6 +119,31 @@ describe("Fallow CI wiring", () => {
     ).toBe(1);
   });
 
+  it("isolates PR cancellation by workflow and uses unique non-PR groups", () => {
+    expect(workflow).toContain(
+      "group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}",
+    );
+    expect(workflow).toContain(
+      "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+    );
+    expect(workflow.match(/^concurrency:/gm)).toHaveLength(1);
+    expect(workflow).not.toMatch(/^ +concurrency:/m);
+  });
+
+  it("runs both shards unless classification positively permits the skip", () => {
+    expect(
+      workflow.match(
+        /if: \$\{\{ !cancelled\(\) && !\(needs\.changes\.result == 'success' && needs\.changes\.outputs\.docs_only == 'true'\) \}\}/g,
+      ),
+    ).toHaveLength(2);
+    expect(workflow).toContain("steps: &e2e-steps");
+    expect(workflow).toContain("steps: *e2e-steps");
+    expect(workflow).toContain(
+      "run: pnpm test:e2e --shard=${{ env.E2E_SHARD }}/2",
+    );
+    expect(workflow).not.toMatch(/continue-on-error|pull_request_target/);
+  });
+
   it("keeps Fallow exact under Renovate without bypassing release age or major approval", () => {
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
     const renovate = JSON.parse(

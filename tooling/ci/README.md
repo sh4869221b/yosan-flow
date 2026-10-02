@@ -1,6 +1,7 @@
 # CI runner efficiency
 
 Issue #472 reduces avoidable runner use, not the duration of an ordinary full CI.
+Hosted measurements, negative controls, and remaining observation limits: [acceptance evidence](acceptance.md).
 
 ## Documentation allowlist (decided before implementation)
 
