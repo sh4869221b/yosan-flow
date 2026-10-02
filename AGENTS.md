@@ -18,6 +18,7 @@ src/lib/server/          # Effect services, domain rules, repositories, validati
 migrations/              # Immutable legacy SQL + Drizzle SQL/metadata
 tests/unit/              # Pure rules, controller races, architecture guards
 tests/integration/       # Handler/service/repository tests with in-memory or D1 fake
+tests/migrations/        # Schema/history/data safety on disposable SQLite/local D1
 tests/e2e/               # Playwright against local Wrangler and migrated D1
 ```
 
@@ -107,6 +108,7 @@ pnpm format:check
 pnpm lint
 pnpm check
 pnpm fallow:ci
+pnpm db:verify
 pnpm test:unit
 pnpm test:integration
 pnpm build
@@ -115,7 +117,7 @@ pnpm test:coverage
 pnpm run cf:migrate:local
 ```
 
-CI runs format/lint, check, Fallow, unit, integration, build, and E2E as independent jobs, then aggregates them in `Quality checks`. Coverage is visibility-only, not a required PR gate.
+CI runs format/lint, check, Fallow, migration safety, unit, integration, build, and E2E as independent jobs, then aggregates them in `Quality checks`. Coverage is visibility-only, not a required PR gate.
 
 ## Cloudflare Notes
 

@@ -76,6 +76,7 @@ pnpm format:check
 pnpm lint:ci
 pnpm check:ci
 pnpm fallow:ci
+pnpm db:verify
 pnpm test:unit
 pnpm test:integration
 pnpm build
@@ -84,7 +85,7 @@ pnpm test:e2e
 
 Required CI gate policy:
 
-- Pull request / `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm fallow:ci`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
+- Pull request / `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm fallow:ci`, `pnpm db:verify`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
 - CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed.
 - Renovate update branch pushes do not run CI directly. Renovate creates PRs immediately after any required Dependency Dashboard approval, and pull request CI is the authoritative validation gate.
 - The optional `E2E` GitHub Actions workflow remains available through `workflow_dispatch` for manual Playwright checks.
@@ -348,8 +349,7 @@ separate schema change. Do not treat snapshot equality as physical-schema equali
 4. Verify both an empty disposable DB (legacy → baseline → new SQL) and a disposable
    DB with both legacy migrations already recorded plus representative data (only
    baseline/new SQL pending). Compare schema, row counts, PK/FK integrity and values.
-   The baseline contract has narrow unit coverage; the general migration CI/drift
-   gate belongs to [#349](https://github.com/sh4869221b/yosan-flow/issues/349).
+   Run `pnpm db:verify` for the dedicated automated checks described below.
 5. Apply locally only after reviewing the pending list, then run affected integration
    tests and the existing quality checks. Use a new disposable state directory when
    testing; do not reset an existing database to simulate an upgrade.
@@ -362,6 +362,59 @@ pnpm test:unit
 pnpm test:integration
 pnpm check:ci
 ```
+
+#### Migration safety gate
+
+`pnpm db:verify` runs Drizzle metadata checks and `tests/migrations/`. The dedicated
+**Migration safety** CI job is required by **Quality checks**, including when it
+fails, is skipped or is cancelled. Keep the ordinary unit/integration/static/build
+and E2E gates too. No database credentials or remote apply are involved.
+
+The checks deliberately cover different failure modes:
+
+- **History:** validate SQL/journal/snapshot correspondence and order; existing SQL
+  and snapshot bytes are immutable, and old journal entries are append-only. CI
+  compares against the PR base SHA or main push's previous SHA with full Git
+  history. Locally it uses `git merge-base HEAD origin/main`; fetch `origin/main`
+  first, or set `MIGRATION_BASE_REF` to an explicit 40-character base commit SHA.
+  A missing base/history fails rather than silently skipping the guard.
+- **Generation:** generate the current schema snapshot in memory with the pinned
+  Drizzle API and compare its schema content to the last committed snapshot.
+  Exclude only `id`, `prevId` and `_meta` rename bookkeeping; serialize undefined
+  fields as Drizzle does. Keep constraints and internal expression-index metadata.
+  No generated UUID/timestamp filenames or raw regenerated-file diff is used.
+- **Physical schema:** apply the complete SQL chain to disposable SQLite and
+  compare against a separately generated canonical schema. Inspect columns,
+  defaults, composite PK/FK grouping/actions, index ordering/expressions/predicates,
+  CHECK expressions, collation, generated columns, autoincrement, views/triggers,
+  STRICT and WITHOUT ROWID. CHECK names are representational; only the two known
+  legacy `table.id` TEXT PK nullability differences are normalized. Deferred FK
+  declarations and explicit ON CONFLICT clauses currently fail closed: add explicit
+  inspection and regression coverage before introducing those features.
+- **Upgrade/data:** record 0001/0002 before inserting artificial linked periods,
+  cross-period same-date totals, NULL IDs, Japanese/null/empty memos and sparse
+  history rowids. Apply only pending migrations and compare every original column,
+  key, value, row count and rowid. Exercise duplicate PK, FK and CHECK rejection.
+  Intentional future data transformations require explicit fixture/expectation
+  review, never weakening assertions just to obtain a pass. Additive columns are
+  accepted without dropping the original-column preservation checks.
+- **Runtime:** run default API/repository/atomic writer SQL through a real SQLite
+  D1 adapter, and separately run actual Wrangler local D1 migrations on fresh and
+  legacy-seeded state. Repeated apply must retain records/data. The adapter is not
+  the D1 runtime; Wrangler/E2E coverage remains necessary.
+
+Negative controls prove missing SQL/snapshot generation, immutable-history edits,
+physical drift, row/value/rowid loss and invalid SQL fail. A generated additive
+migration is a positive control. The CI aggregate's actual shell is also exercised
+with success/failure/cancelled/skipped job results. All fixture databases are
+in-memory or new `.tmp-migration-*` directories removed after use; no normal local
+state is reset and no production data is copied. These fixtures cannot prove
+safety for every existing database or replace migration review/backups.
+
+On failure, read the specific assertion, review pending SQL and regenerate missing
+metadata from `schema.ts` when appropriate. Never rewrite legacy/applied artifacts,
+ignore all snapshot differences, disable constraint checks, or loosen an existing
+quality baseline to make the gate green.
 
 For an existing local DB, inspect its recorded filenames without changing them:
 

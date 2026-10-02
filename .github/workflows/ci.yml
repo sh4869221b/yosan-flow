@@ -150,6 +150,38 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
+  migrations:
+    name: Migration safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.8.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify migration metadata, schema, data and local D1
+        env:
+          MIGRATION_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: pnpm db:verify
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -285,6 +317,7 @@ jobs:
       - fallow
       - unit-tests
       - integration-tests
+      - migrations
       - build
       - e2e
     if: ${{ always() }}
@@ -297,5 +330,6 @@ jobs:
           test "${{ needs.fallow.result }}" = "success"
           test "${{ needs['unit-tests'].result }}" = "success"
           test "${{ needs['integration-tests'].result }}" = "success"
+          test "${{ needs.migrations.result }}" = "success"
           test "${{ needs.build.result }}" = "success"
           test "${{ needs.e2e.result }}" = "success"

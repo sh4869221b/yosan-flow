@@ -54,6 +54,7 @@ pnpm format:check
 pnpm lint:ci
 pnpm check:ci
 pnpm fallow:ci
+pnpm db:verify
 pnpm test:unit
 pnpm test:integration
 pnpm build
@@ -66,7 +67,7 @@ pnpm test:e2e
 
 CI gate policy:
 
-- Pull request and `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm fallow:ci`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
+- Pull request and `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm fallow:ci`, `pnpm db:verify`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
 - CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed.
 - Renovate update branch pushes do not run CI directly. Renovate creates PRs immediately after any required Dependency Dashboard approval, and pull request CI is the authoritative validation gate.
 - The `E2E` GitHub Actions workflow is still available through `workflow_dispatch` for manual Playwright checks.
@@ -333,7 +334,8 @@ pnpm run cf:migrate:local
 - 最初の Drizzle migration は `20261002021516_legacy_baseline.sql` です。既存 schema の snapshot を記録しますが、SQL は `SELECT 1` だけで業務 table / data を変更しません。空 DB は legacy 2本 → baseline、両 legacy 適用済み DB は baseline だけを適用します。
 - 生成名の timestamp prefix と全環境共通の flat `migrations/*.sql` により、Wrangler は legacy → baseline → 後続 migration の順で認識します。Drizzle journal は baseline から始まり、Wrangler の適用履歴 `d1_migrations` とは別物です。
 - 既存 DB は適用前に legacy 2本の記録を確認してください。業務 data があるのに `0001` / `0002` が未適用と表示される場合は中止し、履歴を調査します。履歴を削除・偽装したり `cf:reset:local` を upgrade 手順に使ったりしません。
-- `db:check` は Drizzle metadata の整合性検査です。実 DB との drift、生成漏れ、SQL の安全性は保証しません。生成結果のレビューと使い捨て DB での検証は必要です。全面的な CI safety guard は [#349](https://github.com/sh4869221b/yosan-flow/issues/349) の範囲です。
+- `pnpm db:verify` は `db:check` に加え、生成漏れ、履歴の改変、空 DB / legacy 適用済み DB の upgrade、schema / PK / FK / CHECK / 値 / rowid の保持と実 SQL 経由の API を検証します。専用 **Migration safety** CI job が必須の `Quality checks` に含まれます。Node SQLite と Wrangler local D1 の使い捨て DB だけを使い、普段のローカル DB や remote DB は変更しません。
+- `db:check` 単独は Drizzle metadata の検査です。`db:verify` は ID・timestamp の生の git diff に頼らず snapshot の schema 内容と適用後の物理 schema を別々に比較します。既知の legacy nullable TEXT PK と無名 CHECK の違いだけを明示的に扱います。fixture は人工データであり、全ての実データに対する移行安全性を保証するものではありません。生成 SQL のレビューは引き続き必要です。
 - schema / custom SQL のレビュー観点、baseline の制約、具体的な適用前確認は [migration policy](CONTRIBUTING.md#migration-policy) を参照してください。
 - preview / production の適用は別途承認した作業として既存の `cf:migrate:preview` / `cf:migrate:production` を使います。この基盤の導入自体で remote DB へ適用しません。`drizzle-kit push` / `migrate` から D1 へ直接適用しないでください。
 
