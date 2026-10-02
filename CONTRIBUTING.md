@@ -40,8 +40,8 @@ XDG_CONFIG_HOME="$PWD/.tmp-xdg-config" pnpm wrangler types worker-runtime.d.ts -
 - `src/routes/`: SvelteKit routes and server load logic.
 - `src/lib/components/`: Svelte UI components.
 - `src/lib/server/`: server-side repositories, services, and validation.
-- `migrations/`: D1 schema migrations.
-- `src/lib/server/db/schema.ts`: Drizzle schema mirror for the current SQL migrations.
+- `migrations/`: immutable legacy SQL plus Drizzle-generated SQL and metadata.
+- `src/lib/server/db/schema.ts`: canonical schema for future Drizzle migrations.
 - `tests/unit/`: domain and calculation tests.
 - `tests/integration/`: API/repository integration tests.
 - `tests/e2e/`: Playwright dashboard tests.
@@ -292,19 +292,93 @@ Check unit/integration coverage for server and API code:
 pnpm test:coverage
 ```
 
-For migration work:
+### Migration policy
+
+`src/lib/server/db/schema.ts` is the canonical schema for future changes. Generate
+SQL and metadata with the repository-pinned Drizzle Kit; apply SQL with Wrangler.
+Application queries remain behind Drizzle/repositories, with no runtime migrator
+or request-time schema bootstrap. Never use Drizzle `push` or `migrate` against D1.
+
+#### Baseline and history ownership
+
+- Keep `migrations/0001_initial.sql` and `0002_reset_to_budget_periods.sql` byte-for-byte
+  unchanged at their existing paths. They remain executable historical artifacts,
+  not files to regenerate from the new source of truth. `0002` deletes tables/data.
+- `20261002021516_legacy_baseline.sql` contains only the read-only `SELECT 1` statement.
+  Its Drizzle `meta/20261002021516_snapshot.json` was generated from the unchanged schema;
+  only the generated initial SQL was replaced with the no-op during this one-time
+  adoption. Never regenerate this baseline or apply the discarded initial CREATEs.
+- Drizzle's `_journal.json` starts at index 0 for this baseline. It intentionally
+  does not claim the two legacy files. Preserve journal/snapshot IDs and history.
+  Wrangler separately records every applied SQL filename in `d1_migrations`.
+- All D1 bindings explicitly use `migrations_dir: "migrations"` and the flat
+  `migrations/*.sql` pattern. Drizzle's timestamp prefix sorts numerically after
+  `0001` and `0002`; metadata JSON is never applied by Wrangler. Never switch back
+  to index prefixes, move files, or use `wrangler d1 migrations create` alongside
+  Drizzle generation. Generate sequentially; verify filenames and journal order
+  after parallel branch work or timestamp collisions before applying anything.
+
+The baseline records the existing Drizzle model, not a re-introspection or
+normalization of legacy DDL. In particular, legacy SQLite `TEXT PRIMARY KEY` on
+`budget_periods.id` and `daily_operation_histories.id` has `notnull = 0`; Drizzle's
+`.primaryKey()` models these as non-null. Legacy CHECK constraints are unnamed,
+whereas the model gives them names. No table is rebuilt and these physical details
+remain unchanged here. A future generated table recreation may introduce explicit
+`NOT NULL` or change constraint representation: review it against the actual
+legacy schema and data, including nullable legacy IDs, before approving that
+separate schema change. Do not treat snapshot equality as physical-schema equality.
+
+#### Create, review, and verify
+
+1. Change `schema.ts`, then run `pnpm db:generate --name describe_schema_change`.
+   For data-only/custom SQL, use `pnpm db:generate:custom --name describe_data_change`
+   and fill in its SQL. Do not edit an already applied migration.
+2. Review and commit the SQL, corresponding snapshot and journal together. Check
+   table recreation, copy/rename/drop operations, defaults, nullability, CHECKs,
+   indexes (including DESC ordering), composite PKs, FKs and preservation of rows,
+   values and rowids. History replay uses `created_at ASC, rowid ASC`, so preserve
+   same-timestamp ordering during table copies. Custom SQL must preserve or
+   deliberately reconcile schema metadata;
+   use schema-generated SQL for representable DDL.
+3. Run `pnpm db:check`. This checks Drizzle metadata consistency, not live drift,
+   missing generated migrations or data safety. Running `pnpm db:generate` again
+   on an unchanged schema should report no changes and write nothing. Generated
+   IDs/timestamps are not deterministic across independent new migrations, so do
+   not compare their raw bytes as a general regeneration gate.
+4. Verify both an empty disposable DB (legacy → baseline → new SQL) and a disposable
+   DB with both legacy migrations already recorded plus representative data (only
+   baseline/new SQL pending). Compare schema, row counts, PK/FK integrity and values.
+   The baseline contract has narrow unit coverage; the general migration CI/drift
+   gate belongs to [#349](https://github.com/sh4869221b/yosan-flow/issues/349).
+5. Apply locally only after reviewing the pending list, then run affected integration
+   tests and the existing quality checks. Use a new disposable state directory when
+   testing; do not reset an existing database to simulate an upgrade.
 
 ```bash
+pnpm db:check
+pnpm wrangler d1 migrations list DB --local
 pnpm run cf:migrate:local
+pnpm test:unit
+pnpm test:integration
+pnpm check:ci
 ```
 
-Migration policy:
+For an existing local DB, inspect its recorded filenames without changing them:
 
-- SQL files under `migrations/*.sql` remain the source of truth.
-- The Drizzle schema is a mirror only at this stage.
-- Non-migration application DB query paths should stay behind the Drizzle boundary and repositories. Runtime schema bootstrap is not part of the request path; apply migrations before using a D1-backed environment.
-- Generated Drizzle migrations are not adopted yet.
-- Generated Drizzle migration checks / drift checks are not required yet. For now, `pnpm check` type/import checks are the expected guard.
+```bash
+pnpm wrangler d1 execute DB --local --command "SELECT name FROM d1_migrations ORDER BY id"
+```
+
+If existing data is present but either legacy migration is pending or its record
+is missing, **stop** and investigate. Do not replay `0002`, delete migration history,
+mark migrations applied without verifying their schema, or use `cf:reset:local` as
+an upgrade. A database with only `0001` recorded is not a supported safe upgrade
+fixture for this baseline because the pending `0002` is destructive.
+
+Preview/production apply is a separately authorized operation using the existing
+`cf:migrate:preview` / `cf:migrate:production` scripts, after confirming the target
+binding and history. This foundation does not apply to any remote database and
+adds no credentials, direct Drizzle D1 connection, runtime migrator or deployment.
 
 If E2E needs an in-memory dev server because local D1 state is stale, start the app with:
 

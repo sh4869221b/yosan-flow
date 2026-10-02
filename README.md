@@ -317,14 +317,25 @@ production Metrics の「リクエスト期間」には P50 / P90 / P99 / P999 �
 
 ## D1 migration 運用メモ
 
-- スキーマは `migrations/*.sql` で管理します。
-- `src/lib/server/db/schema.ts` は Drizzle 用の schema mirror です。現時点では SQL migrations が source of truth です。
-- migration 以外のアプリケーション DB query path は Drizzle 境界・repository 経由に寄せます。request path では schema を作成しないため、Workers / D1 実行前に対象環境の migration を適用してください。
-- Drizzle 生成 migration はまだ採用していません。migration drift check の運用は後続タスクで決めます。
-- Drizzle generated migration checks / drift checks are not required in CI at this stage. TypeScript import and type safety coverage through `pnpm check` is sufficient for now.
-- ローカル適用: `pnpm run cf:migrate:local`
-- preview 適用: `pnpm run cf:migrate:preview`
-- production 適用: `pnpm run cf:migrate:production`
+今後の schema の正本は `src/lib/server/db/schema.ts` です。Drizzle Kit で SQL と snapshot / journal を `migrations/` へ生成し、D1 への適用は引き続き Wrangler だけで行います。request path に runtime migrator / DDL は追加しません。
+
+```bash
+# schema.ts を変更した後、内容がわかる名前で生成する
+pnpm db:generate --name describe_schema_change
+pnpm db:check
+# SQL・snapshot・journal をレビューしてからローカルだけへ適用する
+pnpm wrangler d1 migrations list DB --local
+pnpm run cf:migrate:local
+```
+
+- 生成された SQL と `migrations/meta/` を schema の変更と同じ PR に含めます。データ移行などの手書き SQL が必要なら `pnpm db:generate:custom --name describe_data_change` を使い、生成された空の SQL を編集します。
+- `0001_initial.sql` / `0002_reset_to_budget_periods.sql` は既存履歴として変更・移動・再生成しません。`0002` は table を削除するため、既存 DB で再実行してはいけません。
+- 最初の Drizzle migration は `20261002021516_legacy_baseline.sql` です。既存 schema の snapshot を記録しますが、SQL は `SELECT 1` だけで業務 table / data を変更しません。空 DB は legacy 2本 → baseline、両 legacy 適用済み DB は baseline だけを適用します。
+- 生成名の timestamp prefix と全環境共通の flat `migrations/*.sql` により、Wrangler は legacy → baseline → 後続 migration の順で認識します。Drizzle journal は baseline から始まり、Wrangler の適用履歴 `d1_migrations` とは別物です。
+- 既存 DB は適用前に legacy 2本の記録を確認してください。業務 data があるのに `0001` / `0002` が未適用と表示される場合は中止し、履歴を調査します。履歴を削除・偽装したり `cf:reset:local` を upgrade 手順に使ったりしません。
+- `db:check` は Drizzle metadata の整合性検査です。実 DB との drift、生成漏れ、SQL の安全性は保証しません。生成結果のレビューと使い捨て DB での検証は必要です。全面的な CI safety guard は [#349](https://github.com/sh4869221b/yosan-flow/issues/349) の範囲です。
+- schema / custom SQL のレビュー観点、baseline の制約、具体的な適用前確認は [migration policy](CONTRIBUTING.md#migration-policy) を参照してください。
+- preview / production の適用は別途承認した作業として既存の `cf:migrate:preview` / `cf:migrate:production` を使います。この基盤の導入自体で remote DB へ適用しません。`drizzle-kit push` / `migrate` から D1 へ直接適用しないでください。
 
 ## Cloudflare 設定
 
