@@ -75,6 +75,7 @@ Run focused checks while developing. CI uses warning-strict static-analysis comm
 pnpm format:check
 pnpm lint:ci
 pnpm check:ci
+pnpm fallow:ci
 pnpm test:unit
 pnpm test:integration
 pnpm build
@@ -83,7 +84,7 @@ pnpm test:e2e
 
 Required CI gate policy:
 
-- Pull request / `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
+- Pull request / `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm fallow:ci`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
 - CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed.
 - Renovate update branch pushes do not run CI directly. Renovate creates PRs immediately after any required Dependency Dashboard approval, and pull request CI is the authoritative validation gate.
 - The optional `E2E` GitHub Actions workflow remains available through `workflow_dispatch` for manual Playwright checks.
@@ -130,14 +131,16 @@ make CI pass.
 
 ### Fallow structural analysis
 
-Run `pnpm fallow` for the combined local report, or `pnpm fallow:dead-code`,
-`pnpm fallow:dupes`, and `pnpm fallow:health` separately. These use the exact
-development dependency and project config; ESLint and svelte-check remain required.
-The [reviewed baseline and exception policy](tooling/fallow/README.md) records
-the initial threshold findings, #353 cleanup decisions and the current suppression
-inventory. Baselines are not loaded by default. The reviewed cleanup preserves
-contract-required findings and static CRAP-only estimates; a required Fallow CI job
-remains follow-up issue #354.
+Run `pnpm fallow` for the combined raw report, or `pnpm fallow:dead-code`,
+`pnpm fallow:dupes`, and `pnpm fallow:health` separately. `pnpm fallow:ci` runs the
+same baseline-aware gate as the dedicated **Fallow** job. New dead-code, duplication
+and health findings, stale baseline entries and tool/parse failures fail the gate.
+`Quality checks` requires Fallow success alongside every existing gate; cancelled
+or skipped required jobs are not success. ESLint and svelte-check remain required.
+The [operation and exception policy](tooling/fallow/README.md) documents the
+reviewed #353 baseline, raw-report limitations, reports and failure investigation.
+Only `fallow:ci` explicitly loads the baselines. Do not add findings, relax thresholds,
+suppress whole files or run autofix in CI to obtain a pass.
 
 ### E2E timing and baseline
 

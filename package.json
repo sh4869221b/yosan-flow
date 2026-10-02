@@ -26,7 +26,8 @@
     "fallow": "svelte-kit sync && fallow",
     "fallow:dead-code": "svelte-kit sync && fallow dead-code",
     "fallow:dupes": "fallow dupes",
-    "fallow:health": "svelte-kit sync && fallow health"
+    "fallow:health": "svelte-kit sync && fallow health",
+    "fallow:ci": "svelte-kit sync && node scripts/fallow-ci.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
