@@ -69,12 +69,12 @@ Lint source, test, and config files:
 pnpm lint
 ```
 
-Run focused checks while developing. CI runs the same quality baseline:
+Run focused checks while developing. CI uses warning-strict static-analysis commands:
 
 ```bash
 pnpm format:check
-pnpm lint
-pnpm check
+pnpm lint:ci
+pnpm check:ci
 pnpm test:unit
 pnpm test:integration
 pnpm build
@@ -83,11 +83,50 @@ pnpm test:e2e
 
 Required CI gate policy:
 
-- Pull request / `main` push CI runs `pnpm format:check`, `pnpm lint`, `pnpm check`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
+- Pull request / `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
 - CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed.
 - Renovate update branch pushes do not run CI directly. Renovate creates PRs immediately after any required Dependency Dashboard approval, and pull request CI is the authoritative validation gate.
 - The optional `E2E` GitHub Actions workflow remains available through `workflow_dispatch` for manual Playwright checks.
 - Coverage is intentionally a visibility check, not a required PR gate. Run `pnpm test:coverage` when changing server-side domain, API, repository, or validation behavior.
+
+### Static analysis policy
+
+`pnpm lint` and `pnpm check` remain the development commands. `pnpm lint:ci`
+adds ESLint's `--max-warnings=0`; `pnpm check:ci` adds svelte-check's
+`--fail-on-warnings` after the same SvelteKit sync. CI rejects any ESLint or
+Svelte/TypeScript diagnostic warning, including warning-level rules inherited
+from the recommended presets. Tool/environment messages outside those diagnostic
+systems (for example, Wrangler's proxy notice) are not covered by these flags.
+
+The initial inventory at `c1d12e4` had zero ESLint errors/warnings and zero
+svelte-check errors/warnings. No warning baseline, warning budget, or blanket
+suppression is introduced. Dependency updates must pass the same gate; investigate
+new diagnostics rather than relaxing it for Renovate.
+
+Project rules for `.svelte`, `.svelte.ts` and `.svelte.js` files:
+
+- `svelte/require-each-key: error`: preserve item identity across list updates.
+- `svelte/button-has-type: error`: make form submission behavior explicit.
+- `svelte/no-unused-props: error`: retain the recommended preset's existing error
+  level instead of downgrading it to the warning level considered in #234. Keep
+  its default imported-type handling; shared DTOs and forwarded component APIs
+  should not be narrowed merely because one component does not use every field.
+- `svelte/prefer-const: error`: use the Svelte-aware replacement, which understands
+  `$props` and `$derived`. Disable core `prefer-const` only for these Svelte files;
+  ordinary TypeScript files retain the core check.
+- `svelte/prefer-svelte-reactivity: error`: use reactive built-ins for mutable UI
+  state. Immutable lookup collections and a Map rebuilt by `$derived` remain
+  valid. The history controller's `mutationSequences` Map is an explicitly
+  documented, single-declaration exception: it tracks imperative request ordering,
+  not rendered state. Making those race guards reactive is unnecessary.
+
+Candidate-rule analysis required no runtime or component API changes. The only
+reactivity finding was that request-order Map (reported twice by the plugin).
+ESLint configuration comments also explain the existing TypeScript unused-variable
+replacement and the narrow Drizzle/D1 `no-explicit-any` exceptions. If an intentional
+API or a false positive needs a future exception, keep it local, name the rule,
+explain the reason, and add regression coverage. Do not disable a rule globally to
+make CI pass.
 
 ### E2E timing and baseline
 
