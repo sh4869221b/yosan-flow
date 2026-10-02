@@ -62,6 +62,7 @@ export default defineConfig(
       "playwright.config.ts",
       "scripts/e2e-*.ts",
       "scripts/fallow-ci.ts",
+      "scripts/ci-changes.ts",
       "tests/**/*.ts",
     ],
     languageOptions: {

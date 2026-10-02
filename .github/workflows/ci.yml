@@ -6,7 +6,36 @@ on:
     branches:
       - main
 
+# Unique non-PR groups also avoid cancelling a pending main run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  changes:
+    name: Classify PR changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - name: Check out complete repository history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+      - name: Classify complete PR diff
+        id: classify
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci-changes.ts
+
   format-lint:
     name: Format and lint
     runs-on: ubuntu-latest
@@ -207,16 +236,15 @@ jobs:
       - name: Build
         run: pnpm build
 
-  e2e:
-    name: E2E tests (shard ${{ matrix.shard }}/2)
+  e2e-shard-1:
+    name: E2E tests (shard 1/2)
+    needs: changes
+    if: ${{ !cancelled() && !(needs.changes.result == 'success' && needs.changes.outputs.docs_only == 'true') }}
+    env:
+      E2E_SHARD: 1
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
-
-    steps:
+    steps: &e2e-steps
       - name: Check out repository
         uses: actions/checkout@v7
 
@@ -238,13 +266,13 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: E2E tests
-        run: pnpm test:e2e --shard=${{ matrix.shard }}/2
+        run: pnpm test:e2e --shard=${{ env.E2E_SHARD }}/2
 
       - name: Upload E2E diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
+          name: e2e-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ env.E2E_SHARD }}
           path: |
             test-results/
             playwright-report/
@@ -257,7 +285,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-timing-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
+          name: e2e-timing-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ env.E2E_SHARD }}
           path: |
             test-results/results.json
             .tmp-e2e-timing.json
@@ -265,9 +293,19 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
+  e2e-shard-2:
+    name: E2E tests (shard 2/2)
+    needs: changes
+    if: ${{ !cancelled() && !(needs.changes.result == 'success' && needs.changes.outputs.docs_only == 'true') }}
+    env:
+      E2E_SHARD: 2
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps: *e2e-steps
+
   e2e-summary:
     name: E2E timing summary
-    needs: e2e
+    needs: [changes, e2e-shard-1, e2e-shard-2]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -283,7 +321,15 @@ jobs:
         with:
           node-version-file: .node_version
 
+      - name: Record intentional E2E skip
+        if: ${{ needs.changes.result == 'success' && needs.changes.outputs.docs_only == 'true' }}
+        run: |
+          test "${{ needs['e2e-shard-1'].result }}" = "skipped"
+          test "${{ needs['e2e-shard-2'].result }}" = "skipped"
+          echo 'Both E2E shards intentionally skipped for the complete docs-only PR diff; E2E runner time is 0 seconds.' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Summarize completed E2E job
+        if: ${{ !(needs.changes.result == 'success' && needs.changes.outputs.docs_only == 'true') }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -312,6 +358,7 @@ jobs:
     name: Quality checks
     runs-on: ubuntu-latest
     needs:
+      - changes
       - format-lint
       - check
       - fallow
@@ -319,12 +366,21 @@ jobs:
       - integration-tests
       - migrations
       - build
-      - e2e
+      - e2e-shard-1
+      - e2e-shard-2
     if: ${{ always() }}
 
     steps:
       - name: Verify required CI jobs
+        env:
+          DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
         run: |
+          test "${{ needs.changes.result }}" = "success"
+          case "$DOCS_ONLY" in
+            true) expected_e2e=skipped ;;
+            false) expected_e2e=success ;;
+            *) echo "Missing or invalid change classification" >&2; exit 1 ;;
+          esac
           test "${{ needs['format-lint'].result }}" = "success"
           test "${{ needs.check.result }}" = "success"
           test "${{ needs.fallow.result }}" = "success"
@@ -332,4 +388,5 @@ jobs:
           test "${{ needs['integration-tests'].result }}" = "success"
           test "${{ needs.migrations.result }}" = "success"
           test "${{ needs.build.result }}" = "success"
-          test "${{ needs.e2e.result }}" = "success"
+          test "${{ needs['e2e-shard-1'].result }}" = "$expected_e2e"
+          test "${{ needs['e2e-shard-2'].result }}" = "$expected_e2e"

@@ -10,7 +10,11 @@
       "name": "yosan-flow-tooling",
       "enablers": ["@sveltejs/kit"],
       // These are invoked by Playwright and GitHub Actions, not application imports.
-      "entryPoints": ["scripts/e2e-timing.ts", "scripts/e2e-summary.ts"],
+      "entryPoints": [
+        "scripts/e2e-timing.ts",
+        "scripts/e2e-summary.ts",
+        "scripts/ci-changes.ts",
+      ],
       "entryPointRole": "support",
       "usedExports": [
         { "pattern": "drizzle.config.ts", "exports": ["default"] },
