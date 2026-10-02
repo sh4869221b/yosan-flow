@@ -148,9 +148,10 @@ needed; never refresh baselines automatically or waive failures for a bot PR.
   cover dependencies, build output and coverage. The authored `src/app.d.ts` and D1
   type/schema files remain analyzed. Wrangler's generated `_worker` reference is not
   an unresolved-import defect in authored code; do not ignore all unresolved imports.
-- `migrations/*.sql` remains the schema source of truth. SQL is outside Fallow's JS/TS
-  analysis; a zero finding count says nothing about SQL validity or migration drift.
-  `drizzle.config.ts` and the authored schema mirror stay in the graph.
+- `src/lib/server/db/schema.ts` is the canonical schema and stays in the graph
+  alongside `drizzle.config.ts`. Legacy and generated `migrations/*.sql` are outside
+  Fallow's JS/TS analysis; a zero finding count says nothing about SQL validity or
+  migration drift.
 - No rule is disabled/downgraded, no global member/export/dependency allowlist exists,
   and no baseline is silently used as a suppression. Boundary rules and custom rule
   packs are **not configured/not measured**; their reported zeroes are not proof of

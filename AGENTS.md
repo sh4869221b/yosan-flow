@@ -15,7 +15,7 @@ src/routes/              # Single dashboard page and period-first JSON API
 src/lib/dashboard/       # Client controllers, mutation ordering, DTOs, URL helpers
 src/lib/components/      # Dashboard, calendar, budget, and day-entry UI
 src/lib/server/          # Effect services, domain rules, repositories, validation, JST time
-migrations/              # D1 schema source of truth
+migrations/              # Immutable legacy SQL + Drizzle SQL/metadata
 tests/unit/              # Pure rules, controller races, architecture guards
 tests/integration/       # Handler/service/repository tests with in-memory or D1 fake
 tests/e2e/               # Playwright against local Wrangler and migrated D1
@@ -34,7 +34,7 @@ tests/e2e/               # Playwright against local Wrangler and migrated D1
 | Runtime service selection | `src/lib/server/services/api-services/`                                              | D1/in-memory composition and cache                       |
 | Persistence               | `src/lib/server/db/`                                                                 | Drizzle repositories plus the raw-D1 atomic writer       |
 | API validation/errors     | `src/lib/server/validation/`, `src/lib/server/effect/`                               | Parsing, stable error mapping, Effect execution          |
-| Schema                    | `migrations/*.sql`, `src/lib/server/db/schema.ts`                                    | SQL is authoritative; Drizzle schema is a mirror         |
+| Schema                    | `migrations/*.sql`, `src/lib/server/db/schema.ts`                                    | schema.ts is canonical; generate SQL with Drizzle Kit    |
 
 ## Code Map
 
@@ -65,7 +65,7 @@ Before editing, read `README.md`, `CONTRIBUTING.md`, and every deeper `AGENTS.md
 - `src/lib/dashboard/AGENTS.md`: client state ownership and mutation races.
 - `src/lib/components/AGENTS.md`: Svelte UI and selector conventions.
 - `src/lib/server/AGENTS.md`: server-wide domain, Effect, validation boundaries.
-- `src/lib/server/db/AGENTS.md`: repositories, raw D1 writer, schema mirror.
+- `src/lib/server/db/AGENTS.md`: repositories, raw D1 writer, canonical schema.
 - `src/lib/server/services/AGENTS.md`: summary/day-entry/API-service composition.
 - `tests/AGENTS.md`: test-layer selection.
 - `tests/{unit,integration,e2e}/AGENTS.md`: layer-specific fixtures and synchronization.
@@ -92,7 +92,7 @@ Before editing, read `README.md`, `CONTRIBUTING.md`, and every deeper `AGENTS.md
 
 - Do not add month/day compatibility routes or infer selected state from a calendar month.
 - Do not mutate daily totals or histories by date alone; preserve `budget_period_id` scoping.
-- Do not add runtime schema bootstrap or treat Drizzle-generated migrations as authoritative.
+- Do not add runtime schema bootstrap, rewrite legacy migrations, or apply directly through Drizzle.
 - Do not bypass repositories/Drizzle except within the guarded raw-D1 day-entry writer family.
 - Do not weaken the E2E reset token/local-intent guard.
 - Do not deploy with bare `wrangler deploy`; the root D1 UUID is a placeholder.

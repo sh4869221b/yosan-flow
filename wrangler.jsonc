@@ -13,6 +13,8 @@
   "d1_databases": [
     {
       "binding": "DB",
+      "migrations_dir": "migrations",
+      "migrations_pattern": "migrations/*.sql",
       "database_name": "yosan-flow-local",
       // Local development DB placeholder.
       "database_id": "00000000-0000-0000-0000-000000000000",
@@ -47,6 +49,8 @@
       "d1_databases": [
         {
           "binding": "DB",
+          "migrations_dir": "migrations",
+          "migrations_pattern": "migrations/*.sql",
           "database_name": "yosan-flow-preview",
           "database_id": "cfcff0f4-f8e1-4e25-b8ef-af2e11ca0df3",
         },
@@ -81,6 +85,8 @@
       "d1_databases": [
         {
           "binding": "DB",
+          "migrations_dir": "migrations",
+          "migrations_pattern": "migrations/*.sql",
           "database_name": "yosan-flow-prod",
           "database_id": "243d7022-5343-40d4-82dc-cef427eba406",
         },
