@@ -61,6 +61,8 @@ pnpm test:e2e
 
 通常の開発中は `pnpm lint` / `pnpm check` を使用できます。CI と同じ警告ゼロの確認には `pnpm lint:ci` / `pnpm check:ci` を使ってください。採用ルールと例外の方針は [CONTRIBUTING.md](CONTRIBUTING.md#static-analysis-policy) を参照してください。
 
+コードベース全体の構造検査は `pnpm fallow` で実行できます。Fallow は固定 version の開発依存で、現段階ではローカルの調査用です。初回 finding の分類、生成物・暗黙の entry の扱い、個別コマンドは [Fallow baseline](tooling/fallow/README.md) を参照してください。既存 finding があるため、コマンド終了コードだけで問題なしと判断しないでください。
+
 CI gate policy:
 
 - Pull request and `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.

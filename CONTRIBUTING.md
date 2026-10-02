@@ -128,6 +128,16 @@ API or a false positive needs a future exception, keep it local, name the rule,
 explain the reason, and add regression coverage. Do not disable a rule globally to
 make CI pass.
 
+### Fallow structural analysis
+
+Run `pnpm fallow` for the combined local report, or `pnpm fallow:dead-code`,
+`pnpm fallow:dupes`, and `pnpm fallow:health` separately. These use the exact
+development dependency and project config; ESLint and svelte-check remain required.
+The [reviewed baseline and exception policy](tooling/fallow/README.md) records
+all initial threshold findings and the existing suppression inventory. Baselines
+are not loaded by default. Fallow cleanup and a required CI job are follow-up issues
+#353 and #354; neither is part of this tooling-only adoption.
+
 ### E2E timing and baseline
 
 Both CI and the manual E2E workflow run shards `1/2` and `2/2` on independent hosted runners, with one Playwright worker and runner-local Wrangler/D1 state per shard. `fail-fast: false` lets the other shard finish after a failure, and `Quality checks` requires both CI shards to succeed. The **E2E timing summary** runs after both shards complete and publishes a separate section for each shard. Open the workflow run's summary or the `Summarize completed E2E job` log for timing, outcome counts and the five slowest individual tests in each shard.
