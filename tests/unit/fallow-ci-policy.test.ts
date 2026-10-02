@@ -11,6 +11,7 @@ const required = [
   "fallow",
   "unit-tests",
   "integration-tests",
+  "migrations",
   "build",
   "e2e",
 ];
@@ -46,7 +47,18 @@ describe("Fallow CI wiring", () => {
     );
   });
 
-  it("requires all existing gates plus Fallow and always evaluates the aggregate", () => {
+  it("runs migration safety with full history and a required base revision", () => {
+    const job = workflow.split("  migrations:\n")[1].split("  build:\n")[0];
+    expect(job).toContain("fetch-depth: 0");
+    expect(job).toContain(
+      "MIGRATION_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}",
+    );
+    expect(job).toContain("run: pnpm db:verify");
+    expect(job).toContain("run: pnpm install --frozen-lockfile");
+    expect(job).not.toMatch(/continue-on-error|--remote|pull_request_target/);
+  });
+
+  it("requires all existing gates plus Fallow and migration safety and always evaluates the aggregate", () => {
     const needs = quality
       .split("    needs:\n")[1]
       .split("    if:")[0]
