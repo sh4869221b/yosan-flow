@@ -60,6 +60,6 @@
     "bits-ui": "^2.19.3",
     "drizzle-orm": "^0.45.3",
     "effect": "^3.22.2",
-    "@lucide/svelte": "^1.48.0"
+    "@lucide/svelte": "^1.49.0"
   }
 }
