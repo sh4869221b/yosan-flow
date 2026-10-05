@@ -251,12 +251,11 @@ describe("business spans around actual mutation work", () => {
       const fixture = createFixture(undefined, undefined, tracing);
       const log = vi.spyOn(console, "log").mockImplementation(() => {});
       const input = event("POST", { ...period, budgetYen: -1 });
-      if (kind === "invalid-json")
-        input.request = new Request(input.request.url, {
-          method: "POST",
-          body: "{",
-        });
-      const response = await fixture.createPeriod(input);
+      const request =
+        kind === "invalid-json"
+          ? new Request(input.request.url, { method: "POST", body: "{" })
+          : input.request;
+      const response = await fixture.createPeriod({ ...input, request });
       expect(response.status).toBe(400);
       expect(await response.json()).toMatchObject({
         error: {

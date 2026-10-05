@@ -41,6 +41,9 @@ export function createRouteEvent(input: RouteEventInput): RouteEvent {
   const span = createNoopSpan();
   return {
     cookies: {
+      parse: () => {
+        throw new Error("Cookie parsing is not implemented by this fixture");
+      },
       get: () => undefined,
       getAll: () => [],
       set: () => {},

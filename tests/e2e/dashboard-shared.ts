@@ -34,6 +34,7 @@ export function addDays(date: string, days: number): string {
 export async function resetTestData(request: APIRequestContext): Promise<void> {
   const response = await request.post(`${baseUrl}/api/__test/reset`, {
     headers: {
+      "content-type": "application/json",
       "x-yosan-flow-e2e-reset-token": E2E_RESET_TOKEN,
     },
   });

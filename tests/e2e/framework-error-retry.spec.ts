@@ -33,7 +33,7 @@ test("retries a framework page-load error without losing URL or focus", async ({
     link.href = href;
     link.textContent = "Retry destination";
     link.dataset.sveltekitPreloadData = "false";
-    document.body.append(link);
+    document.body.appendChild(link);
   }, retryUrl);
   try {
     await page.getByRole("link", { name: "Retry destination" }).click();
@@ -57,4 +57,28 @@ test("retries a framework page-load error without losing URL or focus", async ({
   } finally {
     releaseRetry.resolve();
   }
+});
+
+test("retains framework CSRF and reset authorization guards", async ({
+  request,
+}) => {
+  const endpoint = `${getBaseUrl()}/api/__test/reset`;
+  const crossSite = await request.post(endpoint, {
+    headers: { origin: "https://untrusted.example" },
+  });
+  expect(crossSite.status()).toBe(403);
+  expect(await crossSite.text()).toContain(
+    "Cross-site POST form submissions are forbidden",
+  );
+
+  const wrongToken = await request.post(endpoint, {
+    headers: {
+      "content-type": "application/json",
+      "x-yosan-flow-e2e-reset-token": "wrong-token",
+    },
+  });
+  expect(wrongToken.status()).toBe(403);
+  expect(await wrongToken.json()).toEqual({
+    error: { code: "FORBIDDEN", message: "Forbidden" },
+  });
 });

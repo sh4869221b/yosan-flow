@@ -241,10 +241,13 @@ describe("native span output boundary", () => {
 
   it("smoke-imports the Workers entry with its native module mocked", async () => {
     const setAttribute = vi.fn();
-    const enterSpan = vi.fn<NativeTracing["enterSpan"]>((_name, callback) =>
-      callback({ isTraced: true, setAttribute }),
-    );
-    cloudflareRuntime.tracing = { enterSpan };
+    const enterSpan = vi.fn();
+    cloudflareRuntime.tracing = {
+      enterSpan(name, callback) {
+        enterSpan(name, callback);
+        return callback({ isTraced: true, setAttribute });
+      },
+    };
     const { getRequestTracing } =
       await import("#lib/server/observability/tracing-workers.ts");
     const result = { privateResult: "secret-result" };
