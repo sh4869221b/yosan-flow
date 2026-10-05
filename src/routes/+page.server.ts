@@ -1,11 +1,11 @@
 import type { PageServerLoad } from "./$types";
-import { runApiEffect } from "$lib/server/effect/runtime";
-import { getRequestTracing } from "$lib/server/observability/tracing-platform";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
+import { getRequestTracing } from "#lib/server/observability/tracing-workers.ts";
 import {
-  getApiServicesFromPlatform,
+  getApiServices,
   getPeriodSummaryFromServices,
-} from "$lib/server/services/month-summary-service";
-import { parsePeriodId } from "$lib/server/validation/month";
+} from "#lib/server/services/month-summary-service.ts";
+import { parsePeriodId } from "#lib/server/validation/month.ts";
 
 function resolveRequestedPeriodId(url: URL): string | null {
   const requested = url.searchParams.get("periodId");
@@ -19,9 +19,9 @@ function resolveRequestedPeriodId(url: URL): string | null {
   }
 }
 
-export const load: PageServerLoad = async ({ platform, url }) => {
-  const services = getApiServicesFromPlatform(platform);
-  const tracing = getRequestTracing(platform);
+export const load: PageServerLoad = async ({ url }) => {
+  const services = getApiServices();
+  const tracing = getRequestTracing();
   const requestedPeriodId = resolveRequestedPeriodId(url);
   const periods = await runApiEffect(services.listPeriods());
   const today = services.jstToday();

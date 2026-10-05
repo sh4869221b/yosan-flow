@@ -1,7 +1,7 @@
 import {
   getNextPeriodStartDate,
   isDateWithinPeriod,
-} from "$lib/server/domain/budget-period";
+} from "#lib/server/domain/budget-period.ts";
 
 export type BudgetPeriodValidationErrorFactory = (
   code: string,

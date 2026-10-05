@@ -2,8 +2,8 @@ import { Effect } from "effect";
 import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
-import { toEffectError } from "$lib/server/effect/runtime";
+} from "#lib/server/db/budget-period-repository.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import {
   assertDateInPeriod,
   assertHistoryMutationDate,

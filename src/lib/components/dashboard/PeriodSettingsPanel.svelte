@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Settings2 } from "@lucide/svelte";
-  import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
+  import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
   import PeriodRangeForm from "./PeriodRangeForm.svelte";
   import BudgetPeriodForm from "./BudgetPeriodForm.svelte";
   import PeriodBoundaryConfirmationDialog from "./PeriodBoundaryConfirmationDialog.svelte";

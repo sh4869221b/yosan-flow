@@ -1,6 +1,7 @@
+import { cloudflareRuntime } from "../../helpers/cloudflare-runtime";
 import { describe, expect, it } from "vitest";
-import { runApiEffect } from "$lib/server/effect/runtime";
-import { createD1ApiServices } from "$lib/server/services/month-summary-service";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
+import { createD1ApiServices } from "#lib/server/services/month-summary-service.ts";
 import { GET as periodGetDefaultRoute } from "../../../src/routes/api/periods/[periodId]/+server";
 import { PUT as periodPutDefaultRoute } from "../../../src/routes/api/periods/[periodId]/+server";
 import { _createPeriodDayHistoryHandler } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
@@ -13,6 +14,7 @@ import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 describe("period daily history mutations", () => {
   it("rolls back daily total when batch history insert fails with duplicate id", async () => {
     const fakeDb = createPeriodAwareD1Fake();
+    cloudflareRuntime.env = { DB: fakeDb };
     const historyIds = ["history-dup", "history-dup"];
     const services = createD1ApiServices(fakeDb, {
       now: () => new Date("2026-04-20T00:00:00.000Z"),
@@ -54,7 +56,6 @@ describe("period daily history mutations", () => {
       request: new Request("http://localhost/api/periods/p-atomicity", {
         method: "GET",
       }),
-      platform: { env: { DB: fakeDb } },
     } as any);
     expect(periodResponse.status).toBe(200);
     await expect(periodResponse.json()).resolves.toMatchObject({
@@ -81,6 +82,7 @@ describe("period daily history mutations", () => {
 
   it("edits and deletes daily history rows in D1 path", async () => {
     const fakeDb = createPeriodAwareD1Fake();
+    cloudflareRuntime.env = { DB: fakeDb };
     const historyIds = ["history-a", "history-b"];
     const services = createD1ApiServices(fakeDb, {
       now: () => new Date("2026-04-20T00:00:00.000Z"),
@@ -123,7 +125,6 @@ describe("period daily history mutations", () => {
           body: JSON.stringify({ inputYen: 1500, memo: "edited" }),
         },
       ),
-      platform: { env: { DB: fakeDb } },
     } as any);
     expect(patchResponse.status).toBe(200);
     await expect(patchResponse.json()).resolves.toMatchObject({
@@ -150,7 +151,6 @@ describe("period daily history mutations", () => {
         "http://localhost/api/periods/p-history-mutation-d1/days/2026-04-20/history/history-a",
         { method: "DELETE" },
       ),
-      platform: { env: { DB: fakeDb } },
     } as any);
     expect(deleteResponse.status).toBe(200);
     await expect(deleteResponse.json()).resolves.toMatchObject({
@@ -161,6 +161,7 @@ describe("period daily history mutations", () => {
 
   it("deletes the last daily history row in D1 path", async () => {
     const fakeDb = createPeriodAwareD1Fake();
+    cloudflareRuntime.env = { DB: fakeDb };
     const services = createD1ApiServices(fakeDb, {
       now: () => new Date("2026-04-20T00:00:00.000Z"),
       createHistoryId: () => "history-last",
@@ -191,7 +192,6 @@ describe("period daily history mutations", () => {
         "http://localhost/api/periods/p-history-last-d1/days/2026-04-20/history/history-last",
         { method: "DELETE" },
       ),
-      platform: { env: { DB: fakeDb } },
     } as any);
 
     expect(deleteResponse.status).toBe(200);
@@ -211,7 +211,6 @@ describe("period daily history mutations", () => {
           budgetYen: 100000,
         }),
       }),
-      platform: { env: { DB: fakeDb } },
     } as any);
     expect(shrinkResponse.status).toBe(200);
   });

@@ -8,6 +8,15 @@ Yosan Flow は Cloudflare Workers 上で動く、SvelteKit 製の期間単位の
 - pnpm: [package.json](package.json) の `packageManager` に指定されたバージョンを使用
 - Cloudflare アカウント（D1/Workers 利用時）
 
+## フレームワーク設定
+
+SvelteKit の設定は `vite.config.ts` の `sveltekit(...)` にまとめています。
+`src/lib` の共有モジュールは `package.json` の subpath imports を使い、
+`#lib/...` に `.ts` / `.svelte` などの拡張子を付けて import します。
+`tsconfig.json` は `svelte-kit sync` が生成する `$app/tsconfig` を参照します。
+設定変更時も型・lint・Fallow と既存のテストをすべて実行してください。
+移行仕様は [SvelteKit の公式ガイド](https://svelte.dev/docs/kit/migrating-to-sveltekit-3) を参照してください。
+
 ## セットアップ（ローカル）
 
 ```bash
@@ -19,9 +28,9 @@ pnpm dev
 
 補足:
 
-- `.dev.vars` は主に `wrangler dev` / `wrangler d1 ... --local` 向けの設定ファイルです。
-- 現在の開発サーバー起動は `pnpm dev` (`vite dev`) なので、`.dev.vars` の値は自動では読み込まれません。
-- ローカルで Workers 相当の挙動を確認したい場合は `pnpm wrangler dev` を使い、`.dev.vars` をその実行系に渡してください。
+- `pnpm dev` (`vite dev`) は Cloudflare adapter のローカル proxy を通じて `.dev.vars` と D1 binding を利用します。実際の Worker 出力は `pnpm build` 後の `pnpm wrangler dev` で確認します。
+- API / page は `cloudflare:workers` の `env.DB` を使用します。DB がない場合はエラーにし、自動で in-memory へ切り替えません。
+- D1 を使わない UI 開発だけは `YOSAN_FLOW_FORCE_IN_MEMORY_DEV=1 pnpm dev` で明示的に in-memory を選べます。Vite の開発時だけ有効で、ビルド済み Worker ではこの flag を無視します。
 
 ## 連続する予算期間の境界を変更する
 
@@ -173,7 +182,7 @@ linked boundary の確認要求は `period.boundary.propose` / `PERIOD_BOUNDARY_
 
 サービス初期化だけが失敗した場合は、元の例外を伝播したまま `unexpected_error` / 500 / `INTERNAL_ERROR` を一度記録します。この 500 は初期化失敗の分類であり、SvelteKit が生成した最終応答の観測値ではありません。通常のログ sink 例外は再分類せず伝播し、初期化失敗と sink 失敗が重なった場合だけ元の初期化例外を優先します。エラー応答自体を構築できない場合は既存の throw を維持し、存在しない完了応答のイベントは作りません。
 
-API / page は request ごとに `getRequestTracing(platform)` で `platform.ctx.tracing` を取得し、`createTracing(native)` に渡します。native tracing がなければ `noopTracing` を使い、request の adapter をサービスキャッシュに保存しません。Workers 専用の `tracing-workers.ts` も native module から adapter を作る入口として利用できます。
+API / page は request ごとに `tracing-workers.ts` の `getRequestTracing()` を呼び、`cloudflare:workers` の `tracing` を `createTracing(native)` に渡します。native tracing がなければ `noopTracing` を使い、request の adapter を D1 binding ごとのサービスキャッシュに保存しません。Cloudflare adapter の Vite 開発用 native tracing は no-op です。`platform.env` / `platform.ctx` には依存しません。
 
 業務 span は次の八つの固定名です。
 

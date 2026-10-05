@@ -1,20 +1,20 @@
 import { Effect } from "effect";
-import { runClientEffect } from "$lib/dashboard/client-effect";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import { runClientEffect } from "#lib/dashboard/client-effect.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import {
   createPeriodCreationEffect,
   createPeriodRecoveryEffect,
   type PeriodCreationDependencies,
-} from "$lib/dashboard/period-controller-create-effect";
+} from "#lib/dashboard/period-controller-create-effect.ts";
 import type {
   PendingPeriodUpdateConfirmation,
   PeriodUpdateConfirmationState,
-} from "$lib/dashboard/period-update-confirmation-state.svelte";
-import type { SavePeriodPayload } from "$lib/dashboard/types";
+} from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
+import type { SavePeriodPayload } from "#lib/dashboard/types.ts";
 import type {
   PeriodSetting,
   PeriodSettingsState,
-} from "$lib/dashboard/period-settings-state.svelte";
+} from "#lib/dashboard/period-settings-state.svelte.ts";
 
 type PeriodControllerActionDependencies = {
   readonly confirmationState: PeriodUpdateConfirmationState;

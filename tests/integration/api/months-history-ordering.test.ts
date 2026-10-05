@@ -1,6 +1,7 @@
+import { cloudflareRuntime } from "../../helpers/cloudflare-runtime";
 import { describe, expect, it } from "vitest";
-import { runApiEffect } from "$lib/server/effect/runtime";
-import { createD1ApiServices } from "$lib/server/services/month-summary-service";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
+import { createD1ApiServices } from "#lib/server/services/month-summary-service.ts";
 import { GET as dayHistoryDefaultRoute } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
 import { PATCH as dayHistoryPatchDefaultRoute } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/[historyId]/+server";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
@@ -8,6 +9,7 @@ import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 describe("period daily history ordering", () => {
   it("returns period-scoped daily history in stable D1 ordering", async () => {
     const fakeDb = createPeriodAwareD1Fake();
+    cloudflareRuntime.env = { DB: fakeDb };
     const historyIds = ["history-a", "history-z", "history-other"];
     const services = createD1ApiServices(fakeDb, {
       now: () => new Date("2026-04-20T00:00:00.000Z"),
@@ -62,7 +64,6 @@ describe("period daily history ordering", () => {
         "http://localhost/api/periods/p-history/days/2026-04-20/history",
         { method: "GET" },
       ),
-      platform: { env: { DB: fakeDb } },
     } as any);
     expect(historyResponse.status).toBe(200);
     await expect(historyResponse.json()).resolves.toMatchObject({
@@ -93,6 +94,7 @@ describe("period daily history ordering", () => {
 
   it("uses insertion order instead of UUID order for same-timestamp D1 history replay", async () => {
     const fakeDb = createPeriodAwareD1Fake();
+    cloudflareRuntime.env = { DB: fakeDb };
     const historyIds = ["history-z", "history-a"];
     const services = createD1ApiServices(fakeDb, {
       now: () => new Date("2026-04-20T00:00:00.000Z"),
@@ -136,7 +138,6 @@ describe("period daily history ordering", () => {
           body: JSON.stringify({ inputYen: 1200 }),
         },
       ),
-      platform: { env: { DB: fakeDb } },
     } as any);
 
     expect(patchResponse.status).toBe(200);

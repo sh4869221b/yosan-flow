@@ -1,4 +1,4 @@
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 
 type PeriodSummaryRequest = {
   readonly mutationWasActive: boolean;

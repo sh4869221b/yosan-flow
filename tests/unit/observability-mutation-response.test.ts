@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiRouteError } from "$lib/server/validation/month";
+import { ApiRouteError } from "#lib/server/validation/month.ts";
 import {
   observeMutationInitialization,
   runMutationResponse,
-} from "$lib/server/observability/mutation-response";
+} from "#lib/server/observability/mutation-response.ts";
 
 afterEach(() => vi.restoreAllMocks());
 

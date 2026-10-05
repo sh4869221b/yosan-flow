@@ -1,8 +1,8 @@
-import { addDays } from "$lib/dashboard/date";
+import { addDays } from "#lib/dashboard/date.ts";
 import type {
   PeriodOption,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
+} from "#lib/dashboard/controller-types.ts";
 import type { PageData } from "../../routes/$types";
 
 export type InitialPeriodControllerState = {

@@ -1,18 +1,21 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
-import type { TracingAdapter } from "$lib/server/observability/tracing";
-import { getRequestTracing } from "$lib/server/observability/tracing-platform";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import type { TracingAdapter } from "#lib/server/observability/tracing.ts";
+import { getRequestTracing } from "#lib/server/observability/tracing-workers.ts";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import {
   observeMutationInitialization,
   runMutationResponse,
-} from "$lib/server/observability/mutation-response";
+} from "#lib/server/observability/mutation-response.ts";
 import {
-  getApiServicesFromPlatform,
+  getApiServices,
   getPeriodSummaryFromServices,
   type InMemoryApiServices,
-} from "$lib/server/services/month-summary-service";
-import { parseDate, parseDayMutationInput } from "$lib/server/validation/day";
-import { parsePeriodId } from "$lib/server/validation/month";
+} from "#lib/server/services/month-summary-service.ts";
+import {
+  parseDate,
+  parseDayMutationInput,
+} from "#lib/server/validation/day.ts";
+import { parsePeriodId } from "#lib/server/validation/month.ts";
 
 export type PeriodDayOverwriteRouteDependencies = {
   services: InMemoryApiServices;
@@ -55,8 +58,8 @@ export function _createPeriodDayOverwriteHandler(
 export const PUT: RequestHandler = async (event) => {
   return _createPeriodDayOverwriteHandler({
     services: observeMutationInitialization("day.overwrite", () =>
-      getApiServicesFromPlatform(event.platform),
+      getApiServices(),
     ),
-    tracing: getRequestTracing(event.platform),
+    tracing: getRequestTracing(),
   })(event);
 };

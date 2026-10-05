@@ -1,9 +1,9 @@
 import { Effect } from "effect";
-import { periodSummaryUrl } from "$lib/dashboard/api-urls";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import type { HistoryActionResult } from "$lib/dashboard/types";
+import { periodSummaryUrl } from "#lib/dashboard/api-urls.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import type { HistoryActionResult } from "#lib/dashboard/types.ts";
 
 type Dependencies = {
   readonly applySummary: (_summary: PeriodSummary) => void;

@@ -1,12 +1,12 @@
 import { Effect } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
-import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
-import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
-import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
-import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import type { HistoryItem } from "$lib/dashboard/types";
+import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
+import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
+import { createPeriodUpdateEffect } from "#lib/dashboard/period-controller-update-effect.ts";
+import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import type { HistoryItem } from "#lib/dashboard/types.ts";
 import {
   createSummary,
   jsonResponse,

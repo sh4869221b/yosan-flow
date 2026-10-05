@@ -1,15 +1,15 @@
 import { Effect } from "effect";
-import { historyItemUrl } from "$lib/dashboard/api-urls";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import { createHistoryMutationTracker } from "$lib/dashboard/history-mutation-tracker";
-import { createHistorySummaryReconciliation } from "$lib/dashboard/history-summary-reconciliation";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import { summaryConfigurationMatches } from "$lib/dashboard/summary-rows";
+import { historyItemUrl } from "#lib/dashboard/api-urls.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import { createHistoryMutationTracker } from "#lib/dashboard/history-mutation-tracker.ts";
+import { createHistorySummaryReconciliation } from "#lib/dashboard/history-summary-reconciliation.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { summaryConfigurationMatches } from "#lib/dashboard/summary-rows.ts";
 import type {
   HistoryActionResult,
   HistoryMutationResponse,
-} from "$lib/dashboard/types";
+} from "#lib/dashboard/types.ts";
 
 type Dependencies = {
   readonly applyHistories: (

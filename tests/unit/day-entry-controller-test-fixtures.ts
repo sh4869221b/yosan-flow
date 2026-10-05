@@ -1,4 +1,4 @@
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 
 export function createSummary(
   firstDateUsedYen: number,

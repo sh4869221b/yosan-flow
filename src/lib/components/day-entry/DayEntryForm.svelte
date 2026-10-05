@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Save, X } from "@lucide/svelte";
   import { tick, type Snippet } from "svelte";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 
   const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
 

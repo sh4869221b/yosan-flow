@@ -2,19 +2,19 @@ import { Effect } from "effect";
 import {
   noopTracing,
   type TracingAdapter,
-} from "$lib/server/observability/tracing";
-import { withTracingEffect } from "$lib/server/observability/tracing-effect";
-import type { InMemoryApiServices } from "$lib/server/services/api-services/types";
-import type { PeriodSummary } from "$lib/server/services/period-summary/period-summary-calculator";
-import { buildPeriodSummary } from "$lib/server/services/period-summary/period-summary-calculator";
+} from "#lib/server/observability/tracing.ts";
+import { withTracingEffect } from "#lib/server/observability/tracing-effect.ts";
+import type { InMemoryApiServices } from "#lib/server/services/api-services/types.ts";
+import type { PeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
+import { buildPeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
 
-export { getApiServicesFromPlatform } from "$lib/server/services/api-services/cache";
-export { createD1ApiServices } from "$lib/server/services/api-services/d1";
-export { createInMemoryApiServices } from "$lib/server/services/api-services/in-memory";
-export type { InMemoryApiServices } from "$lib/server/services/api-services/types";
+export { getApiServices } from "#lib/server/services/api-services/cache.ts";
+export { createD1ApiServices } from "#lib/server/services/api-services/d1.ts";
+export { createInMemoryApiServices } from "#lib/server/services/api-services/in-memory.ts";
+export type { InMemoryApiServices } from "#lib/server/services/api-services/types.ts";
 
-export { buildPeriodSummary } from "$lib/server/services/period-summary/period-summary-calculator";
-export type { PeriodSummary } from "$lib/server/services/period-summary/period-summary-calculator";
+export { buildPeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
+export type { PeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
 
 export function getPeriodSummaryFromServices(
   services: InMemoryApiServices,

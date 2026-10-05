@@ -1,6 +1,7 @@
-import type { D1Database } from "$lib/server/db/d1-types";
-import { runApiEffect } from "$lib/server/effect/runtime";
-import type { PeriodBoundaryUpdateProposal } from "$lib/server/services/period-update/period-update-types";
+import { cloudflareRuntime } from "../../helpers/cloudflare-runtime";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
+import type { PeriodBoundaryUpdateProposal } from "#lib/server/services/period-update/period-update-types.ts";
 import { GET as periodsGetDefaultRoute } from "../../../src/routes/api/periods/+server";
 import { PUT as periodPutDefaultRoute } from "../../../src/routes/api/periods/[periodId]/+server";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
@@ -75,7 +76,6 @@ export async function put(
   return fixture.updatePeriod(
     createRouteEvent({
       params: { periodId },
-      platform: undefined,
       request: new Request(`http://localhost/api/periods/${periodId}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -92,7 +92,6 @@ export async function putRaw(
   return fixture.updatePeriod(
     createRouteEvent({
       params: { periodId: TARGET_ID },
-      platform: undefined,
       request: new Request(`http://localhost/api/periods/${TARGET_ID}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -114,7 +113,6 @@ export async function addSuccessorEntry(
   return fixture.addDay(
     createRouteEvent({
       params: { periodId: SUCCESSOR_ID, date: "2026-07-21" },
-      platform: undefined,
       request: new Request(
         `http://localhost/api/periods/${SUCCESSOR_ID}/days/2026-07-21/add`,
         {
@@ -141,15 +139,11 @@ export function createD1BoundaryHarness(input?: {
     periods: input?.periods ?? [targetRow, successorRow],
     totalDates: input?.totalDates,
   });
-  const platform = {
-    env: { DB: db },
-    cf: {},
-    ctx: { waitUntil: () => {} },
-  } satisfies App.Platform;
   return {
     db,
-    put: (body, periodId = TARGET_ID) =>
-      Promise.resolve(
+    put: (body, periodId = TARGET_ID) => {
+      cloudflareRuntime.env = { DB: db };
+      return Promise.resolve(
         periodPutDefaultRoute(
           createRouteEvent({
             params: { periodId },
@@ -158,20 +152,21 @@ export function createD1BoundaryHarness(input?: {
               headers: { "content-type": "application/json" },
               body: JSON.stringify(body),
             }),
-            platform,
           }),
         ),
-      ),
-    list: () =>
-      Promise.resolve(
+      );
+    },
+    list: () => {
+      cloudflareRuntime.env = { DB: db };
+      return Promise.resolve(
         periodsGetDefaultRoute(
           createRouteEvent({
             params: {},
             request: new Request("http://localhost/api/periods"),
-            platform,
           }),
         ),
-      ),
+      );
+    },
   };
 }
 

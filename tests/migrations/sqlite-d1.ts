@@ -1,5 +1,8 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
-import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
+import type {
+  D1Database,
+  D1PreparedStatement,
+} from "#lib/server/db/d1-types.ts";
 
 function binding(value: unknown): SQLInputValue {
   if (

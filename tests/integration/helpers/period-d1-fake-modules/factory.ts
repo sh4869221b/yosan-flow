@@ -1,4 +1,7 @@
-import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
+import type {
+  D1Database,
+  D1PreparedStatement,
+} from "#lib/server/db/d1-types.ts";
 import { createPeriodAwarePreparedStatement } from "./prepared-statement";
 import type { PreparedStatementObserver } from "./prepared-statement";
 import { createPeriodAwareD1FakeState } from "./table-state";

@@ -1,4 +1,4 @@
-import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
+import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
 import type { PeriodSummaryDailyTotal } from "./period-summary-calculator";
 
 export function buildDailyTotalMap(

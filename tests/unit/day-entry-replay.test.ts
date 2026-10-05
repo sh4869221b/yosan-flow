@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DailyHistoryRecord } from "$lib/server/db/daily-history-repository";
-import { replayDailyHistories } from "$lib/server/services/day-entry/replay";
+import type { DailyHistoryRecord } from "#lib/server/db/daily-history-repository.ts";
+import { replayDailyHistories } from "#lib/server/services/day-entry/replay.ts";
 
 function createHistory(
   input: Partial<DailyHistoryRecord> &

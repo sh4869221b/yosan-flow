@@ -1,7 +1,8 @@
+import { cloudflareRuntime } from "../../helpers/cloudflare-runtime";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Effect } from "effect";
-import { runApiEffect } from "$lib/server/effect/runtime";
-import { ApiRouteError } from "$lib/server/validation/month";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
+import { ApiRouteError } from "#lib/server/validation/month.ts";
 import { POST } from "../../../src/routes/api/periods/+server";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 import { createFixture } from "./periods-fixture";
@@ -25,19 +26,13 @@ const period = {
 const dayPath = "/api/periods/private-period/days/2026-04-20";
 const dayRoute = "/api/periods/[periodId]/days/[date]";
 
-function event(
-  method: string,
-  path: string,
-  body?: unknown,
-  platform?: App.Platform,
-) {
+function event(method: string, path: string, body?: unknown) {
   return createRouteEvent({
     params: {
       periodId: period.id,
       date: period.startDate,
       historyId: "private-history",
     },
-    platform,
     request: new Request(`http://localhost${path}?private-query=secret`, {
       method,
       headers: {
@@ -479,15 +474,9 @@ describe("mutation terminal events", () => {
 
   it("emits once through the public D1 path on success and mapped failure", async () => {
     vi.stubEnv("YOSAN_FLOW_FORCE_IN_MEMORY_DEV", undefined);
-    const platform = {
-      env: { DB: createPeriodAwareD1Fake() },
-      cf: {},
-      ctx: { waitUntil: () => {} },
-    } satisfies App.Platform;
+    cloudflareRuntime.env = { DB: createPeriodAwareD1Fake() };
     const log = captureLogs();
-    const response = await POST(
-      event("POST", "/api/periods", period, platform),
-    );
+    const response = await POST(event("POST", "/api/periods", period));
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject(period);
     expect(log.mock.calls).toEqual([
@@ -504,7 +493,7 @@ describe("mutation terminal events", () => {
     ]);
     log.mockClear();
     const invalid = await POST(
-      event("POST", "/api/periods", { ...period, budgetYen: -1 }, platform),
+      event("POST", "/api/periods", { ...period, budgetYen: -1 }),
     );
     expect(invalid.status).toBe(400);
     expect(await invalid.json()).toMatchObject({
@@ -527,16 +516,12 @@ describe("mutation terminal events", () => {
 
   it("logs public initialization failure and preserves the rejected request", async () => {
     vi.stubEnv("YOSAN_FLOW_FORCE_IN_MEMORY_DEV", undefined);
-    const platform = {
-      env: { DB: createPeriodAwareD1Fake() },
-      cf: {},
-      ctx: { waitUntil: () => {} },
-    } satisfies App.Platform;
-    Reflect.deleteProperty(platform.env, "DB");
+    cloudflareRuntime.env = { DB: createPeriodAwareD1Fake() };
+    cloudflareRuntime.env = {};
     const log = captureLogs();
-    await expect(
-      POST(event("POST", "/api/periods", period, platform)),
-    ).rejects.toThrow("D1 binding DB is required");
+    await expect(POST(event("POST", "/api/periods", period))).rejects.toThrow(
+      "D1 binding DB is required",
+    );
     expect(log.mock.calls).toEqual([
       [
         {

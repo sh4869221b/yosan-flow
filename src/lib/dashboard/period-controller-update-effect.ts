@@ -1,22 +1,22 @@
 import { Effect } from "effect";
-import { periodSummaryUrl } from "$lib/dashboard/api-urls";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import { periodSummaryUrl } from "#lib/dashboard/api-urls.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import type {
   PendingPeriodUpdateConfirmation,
   PeriodUpdateConfirmationState,
-} from "$lib/dashboard/period-update-confirmation-state.svelte";
+} from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 import {
   fetchPeriodUpdateEffect,
   type PeriodUpdateApiOutcome,
-} from "$lib/dashboard/period-update-api";
-import type { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import { summarySpendingMatches } from "$lib/dashboard/summary-rows";
-import type { SavePeriodPayload } from "$lib/dashboard/types";
+} from "#lib/dashboard/period-update-api.ts";
+import type { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { summarySpendingMatches } from "#lib/dashboard/summary-rows.ts";
+import type { SavePeriodPayload } from "#lib/dashboard/types.ts";
 import type {
   PeriodSetting,
   PeriodSettingsSubmission,
-} from "$lib/dashboard/period-settings-state.svelte";
+} from "#lib/dashboard/period-settings-state.svelte.ts";
 
 export type PeriodRefreshError = boolean | ((_error: string) => void);
 export type PeriodRefreshCompletion = (

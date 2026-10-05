@@ -1,8 +1,8 @@
 import { Effect } from "effect";
-import type { BudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
-import type { D1DailyHistoryRepository } from "$lib/server/db/daily-history-repository";
-import type { D1DailyTotalRepository } from "$lib/server/db/daily-total-repository";
-import { PeriodNotFoundError } from "$lib/server/services/day-entry-service";
+import type { BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
+import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-repository.ts";
+import type { D1DailyTotalRepository } from "#lib/server/db/daily-total-repository.ts";
+import { PeriodNotFoundError } from "#lib/server/services/day-entry-service.ts";
 
 export function listPeriodDailyTotals(
   dailyTotalRepository: D1DailyTotalRepository,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { createFixture } from "./periods-fixture";
 
 async function parseJson(response: Response): Promise<any> {

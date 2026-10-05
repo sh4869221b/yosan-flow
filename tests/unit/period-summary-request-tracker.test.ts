@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 
 it("does not promote a request started during a mutation to fresh", () => {
   const revision = createPeriodSummaryRevision();

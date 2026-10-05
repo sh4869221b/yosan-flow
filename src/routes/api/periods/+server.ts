@@ -1,22 +1,22 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
-import type { TracingAdapter } from "$lib/server/observability/tracing";
-import { getRequestTracing } from "$lib/server/observability/tracing-platform";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import type { TracingAdapter } from "#lib/server/observability/tracing.ts";
+import { getRequestTracing } from "#lib/server/observability/tracing-workers.ts";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import {
   observeMutationInitialization,
   runMutationResponse,
-} from "$lib/server/observability/mutation-response";
+} from "#lib/server/observability/mutation-response.ts";
 import {
-  getApiServicesFromPlatform,
+  getApiServices,
   type InMemoryApiServices,
-} from "$lib/server/services/month-summary-service";
+} from "#lib/server/services/month-summary-service.ts";
 import {
   parseNonNegativeIntegerYen,
   parsePeriodId,
   parseRequestBodyObject,
   toApiErrorResponse,
-} from "$lib/server/validation/month";
-import { parseDate } from "$lib/server/validation/day";
+} from "#lib/server/validation/month.ts";
+import { parseDate } from "#lib/server/validation/day.ts";
 
 export type PeriodsRouteDependencies = {
   services: InMemoryApiServices;
@@ -75,14 +75,14 @@ export function _createPeriodsListHandler(
 export const POST: RequestHandler = async (event) => {
   return _createPeriodsHandler({
     services: observeMutationInitialization("period.create", () =>
-      getApiServicesFromPlatform(event.platform),
+      getApiServices(),
     ),
-    tracing: getRequestTracing(event.platform),
+    tracing: getRequestTracing(),
   })(event);
 };
 
 export const GET: RequestHandler = async (event) => {
   return _createPeriodsListHandler({
-    services: getApiServicesFromPlatform(event.platform),
+    services: getApiServices(),
   })(event);
 };

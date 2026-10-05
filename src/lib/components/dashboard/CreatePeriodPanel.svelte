@@ -1,9 +1,9 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
-  import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
-  import { getPeriodRangeValidation } from "$lib/components/period-range-state";
+  import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
+  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
+  import PeriodRangePicker from "#lib/components/PeriodRangePicker.svelte";
+  import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 

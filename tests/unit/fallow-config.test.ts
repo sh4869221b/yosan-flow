@@ -38,6 +38,7 @@ function fixture(): string {
     JSON.stringify({
       private: true,
       type: "module",
+      imports: { "#lib/*": "./src/lib/*" },
       devDependencies: {
         "@sveltejs/kit": "*",
         "@playwright/test": "*",
@@ -51,7 +52,7 @@ function fixture(): string {
     directory,
     "tsconfig.json",
     JSON.stringify({
-      compilerOptions: { paths: { "$lib/*": ["./src/lib/*"] } },
+      compilerOptions: { moduleResolution: "bundler" },
     }),
   );
   return directory;
@@ -90,7 +91,7 @@ describe("Fallow project discovery", () => {
     write(
       directory,
       "src/routes/+page.server.ts",
-      'import { value } from "$lib/runtime"; export const load = () => ({ value }); export const accidentalExport = 1;',
+      'import { value } from "#lib/runtime.ts"; export const load = () => ({ value }); export const accidentalExport = 1;',
     );
     write(
       directory,

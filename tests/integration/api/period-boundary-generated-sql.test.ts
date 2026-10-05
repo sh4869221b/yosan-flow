@@ -6,8 +6,8 @@ import {
   createInMemoryBudgetPeriodRepository,
   type BudgetPeriodRecord,
   type LinkedPeriodBoundaryUpdateCommand,
-} from "$lib/server/db/budget-period-repository";
-import { runApiEffect } from "$lib/server/effect/runtime";
+} from "#lib/server/db/budget-period-repository.ts";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 
 const target: BudgetPeriodRecord = {

@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { afterEach, beforeEach, vi } from "vitest";
-import * as clientEffect from "$lib/dashboard/client-effect";
+import * as clientEffect from "#lib/dashboard/client-effect.ts";
 
 export async function settled<T>(promise: Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;

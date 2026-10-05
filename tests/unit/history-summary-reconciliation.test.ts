@@ -1,7 +1,7 @@
 import { Effect, Fiber } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
-import { createHistorySummaryReconciliation } from "$lib/dashboard/history-summary-reconciliation";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { createHistorySummaryReconciliation } from "#lib/dashboard/history-summary-reconciliation.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
   createSummary,
   jsonResponse,

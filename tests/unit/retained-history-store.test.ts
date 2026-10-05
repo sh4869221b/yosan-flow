@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { createRetainedHistoryStore } from "$lib/dashboard/retained-history-store";
-import type { HistoryItem } from "$lib/dashboard/types";
+import { createRetainedHistoryStore } from "#lib/dashboard/retained-history-store.ts";
+import type { HistoryItem } from "#lib/dashboard/types.ts";
 import { createSummary } from "./day-entry-controller-test-fixtures";
 
 function createHistory(id: string, date: string): HistoryItem {

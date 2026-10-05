@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 
 type PeriodStatus = "active" | "closed";
 

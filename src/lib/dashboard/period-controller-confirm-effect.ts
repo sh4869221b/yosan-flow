@@ -1,14 +1,14 @@
 import { Effect } from "effect";
-import { periodSummaryUrl } from "$lib/dashboard/api-urls";
+import { periodSummaryUrl } from "#lib/dashboard/api-urls.ts";
 import {
   fetchPeriodUpdateEffect,
   type PeriodUpdateApiOutcome,
-} from "$lib/dashboard/period-update-api";
-import type { PeriodUpdateDependencies } from "$lib/dashboard/period-controller-update-effect";
+} from "#lib/dashboard/period-update-api.ts";
+import type { PeriodUpdateDependencies } from "#lib/dashboard/period-controller-update-effect.ts";
 import type {
   PendingPeriodUpdateConfirmation,
   PeriodUpdateConfirmationState,
-} from "$lib/dashboard/period-update-confirmation-state.svelte";
+} from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 
 type Dependencies = PeriodUpdateDependencies & {
   readonly confirmationState: PeriodUpdateConfirmationState;

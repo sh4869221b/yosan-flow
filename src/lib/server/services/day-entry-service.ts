@@ -1,18 +1,18 @@
 import { Effect } from "effect";
-import type { DatabaseClient } from "$lib/server/db/client";
+import type { DatabaseClient } from "#lib/server/db/client.ts";
 import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
+} from "#lib/server/db/budget-period-repository.ts";
 import type {
   DailyHistoryRecord,
   DailyHistoryRepository,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/daily-history-repository.ts";
 import type {
   DailyTotalRecord,
   DailyTotalRepository,
-} from "$lib/server/db/daily-total-repository";
-import { createHistoryId as createDefaultHistoryId } from "$lib/server/services/history-id";
+} from "#lib/server/db/daily-total-repository.ts";
+import { createHistoryId as createDefaultHistoryId } from "#lib/server/services/history-id.ts";
 import { persistEntryEffect } from "./day-entry/entry-persistence";
 import { replayHistoryMutationEffect } from "./day-entry/history-mutation";
 import {

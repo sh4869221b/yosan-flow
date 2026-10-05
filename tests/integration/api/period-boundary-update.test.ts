@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { registerPeriodBoundaryD1Scenarios } from "./period-boundary-update-d1-scenarios";
 import {
   NOW,

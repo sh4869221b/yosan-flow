@@ -1,5 +1,5 @@
-import type { BudgetPeriodRecord } from "$lib/server/db/budget-period-types";
-import type { BudgetPeriodRow } from "$lib/server/db/schema";
+import type { BudgetPeriodRecord } from "#lib/server/db/budget-period-types.ts";
+import type { BudgetPeriodRow } from "#lib/server/db/schema.ts";
 
 export function clonePeriod(record: BudgetPeriodRecord): BudgetPeriodRecord {
   return { ...record };

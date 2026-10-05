@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { DatabaseTransaction } from "$lib/server/db/client";
+import type { DatabaseTransaction } from "#lib/server/db/client.ts";
 
 export type DailyOperationType = "add" | "overwrite";
 

@@ -2,11 +2,11 @@
   import { ClipboardList } from "@lucide/svelte";
   import { Dialog } from "bits-ui";
   import "./day-entry-modal.css";
-  import DayEntryPreview from "$lib/components/day-entry/DayEntryPreview.svelte";
-  import DayEntryForm from "$lib/components/day-entry/DayEntryForm.svelte";
-  import HistoryPanel from "$lib/components/HistoryPanel.svelte";
-  import type { DayEntryCloseReason } from "$lib/dashboard/controller-types";
-  import type { HistoryActionResult } from "$lib/dashboard/types";
+  import DayEntryPreview from "#lib/components/day-entry/DayEntryPreview.svelte";
+  import DayEntryForm from "#lib/components/day-entry/DayEntryForm.svelte";
+  import HistoryPanel from "#lib/components/HistoryPanel.svelte";
+  import type { DayEntryCloseReason } from "#lib/dashboard/controller-types.ts";
+  import type { HistoryActionResult } from "#lib/dashboard/types.ts";
 
   type HistoryItem = {
     id: string;

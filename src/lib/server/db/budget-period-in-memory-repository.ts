@@ -2,21 +2,21 @@ import { Effect } from "effect";
 import {
   replaceLinkedPeriodBoundary,
   type InMemoryLinkedBoundaryContext,
-} from "$lib/server/db/budget-period-boundary-in-memory";
+} from "#lib/server/db/budget-period-boundary-in-memory.ts";
 import {
   assertPeriodHasNoOverlap,
   assertPeriodPredecessorContinuity,
   assertPeriodSuccessorContinuity,
   assertValidPeriodInput,
-} from "$lib/server/db/budget-period-validation-coordinator";
-import { clonePeriod } from "$lib/server/db/budget-period-row-mapper";
+} from "#lib/server/db/budget-period-validation-coordinator.ts";
+import { clonePeriod } from "#lib/server/db/budget-period-row-mapper.ts";
 import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-types";
-import { PeriodNotFoundError } from "$lib/server/db/budget-period-types";
-import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
-import { toEffectError } from "$lib/server/effect/runtime";
+} from "#lib/server/db/budget-period-types.ts";
+import { PeriodNotFoundError } from "#lib/server/db/budget-period-types.ts";
+import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 export function createInMemoryBudgetPeriodRepository(
   initialPeriods: BudgetPeriodRecord[] = [],

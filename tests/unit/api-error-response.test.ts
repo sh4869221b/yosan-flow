@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   ApiRouteError,
   toApiErrorResponse,
-} from "$lib/server/validation/month";
+} from "#lib/server/validation/month.ts";
 
 import {
   PeriodNotFoundError,
   DateOutOfPeriodError,
   HistoryNotFoundError,
-} from "$lib/server/services/day-entry-service";
+} from "#lib/server/services/day-entry-service.ts";
 import {
   PeriodMultipleSuccessorsError,
   PeriodUpdateConflictError,
-} from "$lib/server/services/period-update/period-update-types";
+} from "#lib/server/services/period-update/period-update-types.ts";
 
 async function parseJson(response: Response): Promise<unknown> {
   return response.json();

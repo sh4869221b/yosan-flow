@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { runApiEffect } from "$lib/server/effect/runtime";
-import { ApiRouteError } from "$lib/server/validation/month";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
+import { ApiRouteError } from "#lib/server/validation/month.ts";
 
 describe("API Effect execution boundary", () => {
   it("returns the original success value", async () => {

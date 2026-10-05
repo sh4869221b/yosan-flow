@@ -1,9 +1,12 @@
-import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
+import type {
+  D1Database,
+  D1PreparedStatement,
+} from "#lib/server/db/d1-types.ts";
 import type {
   D1DayEntryHistoryWriteInput,
   D1DayEntryTotalWriteInput,
   D1DayEntryWriteMode,
-} from "$lib/server/db/day-entry-writer-types";
+} from "#lib/server/db/day-entry-writer-types.ts";
 
 const CURRENT_TOTAL_SQL = `
   COALESCE(

@@ -1,14 +1,14 @@
-import { getNextPeriodStartDate } from "$lib/server/domain/budget-period";
+import { getNextPeriodStartDate } from "#lib/server/domain/budget-period.ts";
 import {
   assertPeriodSuccessorContinuity,
   assertValidPeriodInput,
-} from "$lib/server/db/budget-period-validation-coordinator";
+} from "#lib/server/db/budget-period-validation-coordinator.ts";
 import {
   PeriodMultipleSuccessorsError,
   type PeriodBoundaryUpdateDecision,
   type PeriodSnapshot,
   type PeriodUpdateValues,
-} from "$lib/server/services/period-update/period-update-types";
+} from "#lib/server/services/period-update/period-update-types.ts";
 
 export type PeriodBoundaryDecisionInput = {
   readonly target: PeriodSnapshot;

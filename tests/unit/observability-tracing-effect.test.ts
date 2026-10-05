@@ -1,14 +1,15 @@
+import { cloudflareRuntime } from "../helpers/cloudflare-runtime";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Context, Effect, Exit, Fiber } from "effect";
 import { describe, expect, it, vi } from "vitest";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import {
   createTracing,
   noopTracing,
   type NativeTracing,
-} from "$lib/server/observability/tracing";
-import { withTracingEffect } from "$lib/server/observability/tracing-effect";
-import { getRequestTracing } from "$lib/server/observability/tracing-platform";
+} from "#lib/server/observability/tracing.ts";
+import { withTracingEffect } from "#lib/server/observability/tracing-effect.ts";
+import { getRequestTracing } from "#lib/server/observability/tracing-workers.ts";
 
 function recordingTracing() {
   const context = new AsyncLocalStorage<string>();
@@ -232,14 +233,10 @@ describe("request tracing Effect bridge", () => {
     expect(spans[0]?.pending).toBe(false);
   });
 
-  it("uses native tracing from the invocation platform", async () => {
+  it("uses native tracing from the Workers module", async () => {
     const { native, spans } = recordingTracing();
-    const platform = {
-      ctx: { tracing: native, waitUntil() {} },
-      cf: undefined,
-      env: {},
-    };
-    const tracing = Reflect.apply(getRequestTracing, undefined, [platform]);
+    cloudflareRuntime.tracing = native;
+    const tracing = getRequestTracing();
     await expect(
       runApiEffect(
         withTracingEffect(tracing, "summary.calculate", Effect.succeed(42)),
@@ -250,25 +247,22 @@ describe("request tracing Effect bridge", () => {
     ]);
   });
 
-  it.each([undefined, { ctx: { waitUntil() {} } }, {}])(
-    "missing native platform runs without metadata: %j",
-    async (platform) => {
-      const tracing = Reflect.apply(getRequestTracing, undefined, [platform]);
-      const attributes = vi.fn(() => ({
-        "app.operation": "summary.calculate" as const,
-      }));
-      expect(tracing).toBe(noopTracing);
-      await expect(
-        runApiEffect(
-          withTracingEffect(
-            tracing,
-            "summary.calculate",
-            Effect.succeed(42),
-            attributes,
-          ),
+  it("missing native tracing runs without metadata", async () => {
+    const tracing = getRequestTracing();
+    const attributes = vi.fn(() => ({
+      "app.operation": "summary.calculate" as const,
+    }));
+    expect(tracing).toBe(noopTracing);
+    await expect(
+      runApiEffect(
+        withTracingEffect(
+          tracing,
+          "summary.calculate",
+          Effect.succeed(42),
+          attributes,
         ),
-      ).resolves.toBe(42);
-      expect(attributes).not.toHaveBeenCalled();
-    },
-  );
+      ),
+    ).resolves.toBe(42);
+    expect(attributes).not.toHaveBeenCalled();
+  });
 });

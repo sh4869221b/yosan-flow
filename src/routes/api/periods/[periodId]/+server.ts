@@ -1,23 +1,23 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
-import type { TracingAdapter } from "$lib/server/observability/tracing";
-import { getRequestTracing } from "$lib/server/observability/tracing-platform";
-import { runApiEffect, toEffectError } from "$lib/server/effect/runtime";
+import type { TracingAdapter } from "#lib/server/observability/tracing.ts";
+import { getRequestTracing } from "#lib/server/observability/tracing-workers.ts";
+import { runApiEffect, toEffectError } from "#lib/server/effect/runtime.ts";
 import {
   observeMutationInitialization,
   runMutationResponse,
-} from "$lib/server/observability/mutation-response";
+} from "#lib/server/observability/mutation-response.ts";
 import {
-  getApiServicesFromPlatform,
+  getApiServices,
   getPeriodSummaryFromServices,
   type InMemoryApiServices,
-} from "$lib/server/services/month-summary-service";
+} from "#lib/server/services/month-summary-service.ts";
 import {
   parsePeriodId,
   parseRequestBodyObject,
   toApiErrorResponse,
-} from "$lib/server/validation/month";
-import { parsePeriodUpdateRequest } from "$lib/server/validation/period-update";
-import { PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR } from "$lib/server/services/period-update/period-update-types";
+} from "#lib/server/validation/month.ts";
+import { parsePeriodUpdateRequest } from "#lib/server/validation/period-update.ts";
+import { PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR } from "#lib/server/services/period-update/period-update-types.ts";
 
 export type PeriodRouteDependencies = {
   services: InMemoryApiServices;
@@ -49,8 +49,8 @@ export function _createPeriodGetHandler(
 
 export const GET: RequestHandler = async (event) => {
   return _createPeriodGetHandler({
-    services: getApiServicesFromPlatform(event.platform),
-    tracing: getRequestTracing(event.platform),
+    services: getApiServices(),
+    tracing: getRequestTracing(),
   })(event);
 };
 
@@ -114,8 +114,8 @@ export function _createPeriodPutHandler(
 export const PUT: RequestHandler = async (event) => {
   return _createPeriodPutHandler({
     services: observeMutationInitialization("period.update", () =>
-      getApiServicesFromPlatform(event.platform),
+      getApiServices(),
     ),
-    tracing: getRequestTracing(event.platform),
+    tracing: getRequestTracing(),
   })(event);
 };

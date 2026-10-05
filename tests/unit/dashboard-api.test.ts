@@ -6,9 +6,9 @@ import {
   historyItemUrl,
   periodSummaryUrl,
   periodsUrl,
-} from "$lib/dashboard/api-urls";
-import { runClientEffect } from "$lib/dashboard/client-effect";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
+} from "#lib/dashboard/api-urls.ts";
+import { runClientEffect } from "#lib/dashboard/client-effect.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();

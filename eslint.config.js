@@ -2,7 +2,6 @@ import { defineConfig } from "eslint/config";
 import globals from "globals";
 import svelte from "eslint-plugin-svelte";
 import ts from "typescript-eslint";
-import svelteConfig from "./svelte.config.js";
 
 export default defineConfig(
   {
@@ -56,7 +55,6 @@ export default defineConfig(
   {
     files: [
       "eslint.config.js",
-      "svelte.config.js",
       "vite.config.ts",
       "vitest.config.ts",
       "playwright.config.ts",
@@ -125,7 +123,6 @@ export default defineConfig(
         parser: ts.parser,
         projectService: true,
         extraFileExtensions: [".svelte"],
-        svelteConfig,
       },
     },
   },

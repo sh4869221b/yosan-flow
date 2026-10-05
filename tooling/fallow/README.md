@@ -116,6 +116,15 @@ within an already accepted health category can remain hidden. Duplication identi
 can move after source or analyzer changes. Review the raw reports and changed code
 for those cases; do not claim measured coverage from static CRAP estimates.
 
+### SvelteKit runtime migration
+
+The Cloudflare runtime migration adds direct reset-endpoint guard coverage. The raw
+health report no longer reports the estimated CRAP-high identity
+`src/routes/api/__test/reset/+server.ts` / `POST`, so only that stale identity and its
+matching file count were removed from the health baseline. This is an estimated
+reachability change, not a claim of measured runtime coverage. No new findings,
+threshold changes, analyzer upgrades, or bulk baseline refresh are included.
+
 ### Renovate and analyzer upgrades
 
 Fallow stays an exact npm devDependency. The npm manager updates `package.json` and
@@ -132,7 +141,7 @@ needed; never refresh baselines automatically or waive failures for a bot PR.
 ## Discovery and exception policy
 
 - Built-in plugins discover SvelteKit `+page`, `+layout`, `+server`, hooks, matchers,
-  `src/app.d.ts` and framework configuration. `$lib` and route `$types` are resolved
+  `src/app.d.ts` and framework configuration. `#lib` is resolved through package subpath imports; route `$types` are resolved
   after `svelte-kit sync`. Do not turn every file under `src/` or routes into an entry.
 - `includeEntryExports: true` retains framework convention exports while reporting
   accidental extra exports. The local plugin records only three additional `default`

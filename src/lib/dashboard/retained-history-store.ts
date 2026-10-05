@@ -1,9 +1,9 @@
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import type {
   HistoryItem,
   HistoryMutationResponse,
-} from "$lib/dashboard/types";
-import { summaryConfigurationMatches } from "$lib/dashboard/summary-rows";
+} from "#lib/dashboard/types.ts";
+import { summaryConfigurationMatches } from "#lib/dashboard/summary-rows.ts";
 
 const MAX_RETAINED_HISTORY_ENTRIES = 32;
 

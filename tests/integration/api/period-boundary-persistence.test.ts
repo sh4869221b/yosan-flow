@@ -1,14 +1,14 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { createD1BudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
+import { createD1BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
 import {
   createInMemoryBudgetPeriodRepository,
   type BudgetPeriodRecord,
   type LinkedPeriodBoundaryUpdateCommand,
   type LinkedPeriodBoundaryUpdateResult,
-} from "$lib/server/db/budget-period-repository";
+} from "#lib/server/db/budget-period-repository.ts";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 
 const target: BudgetPeriodRecord = {
   id: "target",

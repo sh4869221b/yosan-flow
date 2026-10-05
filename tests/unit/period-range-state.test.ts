@@ -3,7 +3,7 @@ import {
   createPeriodRange,
   getPeriodRangeCalendarValue,
   getPeriodRangeSelection,
-} from "$lib/components/period-range-state";
+} from "#lib/components/period-range-state.ts";
 
 function rangeStrings(range: ReturnType<typeof createPeriodRange>) {
   return {

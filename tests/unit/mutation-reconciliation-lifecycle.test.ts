@@ -1,10 +1,10 @@
 import { Effect, Fiber } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
-import { createHistoryMutationLifecycle } from "$lib/dashboard/history-mutation-lifecycle";
-import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
-import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import { createHistoryMutationLifecycle } from "#lib/dashboard/history-mutation-lifecycle.ts";
+import { createPeriodUpdateEffect } from "#lib/dashboard/period-controller-update-effect.ts";
+import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import {
   createSummary,
   jsonResponse,

@@ -4,7 +4,7 @@ import {
   buildMonths,
   fromDateValue,
   toDateValue,
-} from "$lib/components/calendar/calendar-grid";
+} from "#lib/components/calendar/calendar-grid.ts";
 
 describe("toDateValue", () => {
   it("converts a YYYY-MM-DD string to a UTC epoch number", () => {

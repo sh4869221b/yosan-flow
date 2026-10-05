@@ -1,4 +1,4 @@
-import type { BudgetPeriodRecord } from "$lib/server/db/budget-period-types";
+import type { BudgetPeriodRecord } from "#lib/server/db/budget-period-types.ts";
 
 export type PeriodSnapshot = Readonly<BudgetPeriodRecord>;
 

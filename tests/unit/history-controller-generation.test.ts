@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
+import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();

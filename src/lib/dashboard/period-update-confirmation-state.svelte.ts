@@ -1,8 +1,8 @@
 import type {
   PeriodBoundaryUpdateProposal,
   PeriodUpdateConfirmationRequest,
-} from "$lib/dashboard/period-update-api";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+} from "#lib/dashboard/period-update-api.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 
 export type PeriodUpdateConfirmationOwnership = {
   readonly targetId: string;

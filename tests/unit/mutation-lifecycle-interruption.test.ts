@@ -1,8 +1,8 @@
 import { Effect, Fiber } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
-import { createDayEntryMutationLifecycle } from "$lib/dashboard/day-entry-mutation-lifecycle";
-import { createHistoryMutationLifecycle } from "$lib/dashboard/history-mutation-lifecycle";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { createDayEntryMutationLifecycle } from "#lib/dashboard/day-entry-mutation-lifecycle.ts";
+import { createHistoryMutationLifecycle } from "#lib/dashboard/history-mutation-lifecycle.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import { createSummary } from "./day-entry-controller-test-fixtures";
 
 afterEach(() => vi.unstubAllGlobals());

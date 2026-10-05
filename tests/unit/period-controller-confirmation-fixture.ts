@@ -1,7 +1,7 @@
-import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import type { PeriodBoundaryUpdateProposal } from "$lib/dashboard/period-update-api";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import type { PeriodBoundaryUpdateProposal } from "#lib/dashboard/period-update-api.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import { createSummary } from "./day-entry-controller-test-fixtures";
 
 export const targetPeriod = {

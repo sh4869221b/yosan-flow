@@ -1,13 +1,12 @@
+import { cloudflareRuntime } from "../helpers/cloudflare-runtime";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createTracing,
   noopTracing,
   type NativeTracing,
-} from "$lib/server/observability/tracing";
-import type { TelemetryEvent } from "$lib/server/observability/schema";
-import { CUSTOM_SPAN_NAMES } from "$lib/server/observability/span-schema";
-
-vi.mock("cloudflare:workers", () => ({ tracing: { enterSpan: vi.fn() } }));
+} from "#lib/server/observability/tracing.ts";
+import type { TelemetryEvent } from "#lib/server/observability/schema.ts";
+import { CUSTOM_SPAN_NAMES } from "#lib/server/observability/span-schema.ts";
 
 const event = {
   event: "operation.completed",
@@ -241,22 +240,24 @@ describe("native span output boundary", () => {
   });
 
   it("smoke-imports the Workers entry with its native module mocked", async () => {
-    const { tracing } = await import("cloudflare:workers");
     const setAttribute = vi.fn();
-    vi.mocked(tracing.enterSpan).mockImplementation(
-      (_name, callback, ...args) =>
-        callback({ isTraced: true, setAttribute }, ...args),
-    );
-    const { workersTracing } =
-      await import("$lib/server/observability/tracing-workers");
+    const enterSpan = vi.fn();
+    cloudflareRuntime.tracing = {
+      enterSpan(name, callback) {
+        enterSpan(name, callback);
+        return callback({ isTraced: true, setAttribute });
+      },
+    };
+    const { getRequestTracing } =
+      await import("#lib/server/observability/tracing-workers.ts");
     const result = { privateResult: "secret-result" };
     const callback = vi.fn(() => result);
 
-    const actual = workersTracing.withSpan("period.read", callback, event);
+    const actual = getRequestTracing().withSpan("period.read", callback, event);
 
     expect(actual).toBe(result);
     expect(callback.mock.calls).toEqual([[]]);
-    expect(tracing.enterSpan).toHaveBeenCalledExactlyOnceWith(
+    expect(enterSpan).toHaveBeenCalledExactlyOnceWith(
       "period.read",
       expect.any(Function),
     );

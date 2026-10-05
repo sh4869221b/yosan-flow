@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import {
   DateOutOfPeriodError,
   PeriodNotFoundError,
-} from "$lib/server/services/day-entry-service";
+} from "#lib/server/services/day-entry-service.ts";
 import {
   DEFAULT_DATE,
   DEFAULT_PERIOD_ID,
