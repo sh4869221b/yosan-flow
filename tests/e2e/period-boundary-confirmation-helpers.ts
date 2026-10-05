@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
-import { getBaseUrl } from "./dashboard-shared";
+import { getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
 import { seedPeriod } from "./helpers/db";
 
 export const target = {
@@ -133,6 +133,7 @@ export async function seedBoundaryPair(
 
 export async function gotoTarget(page: Page): Promise<void> {
   await page.goto(`${getBaseUrl()}/?periodId=${target.periodId}`);
+  await waitForDashboardReady(page);
 }
 
 export async function applyRange(

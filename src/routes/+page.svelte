@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
   import DashboardWorkspace from "#lib/components/dashboard/DashboardWorkspace.svelte";
   import "#lib/components/dashboard/dashboard-shell.css";
@@ -15,6 +16,11 @@
   let { data }: { data: PageData } = $props();
   const controller = createDashboardPageController(() => data);
   let dayEntryOrigin = $state<DayEntryOrigin | null>(null);
+  let hydrated = $state(false);
+
+  onMount(() => {
+    hydrated = true;
+  });
 
   function rememberDayEntryOrigin(origin: DayEntryOrigin): void {
     dayEntryOrigin = origin;
@@ -51,7 +57,7 @@
   }
 </script>
 
-<main class="dashboard-page">
+<main class="dashboard-page" aria-busy={!hydrated}>
   <DashboardWorkspace
     {controller}
     today={data.today}

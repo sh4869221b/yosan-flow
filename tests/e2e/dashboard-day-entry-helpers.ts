@@ -13,6 +13,7 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
+  waitForDashboardReady,
 } from "./dashboard-shared";
 
 export type SeededDayEntryPeriod = {
@@ -83,15 +84,7 @@ export async function openDayEntryAndWaitForHistory({
 }: OpenDayEntryAndWaitForHistoryOptions): Promise<Locator> {
   const dayTestId = `calendar-day-${date}`;
   const dayButton = page.getByTestId(dayTestId);
-  await page.waitForFunction((testId) => {
-    const element = document.querySelector(`[data-testid="${testId}"]`);
-    return (
-      element != null &&
-      Object.getOwnPropertySymbols(element).some(
-        (symbol) => symbol.description === "events",
-      )
-    );
-  }, dayTestId);
+  await waitForDashboardReady(page);
 
   const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(date)}/history`;
   const expectedUrl = new URL(historyPath, page.url()).href;
