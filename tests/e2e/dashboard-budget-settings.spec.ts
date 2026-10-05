@@ -16,6 +16,7 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
+  waitForDashboardReady,
 } from "./dashboard-shared";
 
 test.describe.configure({ timeout: 120_000 });
@@ -36,6 +37,7 @@ test("updates a seeded period budget", async ({ page, request }) => {
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await page.getByText("期間の終了日や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("150000");
   const updateRequest = page.waitForRequest(
@@ -66,6 +68,7 @@ test("rejects malformed period budget values before requests", async ({
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await page.getByText("期間の終了日や予算を変更する").click();
   let updateRequestCount = 0;
   await page.route(`**/api/periods/${periodId}`, async (route) => {
@@ -111,6 +114,7 @@ test("shows save error and keeps input on failed period update", async ({
   const { periodId } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await page.getByText("期間の終了日や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("130000");
   await page.route(`**/api/periods/${periodId}`, async (route) => {
@@ -173,6 +177,7 @@ async function openBudget(page: Page, request: APIRequestContext) {
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-budget-settings`);
+  await waitForDashboardReady(page);
   await page.getByText("期間の終了日や予算を変更する").click();
   const region = page.getByRole("region", { name: "予算設定", exact: true });
   return {
