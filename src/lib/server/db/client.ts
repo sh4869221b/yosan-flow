@@ -32,14 +32,6 @@ export function createDrizzleD1Database(
   return drizzle(db, { schema });
 }
 
-type CreateClientInput<P, D, H> = {
-  initialState?: Partial<DatabaseState<P, D, H>>;
-};
-
-function cloneValue<T>(value: T): T {
-  return structuredClone(value);
-}
-
 function cloneState<P, D, H>(
   state: DatabaseState<P, D, H>,
 ): DatabaseState<P, D, H> {
@@ -47,17 +39,17 @@ function cloneState<P, D, H>(
     budgetPeriods: new Map(
       [...state.budgetPeriods.entries()].map(([key, value]) => [
         key,
-        cloneValue(value),
+        structuredClone(value),
       ]),
     ),
     dailyTotals: new Map(
       [...state.dailyTotals.entries()].map(([key, value]) => [
         key,
-        cloneValue(value),
+        structuredClone(value),
       ]),
     ),
     dailyOperationHistories: state.dailyOperationHistories.map((value) =>
-      cloneValue(value),
+      structuredClone(value),
     ),
   };
 }
@@ -66,13 +58,11 @@ export function createInMemoryDatabaseClient<
   P = unknown,
   D = unknown,
   H = unknown,
->(input: CreateClientInput<P, D, H> = {}): DatabaseClient<P, D, H> {
+>(): DatabaseClient<P, D, H> {
   let currentState: DatabaseState<P, D, H> = {
-    budgetPeriods: new Map(input.initialState?.budgetPeriods ?? []),
-    dailyTotals: new Map(input.initialState?.dailyTotals ?? []),
-    dailyOperationHistories: [
-      ...(input.initialState?.dailyOperationHistories ?? []),
-    ],
+    budgetPeriods: new Map(),
+    dailyTotals: new Map(),
+    dailyOperationHistories: [],
   };
   let transactionQueue: Promise<void> = Promise.resolve();
 
@@ -94,10 +84,9 @@ export function createInMemoryDatabaseClient<
 
         const txState = cloneState(currentState);
         return yield* work({ state: txState }).pipe(
-          Effect.tap((result) =>
+          Effect.tap(() =>
             Effect.sync(() => {
               currentState = txState;
-              return result;
             }),
           ),
           Effect.ensuring(

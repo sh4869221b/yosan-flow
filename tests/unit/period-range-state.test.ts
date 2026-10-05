@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  createPeriodRange,
   getPeriodRangeCalendarValue,
-  getPeriodRangeSelection,
+  getPeriodRangeValidation,
 } from "#lib/components/period-range-state.ts";
 
-function rangeStrings(range: ReturnType<typeof createPeriodRange>) {
+function rangeStrings(range: ReturnType<typeof getPeriodRangeCalendarValue>) {
   return {
     startDate: range.start?.toString() ?? "",
     endDate: range.end?.toString() ?? "",
@@ -64,13 +63,15 @@ describe("getPeriodRangeCalendarValue", () => {
 
 describe("existing range validation helpers", () => {
   it("keeps reversed endpoints for validation", () => {
-    const selection = getPeriodRangeSelection(
-      createPeriodRange({ startDate: "2026-09-30", endDate: "2026-09-01" }),
-    );
-
-    expect(selection).toEqual({
+    const validation = getPeriodRangeValidation({
       startDate: "2026-09-30",
       endDate: "2026-09-01",
+    });
+
+    expect(validation).toEqual({
+      startError: null,
+      endError: null,
+      rangeError: "終了日は開始日以降にしてください。",
       isValid: false,
     });
   });

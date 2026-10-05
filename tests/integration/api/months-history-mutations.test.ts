@@ -1,7 +1,7 @@
 import { cloudflareRuntime } from "../../helpers/cloudflare-runtime";
 import { describe, expect, it } from "vitest";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
-import { createD1ApiServices } from "#lib/server/services/month-summary-service.ts";
+import { createD1ApiServices } from "#lib/server/services/api-services/d1.ts";
 import { GET as periodGetDefaultRoute } from "../../../src/routes/api/periods/[periodId]/+server";
 import { PUT as periodPutDefaultRoute } from "../../../src/routes/api/periods/[periodId]/+server";
 import { _createPeriodDayHistoryHandler } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";

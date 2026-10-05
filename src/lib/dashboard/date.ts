@@ -4,7 +4,3 @@ export function addDays(date: string, days: number): string {
     .toISOString()
     .slice(0, 10);
 }
-
-export function toPeriodId(startDate: string): string {
-  return `p-${startDate}`;
-}

@@ -193,7 +193,8 @@ function analyze(kind: Analysis, root: string, output: string): void {
   verifyReport(kind, JSON.parse(result.stdout), baseline);
 }
 
-function runFallowGate(root: string): boolean {
+if (import.meta.main) {
+  const root = process.cwd();
   const output = join(root, ".tmp-fallow-ci");
   mkdirSync(output, { recursive: true });
   let passed = true;
@@ -209,9 +210,5 @@ function runFallowGate(root: string): boolean {
     }
   }
   console.log(`Fallow reports: ${output}`);
-  return passed;
-}
-
-if (import.meta.main) {
-  process.exitCode = runFallowGate(process.cwd()) ? 0 : 1;
+  process.exitCode = passed ? 0 : 1;
 }

@@ -4,43 +4,23 @@ import {
   parseRequestBodyObject,
 } from "./month";
 import { Effect } from "effect";
+import {
+  assertValidDate,
+  normalizeMemo,
+} from "#lib/server/domain/daily-entry.ts";
 
 export function parseDate(date: string | undefined): string {
-  if (!date) {
+  const value = date ?? "";
+  try {
+    assertValidDate(value);
+  } catch {
     throw new ApiRouteError(
       400,
       "INVALID_DATE",
       "date は yyyy-mm-dd 形式で指定してください。",
     );
   }
-
-  const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  if (!matched) {
-    throw new ApiRouteError(
-      400,
-      "INVALID_DATE",
-      "date は yyyy-mm-dd 形式で指定してください。",
-    );
-  }
-
-  const year = Number(matched[1]);
-  const month = Number(matched[2]);
-  const day = Number(matched[3]);
-
-  const normalized = new Date(Date.UTC(year, month - 1, day));
-  if (
-    normalized.getUTCFullYear() !== year ||
-    normalized.getUTCMonth() + 1 !== month ||
-    normalized.getUTCDate() !== day
-  ) {
-    throw new ApiRouteError(
-      400,
-      "INVALID_DATE",
-      "date は yyyy-mm-dd 形式で指定してください。",
-    );
-  }
-
-  return date;
+  return value;
 }
 
 export function parseHistoryId(value: string | undefined): string {
@@ -85,7 +65,7 @@ export function parseDayMutationInput(
 
     return {
       inputYen,
-      memo: memoValue == null ? null : memoValue.trim() || null,
+      memo: normalizeMemo(memoValue),
     };
   });
 }

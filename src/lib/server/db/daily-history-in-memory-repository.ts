@@ -1,8 +1,5 @@
 import { Effect } from "effect";
-import {
-  cloneHistory,
-  toDailyHistoryRecordFromInput,
-} from "#lib/server/db/daily-history-mapper.ts";
+import { toDailyHistoryRecordFromInput } from "#lib/server/db/daily-history-mapper.ts";
 import type {
   DailyHistoryRecord,
   DailyHistoryRepository,
@@ -10,14 +7,16 @@ import type {
 } from "#lib/server/db/daily-history-types.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 
-function findHistories(
+function findChronologicalHistories(
   tx: DailyHistoryTransaction,
   date: string,
   budgetPeriodId: string,
 ): DailyHistoryRecord[] {
-  return tx.state.dailyOperationHistories.filter(
-    (entry) => entry.date === date && entry.budgetPeriodId === budgetPeriodId,
-  );
+  return tx.state.dailyOperationHistories
+    .filter(
+      (entry) => entry.date === date && entry.budgetPeriodId === budgetPeriodId,
+    )
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
 export function createDailyHistoryRepository(): DailyHistoryRepository {
@@ -31,7 +30,7 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
               entry.date === input.date &&
               entry.id === input.historyId,
           );
-          return found ? cloneHistory(found) : null;
+          return found ? { ...found } : null;
         },
         catch: toEffectError,
       });
@@ -40,15 +39,9 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
     listHistoriesByDate(tx, date, budgetPeriodId) {
       return Effect.try({
         try: () =>
-          findHistories(tx, date, budgetPeriodId)
-            .map((entry, index) => ({ entry, index }))
-            .sort((left, right) => {
-              if (left.entry.createdAt === right.entry.createdAt) {
-                return right.index - left.index;
-              }
-              return right.entry.createdAt.localeCompare(left.entry.createdAt);
-            })
-            .map(({ entry }) => cloneHistory(entry)),
+          findChronologicalHistories(tx, date, budgetPeriodId)
+            .reverse()
+            .map((entry) => ({ ...entry })),
         catch: toEffectError,
       });
     },
@@ -56,15 +49,9 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
     listHistoriesByDateChronological(tx, date, budgetPeriodId) {
       return Effect.try({
         try: () =>
-          findHistories(tx, date, budgetPeriodId)
-            .map((entry, index) => ({ entry, index }))
-            .sort((left, right) => {
-              if (left.entry.createdAt === right.entry.createdAt) {
-                return left.index - right.index;
-              }
-              return left.entry.createdAt.localeCompare(right.entry.createdAt);
-            })
-            .map(({ entry }) => cloneHistory(entry)),
+          findChronologicalHistories(tx, date, budgetPeriodId).map((entry) => ({
+            ...entry,
+          })),
         catch: toEffectError,
       });
     },
@@ -74,7 +61,7 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
         try: () => {
           const history = toDailyHistoryRecordFromInput(input);
           tx.state.dailyOperationHistories.push(history);
-          return cloneHistory(history);
+          return { ...history };
         },
         catch: toEffectError,
       });
@@ -90,7 +77,7 @@ export function createDailyHistoryRepository(): DailyHistoryRepository {
                 entry.date !== input.date,
             );
           tx.state.dailyOperationHistories.push(
-            ...input.histories.map((history) => cloneHistory(history)),
+            ...input.histories.map((history) => ({ ...history })),
           );
         },
         catch: toEffectError,

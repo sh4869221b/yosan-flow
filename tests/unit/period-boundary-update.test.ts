@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { decidePeriodBoundaryUpdate } from "#lib/server/services/period-update/period-boundary-decision.ts";
 import {
   PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR,
-  PERIOD_UPDATE_CONFLICT_ERROR,
   PeriodMultipleSuccessorsError,
   PeriodUpdateConflictError,
 } from "#lib/server/services/period-update/period-update-types.ts";
@@ -192,10 +191,9 @@ describe("period boundary update decision", () => {
       code: "PERIOD_MULTIPLE_SUCCESSORS",
       message: "後続の予算期間が複数存在するため、変更できません。",
     });
-    expect(PERIOD_UPDATE_CONFLICT_ERROR).toEqual({
+    expect(updateConflictError).toMatchObject({
       code: "PERIOD_UPDATE_CONFLICT",
       message: "確認後に予算期間が変更されたため、もう一度操作してください。",
     });
-    expect(updateConflictError).toMatchObject(PERIOD_UPDATE_CONFLICT_ERROR);
   });
 });

@@ -170,8 +170,6 @@ preview は専用 D1 `yosan-flow-preview` と `yosan-preview.sh4869221b.work` �
 | `status`     | HTTP response status（100〜599 の整数）                                                                                                                                                                        |
 | `error_code` | `schema.ts` の固定コード集合。未知の API error code はログ上だけ `UNKNOWN_ERROR` に置換し、成功時は省略                                                                                                        |
 
-`normalizeRoute(pathname)` は query / fragment を除去し、既知のパスの動的部分を `[periodId]` / `[date]` / `[historyId]` に置き換えます。末尾の `/` は一つまで許容し、未知のパス、完全な URL、余分なパス要素、テスト用 reset route は `unknown` にします。ID や日付自体の妥当性を検証する関数ではありません。
-
 `sanitizeEvent(input)` は六つの必須 own field を検証して新しいオブジェクトへ取り出し、任意の `error_code` も own field かつ許可リスト内の場合だけ追加します。余分なキーやネストしたデータ、未登録・継承された任意コードを捨て、必須フィールドが不正なら `undefined` を返します。`createLogger(sink?).log(input)` はこの処理を通したイベントだけを一つ出力し、不正な入力は出力しません。既定の sink は単一オブジェクトを受け取る `console.log` です。
 
 期間作成・更新、日次加算・上書き、履歴更新・削除では、共通の mutation response 処理が応答を組み立てた後に終端イベントを一度だけ出力します。書込み後の summary / histories 再取得に失敗した場合は、成功イベントを先に出さずエラーイベントだけを記録し、書込みは再実行しません。GET や通常の request log は追加しません。期間削除 API は現時点では存在せず、ログ導入の対象もありません。
@@ -201,7 +199,7 @@ API / page は request ごとに `tracing-workers.ts` の `getRequestTracing()` 
 
 業務 span の属性は、選んだ固定 span 名と一致する `app.operation` と、既存 route template の任意の `app.route` だけです。加算・上書きは同じ span 名でも異なる固定 route を使い、linked 子 span の route は `/api/periods/[periodId]`、summary では route を省略します。`outcome` / `error_code` は既存の終端ログに残します。属性 supplier は native span に入った後、`isTraced` が true の場合だけ評価・検証し、余分な属性は捨てます。unsampled / no-op では supplier を呼びません。
 
-共通の `TracingAdapter.withSpan` は、既存の固定 operation 名と任意の `TelemetryEvent` を受け取る形式も維持します。既存属性の検証・付与も `isTraced` が true の場合だけ行います。callback に native Span は渡さず、不正な名前では span を作らず work を一度実行し、同期 return / throw と Promise 自体の同一性を維持します。`withTracingEffect` は Effect 実行時に span を開始し、元の成功・失敗・defect を保ったまま完了を待ち、中断時は内部処理の finalizer 完了を待ちます。戻り値やエラーを span 属性やログにコピーしません。
+共通の `TracingAdapter.withSpan` は固定の業務 span 名と任意の属性 supplier を受け取ります。callback に native Span は渡さず、不正な名前では span を作らず work を一度実行し、同期 return / throw と Promise 自体の同一性を維持します。`withTracingEffect` は Effect 実行時に span を開始し、元の成功・失敗・defect を保ったまま完了を待ち、中断時は内部処理の finalizer 完了を待ちます。戻り値やエラーを span 属性やログにコピーしません。
 
 この契約はアプリケーションが作る payload / カスタム span に適用します。Cloudflare が付加する URL・ID・SQL などの標準メタデータは、所有者が承認した例外であり、この sanitizer の対象外です。保存される telemetry 全体の無害化は保証しません。アプリケーション側でこれらの値を payload にコピーすることも禁止します。標準属性は [Cloudflare の Spans and attributes](https://developers.cloudflare.com/workers/observability/traces/spans-and-attributes/) を参照してください。この一覧から D1 の bind 値が SQL に含まれるとは断定しません。
 

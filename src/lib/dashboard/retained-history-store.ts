@@ -18,9 +18,7 @@ function entryKey(periodId: string, date: string): string {
   return JSON.stringify([periodId, date]);
 }
 
-export function createRetainedHistoryStore(
-  maxEntries = MAX_RETAINED_HISTORY_ENTRIES,
-) {
+export function createRetainedHistoryStore() {
   const entries = new Map<string, RetainedHistories>();
 
   return {
@@ -68,7 +66,7 @@ export function createRetainedHistoryStore(
         revision,
         summary: body.summary,
       });
-      if (entries.size > maxEntries) {
+      if (entries.size > MAX_RETAINED_HISTORY_ENTRIES) {
         const oldestKey = entries.keys().next().value;
         if (oldestKey != null) entries.delete(oldestKey);
       }

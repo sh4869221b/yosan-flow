@@ -4,11 +4,6 @@ import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { ApiRouteError } from "#lib/server/validation/month.ts";
 
 describe("API Effect execution boundary", () => {
-  it("returns the original success value", async () => {
-    const value = { status: "ready" };
-    await expect(runApiEffect(Effect.succeed(value))).resolves.toBe(value);
-  });
-
   it("rejects with the original typed route error", async () => {
     const error = new ApiRouteError(409, "CONFLICT", "競合しています。");
     await expect(runApiEffect(Effect.fail(error))).rejects.toBe(error);

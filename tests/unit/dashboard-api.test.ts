@@ -5,7 +5,6 @@ import {
   dayHistoryUrl,
   historyItemUrl,
   periodSummaryUrl,
-  periodsUrl,
 } from "#lib/dashboard/api-urls.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
 
@@ -42,7 +41,6 @@ describe("dashboard API URLs", () => {
     const historyId = "history/id ?";
 
     // When / Then
-    expect(periodsUrl()).toBe("/api/periods");
     expect(periodSummaryUrl(periodId)).toBe(
       "/api/periods/period%2Fwith%20space%3F",
     );

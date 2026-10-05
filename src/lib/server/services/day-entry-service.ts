@@ -1,4 +1,6 @@
 import { Effect } from "effect";
+import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import type { DatabaseClient } from "#lib/server/db/client.ts";
 import type {
   BudgetPeriodRecord,
@@ -17,7 +19,6 @@ import { persistEntryEffect } from "./day-entry/entry-persistence";
 import { replayHistoryMutationEffect } from "./day-entry/history-mutation";
 import {
   prepareEntryEffect,
-  validateHistoryDeleteEffect,
   validateEntryInputEffect,
   type ExecuteEntryInput,
 } from "./day-entry/preparation";
@@ -152,7 +153,10 @@ export class DayEntryService {
     command: HistoryMutationCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen({ self: this }, function* () {
-      yield* validateHistoryDeleteEffect(command);
+      yield* Effect.try({
+        try: () => assertValidDate(command.date),
+        catch: toEffectError,
+      });
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
         mutateTarget: () => null,

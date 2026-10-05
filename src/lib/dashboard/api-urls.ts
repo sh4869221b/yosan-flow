@@ -1,6 +1,4 @@
-export function periodsUrl(): string {
-  return "/api/periods";
-}
+export const PERIODS_URL = "/api/periods";
 
 export function periodSummaryUrl(periodId: string): string {
   return `/api/periods/${encodeURIComponent(periodId)}`;

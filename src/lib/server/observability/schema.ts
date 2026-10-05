@@ -64,7 +64,7 @@ export type TelemetryEvent = {
   readonly error_code?: TelemetryErrorCode;
 };
 
-export function isOperation(input: unknown): input is Operation {
+function isOperation(input: unknown): input is Operation {
   return OPERATIONS.some((operation) => operation === input);
 }
 

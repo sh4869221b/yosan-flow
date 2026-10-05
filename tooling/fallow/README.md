@@ -16,7 +16,7 @@ Renovate can update the exact npm dependency.
 ```bash
 pnpm install --frozen-lockfile
 pnpm fallow                       # human combined report; exits 1 with retained findings
-pnpm fallow:dead-code             # currently exits 1: existing findings
+pnpm fallow:dead-code             # currently no findings
 pnpm fallow:dupes                 # currently exits 0: findings, no percentage gate
 pnpm fallow:health                # currently exits 1: existing findings
 pnpm fallow:ci                    # CI gate: zero new findings; every baseline entry matched
@@ -172,6 +172,12 @@ findings, exclusions, thresholds, or blanket baseline refresh were accepted.
 Single-use integration and E2E scenario registration functions were removed.
 The existing test entries import the scenario modules for registration directly;
 their assertions and the analyzer's file-discovery scope remain unchanged.
+
+The follow-up cleanup shares the in-memory history ordering implementation.
+Whole-project raw duplication reports retain the same ten other clone groups;
+only the resolved history-ordering group and its two fingerprint entries were
+removed from the duplication baseline. Same-timestamp ascending insertion order
+and descending reverse-insertion order remain covered by repository/API tests.
 
 ### Renovate and analyzer upgrades
 

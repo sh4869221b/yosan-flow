@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { periodSummaryUrl, periodsUrl } from "#lib/dashboard/api-urls.ts";
+import { periodSummaryUrl, PERIODS_URL } from "#lib/dashboard/api-urls.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
 import type {
   PeriodOption,
@@ -84,7 +84,7 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
     dependencies.setLoading(false);
     return Effect.gen(function* () {
       const result = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
-        periodsUrl(),
+        PERIODS_URL,
         undefined,
         "保存に失敗しました。",
       ).pipe(Effect.result);

@@ -23,12 +23,6 @@ export type PreparedEntryInput = ExecuteEntryInput & {
   nowIso: string;
 };
 
-type HistoryMutationCommandLike = {
-  periodId: string;
-  date: string;
-  historyId: string;
-};
-
 type EntryPreparationErrors = {
   createPeriodNotFoundError: (periodId: string) => Error;
   createDateOutOfPeriodError: (date: string, periodId: string) => Error;
@@ -50,15 +44,6 @@ export function validateEntryInputEffect(
       assertValidInputYen(command.inputYen);
       return normalizeMemo(command.memo);
     },
-    catch: toEffectError,
-  });
-}
-
-export function validateHistoryDeleteEffect(
-  command: HistoryMutationCommandLike,
-): Effect.Effect<void, Error> {
-  return Effect.try({
-    try: () => assertValidDate(command.date),
     catch: toEffectError,
   });
 }

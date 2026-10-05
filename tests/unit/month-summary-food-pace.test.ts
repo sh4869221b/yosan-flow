@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Effect } from "effect";
 import { createInMemoryBudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
-import { buildPeriodSummary } from "#lib/server/services/month-summary-service.ts";
+import { buildPeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
 
 describe("period summary food pace", () => {
   it("shows all saved pace surplus as today's bonus instead of spreading it over remaining days", async () => {
