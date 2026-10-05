@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
@@ -24,20 +24,127 @@ function newFindings(kind: Analysis, report: Record<string, unknown>): unknown {
   return array(report.findings).length;
 }
 
-export function verifyReport(kind: Analysis, value: unknown): void {
+function count(value: unknown): number {
+  assert(
+    typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
+    "Invalid baseline count",
+  );
+  return value;
+}
+
+function verifyBaseline(
+  kind: Analysis,
+  report: Record<string, unknown>,
+  baseline: unknown,
+): void {
+  const stale = object(
+    kind === "health"
+      ? object(report.summary).baseline_staleness
+      : report.baseline_staleness,
+  );
+  const entries = count(stale.baseline_entries);
+  const matched = count(stale.matched_entries);
+  const current = count(stale.current_findings);
+  const moved = count(stale.moved_entries);
+  assert(moved <= matched, "Inconsistent moved count");
+  assert(
+    matched <= entries && matched <= current,
+    "Inconsistent baseline counts",
+  );
+  assert.equal(
+    count(stale.stale_entries),
+    entries - matched,
+    "Inconsistent unmatched count",
+  );
+  assert.equal(
+    stale.unrecognised_format === undefined ? false : stale.unrecognised_format,
+    false,
+    "Unrecognised baseline format",
+  );
+  assert.equal(stale.gate_trips, false, "Baseline gate tripped");
+  const gate = object(object(report.gate_outcomes)["stale-baseline"]);
+  if (kind === "dead-code") {
+    const saved = object(baseline);
+    assert.equal(saved.kind, kind, "Wrong baseline kind");
+    assert.equal(
+      saved.identity,
+      "dc1",
+      "Occurrence-matched dc1 baseline required",
+    );
+    assert.equal(stale.format, undefined, "Unsupported baseline format");
+    let savedEntries = 0;
+    for (const [key, value] of Object.entries(saved)) {
+      if (
+        ["kind", "identity", "analysis_identity", "scope_reasons"].includes(key)
+      )
+        continue;
+      const identities = array(value);
+      assert(
+        identities.every((identity) => typeof identity === "string"),
+        "Invalid baseline identities",
+      );
+      savedEntries += identities.length;
+    }
+    assert.equal(entries, savedEntries, "Loaded baseline count mismatch");
+    assert.equal(current, matched, "Unfiltered dead-code findings remain");
+  }
+  if (stale.change_scoped === true) {
+    assert.equal(kind, "dead-code", "Unexpected scoped analysis");
+    assert.deepEqual(
+      stale.scope_reasons,
+      ["include-entry-exports"],
+      "Unexpected baseline scope",
+    );
+    assert.equal(
+      gate.enforced,
+      false,
+      "Unexpected scoped baseline enforcement",
+    );
+    assert.equal(
+      gate.status,
+      "skipped",
+      "Expected native freshness check to be skipped",
+    );
+    // This is a separate repository policy, not a native freshness verdict.
+    // dc1 consumes one saved occurrence per match. Full equality proves every
+    // accepted occurrence was observed; an unmatched occurrence needs review.
+  } else {
+    assert.equal(stale.change_scoped, false, "Missing baseline scope");
+    assert.deepEqual(
+      stale.scope_reasons === undefined ? [] : stale.scope_reasons,
+      [],
+      "Unexpected baseline scope",
+    );
+    assert.equal(gate.enforced, true, "Baseline gate must be enforced");
+    assert.equal(gate.status, "pass", "Stale baseline entries");
+  }
+  assert.equal(
+    matched,
+    entries,
+    "Unmatched baseline entries; inspect scope and identities",
+  );
+}
+
+export function verifyReport(
+  kind: Analysis,
+  value: unknown,
+  baseline?: unknown,
+): void {
   const report = object(value);
   assert.equal(report.kind, kind, "Unexpected Fallow report kind");
   // dupes --fail-on-issues does not reject clone groups in the pinned version.
   // Inspect filtered findings explicitly for every analysis, never raw totals.
   assert.equal(newFindings(kind, report), 0, `New ${kind} findings`);
-  const gates = object(report.gate_outcomes);
-  const staleGate = object(gates["stale-baseline"]);
-  assert.equal(staleGate.enforced, true, "Baseline gate must be enforced");
-  assert.equal(staleGate.status, "pass", "Stale baseline entries");
-  for (const diagnostic of array(report.workspace_diagnostics ?? [])) {
-    assert.notEqual(
-      object(diagnostic).degrades_analysis,
-      true,
+  verifyBaseline(kind, report, baseline);
+  for (const diagnostic of array(
+    report.workspace_diagnostics === undefined
+      ? []
+      : report.workspace_diagnostics,
+  )) {
+    const degraded = object(diagnostic).degrades_analysis;
+    assert.equal(
+      degraded === undefined ? false : degraded,
+      false,
       "Fallow analysis is incomplete; inspect workspace_diagnostics",
     );
   }
@@ -51,6 +158,7 @@ function options(kind: Analysis): string[] {
 }
 
 function analyze(kind: Analysis, root: string, output: string): void {
+  const baselinePath = join(root, "tooling/fallow", `${kind}.baseline.json`);
   const result = spawnSync(
     process.execPath,
     [
@@ -61,7 +169,7 @@ function analyze(kind: Analysis, root: string, output: string): void {
       "json",
       "--quiet",
       "--baseline",
-      join(root, "tooling/fallow", `${kind}.baseline.json`),
+      baselinePath,
       "--fail-on-issues",
       "--fail-on-stale-baseline",
       ...options(kind),
@@ -81,7 +189,8 @@ function analyze(kind: Analysis, root: string, output: string): void {
     0,
     `${kind} exited ${result.status}: ${result.stderr}`,
   );
-  verifyReport(kind, JSON.parse(result.stdout));
+  const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+  verifyReport(kind, JSON.parse(result.stdout), baseline);
 }
 
 function runFallowGate(root: string): boolean {
@@ -91,7 +200,9 @@ function runFallowGate(root: string): boolean {
   for (const kind of analyses) {
     try {
       analyze(kind, root, output);
-      console.log(`Fallow ${kind}: no new findings or stale baseline entries`);
+      console.log(
+        `Fallow ${kind}: no new findings; all baseline entries matched`,
+      );
     } catch (error) {
       passed = false;
       console.error(`Fallow ${kind}: FAILED`, error);

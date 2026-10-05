@@ -8,12 +8,14 @@
     "backend_family": "",
     "completeness": "complete"
   },
+  "identity": "dc1",
+  "scope_reasons": ["include-entry-exports"],
   "unused_files": [],
   "unused_exports": [
-    "src/lib/server/db/budget-period-repository.ts:LinkedPeriodBoundaryInvariantError"
+    "unused-export:src/lib/server/db/budget-period-repository.ts:LinkedPeriodBoundaryInvariantError"
   ],
   "unused_types": [
-    "tests/integration/helpers/period-d1-fake.ts:PeriodAwareD1FakeOptions"
+    "unused-type:tests/integration/helpers/period-d1-fake.ts:PeriodAwareD1FakeOptions"
   ],
   "private_type_leaks": [],
   "deprecated_exports_in_use": [],
@@ -21,6 +23,7 @@
   "unused_dev_dependencies": [],
   "circular_dependencies": [],
   "re_export_cycles": [],
+  "package_cycles": [],
   "unused_optional_dependencies": [],
   "unused_enum_members": [],
   "unused_class_members": [],

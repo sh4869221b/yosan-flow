@@ -9,9 +9,9 @@ source was unchanged from [`aba727b`](https://github.com/sh4869221b/yosan-flow/c
 The original snapshot was taken on 2026-10-02 with #352's tooling configuration and
 `tests/unit/fallow-config.test.ts`. Runtime/package-manager versions come from
 `.node_version` and `package.json#packageManager`; dependencies come from the lockfile.
-Fallow is pinned exactly to **3.30.0** (Node >=22), the newest release satisfying the
-repository's three-day release-age policy at capture time. 3.31.0 was too recent;
-no supply-chain exception was added. Renovate can update the exact npm dependency.
+The original capture used **3.30.0**. Fallow is now pinned exactly to **3.31.0**
+(Node >=22), with the same three-day release-age policy and no exception.
+Renovate can update the exact npm dependency.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -19,7 +19,7 @@ pnpm fallow                       # human combined report; exits 1 with retained
 pnpm fallow:dead-code             # currently exits 1: existing findings
 pnpm fallow:dupes                 # currently exits 0: findings, no percentage gate
 pnpm fallow:health                # currently exits 1: existing findings
-pnpm fallow:ci                    # CI gate: new findings and stale entries must be zero
+pnpm fallow:ci                    # CI gate: zero new findings; every baseline entry matched
 ```
 
 The raw-report scripts do not load baselines. Only `fallow:ci` explicitly loads the
@@ -64,10 +64,40 @@ installed executable for the **whole project**, not only changed files:
   `--fail-on-issues` and `--fail-on-parse-error`; filtered `findings` must be empty.
   Raw health summary counts still include retained findings and are not the delta.
 - All three use `--no-cache`, JSON output and `--fail-on-stale-baseline`. Every
-  process must exit 0, the expected report must parse, the baseline gate must be
-  enforced and pass, and no workspace diagnostic may mark analysis as degraded.
+  process must exit 0, the expected report must parse, and no workspace diagnostic
+  may mark analysis as degraded. Dupes/health require the native baseline gate to
+  be enforced and pass. Dead code uses the occurrence-match policy below.
   Missing/corrupt baselines, malformed output, missing binaries, process failures
   and timeouts fail closed. The runner attempts all three analyses even if one fails.
+
+### Entry-aware dead-code contract (3.31.0)
+
+The [versioned CLI contract](https://github.com/fallow-rs/fallow/blob/v3.31.0/docs/reference/cli-internals.md)
+treats `includeEntryExports` as an analysis-scope change, whether enabled in config
+or on the command line. Our entry-aware run therefore reports `change_scoped: true`,
+`scope_reasons: ["include-entry-exports"]` and native stale-baseline
+`status: "skipped", enforced: false`. This is documented behavior. We preserve that
+verdict; it is not a successful native freshness check.
+
+Instead, the repository separately requires **every saved dead-code occurrence to
+be observed**. The baseline must use Fallow's canonical `identity: "dc1"` scheme,
+which spends at most one saved occurrence per match. The runner checks the loaded
+baseline's entry count against the report, requires `matched_entries ==
+baseline_entries`, zero unmatched entries and zero new findings, and validates
+nonnegative integer counts and their relationships. Legacy baselines are rejected:
+their repeated findings can inflate matched counts without observing every identity.
+Only the exact `include-entry-exports` scope is allowed; changed files, production,
+workspace, additional/unknown reasons, inconsistent fields, or an unrecognised
+baseline fail closed. Whole-project runs without entry-export scoping must still
+have a native enforced/passing freshness gate.
+
+The two previously reviewed dead-code findings were migrated to dc1 without adding
+findings or occurrences. Duplication and health baselines are unchanged. A missing
+match fails this repository policy and requires investigation; it does not establish
+that the code was resolved, and never triggers automatic removal or regeneration.
+Zero new findings plus every saved occurrence observed retains the entry-export
+checks and prevents exemptions accumulating. It does not make native scoped
+freshness conclusive, nor prove that Fallow discovers every possible defect.
 
 PR and `main` push CI run this in the dedicated **Fallow** job. **Quality checks**
 requires its success, as well as format/lint, check, unit, integration, build and both
@@ -100,14 +130,17 @@ Failure/review procedure:
    required framework/API/test contracts based only on a syntactic finding. For a
    genuine exception, document the exact identity/rule, rationale and regression
    evidence in the same reviewed change, using the narrow policy below.
-3. Remove resolved stale entries. Inspect raw findings before any manual baseline
-   refresh; no blanket rebaseline, new count allowance, threshold inflation or CI
+3. Inspect unmatched entries and establish why they no longer match before removing
+   a resolved finding. In a scoped report, unmatched means unknown, not resolved.
+   Inspect raw findings before any manual baseline refresh; no blanket rebaseline, new count allowance, threshold inflation or CI
    baseline regeneration is allowed. #353's remaining two facade findings, eleven
    clone groups and 57 health identities retain their existing recorded reasons.
 4. Re-run fixture tests and the full gate after config, baseline or analyzer changes.
    `tests/unit/fallow-ci.test.ts` runs the real executable against disposable projects:
-   existing findings pass; new dead code, clones and health findings exit 1; stale or
-   missing baselines and degraded shallow history fail. Policy tests execute the actual aggregate shell block with
+   existing findings pass; new dead code, clones and health findings fail; unmatched
+   occurrences, missing/legacy/mismatched baselines and degraded shallow history fail.
+   Full-scope, changed-scope, entry-aware and duplicate-identity cases exercise the
+   documented native verdict separately from the repository's occurrence policy. Policy tests execute the actual aggregate shell block with
    each required job failed, cancelled and skipped. Production source is never poisoned.
 
 This is an identity-based regression gate, not proof of absence of all code problems.
