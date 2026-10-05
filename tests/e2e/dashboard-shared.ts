@@ -1,4 +1,4 @@
-import type { APIRequestContext } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4173;
@@ -8,6 +8,10 @@ const baseUrl = `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
 
 export function getBaseUrl(): string {
   return baseUrl;
+}
+
+export async function waitForDashboardReady(page: Page): Promise<void> {
+  await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "false");
 }
 
 export function getCurrentJstDate(): string {
