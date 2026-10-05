@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { createFixture } from "./periods-fixture";
 
-async function parseJson(response: Response): Promise<any> {
-  return response.json();
-}
-
 describe("period CRUD APIs", () => {
   it("creates and lists periods", async () => {
     const fixture = createFixture();
@@ -28,9 +24,9 @@ describe("period CRUD APIs", () => {
       request: new Request("http://localhost/api/periods", { method: "GET" }),
     } as any);
     expect(listResponse.status).toBe(200);
-    const listBody = await parseJson(listResponse);
-    expect(listBody.periods).toHaveLength(1);
-    expect(listBody.periods[0].id).toBe("p-2026-04");
+    await expect(listResponse.json()).resolves.toMatchObject({
+      periods: [{ id: "p-2026-04" }],
+    });
   });
 
   it("updates period by PUT /api/periods/:periodId", async () => {
@@ -58,9 +54,10 @@ describe("period CRUD APIs", () => {
     } as any);
 
     expect(putResponse.status).toBe(200);
-    const body = await parseJson(putResponse);
-    expect(body.startDate).toBe("2026-04-21");
-    expect(body.endDate).toBe("2026-05-20");
-    expect(body.budgetYen).toBe(120000);
+    await expect(putResponse.json()).resolves.toMatchObject({
+      startDate: "2026-04-21",
+      endDate: "2026-05-20",
+      budgetYen: 120000,
+    });
   });
 });

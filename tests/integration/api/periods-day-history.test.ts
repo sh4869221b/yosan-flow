@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { createFixture } from "./periods-fixture";
 
-async function parseJson(response: Response): Promise<any> {
-  return response.json();
-}
-
 describe("period day and history APIs", () => {
   it("returns summary and day histories under period path", async () => {
     const fixture = createFixture();
@@ -51,10 +47,12 @@ describe("period day and history APIs", () => {
       }),
     } as any);
     expect(periodResponse.status).toBe(200);
-    const periodBody = await parseJson(periodResponse);
-    expect(periodBody.periodId).toBe("p-2026-04");
-    expect(periodBody.plannedTotalYen).toBe(3000);
-    expect(periodBody.periodLengthDays).toBe(30);
+    const periodBody = await periodResponse.json();
+    expect(periodBody).toMatchObject({
+      periodId: "p-2026-04",
+      plannedTotalYen: 3000,
+      periodLengthDays: 30,
+    });
     expect(periodBody).toHaveProperty("varianceFromRecommendationYen");
     expect(periodBody).toHaveProperty("remainingAfterDayYenPreview");
 
@@ -68,17 +66,17 @@ describe("period day and history APIs", () => {
       ),
     } as any);
     expect(historyResponse.status).toBe(200);
-    const historyBody = await parseJson(historyResponse);
-    expect(historyBody.histories).toHaveLength(2);
-    expect(historyBody.histories).toEqual(
-      expect.arrayContaining([
+    const historyBody = await historyResponse.json();
+    expect(historyBody).toHaveProperty("histories.length", 2);
+    expect(historyBody).toMatchObject({
+      histories: expect.arrayContaining([
         expect.objectContaining({
           operationType: "overwrite",
           afterTotalYen: 3000,
         }),
         expect.objectContaining({ operationType: "add", afterTotalYen: 1000 }),
       ]),
-    );
+    });
 
     const missingHistoryResponse = await fixture.getHistory({
       params: { periodId: "missing-period", date: "2026-04-20" },
@@ -122,14 +120,6 @@ describe("period day and history APIs", () => {
       expect(response.status).toBe(200);
     }
 
-    const initialHistoryResponse = await fixture.getHistory({
-      params: { periodId: "p-history-mutation", date: "2026-04-20" },
-      request: new Request(
-        "http://localhost/api/periods/p-history-mutation/days/2026-04-20/history",
-        { method: "GET" },
-      ),
-    } as any);
-    expect(initialHistoryResponse.status).toBe(200);
     const firstHistoryId = "history-a";
 
     const patchResponse = await fixture.mutateHistory.PATCH({
@@ -148,10 +138,9 @@ describe("period day and history APIs", () => {
       ),
     } as any);
     expect(patchResponse.status).toBe(200);
-    const patchBody = await parseJson(patchResponse);
-    expect(patchBody.summary.plannedTotalYen).toBe(3500);
-    expect(patchBody.histories).toEqual(
-      expect.arrayContaining([
+    await expect(patchResponse.json()).resolves.toMatchObject({
+      summary: { plannedTotalYen: 3500 },
+      histories: expect.arrayContaining([
         expect.objectContaining({
           id: firstHistoryId,
           inputYen: 1500,
@@ -164,7 +153,7 @@ describe("period day and history APIs", () => {
           afterTotalYen: 3500,
         }),
       ]),
-    );
+    });
 
     const deleteResponse = await fixture.mutateHistory.DELETE({
       params: {
@@ -178,18 +167,15 @@ describe("period day and history APIs", () => {
       ),
     } as any);
     expect(deleteResponse.status).toBe(200);
-    const deleteBody = await parseJson(deleteResponse);
-    expect(deleteBody.summary.plannedTotalYen).toBe(2000);
-    expect(deleteBody.histories).toHaveLength(1);
-    expect(deleteBody.histories[0]).toMatchObject({
-      inputYen: 2000,
-      beforeTotalYen: 0,
-      afterTotalYen: 2000,
+    await expect(deleteResponse.json()).resolves.toMatchObject({
+      summary: { plannedTotalYen: 2000 },
+      histories: [{ inputYen: 2000, beforeTotalYen: 0, afterTotalYen: 2000 }],
     });
   });
 
   it("deletes the last history row through the period API", async () => {
-    const fixture = createFixture();
+    const historyId = "history-last";
+    const fixture = createFixture(undefined, () => historyId);
     await runApiEffect(
       fixture.services.createPeriod({
         id: "p-history-delete-last",
@@ -217,8 +203,9 @@ describe("period day and history APIs", () => {
         { method: "GET" },
       ),
     } as any);
-    const historyBody = await parseJson(historyResponse);
-    const historyId = historyBody.histories[0].id;
+    await expect(historyResponse.json()).resolves.toMatchObject({
+      histories: [{ id: historyId }],
+    });
 
     const deleteResponse = await fixture.mutateHistory.DELETE({
       params: {
@@ -233,9 +220,10 @@ describe("period day and history APIs", () => {
     } as any);
 
     expect(deleteResponse.status).toBe(200);
-    const body = await parseJson(deleteResponse);
-    expect(body.summary.plannedTotalYen).toBe(0);
-    expect(body.histories).toHaveLength(0);
+    await expect(deleteResponse.json()).resolves.toMatchObject({
+      summary: { plannedTotalYen: 0 },
+      histories: [],
+    });
 
     const shrinkResponse = await fixture.updatePeriod({
       params: { periodId: "p-history-delete-last" },

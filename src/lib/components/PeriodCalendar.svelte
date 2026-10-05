@@ -61,10 +61,6 @@
     requestEdit(payload);
   }
 
-  function focusDate(payload: { readonly date: string }): void {
-    focusedDate = payload.date;
-  }
-
   function navigateDate(payload: {
     readonly currentDate: string;
     readonly key: string;
@@ -107,7 +103,7 @@
       {disabled}
       disabledDescriptionId="period-calendar-status"
       requestEdit={activateDate}
-      {focusDate}
+      focusDate={(payload) => (focusedDate = payload.date)}
       {navigateDate}
     />
   {/each}

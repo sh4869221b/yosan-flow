@@ -4,10 +4,7 @@ import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
 } from "#lib/server/db/budget-period-repository.ts";
-import type {
-  D1DailyHistoryRepository,
-  DailyHistoryRecord,
-} from "#lib/server/db/daily-history-repository.ts";
+import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-repository.ts";
 import {
   assertValidDate,
   assertValidInputYen,
@@ -134,7 +131,7 @@ export function createD1DayEntryService(
 
   function replayHistoryMutation(
     command: HistoryReplayCommand,
-    mutateTarget: (history: DailyHistoryRecord) => HistoryMutation,
+    mutation: HistoryMutation,
   ): Effect.Effect<Record<string, never>, Error> {
     return Effect.gen(function* () {
       yield* validatePeriodDate(
@@ -146,35 +143,18 @@ export function createD1DayEntryService(
         command.date,
         command.periodId,
       );
-      const target = histories.find(
-        (history) => history.id === command.historyId,
-      );
-      if (!target) {
+      if (!histories.some((history) => history.id === command.historyId)) {
         return yield* Effect.fail(new HistoryNotFoundError(command.historyId));
       }
 
-      const mutation = mutateTarget(target);
-      if (mutation.kind === "update") {
-        yield* dayEntryWriter.writeHistoryReplay({
-          kind: "update",
-          budgetPeriodId: command.periodId,
-          date: command.date,
-          yearMonth: command.date.slice(0, 7),
-          nowIso: now().toISOString(),
-          historyId: command.historyId,
-          inputYen: mutation.inputYen,
-          memo: mutation.memo,
-        });
-      } else {
-        yield* dayEntryWriter.writeHistoryReplay({
-          kind: "delete",
-          budgetPeriodId: command.periodId,
-          date: command.date,
-          yearMonth: command.date.slice(0, 7),
-          nowIso: now().toISOString(),
-          historyId: command.historyId,
-        });
-      }
+      yield* dayEntryWriter.writeHistoryReplay({
+        ...mutation,
+        budgetPeriodId: command.periodId,
+        date: command.date,
+        yearMonth: command.date.slice(0, 7),
+        nowIso: now().toISOString(),
+        historyId: command.historyId,
+      });
       return {};
     });
   }
@@ -191,13 +171,13 @@ export function createD1DayEntryService(
           },
           catch: toEffectError,
         });
-        return yield* replayHistoryMutation(command, () => ({
+        return yield* replayHistoryMutation(command, {
           kind: "update",
           inputYen: command.inputYen,
           memo,
-        }));
+        });
       }),
     deleteHistoryEntry: (command) =>
-      replayHistoryMutation(command, () => ({ kind: "delete" })),
+      replayHistoryMutation(command, { kind: "delete" }),
   };
 }

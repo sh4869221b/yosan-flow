@@ -1,41 +1,43 @@
 import { describe, expect, it } from "vitest";
-import {
-  createPeriod,
-  createPeriodSummaryRepository,
-  runPeriodSummary,
-} from "./helpers/period-summary";
+import { Effect } from "effect";
+import { createInMemoryBudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
+import { buildPeriodSummary } from "#lib/server/services/month-summary-service.ts";
 
 describe("period summary food pace", () => {
   it("shows all saved pace surplus as today's bonus instead of spreading it over remaining days", async () => {
-    const repository = createPeriodSummaryRepository();
-    await createPeriod(repository, {
-      id: "period-bonus",
-      startDate: "2026-04-01",
-      endDate: "2026-04-10",
-      budgetYen: 15000,
-      nowIso: "2026-04-01T00:00:00.000Z",
-    });
+    const repository = createInMemoryBudgetPeriodRepository();
+    await Effect.runPromise(
+      repository.createPeriod({
+        id: "period-bonus",
+        startDate: "2026-04-01",
+        endDate: "2026-04-10",
+        budgetYen: 15000,
+        nowIso: "2026-04-01T00:00:00.000Z",
+      }),
+    );
 
-    const result = await runPeriodSummary(repository, "period-bonus", {
-      jstToday: "2026-04-06",
-      dailyTotals: [
-        {
-          date: "2026-04-01",
-          budgetPeriodId: "period-bonus",
-          totalUsedYen: 1000,
-        },
-        {
-          date: "2026-04-02",
-          budgetPeriodId: "period-bonus",
-          totalUsedYen: 1000,
-        },
-        {
-          date: "2026-04-06",
-          budgetPeriodId: "period-bonus",
-          totalUsedYen: 800,
-        },
-      ],
-    });
+    const result = await Effect.runPromise(
+      buildPeriodSummary(repository, "period-bonus", {
+        jstToday: "2026-04-06",
+        dailyTotals: [
+          {
+            date: "2026-04-01",
+            budgetPeriodId: "period-bonus",
+            totalUsedYen: 1000,
+          },
+          {
+            date: "2026-04-02",
+            budgetPeriodId: "period-bonus",
+            totalUsedYen: 1000,
+          },
+          {
+            date: "2026-04-06",
+            budgetPeriodId: "period-bonus",
+            totalUsedYen: 800,
+          },
+        ],
+      }),
+    );
 
     expect(result.foodPace).toMatchObject({
       status: "bonus",
@@ -54,35 +56,39 @@ describe("period summary food pace", () => {
   });
 
   it("spreads only pace shortage across today and future days", async () => {
-    const repository = createPeriodSummaryRepository();
-    await createPeriod(repository, {
-      id: "period-shortage",
-      startDate: "2026-04-01",
-      endDate: "2026-04-10",
-      budgetYen: 15000,
-      nowIso: "2026-04-01T00:00:00.000Z",
-    });
+    const repository = createInMemoryBudgetPeriodRepository();
+    await Effect.runPromise(
+      repository.createPeriod({
+        id: "period-shortage",
+        startDate: "2026-04-01",
+        endDate: "2026-04-10",
+        budgetYen: 15000,
+        nowIso: "2026-04-01T00:00:00.000Z",
+      }),
+    );
 
-    const result = await runPeriodSummary(repository, "period-shortage", {
-      jstToday: "2026-04-06",
-      dailyTotals: [
-        {
-          date: "2026-04-01",
-          budgetPeriodId: "period-shortage",
-          totalUsedYen: 5000,
-        },
-        {
-          date: "2026-04-02",
-          budgetPeriodId: "period-shortage",
-          totalUsedYen: 4500,
-        },
-        {
-          date: "2026-04-06",
-          budgetPeriodId: "period-shortage",
-          totalUsedYen: 800,
-        },
-      ],
-    });
+    const result = await Effect.runPromise(
+      buildPeriodSummary(repository, "period-shortage", {
+        jstToday: "2026-04-06",
+        dailyTotals: [
+          {
+            date: "2026-04-01",
+            budgetPeriodId: "period-shortage",
+            totalUsedYen: 5000,
+          },
+          {
+            date: "2026-04-02",
+            budgetPeriodId: "period-shortage",
+            totalUsedYen: 4500,
+          },
+          {
+            date: "2026-04-06",
+            budgetPeriodId: "period-shortage",
+            totalUsedYen: 800,
+          },
+        ],
+      }),
+    );
 
     expect(result.foodPace).toMatchObject({
       status: "adjustment",
@@ -101,19 +107,19 @@ describe("period summary food pace", () => {
   });
 
   it("preserves shortage remainder across today and future recommendations", async () => {
-    const repository = createPeriodSummaryRepository();
-    await createPeriod(repository, {
-      id: "period-shortage-remainder",
-      startDate: "2026-04-01",
-      endDate: "2026-04-30",
-      budgetYen: 3000,
-      nowIso: "2026-04-01T00:00:00.000Z",
-    });
+    const repository = createInMemoryBudgetPeriodRepository();
+    await Effect.runPromise(
+      repository.createPeriod({
+        id: "period-shortage-remainder",
+        startDate: "2026-04-01",
+        endDate: "2026-04-30",
+        budgetYen: 3000,
+        nowIso: "2026-04-01T00:00:00.000Z",
+      }),
+    );
 
-    const result = await runPeriodSummary(
-      repository,
-      "period-shortage-remainder",
-      {
+    const result = await Effect.runPromise(
+      buildPeriodSummary(repository, "period-shortage-remainder", {
         jstToday: "2026-04-02",
         dailyTotals: [
           {
@@ -122,7 +128,7 @@ describe("period summary food pace", () => {
             totalUsedYen: 101,
           },
         ],
-      },
+      }),
     );
     const futureRecommendations = result.dailyRows
       .filter((row) => row.date >= "2026-04-02")
@@ -145,19 +151,19 @@ describe("period summary food pace", () => {
   });
 
   it("keeps today's bonus and adjustment stable when today's spending changes", async () => {
-    const repository = createPeriodSummaryRepository();
-    await createPeriod(repository, {
-      id: "period-stable-today",
-      startDate: "2026-04-01",
-      endDate: "2026-04-10",
-      budgetYen: 15000,
-      nowIso: "2026-04-01T00:00:00.000Z",
-    });
+    const repository = createInMemoryBudgetPeriodRepository();
+    await Effect.runPromise(
+      repository.createPeriod({
+        id: "period-stable-today",
+        startDate: "2026-04-01",
+        endDate: "2026-04-10",
+        budgetYen: 15000,
+        nowIso: "2026-04-01T00:00:00.000Z",
+      }),
+    );
 
-    const beforeTodayInput = await runPeriodSummary(
-      repository,
-      "period-stable-today",
-      {
+    const beforeTodayInput = await Effect.runPromise(
+      buildPeriodSummary(repository, "period-stable-today", {
         jstToday: "2026-04-06",
         dailyTotals: [
           {
@@ -171,12 +177,10 @@ describe("period summary food pace", () => {
             totalUsedYen: 1000,
           },
         ],
-      },
+      }),
     );
-    const afterTodayInput = await runPeriodSummary(
-      repository,
-      "period-stable-today",
-      {
+    const afterTodayInput = await Effect.runPromise(
+      buildPeriodSummary(repository, "period-stable-today", {
         jstToday: "2026-04-06",
         dailyTotals: [
           {
@@ -195,7 +199,7 @@ describe("period summary food pace", () => {
             totalUsedYen: 800,
           },
         ],
-      },
+      }),
     );
 
     expect(afterTodayInput.foodPace.todayBonusYen).toBe(
@@ -219,14 +223,16 @@ describe("period summary food pace", () => {
   });
 
   it("reflects previous day's spending in the next day's pace calculation", async () => {
-    const repository = createPeriodSummaryRepository();
-    await createPeriod(repository, {
-      id: "period-next-day",
-      startDate: "2026-04-01",
-      endDate: "2026-04-10",
-      budgetYen: 15000,
-      nowIso: "2026-04-01T00:00:00.000Z",
-    });
+    const repository = createInMemoryBudgetPeriodRepository();
+    await Effect.runPromise(
+      repository.createPeriod({
+        id: "period-next-day",
+        startDate: "2026-04-01",
+        endDate: "2026-04-10",
+        budgetYen: 15000,
+        nowIso: "2026-04-01T00:00:00.000Z",
+      }),
+    );
 
     const dailyTotals = [
       {
@@ -245,14 +251,18 @@ describe("period summary food pace", () => {
         totalUsedYen: 800,
       },
     ];
-    const today = await runPeriodSummary(repository, "period-next-day", {
-      jstToday: "2026-04-06",
-      dailyTotals,
-    });
-    const nextDay = await runPeriodSummary(repository, "period-next-day", {
-      jstToday: "2026-04-07",
-      dailyTotals,
-    });
+    const today = await Effect.runPromise(
+      buildPeriodSummary(repository, "period-next-day", {
+        jstToday: "2026-04-06",
+        dailyTotals,
+      }),
+    );
+    const nextDay = await Effect.runPromise(
+      buildPeriodSummary(repository, "period-next-day", {
+        jstToday: "2026-04-07",
+        dailyTotals,
+      }),
+    );
 
     expect(today.foodPace.todayBonusYen).toBe(5500);
     expect(nextDay.foodPace.todayBonusYen).toBe(6200);

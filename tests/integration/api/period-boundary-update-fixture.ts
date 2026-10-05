@@ -170,19 +170,18 @@ export function createD1BoundaryHarness(input?: {
   };
 }
 
-export function createMultipleSuccessorRows(): readonly BudgetPeriodRow[] {
-  return [
-    targetRow,
-    successorRow,
-    {
-      ...successorRow,
-      id: "period-successor-two",
-      start_date: "2026-07-22",
-      end_date: "2026-08-20",
-    },
-  ];
-}
+export const multipleSuccessorRows: readonly BudgetPeriodRow[] = [
+  targetRow,
+  successorRow,
+  {
+    ...successorRow,
+    id: "period-successor-two",
+    start_date: "2026-07-22",
+    end_date: "2026-08-20",
+  },
+];
 
-export function createGapSuccessorRows(): readonly BudgetPeriodRow[] {
-  return [{ ...targetRow, end_date: "2026-07-18" }, successorRow];
-}
+export const gapSuccessorRows: readonly BudgetPeriodRow[] = [
+  { ...targetRow, end_date: "2026-07-18" },
+  successorRow,
+];

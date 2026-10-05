@@ -11,7 +11,6 @@ const allowedRawD1Files = new Set([
   "src/lib/server/db/day-entry-replay-sql.ts",
   "src/lib/server/db/day-entry-write-sql.ts",
   "src/lib/server/db/day-entry-writer.ts",
-  "src/lib/server/db/day-entry-writer-executor.ts",
 ]);
 
 const forbiddenPatterns: Array<{ label: string; pattern: RegExp }> = [

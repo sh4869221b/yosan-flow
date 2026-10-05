@@ -7,7 +7,6 @@ import {
   periodSummaryUrl,
   periodsUrl,
 } from "#lib/dashboard/api-urls.ts";
-import { runClientEffect } from "#lib/dashboard/client-effect.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
 
 afterEach(() => {
@@ -140,24 +139,5 @@ describe("fetchJsonEffect", () => {
     if (result._tag === "Failure") {
       expect(result.failure).toBe("fallback");
     }
-  });
-});
-
-describe("runClientEffect", () => {
-  it("starts the Effect without returning its Promise", async () => {
-    // Given
-    let ran = false;
-    const effect = Effect.sync(() => {
-      ran = true;
-    });
-
-    // When
-    const result = runClientEffect(effect);
-
-    // Then
-    expect(result).toBeUndefined();
-    await vi.waitFor(() => {
-      expect(ran).toBe(true);
-    });
   });
 });

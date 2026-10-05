@@ -1,6 +1,5 @@
 export {
   LinkedPeriodBoundaryConflictError,
-  LinkedPeriodBoundaryInvariantError,
   PeriodValidationError,
   type BudgetPeriodRecord,
   type BudgetPeriodRepository,

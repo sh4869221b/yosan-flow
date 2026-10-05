@@ -18,9 +18,6 @@
     if (controller.confirmation.recoveryRequired)
       controller.refreshPeriodConfirmation();
   });
-  function submitPeriod(): void {
-    controller.saveBudget();
-  }
 </script>
 
 <details class="card" bind:open={budgetVisible}>
@@ -43,8 +40,8 @@
         serverError={controller.budget.serverError}
         success={controller.budget.success}
         settingChanged={controller.budget.settingChanged}
-        onreset={() => controller.budget.reset()}
-        onsubmit={submitPeriod}
+        onreset={controller.budget.reset}
+        onsubmit={controller.saveBudget}
       />
     </section>
 
@@ -58,7 +55,7 @@
       loading={controller.summaryLoading}
       interactionDisabled={controller.periodInteractionDisabled}
       proposalPending={controller.periodUpdateProposal != null}
-      onsubmit={() => controller.saveRange()}
+      onsubmit={controller.saveRange}
     />
   </div>
 </details>

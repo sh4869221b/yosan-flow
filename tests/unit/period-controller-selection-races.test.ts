@@ -156,7 +156,7 @@ it("clears summary loading when a superseding period-list request fails", async 
     controller.createInitialPeriod();
     await settled(executions[1]);
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(controller.periodSaving).toBe(false);
+    expect(controller.createSaving || controller.createdRefreshing).toBe(false);
     expect(controller.summaryLoading).toBe(false);
   } finally {
     staleSelectionResponse.resolve(
@@ -228,7 +228,7 @@ it("keeps selection owned by the visible summary when a created period summary f
 
   controller.createInitialPeriod();
   await settled(executions[0]);
-  expect(controller.periodSaving).toBe(false);
+  expect(controller.createSaving || controller.createdRefreshing).toBe(false);
 
   expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(controller.periods).toContainEqual(createdPeriod);
@@ -426,7 +426,8 @@ it("does not let a queued period update reclaim a newer selection", async () => 
   try {
     await settled(addStarted.promise);
     expect(fetchMock).toHaveBeenCalledOnce();
-    periodController.handleSavePeriod({ budgetYen: 12_000 });
+    periodController.budget.draft = "12000";
+    periodController.saveBudget();
     expect(periodController.budget.saving).toBe(true);
     periodController.handleSelectPeriod({ periodId: otherPeriod.id });
     await settled(executions[2]);

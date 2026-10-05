@@ -47,7 +47,7 @@ type PeriodScopedLookupInput = {
   readonly periodId?: string;
 };
 
-export async function createDayEntryFixture(): Promise<DayEntryFixture> {
+export function createDayEntryFixture(): DayEntryFixture {
   let historyCounter = 0;
   const databaseClient = createInMemoryDatabaseClient<
     BudgetPeriodRecord,

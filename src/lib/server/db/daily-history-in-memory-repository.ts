@@ -15,15 +15,9 @@ function findHistories(
   date: string,
   budgetPeriodId: string,
 ): DailyHistoryRecord[] {
-  return tx.state.dailyOperationHistories.filter((entry) => {
-    if (entry.date !== date) {
-      return false;
-    }
-    if (entry.budgetPeriodId !== budgetPeriodId) {
-      return false;
-    }
-    return true;
-  });
+  return tx.state.dailyOperationHistories.filter(
+    (entry) => entry.date === date && entry.budgetPeriodId === budgetPeriodId,
+  );
 }
 
 export function createDailyHistoryRepository(): DailyHistoryRepository {

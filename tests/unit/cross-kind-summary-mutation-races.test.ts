@@ -92,7 +92,8 @@ it("runs a period update after an active add", async () => {
   try {
     await settled(addStarted.promise);
     expect(fetchMock).toHaveBeenCalledOnce();
-    periodController.handleSavePeriod({ budgetYen: 12_000 });
+    periodController.budget.draft = "12000";
+    periodController.saveBudget();
     expect(executions).toHaveLength(2);
     expect(periodController.budget.saving).toBe(true);
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -154,7 +155,8 @@ it("runs a history mutation after an active period update", async () => {
   let historyExecution:
     ReturnType<typeof historyController.updateHistory> | undefined;
 
-  periodController.handleSavePeriod({ budgetYen: 12_000 });
+  periodController.budget.draft = "12000";
+  periodController.saveBudget();
   try {
     await settled(putStarted.promise);
     expect(fetchMock).toHaveBeenCalledOnce();

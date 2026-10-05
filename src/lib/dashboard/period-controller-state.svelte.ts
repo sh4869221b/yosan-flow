@@ -131,9 +131,6 @@ export function createPeriodControllerState(
     get summaryError() {
       return summaryError;
     },
-    get periodSaving() {
-      return createState.periodSaving;
-    },
     get confirmSaving() {
       return confirmationState.confirmSaving;
     },
@@ -143,15 +140,6 @@ export function createPeriodControllerState(
     },
     get periodInteractionDisabled() {
       return interactionDisabled();
-    },
-    get periodError() {
-      return createState.periodError;
-    },
-    get rangeStartDate() {
-      return settings.range.draft.startDate;
-    },
-    get rangeEndDate() {
-      return settings.range.draft.endDate;
     },
     get createStartDate() {
       return createState.createStartDate;
@@ -186,6 +174,7 @@ export function createPeriodControllerState(
     get createdRefreshPending() {
       return createState.createdRefreshPending;
     },
+    updateCreatePeriodRange: createState.updateRange,
     setSummary(nextSummary: PeriodSummary | null): void {
       settings.adopt(nextSummary);
       summary = nextSummary;
@@ -193,20 +182,16 @@ export function createPeriodControllerState(
       else confirmationState.dropIfStale();
     },
     ...createPeriodControllerActions({
-      beginPeriodConfirmation: confirmationState.beginConfirmation,
-      clearPeriodConfirmation: confirmationState.clear,
       confirmPeriodUpdateEffect: confirmationEffects.confirm,
       refreshConfirmationEffect: confirmationEffects.refresh,
       confirmationState,
       creation: createDependencies,
-      getConfirmSaving: () => confirmationState.confirmSaving,
       settings,
       getInteractionDisabled: interactionDisabled,
       getSummaryLoading: () => summaryLoading,
       getSummary: () => summary,
       refreshSummaryEffect,
       savePeriodUpdateEffect: savePeriodUpdate,
-      updateCreatePeriodRange: createState.updateRange,
     }),
   };
 }

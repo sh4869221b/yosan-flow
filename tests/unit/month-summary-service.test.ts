@@ -1,41 +1,43 @@
 import { describe, expect, it } from "vitest";
-import {
-  createPeriod,
-  createPeriodSummaryRepository,
-  runPeriodSummary,
-} from "./helpers/period-summary";
+import { Effect } from "effect";
+import { createInMemoryBudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
+import { buildPeriodSummary } from "#lib/server/services/month-summary-service.ts";
 
 describe("period summary service", () => {
   it("builds summary fields for selected period with full calendar range", async () => {
-    const repository = createPeriodSummaryRepository();
-    await createPeriod(repository, {
-      id: "2026-04-main",
-      startDate: "2026-04-20",
-      endDate: "2026-05-19",
-      budgetYen: 120000,
-      nowIso: "2026-04-01T00:00:00.000Z",
-    });
+    const repository = createInMemoryBudgetPeriodRepository();
+    await Effect.runPromise(
+      repository.createPeriod({
+        id: "2026-04-main",
+        startDate: "2026-04-20",
+        endDate: "2026-05-19",
+        budgetYen: 120000,
+        nowIso: "2026-04-01T00:00:00.000Z",
+      }),
+    );
 
-    const result = await runPeriodSummary(repository, "2026-04-main", {
-      jstToday: "2026-04-20",
-      dailyTotals: [
-        {
-          date: "2026-04-20",
-          budgetPeriodId: "2026-04-main",
-          totalUsedYen: 10000,
-        },
-        {
-          date: "2026-04-21",
-          budgetPeriodId: "2026-04-main",
-          totalUsedYen: 2000,
-        },
-        {
-          date: "2026-05-19",
-          budgetPeriodId: "2026-04-main",
-          totalUsedYen: 5000,
-        },
-      ],
-    });
+    const result = await Effect.runPromise(
+      buildPeriodSummary(repository, "2026-04-main", {
+        jstToday: "2026-04-20",
+        dailyTotals: [
+          {
+            date: "2026-04-20",
+            budgetPeriodId: "2026-04-main",
+            totalUsedYen: 10000,
+          },
+          {
+            date: "2026-04-21",
+            budgetPeriodId: "2026-04-main",
+            totalUsedYen: 2000,
+          },
+          {
+            date: "2026-05-19",
+            budgetPeriodId: "2026-04-main",
+            totalUsedYen: 5000,
+          },
+        ],
+      }),
+    );
 
     expect(result).toMatchObject({
       periodId: "2026-04-main",
@@ -65,22 +67,34 @@ describe("period summary service", () => {
   });
 
   it("calculates today recommendation from spent before today only", async () => {
-    const repository = createPeriodSummaryRepository();
-    await createPeriod(repository, {
-      id: "period-rule",
-      startDate: "2026-04-18",
-      endDate: "2026-04-20",
-      budgetYen: 90,
-      nowIso: "2026-04-01T00:00:00.000Z",
-    });
+    const repository = createInMemoryBudgetPeriodRepository();
+    await Effect.runPromise(
+      repository.createPeriod({
+        id: "period-rule",
+        startDate: "2026-04-18",
+        endDate: "2026-04-20",
+        budgetYen: 90,
+        nowIso: "2026-04-01T00:00:00.000Z",
+      }),
+    );
 
-    const result = await runPeriodSummary(repository, "period-rule", {
-      jstToday: "2026-04-19",
-      dailyTotals: [
-        { date: "2026-04-18", budgetPeriodId: "period-rule", totalUsedYen: 30 },
-        { date: "2026-04-20", budgetPeriodId: "period-rule", totalUsedYen: 60 },
-      ],
-    });
+    const result = await Effect.runPromise(
+      buildPeriodSummary(repository, "period-rule", {
+        jstToday: "2026-04-19",
+        dailyTotals: [
+          {
+            date: "2026-04-18",
+            budgetPeriodId: "period-rule",
+            totalUsedYen: 30,
+          },
+          {
+            date: "2026-04-20",
+            budgetPeriodId: "period-rule",
+            totalUsedYen: 60,
+          },
+        ],
+      }),
+    );
 
     expect(result.todayRecommendedYen).toBe(30);
     expect(result.varianceFromRecommendationYen).toBe(-30);

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
-import { registerPeriodBoundaryD1Scenarios } from "./period-boundary-update-d1-scenarios";
 import {
   NOW,
   SUCCESSOR_ID,
@@ -11,8 +10,9 @@ import {
   seedLinkedPeriods,
   type PreviewBody,
 } from "./period-boundary-update-fixture";
-import { registerPeriodBoundaryValidationScenarios } from "./period-boundary-update-validation-scenarios";
 import { createFixture } from "./periods-fixture";
+import "./period-boundary-update-validation-scenarios";
+import "./period-boundary-update-d1-scenarios";
 
 describe("linked period boundary PUT workflow", () => {
   it("returns a proposal without writing and confirms it atomically", async () => {
@@ -92,6 +92,3 @@ describe("linked period boundary PUT workflow", () => {
     ]);
   });
 });
-
-registerPeriodBoundaryValidationScenarios();
-registerPeriodBoundaryD1Scenarios();

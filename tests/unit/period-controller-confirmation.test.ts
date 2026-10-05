@@ -15,7 +15,6 @@ import {
   createSummary,
   jsonResponse,
 } from "./day-entry-controller-test-fixtures";
-import { registerPeriodUpdateApiParserTests } from "./period-controller-confirmation-api-tests";
 import {
   confirmationBody,
   createController,
@@ -27,8 +26,6 @@ import {
 } from "./period-controller-confirmation-fixture";
 
 const executions = captureClientEffects();
-
-registerPeriodUpdateApiParserTests();
 
 it.each([false, true])(
   "low-level budget confirmation outcome cannot own a range proposal (pending=%s)",
@@ -48,10 +45,11 @@ it.each([false, true])(
     const confirmationState = factory.mock.calls[0][0].confirmationState;
     controller.budget.draft = "13000";
     if (withPending) {
-      controller.handleRangeChange({
+      controller.range.edit({
         startDate: proposal.target.after.startDate,
         endDate: proposal.target.after.endDate,
       });
+      controller.saveRange();
       await settled(executions[0]);
       expect(controller.periodUpdateProposal).toEqual(proposal);
     }
@@ -89,7 +87,7 @@ it.each([false, true])(
     expect(controller.range.serverError).toBeNull();
     expect(controller.range.success).toBe(false);
     expect(controller.range.saving).toBe(false);
-    expect(controller.periodError).toBeNull();
+    expect(controller.createError).toBeNull();
     expect(controller.periodInteractionDisabled).toBe(withPending);
     expect(revision.getMutationSequence(targetPeriod.id)).toBe(0);
     expect(revision.get(targetPeriod.id)).toBe(0);
@@ -136,10 +134,11 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   const controller = createController(revision);
 
   controller.budget.draft = "13000";
-  controller.handleRangeChange({
+  controller.range.edit({
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
+  controller.saveRange();
   await settled(executions[0]);
   expect(controller.periodUpdateProposal).toEqual(proposal);
   expect(fetchMock).toHaveBeenCalledOnce();
@@ -155,11 +154,6 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   expect(controller.budget.success).toBe(false);
   controller.saveBudget();
   controller.saveRange();
-  controller.handleSavePeriod({ budgetYen: 14_000 });
-  controller.handleRangeChange({
-    startDate: targetPeriod.startDate,
-    endDate: targetPeriod.endDate,
-  });
   controller.createInitialPeriod();
   controller.budget.reset();
   controller.range.reset();
@@ -210,7 +204,7 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   expect(controller.budget.dirty).toBe(true);
   expect(controller.budget.success).toBe(false);
   expect(controller.budget.serverError).toBeNull();
-  expect(controller.periodError).toBeNull();
+  expect(controller.createError).toBeNull();
   expect(revision.get(targetPeriod.id)).toBeGreaterThan(0);
   expect(revision.get(successorPeriod.id)).toBeGreaterThan(0);
 });
@@ -224,18 +218,19 @@ it("proposal cancel preserves budget draft without confirming and restores autho
 
   controller.budget.draft = "13000";
   controller.createBudgetInput = "777";
-  controller.handleRangeChange({
+  controller.range.edit({
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
+  controller.saveRange();
   await settled(executions[0]);
   expect(controller.periodUpdateProposal).toEqual(proposal);
   controller.cancelPeriodUpdateConfirmation();
 
   expect(fetchMock).toHaveBeenCalledOnce();
   expect(controller.periodUpdateProposal).toBeNull();
-  expect(controller.rangeStartDate).toBe(targetPeriod.startDate);
-  expect(controller.rangeEndDate).toBe(targetPeriod.endDate);
+  expect(controller.range.draft.startDate).toBe(targetPeriod.startDate);
+  expect(controller.range.draft.endDate).toBe(targetPeriod.endDate);
   expect(controller.range.dirty).toBe(false);
   expect(controller.range.success).toBe(false);
   expect(controller.range.serverError).toBeNull();
@@ -244,7 +239,7 @@ it("proposal cancel preserves budget draft without confirming and restores autho
   expect(controller.budget.success).toBe(false);
   expect(controller.budget.serverError).toBeNull();
   expect(controller.createBudgetInput).toBe("777");
-  expect(controller.periodError).toBeNull();
+  expect(controller.createError).toBeNull();
   expect(controller.periodInteractionDisabled).toBe(false);
 });
 
@@ -266,10 +261,11 @@ it.each([targetPeriod.id, successorPeriod.id])(
     vi.stubGlobal("fetch", fetchMock);
     const controller = createController(revision);
     controller.budget.draft = "13000";
-    controller.handleRangeChange({
+    controller.range.edit({
       startDate: proposal.target.after.startDate,
       endDate: proposal.target.after.endDate,
     });
+    controller.saveRange();
     await settled(executions[0]);
     expect(controller.periodUpdateProposal).toEqual(proposal);
 
@@ -311,7 +307,7 @@ it.each([targetPeriod.id, successorPeriod.id])(
     expect(controller.budget.serverError).toBeNull();
     expect(controller.range.success).toBe(false);
     expect(controller.range.serverError).toBeNull();
-    expect(controller.periodError).toBeNull();
+    expect(controller.createError).toBeNull();
     expect(revision.getMutationSequence(targetPeriod.id)).toBe(0);
   },
 );
@@ -358,10 +354,11 @@ it("drops stale proposals and preserves conflicts", async () => {
   const controller = createController(revision);
 
   controller.budget.draft = "13000";
-  controller.handleRangeChange({
+  controller.range.edit({
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
+  controller.saveRange();
   await settled(executions[0]);
   expect(controller.periodUpdateProposal).toEqual(proposal);
   revision.advance(successorPeriod.id);
@@ -369,10 +366,11 @@ it("drops stale proposals and preserves conflicts", async () => {
   expect(controller.periodUpdateProposal).toBeNull();
   expect(fetchMock).toHaveBeenCalledOnce();
 
-  controller.handleRangeChange({
+  controller.range.edit({
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
+  controller.saveRange();
   await settled(executions[1]);
   expect(controller.periodUpdateProposal).toEqual(proposal);
   controller.confirmPeriodUpdate();
@@ -387,7 +385,7 @@ it("drops stale proposals and preserves conflicts", async () => {
   expect(controller.budget.draft).toBe("13000");
   expect(controller.budget.serverError).toBeNull();
   expect(controller.budget.success).toBe(false);
-  expect(controller.periodError).toBeNull();
+  expect(controller.createError).toBeNull();
   expect(controller.summary).toEqual(authoritativeSummary);
   expect(requestOrder.slice(-3)).toEqual([
     `PUT /api/periods/${targetPeriod.id}`,
@@ -415,10 +413,11 @@ it("ignores a preview that settles after selection changes", async () => {
   vi.stubGlobal("fetch", fetchMock);
   const controller = createController();
 
-  controller.handleRangeChange({
+  controller.range.edit({
     startDate: proposal.target.after.startDate,
     endDate: proposal.target.after.endDate,
   });
+  controller.saveRange();
   try {
     await settled(previewStarted.promise);
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -613,7 +612,8 @@ it.each(["list", "summary", "saved-list"])(
     vi.stubGlobal("fetch", fetchMock);
     const controller = createController();
     controller.budget.draft = "13000";
-    controller.handleRangeChange(proposal.target.after);
+    controller.range.edit(proposal.target.after);
+    controller.saveRange();
     await settled(executions[0]);
     controller.confirmPeriodUpdate();
     await settled(executions[1]);
@@ -685,7 +685,8 @@ it.each([
       }),
     );
     const controller = createController(revision);
-    controller.handleRangeChange(proposal.target.after);
+    controller.range.edit(proposal.target.after);
+    controller.saveRange();
     await settled(executions[0]);
     controller.confirmPeriodUpdate();
     await settled(started.promise);
@@ -753,7 +754,8 @@ it("does not release a new confirmation lock when an old recovery GET settles", 
     }),
   );
   const controller = createController();
-  controller.handleRangeChange(proposal.target.after);
+  controller.range.edit(proposal.target.after);
+  controller.saveRange();
   await settled(executions[0]);
   controller.confirmPeriodUpdate();
   await settled(executions[1]);
@@ -761,7 +763,8 @@ it("does not release a new confirmation lock when an old recovery GET settles", 
   await settled(retryStarted.promise);
   controller.handleSelectPeriod({ periodId: targetPeriod.id });
   await settled(executions[3]);
-  controller.handleRangeChange(proposal.target.after);
+  controller.range.edit(proposal.target.after);
+  controller.saveRange();
   await settled(executions[4]);
   controller.confirmPeriodUpdate();
   await settled(confirmStarted.promise);

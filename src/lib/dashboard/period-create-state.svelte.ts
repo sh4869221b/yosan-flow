@@ -72,9 +72,6 @@ export function createPeriodCreateState(initialState: InitialState) {
     get periodSaving() {
       return createSaving || recovery.createdRefreshing;
     },
-    get periodError() {
-      return createError;
-    },
     setSaving(value: boolean): void {
       createSaving = value;
     },

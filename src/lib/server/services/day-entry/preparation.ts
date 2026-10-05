@@ -5,24 +5,28 @@ import type {
 } from "#lib/server/db/budget-period-repository.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 import {
-  assertDateInPeriod,
-  assertHistoryMutationDate,
-  createPreparedEntryInput,
-  type ExecuteEntryInput,
-  normalizeEntryMemo,
-  normalizeUpdatedHistoryMemo,
-  type PreparedEntryInput,
-} from "./commands";
+  assertValidDate,
+  assertValidInputYen,
+  normalizeMemo,
+} from "#lib/server/domain/daily-entry.ts";
+import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import type { PeriodDayEntryCommand } from "#lib/server/services/day-entry-service.ts";
+
+export type ExecuteEntryInput = {
+  operationType: "add" | "overwrite";
+  command: PeriodDayEntryCommand;
+};
+
+export type PreparedEntryInput = ExecuteEntryInput & {
+  period: BudgetPeriodRecord;
+  memo: string | null;
+  nowIso: string;
+};
 
 type HistoryMutationCommandLike = {
   periodId: string;
   date: string;
   historyId: string;
-};
-
-type UpdateHistoryCommandLike = HistoryMutationCommandLike & {
-  inputYen: number;
-  memo?: string | null;
 };
 
 type EntryPreparationErrors = {
@@ -37,11 +41,15 @@ type EntryPreparationInput = {
   errors: EntryPreparationErrors;
 };
 
-export function validateHistoryUpdateEffect(
-  command: UpdateHistoryCommandLike,
+export function validateEntryInputEffect(
+  command: Pick<PeriodDayEntryCommand, "date" | "inputYen" | "memo">,
 ): Effect.Effect<string | null, Error> {
   return Effect.try({
-    try: () => normalizeUpdatedHistoryMemo(command),
+    try: () => {
+      assertValidDate(command.date);
+      assertValidInputYen(command.inputYen);
+      return normalizeMemo(command.memo);
+    },
     catch: toEffectError,
   });
 }
@@ -50,7 +58,7 @@ export function validateHistoryDeleteEffect(
   command: HistoryMutationCommandLike,
 ): Effect.Effect<void, Error> {
   return Effect.try({
-    try: () => assertHistoryMutationDate(command.date),
+    try: () => assertValidDate(command.date),
     catch: toEffectError,
   });
 }
@@ -61,12 +69,17 @@ export function validatePeriodDateEffect(input: {
   createDateOutOfPeriodError: (date: string, periodId: string) => Error;
 }): Effect.Effect<void, Error> {
   return Effect.try({
-    try: () =>
-      assertDateInPeriod(
-        input.date,
-        input.period,
-        input.createDateOutOfPeriodError,
-      ),
+    try: () => {
+      if (
+        !isDateWithinPeriod(
+          input.date,
+          input.period.startDate,
+          input.period.endDate,
+        )
+      ) {
+        throw input.createDateOutOfPeriodError(input.date, input.period.id);
+      }
+    },
     catch: toEffectError,
   });
 }
@@ -75,10 +88,7 @@ export function prepareEntryEffect(
   input: EntryPreparationInput,
 ): Effect.Effect<PreparedEntryInput, Error> {
   return Effect.gen(function* () {
-    const memo = yield* Effect.try({
-      try: () => normalizeEntryMemo(input.execute.command),
-      catch: toEffectError,
-    });
+    const memo = yield* validateEntryInputEffect(input.execute.command);
     const nowIso = input.now();
 
     const period = yield* input.budgetPeriodRepository.findById(
@@ -95,13 +105,11 @@ export function prepareEntryEffect(
       createDateOutOfPeriodError: input.errors.createDateOutOfPeriodError,
     });
 
-    return createPreparedEntryInput({
-      execute: input.execute,
+    return {
+      ...input.execute,
       period,
       memo,
       nowIso,
-    });
+    };
   });
 }
-
-export type { ExecuteEntryInput };

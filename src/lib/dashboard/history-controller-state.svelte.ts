@@ -7,7 +7,6 @@ import type {
   DeleteHistoryPayload,
   HistoryActionResult,
   HistoryItem,
-  HistoryMutationResponse,
   HistoryResponse,
   UpdateHistoryPayload,
 } from "#lib/dashboard/types.ts";
@@ -17,6 +16,7 @@ import type {
 } from "#lib/dashboard/controller-types.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import { createRetainedHistoryStore } from "#lib/dashboard/retained-history-store.ts";
+import { findSummaryRow } from "#lib/dashboard/summary-rows.ts";
 
 type HistoryControllerDependencies = {
   readonly getSelectedDate: () => string | null;
@@ -40,16 +40,6 @@ export function createHistoryControllerState(
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- Reactive subscriptions would couple race guards to UI effects.
   const mutationSequences = new Map<string, number>();
   const retainedHistories = createRetainedHistoryStore();
-
-  function syncSelectedRow(summary: PeriodSummary): void {
-    const selectedDate = dependencies.getSelectedDate();
-    if (selectedDate == null) {
-      return;
-    }
-    dependencies.setSelectedRow(
-      summary.dailyRows.find((row) => row.date === selectedDate) ?? null,
-    );
-  }
 
   function loadHistoryResultEffect(
     date: string,
@@ -104,14 +94,10 @@ export function createHistoryControllerState(
 
   function applyHistoryMutationSummary(summary: PeriodSummary): void {
     summaryRevision.publish(summary, dependencies.setSummary);
-    syncSelectedRow(summary);
-  }
-
-  function applyHistoryMutationHistories(
-    body: HistoryMutationResponse<PeriodSummary>,
-  ): void {
-    histories = body.histories;
-    historyError = null;
+    const selectedDate = dependencies.getSelectedDate();
+    if (selectedDate != null) {
+      dependencies.setSelectedRow(findSummaryRow(summary, selectedDate));
+    }
   }
 
   function cancelHistoryLoad(periodId: string, date: string): void {
@@ -131,7 +117,10 @@ export function createHistoryControllerState(
   }
 
   const historyMutations = createHistoryMutationLifecycle({
-    applyHistories: applyHistoryMutationHistories,
+    applyHistories: (body) => {
+      histories = body.histories;
+      historyError = null;
+    },
     applySummary: applyHistoryMutationSummary,
     bumpVersion: () => {
       historyMutationVersion += 1;
@@ -141,45 +130,10 @@ export function createHistoryControllerState(
     getSummary: () => dependencies.getSummary?.() ?? null,
     invalidateHistoryLoads,
     loadHistoryEffect: loadHistoryResultEffect,
-    retainHistories: (periodId, date, body, revision, mutationSequence) => {
-      retainedHistories.retain(
-        periodId,
-        date,
-        body,
-        revision,
-        mutationSequence,
-      );
-    },
+    retainHistories: retainedHistories.retain,
     setError: (error) => (historyError = error),
     summaryRevision,
   });
-
-  function updateHistoryEffect(
-    payload: UpdateHistoryPayload,
-  ): Effect.Effect<HistoryActionResult, never> {
-    return historyMutations.mutateEffect(
-      payload.historyId,
-      {
-        body: JSON.stringify({
-          inputYen: payload.inputYen,
-          memo: payload.memo,
-        }),
-        headers: { "content-type": "application/json" },
-        method: "PATCH",
-      },
-      "履歴の更新に失敗しました。",
-    );
-  }
-
-  function deleteHistoryEffect(
-    payload: DeleteHistoryPayload,
-  ): Effect.Effect<HistoryActionResult, never> {
-    return historyMutations.mutateEffect(
-      payload.historyId,
-      { method: "DELETE" },
-      "履歴の削除に失敗しました。",
-    );
-  }
 
   return {
     cancelHistoryLoad,
@@ -212,10 +166,29 @@ export function createHistoryControllerState(
       return Effect.runPromise(loadHistoryResultEffect(date));
     },
     updateHistory(payload: UpdateHistoryPayload): Promise<HistoryActionResult> {
-      return Effect.runPromise(updateHistoryEffect(payload));
+      return Effect.runPromise(
+        historyMutations.mutateEffect(
+          payload.historyId,
+          {
+            body: JSON.stringify({
+              inputYen: payload.inputYen,
+              memo: payload.memo,
+            }),
+            headers: { "content-type": "application/json" },
+            method: "PATCH",
+          },
+          "履歴の更新に失敗しました。",
+        ),
+      );
     },
     deleteHistory(payload: DeleteHistoryPayload): Promise<HistoryActionResult> {
-      return Effect.runPromise(deleteHistoryEffect(payload));
+      return Effect.runPromise(
+        historyMutations.mutateEffect(
+          payload.historyId,
+          { method: "DELETE" },
+          "履歴の削除に失敗しました。",
+        ),
+      );
     },
   };
 }

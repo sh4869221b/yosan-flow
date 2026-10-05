@@ -48,15 +48,8 @@
     }
 
     queueMicrotask(() => {
-      const nextRange = { start: selectedStart, end: selectedEnd };
-      if (!rangesMatch(nextRange, range)) {
-        publish(nextRange);
-      }
+      publish({ start: selectedStart, end: selectedEnd });
     });
-  }
-
-  function handleEndValueChange(end: DateValue | undefined): void {
-    selectedEnd = end;
   }
 
   function handleValueChange(nextRange: PeriodRange): void {
@@ -74,7 +67,7 @@
   value={range}
   onValueChange={handleValueChange}
   onStartValueChange={handleStartValueChange}
-  onEndValueChange={handleEndValueChange}
+  onEndValueChange={(end) => (selectedEnd = end)}
   locale="ja-JP"
   weekdayFormat="short"
   fixedWeeks={true}

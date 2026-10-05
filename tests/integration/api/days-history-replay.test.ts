@@ -13,7 +13,7 @@ import {
 
 describe("day entry history replay workflows", () => {
   it("edits a history row and replays later rows", async () => {
-    const fixture = await createDayEntryFixture();
+    const fixture = createDayEntryFixture();
     await seedPeriod(fixture);
 
     await Effect.runPromise(
@@ -65,7 +65,7 @@ describe("day entry history replay workflows", () => {
   });
 
   it("deletes a middle history row and replays the remaining chain", async () => {
-    const fixture = await createDayEntryFixture();
+    const fixture = createDayEntryFixture();
     await seedPeriod(fixture);
 
     for (const inputYen of [1000, 2000, 3000]) {
@@ -106,7 +106,7 @@ describe("day entry history replay workflows", () => {
   });
 
   it("preserves overwrite semantics while replaying history edits", async () => {
-    const fixture = await createDayEntryFixture();
+    const fixture = createDayEntryFixture();
     await seedPeriod(fixture);
 
     await Effect.runPromise(
@@ -162,7 +162,7 @@ describe("day entry history replay workflows", () => {
   });
 
   it("rejects history updates scoped to another budget period", async () => {
-    const fixture = await createDayEntryFixture();
+    const fixture = createDayEntryFixture();
     await seedPeriod(fixture);
     await seedPeriod(fixture, {
       id: "period-2026-05",

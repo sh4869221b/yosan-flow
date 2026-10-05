@@ -18,7 +18,7 @@ import { replayHistoryMutationEffect } from "./day-entry/history-mutation";
 import {
   prepareEntryEffect,
   validateHistoryDeleteEffect,
-  validateHistoryUpdateEffect,
+  validateEntryInputEffect,
   type ExecuteEntryInput,
 } from "./day-entry/preparation";
 
@@ -93,10 +93,6 @@ export class HistoryNotFoundError extends Error {
   }
 }
 
-function defaultNow(): string {
-  return new Date().toISOString();
-}
-
 export class DayEntryService {
   private readonly databaseClient: DatabaseClient<
     BudgetPeriodRecord,
@@ -114,7 +110,7 @@ export class DayEntryService {
     this.budgetPeriodRepository = input.budgetPeriodRepository;
     this.dailyTotalRepository = input.dailyTotalRepository;
     this.dailyHistoryRepository = input.dailyHistoryRepository;
-    this.now = input.now ?? defaultNow;
+    this.now = input.now ?? (() => new Date().toISOString());
     this.createHistoryId = input.createHistoryId ?? createDefaultHistoryId;
   }
 
@@ -140,7 +136,7 @@ export class DayEntryService {
     command: UpdateHistoryCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen({ self: this }, function* () {
-      const memo = yield* validateHistoryUpdateEffect(command);
+      const memo = yield* validateEntryInputEffect(command);
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
         mutateTarget: (history) => ({

@@ -98,7 +98,8 @@ it("reconciles a period PUT body captured before a newer summary", async () => {
   vi.stubGlobal("fetch", fetchMock);
   const controller = createPeriodController(initialSummary, summaryRevision);
 
-  controller.handleSavePeriod({ budgetYen: 12_000 });
+  controller.budget.draft = "12000";
+  controller.saveBudget();
   try {
     await settled(putStarted.promise);
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -179,7 +180,8 @@ it("keeps a later period PUT authoritative over an older add response", async ()
   try {
     await settled(addStarted.promise);
     expect(fetchMock).toHaveBeenCalledOnce();
-    periodController.handleSavePeriod({ budgetYen: 12_000 });
+    periodController.budget.draft = "12000";
+    periodController.saveBudget();
     expect(periodController.budget.saving).toBe(true);
     expect(executions).toHaveLength(2);
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -197,7 +199,7 @@ it("keeps a later period PUT authoritative over an older add response", async ()
 
   expect(periodController.summary).toEqual(updatedSummary);
   expect(periodController.budget.serverError).toBe("保存に失敗しました。");
-  expect(periodController.periodError).toBeNull();
+  expect(periodController.createError).toBeNull();
 });
 
 it("does not let add reconciliation overwrite a newer period update", async () => {
@@ -260,7 +262,8 @@ it("does not let add reconciliation overwrite a newer period update", async () =
   try {
     await settled(staleRefreshStarted.promise);
     expect(periodGetCount).toBe(1);
-    periodController.handleSavePeriod({ budgetYen: 12_000 });
+    periodController.budget.draft = "12000";
+    periodController.saveBudget();
     await settled(executions[1]);
     expect(periodController.summary).toEqual(updatedSummary);
   } finally {
