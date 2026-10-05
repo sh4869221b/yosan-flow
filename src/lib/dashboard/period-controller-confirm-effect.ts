@@ -36,7 +36,7 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
         },
       )
       .pipe(
-        Effect.catchAll((message) =>
+        Effect.catch((message) =>
           Effect.sync(() => {
             error = message;
           }),

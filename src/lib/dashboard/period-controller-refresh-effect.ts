@@ -57,14 +57,14 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
         periodSummaryUrl(periodId),
         undefined,
         "再取得に失敗しました。",
-      ).pipe(Effect.either);
+      ).pipe(Effect.result);
       if (summaryRequests.isFresh(request)) {
-        if (result._tag === "Left") {
+        if (result._tag === "Failure") {
           complete?.("failed");
-          if (typeof reportError === "function") reportError(result.left);
-          else if (reportError) dependencies.setError(result.left);
-        } else if (result.right.periodId === periodId) {
-          publishSummary(result.right, submission);
+          if (typeof reportError === "function") reportError(result.failure);
+          else if (reportError) dependencies.setError(result.failure);
+        } else if (result.success.periodId === periodId) {
+          publishSummary(result.success, submission);
           complete?.("accepted");
         } else complete?.("dropped");
       } else complete?.("dropped");
@@ -87,20 +87,20 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
         periodsUrl(),
         undefined,
         "保存に失敗しました。",
-      ).pipe(Effect.either);
+      ).pipe(Effect.result);
       if (!summaryRequests.owns(request)) {
         complete?.("dropped");
         return false;
       }
-      if (result._tag === "Left") {
+      if (result._tag === "Failure") {
         complete?.("failed");
-        return yield* Effect.fail(result.left);
+        return yield* Effect.fail(result.failure);
       }
       if (complete && !summaryRequests.isFresh(request)) {
         complete("dropped");
         return false;
       }
-      const periods = result.right.periods ?? [];
+      const periods = result.success.periods ?? [];
       dependencies.setPeriods(periods);
       if (periods.length === 0) {
         complete?.("dropped");

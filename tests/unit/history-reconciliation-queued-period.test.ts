@@ -1,4 +1,4 @@
-import { Effect, Scheduler } from "effect";
+import { Effect } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
 import { createHistoryMutationLifecycle } from "$lib/dashboard/history-mutation-lifecycle";
 import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
@@ -11,6 +11,7 @@ import {
   createSummary,
   jsonResponse,
 } from "./day-entry-controller-test-fixtures";
+import { ControlledScheduler } from "./helpers/controlled-scheduler";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -49,7 +50,7 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
     },
   );
   vi.stubGlobal("fetch", fetchMock);
-  const scheduler = new Scheduler.ControlledScheduler();
+  const scheduler = new ControlledScheduler();
   const revision = createPeriodSummaryRevision();
   let summary: PeriodSummary = createSummary(0);
   let histories = [previousHistory];
@@ -77,7 +78,7 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
           }),
         ),
         Effect.as({ kind: "success" } as const),
-        Effect.catchAll((message) =>
+        Effect.catch((message) =>
           Effect.succeed({ kind: "failure", message } as const),
         ),
       ),

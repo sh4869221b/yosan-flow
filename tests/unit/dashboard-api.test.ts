@@ -21,7 +21,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-async function runFetchJsonEither<T>(
+async function runFetchJsonResult<T>(
   response: Promise<Response>,
   fallback: string,
 ) {
@@ -31,7 +31,7 @@ async function runFetchJsonEither<T>(
   );
 
   return Effect.runPromise(
-    Effect.either(fetchJsonEffect<T>("/api/example", undefined, fallback)),
+    Effect.result(fetchJsonEffect<T>("/api/example", undefined, fallback)),
   );
 }
 
@@ -65,15 +65,15 @@ describe("fetchJsonEffect", () => {
     const body = { periodId: "period-1", totalUsedYen: 1200 };
 
     // When
-    const result = await runFetchJsonEither<typeof body>(
+    const result = await runFetchJsonResult<typeof body>(
       Promise.resolve(jsonResponse(body)),
       "fallback",
     );
 
     // Then
-    expect(result._tag).toBe("Right");
-    if (result._tag === "Right") {
-      expect(result.right).toEqual(body);
+    expect(result._tag).toBe("Success");
+    if (result._tag === "Success") {
+      expect(result.success).toEqual(body);
     }
   });
 
@@ -82,15 +82,15 @@ describe("fetchJsonEffect", () => {
     const body = { error: { message: "サーバー側のエラーです。" } };
 
     // When
-    const result = await runFetchJsonEither<unknown>(
+    const result = await runFetchJsonResult<unknown>(
       Promise.resolve(jsonResponse(body, 400)),
       "fallback",
     );
 
     // Then
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left).toBe("サーバー側のエラーです。");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure).toBe("サーバー側のエラーです。");
     }
   });
 
@@ -99,15 +99,15 @@ describe("fetchJsonEffect", () => {
     const response = new Response("not-json", { status: 500 });
 
     // When
-    const result = await runFetchJsonEither<unknown>(
+    const result = await runFetchJsonResult<unknown>(
       Promise.resolve(response),
       "fallback",
     );
 
     // Then
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left).toBe("fallback");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure).toBe("fallback");
     }
   });
 
@@ -116,12 +116,12 @@ describe("fetchJsonEffect", () => {
     const rejection = Promise.reject(new Error("network down"));
 
     // When
-    const result = await runFetchJsonEither<unknown>(rejection, "fallback");
+    const result = await runFetchJsonResult<unknown>(rejection, "fallback");
 
     // Then
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left).toBe("fallback");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure).toBe("fallback");
     }
   });
 
@@ -130,15 +130,15 @@ describe("fetchJsonEffect", () => {
     const response = new Response("not-json", { status: 200 });
 
     // When
-    const result = await runFetchJsonEither<unknown>(
+    const result = await runFetchJsonResult<unknown>(
       Promise.resolve(response),
       "fallback",
     );
 
     // Then
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left).toBe("fallback");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure).toBe("fallback");
     }
   });
 });

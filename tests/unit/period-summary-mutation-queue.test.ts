@@ -1,6 +1,70 @@
-import { Effect, Fiber, Scheduler } from "effect";
+import { Deferred, Effect, Exit, Fiber } from "effect";
 import { expect, it, vi } from "vitest";
 import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { ControlledScheduler } from "./helpers/controlled-scheduler";
+
+it("publishes the owner's revision before a queued mutation captures it", () => {
+  const scheduler = new ControlledScheduler();
+  const revision = createPeriodSummaryRevision();
+  const response = Effect.runSync(Deferred.make<void>());
+  let capturedRevision: number | undefined;
+  Effect.runFork(
+    revision
+      .withMutationSlot("period-1", "period", Deferred.await(response))
+      .pipe(Effect.tap(() => Effect.sync(() => revision.advance("period-1")))),
+    { scheduler },
+  );
+  Effect.runFork(
+    revision.withMutationSlot(
+      "period-1",
+      "history",
+      Effect.sync(() => {
+        capturedRevision = revision.get("period-1");
+      }),
+    ),
+    { scheduler },
+  );
+
+  Effect.runSync(Deferred.succeed(response, undefined));
+
+  expect(revision.get("period-1")).toBe(1);
+  expect(capturedRevision).toBeUndefined();
+  scheduler.step();
+  expect(capturedRevision).toBe(1);
+});
+
+it.each([
+  {
+    kind: "failure",
+    effect: Effect.fail("failure"),
+    exit: Exit.fail("failure"),
+  },
+  { kind: "defect", effect: Effect.die("defect"), exit: Exit.die("defect") },
+])("releases a failed owner without changing its $kind", ({ effect, exit }) => {
+  const scheduler = new ControlledScheduler();
+  const revision = createPeriodSummaryRevision();
+  const response = Effect.runSync(Deferred.make<void>());
+  const owner = Effect.runFork(
+    revision.withMutationSlot(
+      "period-1",
+      "period",
+      Deferred.await(response).pipe(Effect.andThen(effect)),
+    ),
+    { scheduler },
+  );
+  const nextMutation = vi.fn();
+  Effect.runFork(
+    revision.withMutationSlot("period-1", "history", Effect.sync(nextMutation)),
+    { scheduler },
+  );
+
+  Effect.runSync(Deferred.succeed(response, undefined));
+
+  expect(owner.pollUnsafe()).toEqual(exit);
+  expect(nextMutation).not.toHaveBeenCalled();
+  scheduler.step();
+  expect(nextMutation).toHaveBeenCalledOnce();
+});
 
 it("releases an interrupted owner and removes an interrupted waiter", async () => {
   const revision = createPeriodSummaryRevision();
@@ -24,8 +88,6 @@ it("releases an interrupted owner and removes an interrupted waiter", async () =
       Effect.sync(interruptedUse),
     ),
   );
-  await new Promise((resolve) => setTimeout(resolve, 0));
-
   await Effect.runPromise(Fiber.interrupt(interruptedWaiter));
   await Effect.runPromise(Fiber.interrupt(firstOwner));
 
@@ -38,7 +100,7 @@ it("releases an interrupted owner and removes an interrupted waiter", async () =
 });
 
 it("releases a waiter interrupted after grant but before acquire returns", () => {
-  const scheduler = new Scheduler.ControlledScheduler();
+  const scheduler = new ControlledScheduler();
   const revision = createPeriodSummaryRevision();
   let ownerStarted = false;
   let waiterUse = false;
@@ -67,9 +129,11 @@ it("releases a waiter interrupted after grant but before acquire returns", () =>
   );
   scheduler.step();
 
-  Effect.runFork(Fiber.interrupt(owner), { scheduler, immediate: true });
-  scheduler.step();
-  Effect.runFork(Fiber.interrupt(waiter), { scheduler, immediate: true });
+  // runFork starts synchronously in v4. Leave the queued grant unstepped so
+  // interruption still exercises ownership before acquire returns.
+  Effect.runFork(Fiber.interrupt(owner), { scheduler });
+  expect(waiterUse).toBe(false);
+  Effect.runFork(Fiber.interrupt(waiter), { scheduler });
   scheduler.step();
   expect(waiterUse).toBe(false);
 
