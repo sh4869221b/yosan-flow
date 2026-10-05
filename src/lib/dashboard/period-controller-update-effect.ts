@@ -81,11 +81,11 @@ function reconcileEffect(
     const report = reportError ? dependencies.setError : false;
     const listResult = yield* dependencies
       .refreshPeriodListEffect(periodId, report, submission)
-      .pipe(Effect.either);
-    if (listResult._tag === "Right" && listResult.right === false) return;
+      .pipe(Effect.result);
+    if (listResult._tag === "Success" && listResult.success === false) return;
     if (dependencies.getSelectedPeriodId() !== periodId) return;
-    if (listResult._tag === "Left") {
-      if (reportError) dependencies.setError(listResult.left);
+    if (listResult._tag === "Failure") {
+      if (reportError) dependencies.setError(listResult.failure);
       yield* submission == null
         ? dependencies.refreshSummaryEffect(periodId, false)
         : dependencies.refreshSummaryEffect(periodId, false, submission);

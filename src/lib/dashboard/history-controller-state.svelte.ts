@@ -77,15 +77,15 @@ export function createHistoryControllerState(
         dayHistoryUrl(selectedPeriodId, date),
         undefined,
         "履歴の取得に失敗しました。",
-      ).pipe(Effect.either);
+      ).pipe(Effect.result);
       const requestIsCurrent =
         requestSequence === historyRequestSequence &&
         dependencies.getSelectedPeriodId() === selectedPeriodId &&
         dependencies.getSelectedDate() === date;
-      if (result._tag === "Left" && requestIsCurrent) {
-        historyError = result.left;
-      } else if (result._tag === "Right" && requestIsCurrent) {
-        histories = result.right.histories ?? [];
+      if (result._tag === "Failure" && requestIsCurrent) {
+        historyError = result.failure;
+      } else if (result._tag === "Success" && requestIsCurrent) {
+        histories = result.success.histories ?? [];
         retainedHistories.clear(selectedPeriodId, date);
       }
       if (requestSequence === historyRequestSequence) {
@@ -93,9 +93,9 @@ export function createHistoryControllerState(
         activeHistoryRequest = null;
       }
       if (!requestIsCurrent) return { kind: "ignored" } as const;
-      return result._tag === "Right"
+      return result._tag === "Success"
         ? ({ kind: "success" } as const)
-        : ({ kind: "failure", message: result.left } as const);
+        : ({ kind: "failure", message: result.failure } as const);
     });
   }
 

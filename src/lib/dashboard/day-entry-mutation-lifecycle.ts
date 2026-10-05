@@ -88,7 +88,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
               },
               "保存に失敗しました。",
             ).pipe(
-              Effect.either,
+              Effect.result,
               Effect.onInterrupt(() =>
                 Effect.sync(() => {
                   if (!submissionFinished) {
@@ -108,20 +108,20 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
               summarySequence,
             );
             submissionFinished = true;
-            if (result._tag === "Left") {
+            if (result._tag === "Failure") {
               if (submittedGeneration === modalGeneration) {
-                dependencies.setError(result.left);
+                dependencies.setError(result.failure);
               }
             } else {
               submissionTracker.accept(
                 selectedPeriodId,
-                result.right,
+                result.success,
                 mutationSequence,
                 dependencies.getHistoryMutationSequence(selectedPeriodId),
               );
             }
             const shouldRefreshHistory =
-              result._tag === "Right" &&
+              result._tag === "Success" &&
               dependencies.getSelectedPeriodId() === selectedPeriodId &&
               (submittedGeneration === modalGeneration ||
                 dependencies.getSelectedDate() === submittedDate);
@@ -150,7 +150,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
               submissionTracker.clearBest(selectedPeriodId);
             }
             if (
-              result._tag === "Right" &&
+              result._tag === "Success" &&
               submittedGeneration === modalGeneration
             ) {
               if (

@@ -1,4 +1,4 @@
-import { Effect, Runtime } from "effect";
+import { Effect } from "effect";
 import type { CustomSpanAttributes, CustomSpanName } from "./span-schema";
 import type { TracingAdapter } from "./tracing";
 
@@ -8,11 +8,11 @@ export function withTracingEffect<A>(
   effect: Effect.Effect<A, Error>,
   attributes?: () => CustomSpanAttributes,
 ): Effect.Effect<A, Error> {
-  return Effect.flatMap(Effect.runtime(), (runtime) =>
-    Effect.async<A, Error>((resume, signal) => {
+  return Effect.flatMap(Effect.context(), (context) =>
+    Effect.callback<A, Error>((resume, signal) => {
       const completion = tracing.withSpan(
         name,
-        () => Runtime.runPromiseExit(runtime)(effect, { signal }),
+        () => Effect.runPromiseExitWith(context)(effect, { signal }),
         attributes,
       );
       void completion.then(resume);

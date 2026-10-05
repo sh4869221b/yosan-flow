@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { Effect, Exit, Fiber } from "effect";
+import { Context, Effect, Exit, Fiber } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import { runApiEffect } from "$lib/server/effect/runtime";
 import {
@@ -131,6 +131,44 @@ describe("request tracing Effect bridge", () => {
     ).rejects.toBe(error);
   });
 
+  it("captures the caller's Effect context separately for every execution", async () => {
+    const request = Context.Reference<string>("tracing-effect/request", {
+      defaultValue: () => "missing-request",
+    });
+    const { tracing } = recordingTracing();
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const effect = withTracingEffect(
+      tracing,
+      "summary.calculate",
+      Effect.gen(function* () {
+        const before = yield* request;
+        if (before === "first-request") {
+          yield* Effect.promise(() => {
+            started.resolve();
+            return release.promise;
+          });
+        }
+        const after = yield* request;
+        return { before, after };
+      }),
+    );
+    const first = runApiEffect(
+      effect.pipe(Effect.provideService(request, "first-request")),
+    );
+    await started.promise;
+    await expect(
+      runApiEffect(
+        effect.pipe(Effect.provideService(request, "second-request")),
+      ),
+    ).resolves.toEqual({ before: "second-request", after: "second-request" });
+    release.resolve();
+    await expect(first).resolves.toEqual({
+      before: "first-request",
+      after: "first-request",
+    });
+  });
+
   it("preserves the defect cause through Exit", async () => {
     const defect = new Error("private defect");
     const { tracing } = recordingTracing();
@@ -138,6 +176,20 @@ describe("request tracing Effect bridge", () => {
       withTracingEffect(tracing, "summary.calculate", Effect.die(defect)),
     );
     expect(exit).toEqual(Exit.die(defect));
+  });
+
+  it("preserves both a typed failure and its finalizer defect", async () => {
+    const error = new Error("private failure");
+    const defect = new Error("private finalizer defect");
+    const { tracing } = recordingTracing();
+    const work = Effect.fail(error).pipe(Effect.ensuring(Effect.die(defect)));
+    const expected = await Effect.runPromiseExit(work);
+    const actual = await Effect.runPromiseExit(
+      withTracingEffect(tracing, "summary.calculate", work),
+    );
+    expect(actual).toEqual(expected);
+    expect(Exit.hasFails(actual)).toBe(true);
+    expect(Exit.hasDies(actual)).toBe(true);
   });
 
   it("waits for interrupted work's asynchronous finalizer and closes its span", async () => {
@@ -150,7 +202,7 @@ describe("request tracing Effect bridge", () => {
       active = true;
       started.resolve();
     }).pipe(
-      Effect.zipRight(Effect.never),
+      Effect.andThen(Effect.never),
       Effect.ensuring(
         Effect.promise(async () => {
           finalizing.resolve();
@@ -164,18 +216,18 @@ describe("request tracing Effect bridge", () => {
     );
     await started.promise;
     let interrupted = false;
-    const completion = Effect.runPromise(Fiber.interrupt(fiber)).then(
-      (exit) => {
-        interrupted = true;
-        return exit;
-      },
-    );
+    const completion = Effect.runPromise(Fiber.interrupt(fiber)).then(() => {
+      interrupted = true;
+    });
     await finalizing.promise;
     expect(active).toBe(true);
     expect(interrupted).toBe(false);
     expect(spans[0]?.pending).toBe(true);
     release.resolve();
-    expect(Exit.isInterrupted(await completion)).toBe(true);
+    await completion;
+    expect(
+      Exit.hasInterrupts(await Effect.runPromise(Fiber.await(fiber))),
+    ).toBe(true);
     expect(active).toBe(false);
     expect(spans[0]?.pending).toBe(false);
   });

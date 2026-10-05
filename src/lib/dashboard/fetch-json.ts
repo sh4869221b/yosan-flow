@@ -21,7 +21,7 @@ function parseApiErrorEffect(
     catch: () => ({}),
   }).pipe(
     Effect.map((body) => getApiErrorMessage(body) ?? fallback),
-    Effect.catchAll(() => Effect.succeed(fallback)),
+    Effect.catch(() => Effect.succeed(fallback)),
   );
 }
 

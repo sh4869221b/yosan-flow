@@ -90,22 +90,22 @@ export function createHistorySummaryReconciliation(dependencies: Dependencies) {
         periodSummaryUrl(periodId),
         undefined,
         "再取得に失敗しました。",
-      ).pipe(Effect.either);
+      ).pipe(Effect.result);
       const summaryReconciliationIsCurrent =
         dependencies.getSelectedPeriodId() === periodId &&
         dependencies.summaryRevision.getMutationSequence(periodId) ===
           reconciliationMutation &&
         dependencies.summaryRevision.get(periodId) === reconciliationRevision;
       const summaryWasApplied =
-        result._tag === "Right" &&
+        result._tag === "Success" &&
         summaryReconciliationIsCurrent &&
-        result.right.periodId === periodId;
-      if (summaryWasApplied && result._tag === "Right") {
-        dependencies.applySummary(result.right);
+        result.success.periodId === periodId;
+      if (summaryWasApplied && result._tag === "Success") {
+        dependencies.applySummary(result.success);
       }
       const recoveryResult = yield* recoverHistories(
         request,
-        result._tag === "Left" ? result.left : undefined,
+        result._tag === "Failure" ? result.failure : undefined,
       );
       if (recoveryResult.kind !== "success") return recoveryResult;
       return summaryWasApplied

@@ -150,7 +150,7 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
               request,
               errorMessage,
             ).pipe(
-              Effect.either,
+              Effect.result,
               Effect.ensuring(
                 Effect.sync(() =>
                   dependencies.summaryRevision.completeMutation(
@@ -175,8 +175,8 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
               selectedDate,
               mutationSequence,
             );
-            if (result._tag === "Left" && mutationOwnsCurrentDate) {
-              dependencies.setError(result.left);
+            if (result._tag === "Failure" && mutationOwnsCurrentDate) {
+              dependencies.setError(result.failure);
             }
             const context: MutationContext = {
               periodId: selectedPeriodId,
@@ -189,22 +189,24 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
               ownsSummary: mutationOwnsSummary,
             };
             const responseWasPublished =
-              result._tag === "Right" && publishResponse(result.right, context);
-            if (result._tag === "Right")
-              retainResponse(result.right, context, responseWasPublished);
+              result._tag === "Success" &&
+              publishResponse(result.success, context);
+            if (result._tag === "Success")
+              retainResponse(result.success, context, responseWasPublished);
             return {
               actionResult:
-                result._tag === "Right" &&
+                result._tag === "Success" &&
                 responseWasPublished &&
                 mutationOwnsCurrentDate
                   ? ({ kind: "success" } as const)
-                  : result._tag === "Left" && mutationOwnsCurrentDate
+                  : result._tag === "Failure" && mutationOwnsCurrentDate
                     ? ({
                         kind: "failure",
-                        message: result.left,
+                        message: result.failure,
                       } as const)
                     : ({ kind: "ignored" } as const),
-              mutationError: result._tag === "Left" ? result.left : undefined,
+              mutationError:
+                result._tag === "Failure" ? result.failure : undefined,
               mutationSequence,
               shouldReconcile: !responseWasPublished,
             };

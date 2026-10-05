@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { createInMemoryBudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
 import { buildPeriodSummary } from "$lib/server/services/month-summary-service";
 
-export type PeriodSummaryForTest = Effect.Effect.Success<
+export type PeriodSummaryForTest = Effect.Success<
   ReturnType<typeof buildPeriodSummary>
 >;
 

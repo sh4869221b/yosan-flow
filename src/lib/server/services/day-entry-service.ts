@@ -139,7 +139,7 @@ export class DayEntryService {
   updateHistoryEntry(
     command: UpdateHistoryCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const memo = yield* validateHistoryUpdateEffect(command);
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
@@ -155,7 +155,7 @@ export class DayEntryService {
   deleteHistoryEntry(
     command: HistoryMutationCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       yield* validateHistoryDeleteEffect(command);
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
@@ -186,7 +186,7 @@ export class DayEntryService {
   private executeEntryEffect(
     input: ExecuteEntryInput,
   ): Effect.Effect<DayEntryResult, Error> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const prepared = yield* prepareEntryEffect({
         execute: input,
         budgetPeriodRepository: this.budgetPeriodRepository,
