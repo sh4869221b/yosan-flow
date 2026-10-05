@@ -1,10 +1,10 @@
-import type { BudgetPeriodRecord } from "$lib/server/db/budget-period-repository";
+import type { BudgetPeriodRecord } from "#lib/server/db/budget-period-repository.ts";
 import {
   assertValidDate,
   assertValidInputYen,
   normalizeMemo,
-} from "$lib/server/domain/daily-entry";
-import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
+} from "#lib/server/domain/daily-entry.ts";
+import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
 
 type PeriodDayEntryCommandLike = {
   periodId: string;

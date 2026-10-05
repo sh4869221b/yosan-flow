@@ -127,11 +127,6 @@
         "count": 1
       }
     },
-    "src/routes/api/__test/reset/+server.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "tests/e2e/period-boundary-confirmation-helpers.ts": {
       "crap_high": {
         "count": 1
@@ -366,11 +361,6 @@
       }
     },
     "src/routes/+page.svelte\u0000restoreDayEntryFocus": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "src/routes/api/__test/reset/+server.ts\u0000POST": {
       "crap_high": {
         "count": 1
       }

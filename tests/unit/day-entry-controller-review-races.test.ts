@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
+import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
 import {
   createSummary,
   jsonResponse,

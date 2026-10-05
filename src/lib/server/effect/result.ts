@@ -4,7 +4,7 @@ import {
   createInternalApiError,
   type ApiErrorKind,
   type ApiResponseError,
-} from "$lib/server/effect/errors";
+} from "#lib/server/effect/errors.ts";
 
 type ErrorResponseBody = {
   error: {

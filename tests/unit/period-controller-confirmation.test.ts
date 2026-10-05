@@ -1,16 +1,16 @@
 import { Effect } from "effect";
 import { expect, it, vi } from "vitest";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
-import * as periodUpdateEffects from "$lib/dashboard/period-controller-update-effect";
-import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import { createPeriodUpdateConfirmationState } from "$lib/dashboard/period-update-confirmation-state.svelte";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import { createPeriodUpdateEffect } from "#lib/dashboard/period-controller-update-effect.ts";
+import * as periodUpdateEffects from "#lib/dashboard/period-controller-update-effect.ts";
+import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import { createPeriodUpdateConfirmationState } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import {
   captureClientEffects,
   settled,
 } from "./period-controller-effect-fixture";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
   createSummary,
   jsonResponse,

@@ -1,10 +1,10 @@
 import { and, asc, eq, gt, lt, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
-import type { DatabaseTransaction } from "$lib/server/db/client";
-import { createDrizzleD1Database } from "$lib/server/db/client";
-import type { D1Database } from "$lib/server/db/d1-types";
-import { daily_totals, type DailyTotalRow } from "$lib/server/db/schema";
-import { toEffectError } from "$lib/server/effect/runtime";
+import type { DatabaseTransaction } from "#lib/server/db/client.ts";
+import { createDrizzleD1Database } from "#lib/server/db/client.ts";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
+import { daily_totals, type DailyTotalRow } from "#lib/server/db/schema.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 export type DailyTotalRecord = {
   date: string;

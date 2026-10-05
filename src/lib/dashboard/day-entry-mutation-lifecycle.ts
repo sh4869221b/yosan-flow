@@ -1,21 +1,21 @@
 import { Deferred, Effect } from "effect";
-import { dayAddUrl } from "$lib/dashboard/api-urls";
+import { dayAddUrl } from "#lib/dashboard/api-urls.ts";
 import type {
   DailyRow,
   DayEntryCloseReason,
   DaySaveSuccess,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
-import { createDayEntrySubmissionTracker } from "$lib/dashboard/day-entry-submission-tracker";
-import { createDayEntrySummaryReconciliation } from "$lib/dashboard/day-entry-summary-reconciliation";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+} from "#lib/dashboard/controller-types.ts";
+import { createDayEntrySubmissionTracker } from "#lib/dashboard/day-entry-submission-tracker.ts";
+import { createDayEntrySummaryReconciliation } from "#lib/dashboard/day-entry-summary-reconciliation.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
   findSummaryRow,
   summaryConfigurationMatches,
   summaryIsMoreComplete,
-} from "$lib/dashboard/summary-rows";
-import type { SubmitDayEntryPayload } from "$lib/dashboard/types";
+} from "#lib/dashboard/summary-rows.ts";
+import type { SubmitDayEntryPayload } from "#lib/dashboard/types.ts";
 
 type Dependencies = {
   readonly cancelHistoryLoad?: (_periodId: string, _date: string) => void;

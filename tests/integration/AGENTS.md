@@ -8,7 +8,7 @@
 
 - Service/repository mode: `api/day-entry-fixture.ts` composes in-memory DB client, repositories, and `DayEntryService`.
 - Injected-handler mode: `api/periods-fixture.ts` connects fresh in-memory services to `_create*Handler` factories and sends real `Request` objects.
-- Default-route mode: public SvelteKit handlers receive `platform.env.DB` backed by the period-aware D1 fake.
+- Default-route mode: public SvelteKit handlers read mocked `cloudflare:workers` bindings backed by the period-aware D1 fake. Configure `tests/helpers/cloudflare-runtime.ts`; the setup hook resets it before each test. Do not run tests that mutate this seam concurrently within one file.
 - Choose the mode matching the boundary under change; preserve coverage of both handler factories and public method exports.
 
 ## D1 Fake

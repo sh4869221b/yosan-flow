@@ -1,11 +1,12 @@
+import { cloudflareRuntime } from "../../helpers/cloudflare-runtime";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Effect } from "effect";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import {
   createTracing,
   type NativeTracing,
-} from "$lib/server/observability/tracing";
+} from "#lib/server/observability/tracing.ts";
 import { POST } from "../../../src/routes/api/periods/+server";
 import { GET } from "../../../src/routes/api/periods/[periodId]/+server";
 import { load } from "../../../src/routes/+page.server";
@@ -72,14 +73,13 @@ const period = {
 };
 const dayRoute = "/api/periods/[periodId]/days/[date]";
 
-function event(method: string, body?: unknown, platform?: App.Platform) {
+function event(method: string, body?: unknown) {
   return createRouteEvent({
     params: {
       periodId: period.id,
       date: period.startDate,
       historyId: "private-history",
     },
-    platform,
     request: new Request(
       "http://localhost/api/periods/private-period?private-query=secret",
       {
@@ -417,16 +417,13 @@ describe("business spans around actual mutation work", () => {
   it("wires public D1 mutation, GET and page invocation spans", async () => {
     vi.stubEnv("YOSAN_FLOW_FORCE_IN_MEMORY_DEV", undefined);
     const { native, spans } = recordingTracing();
-    const platform = {
-      env: { DB: createPeriodAwareD1Fake() },
-      cf: {},
-      ctx: { waitUntil() {}, tracing: native },
-    } satisfies App.Platform;
+    cloudflareRuntime.tracing = native;
+    cloudflareRuntime.env = { DB: createPeriodAwareD1Fake() };
     vi.spyOn(console, "log").mockImplementation(() => {});
-    expect((await POST(event("POST", period, platform))).status).toBe(201);
+    expect((await POST(event("POST", period))).status).toBe(201);
     expect(spans[0]?.name).toBe("api.budget_period.create");
     spans.length = 0;
-    const summary = await GET(event("GET", undefined, platform));
+    const summary = await GET(event("GET", undefined));
     expect(summary.status).toBe(200);
     expect(await summary.json()).toMatchObject({
       periodId: period.id,
@@ -442,7 +439,7 @@ describe("business spans around actual mutation work", () => {
     ]);
     spans.length = 0;
     const page = await load({
-      ...event("GET", undefined, platform),
+      ...event("GET", undefined),
       route: { id: "/" },
       parent: async () => ({}),
       depends() {},
@@ -460,5 +457,13 @@ describe("business spans around actual mutation work", () => {
         attributes: { "app.operation": "summary.calculate" },
       },
     ]);
+    const nextInvocation = recordingTracing();
+    cloudflareRuntime.tracing = nextInvocation.native;
+    expect((await GET(event("GET"))).status).toBe(200);
+    expect(nextInvocation.spans.map((span) => span.name)).toEqual([
+      "summary.calculate",
+    ]);
+    // Reusing the same D1 service must never retain the prior request's tracing.
+    expect(spans).toHaveLength(1);
   });
 });

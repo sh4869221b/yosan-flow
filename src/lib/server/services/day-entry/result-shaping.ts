@@ -1,5 +1,5 @@
-import type { DailyHistoryRecord } from "$lib/server/db/daily-history-repository";
-import type { DailyTotalRecord } from "$lib/server/db/daily-total-repository";
+import type { DailyHistoryRecord } from "#lib/server/db/daily-history-repository.ts";
+import type { DailyTotalRecord } from "#lib/server/db/daily-total-repository.ts";
 
 export type DayEntryResultShape = {
   dailyTotal: DailyTotalRecord;

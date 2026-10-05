@@ -1,20 +1,20 @@
-import { createPeriodRefreshEffects } from "$lib/dashboard/period-controller-refresh-effect";
-import { createPeriodConfirmationEffects } from "$lib/dashboard/period-controller-confirm-effect";
+import { createPeriodRefreshEffects } from "#lib/dashboard/period-controller-refresh-effect.ts";
+import { createPeriodConfirmationEffects } from "#lib/dashboard/period-controller-confirm-effect.ts";
 import type {
   PeriodOption,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
-import { createPeriodControllerActions } from "$lib/dashboard/period-controller-actions.svelte";
-import { createPeriodCreateState } from "$lib/dashboard/period-create-state.svelte";
-import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
-import { getInitialPeriodControllerState } from "$lib/dashboard/period-controller-initial-state";
-import { createPeriodUpdateConfirmationState } from "$lib/dashboard/period-update-confirmation-state.svelte";
-import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+} from "#lib/dashboard/controller-types.ts";
+import { createPeriodControllerActions } from "#lib/dashboard/period-controller-actions.svelte.ts";
+import { createPeriodCreateState } from "#lib/dashboard/period-create-state.svelte.ts";
+import { createPeriodUpdateEffect } from "#lib/dashboard/period-controller-update-effect.ts";
+import { getInitialPeriodControllerState } from "#lib/dashboard/period-controller-initial-state.ts";
+import { createPeriodUpdateConfirmationState } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
+import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
   createPeriodSettingsState,
   type PeriodSettingsSubmission,
-} from "$lib/dashboard/period-settings-state.svelte";
+} from "#lib/dashboard/period-settings-state.svelte.ts";
 import type { PageData } from "../../routes/$types";
 
 export function createPeriodControllerState(

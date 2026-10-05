@@ -6,8 +6,8 @@ import {
   assertValidPeriodRange,
   type BudgetPeriodLike,
   type BudgetPeriodSuccessorLike,
-} from "$lib/server/db/budget-period-validation";
-import { PeriodValidationError } from "$lib/server/db/budget-period-types";
+} from "#lib/server/db/budget-period-validation.ts";
+import { PeriodValidationError } from "#lib/server/db/budget-period-types.ts";
 
 function createPeriodValidationError(
   code: string,

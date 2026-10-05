@@ -1,7 +1,7 @@
 import { Effect } from "effect";
-import type { BudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
-import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
-import { getJstDateParts } from "$lib/server/time/jst-format";
+import type { BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
+import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import { getJstDateParts } from "#lib/server/time/jst-format.ts";
 import {
   buildDailyTotalMap,
   sumDailyTotals,

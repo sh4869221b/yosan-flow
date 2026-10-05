@@ -2,23 +2,23 @@ import { Effect } from "effect";
 import {
   createInMemoryDatabaseClient,
   type DatabaseClient,
-} from "$lib/server/db/client";
+} from "#lib/server/db/client.ts";
 import {
   createInMemoryBudgetPeriodRepository,
   type BudgetPeriodRecord,
   type BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
+} from "#lib/server/db/budget-period-repository.ts";
 import {
   createDailyHistoryRepository,
   type DailyHistoryRecord,
   type DailyHistoryRepository,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/daily-history-repository.ts";
 import {
   createDailyTotalRepository,
   type DailyTotalRecord,
   type DailyTotalRepository,
-} from "$lib/server/db/daily-total-repository";
-import { DayEntryService } from "$lib/server/services/day-entry-service";
+} from "#lib/server/db/daily-total-repository.ts";
+import { DayEntryService } from "#lib/server/services/day-entry-service.ts";
 
 export const DEFAULT_PERIOD_ID = "period-2026-04";
 export const DEFAULT_DATE = "2026-04-20";

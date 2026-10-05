@@ -1,19 +1,19 @@
 import { Effect } from "effect";
-import { periodSummaryUrl, periodsUrl } from "$lib/dashboard/api-urls";
+import { periodSummaryUrl, periodsUrl } from "#lib/dashboard/api-urls.ts";
 import type {
   PeriodOption,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
-import { addDays } from "$lib/dashboard/date";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import type { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+} from "#lib/dashboard/controller-types.ts";
+import { addDays } from "#lib/dashboard/date.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import type { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import type {
   PeriodCreateResponse,
   PeriodListResponse,
-} from "$lib/dashboard/types";
-import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
-import type { PeriodCreateState } from "$lib/dashboard/period-create-state.svelte";
+} from "#lib/dashboard/types.ts";
+import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
+import type { PeriodCreateState } from "#lib/dashboard/period-create-state.svelte.ts";
 
 export type PeriodCreationDependencies = {
   readonly createState: PeriodCreateState;

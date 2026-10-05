@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AlertDialog } from "bits-ui";
-  import type { PeriodBoundaryUpdateProposal } from "$lib/dashboard/period-update-api";
+  import type { PeriodBoundaryUpdateProposal } from "#lib/dashboard/period-update-api.ts";
 
   type Props = {
     proposal: PeriodBoundaryUpdateProposal | null;

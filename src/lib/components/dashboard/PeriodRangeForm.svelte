@@ -4,11 +4,11 @@
   import type {
     ConfirmationResult,
     PeriodUpdateConfirmationState,
-  } from "$lib/dashboard/period-update-confirmation-state.svelte";
-  import type { PeriodSummary } from "$lib/dashboard/controller-types";
-  import type { PeriodSettingsState } from "$lib/dashboard/period-settings-state.svelte";
-  import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
-  import { getPeriodRangeValidation } from "$lib/components/period-range-state";
+  } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
+  import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+  import type { PeriodSettingsState } from "#lib/dashboard/period-settings-state.svelte.ts";
+  import PeriodRangePicker from "#lib/components/PeriodRangePicker.svelte";
+  import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
 
   type Props = {
     range: PeriodSettingsState["range"];

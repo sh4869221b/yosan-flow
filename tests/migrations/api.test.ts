@@ -1,7 +1,8 @@
+import { cloudflareRuntime } from "../helpers/cloudflare-runtime";
 import type { DatabaseSync } from "node:sqlite";
 import type { RequestHandler } from "@sveltejs/kit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { D1Database } from "$lib/server/db/d1-types";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
 import {
   GET as listPeriods,
   POST as createPeriod,
@@ -35,10 +36,10 @@ async function request(
   params: Record<string, string> = {},
   body?: Record<string, unknown>,
 ) {
+  cloudflareRuntime.env = { DB: db };
   return handler(
     createRouteEvent({
       params,
-      platform: { env: { DB: db }, cf: {}, ctx: { waitUntil() {} } },
       request: new Request("http://localhost/api/periods", {
         method,
         ...(body === undefined

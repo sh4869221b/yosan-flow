@@ -1,10 +1,10 @@
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import type { SavePeriodPayload } from "$lib/dashboard/types";
-import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import type { SavePeriodPayload } from "#lib/dashboard/types.ts";
+import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 import {
   createPeriodRange,
   getPeriodRangeSelection,
-} from "$lib/components/period-range-state";
+} from "#lib/components/period-range-state.ts";
 
 type RangeDraft = Readonly<{ startDate: string; endDate: string }>;
 export type PeriodSetting = "budget" | "range";

@@ -1,8 +1,11 @@
 <script lang="ts">
   import { Pencil, Save, Trash2, X } from "@lucide/svelte";
   import { onDestroy, tick } from "svelte";
-  import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+  import type {
+    HistoryActionResult,
+    HistoryItem,
+  } from "#lib/dashboard/types.ts";
+  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 
   const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
 

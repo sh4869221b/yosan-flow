@@ -1,8 +1,8 @@
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 import { Effect } from "effect";
-import type { D1Database } from "$lib/server/db/d1-types";
-import { toEffectError } from "$lib/server/effect/runtime";
-import * as schema from "$lib/server/db/schema";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
+import * as schema from "#lib/server/db/schema.ts";
 
 type DatabaseState<P = unknown, D = unknown, H = unknown> = {
   budgetPeriods: Map<string, P>;

@@ -47,7 +47,7 @@ Reference counts are authored-code LSP occurrences, excluding declarations and `
 | `createDashboardPageController` | facade                | `src/lib/dashboard/page-controller.svelte.ts:8`                          |       2+ | Composes period, history, and day-entry controllers   |
 | `createPeriodSummaryRevision`   | coordinator           | `src/lib/dashboard/period-summary-revision.ts:32`                        |       15 | Serializes cross-kind mutations and tracks freshness  |
 | `runApiEffect`                  | boundary              | `src/lib/server/effect/runtime.ts:7`                                     |       62 | Executes Effect values at route/page boundaries       |
-| `getApiServicesFromPlatform`    | composition           | `src/lib/server/services/api-services/cache.ts:50`                       |       18 | Selects cached D1 or in-memory services               |
+| `getApiServices`                | composition           | `src/lib/server/services/api-services/cache.ts:50`                       |       18 | Selects cached D1 or in-memory services               |
 | `InMemoryApiServices`           | service port          | `src/lib/server/services/api-services/types.ts:45`                       |       27 | Shared route contract despite the legacy type name    |
 | `buildPeriodSummary`            | domain service        | `src/lib/server/services/period-summary/period-summary-calculator.ts:61` |       10 | Builds the authoritative period summary DTO           |
 | `BudgetPeriodRepository`        | repository port       | `src/lib/server/db/budget-period-types.ts:53`                            |       23 | Owns period persistence contract                      |

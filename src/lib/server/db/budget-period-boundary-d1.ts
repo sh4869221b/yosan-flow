@@ -1,14 +1,14 @@
 import { sql, type SQL } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
-import { findD1BudgetPeriodById } from "$lib/server/db/budget-period-d1-query";
+import { findD1BudgetPeriodById } from "#lib/server/db/budget-period-d1-query.ts";
 import {
   LinkedPeriodBoundaryConflictError,
   LinkedPeriodBoundaryInvariantError,
   type LinkedPeriodBoundaryUpdateCommand,
   type LinkedPeriodBoundaryUpdateResult,
-} from "$lib/server/db/budget-period-types";
-import type * as schema from "$lib/server/db/schema";
-import { budget_periods } from "$lib/server/db/schema";
+} from "#lib/server/db/budget-period-types.ts";
+import type * as schema from "#lib/server/db/schema.ts";
+import { budget_periods } from "#lib/server/db/schema.ts";
 
 type D1Database = DrizzleD1Database<typeof schema>;
 

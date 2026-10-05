@@ -1,4 +1,4 @@
-import type { DailyHistoryRecord } from "$lib/server/db/daily-history-repository";
+import type { DailyHistoryRecord } from "#lib/server/db/daily-history-repository.ts";
 
 function compareHistoryChronological(
   left: DailyHistoryRecord,

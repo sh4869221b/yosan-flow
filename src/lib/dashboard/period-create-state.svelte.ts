@@ -1,4 +1,4 @@
-import { addDays, toPeriodId } from "$lib/dashboard/date";
+import { addDays, toPeriodId } from "#lib/dashboard/date.ts";
 
 type CreateRange = Readonly<{ endDate: string; startDate: string }>;
 type InitialState = Readonly<{ startDate: string }>;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PeriodSummary } from "$lib/dashboard/controller-types";
+  import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
   import BudgetPacePanel from "./budget/BudgetPacePanel.svelte";
   import BudgetStatsPanel from "./budget/BudgetStatsPanel.svelte";
 

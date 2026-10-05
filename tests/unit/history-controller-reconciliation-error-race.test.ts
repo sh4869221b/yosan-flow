@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
   createSummary,
   jsonResponse,

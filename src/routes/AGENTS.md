@@ -16,11 +16,11 @@
 
 ## Handler Boundary
 
-- Every normal API route exposes a `_create*Handler({ services })` factory. Preserve this dependency-injection seam for integration tests; public SvelteKit method exports resolve platform services and delegate.
+- Every normal API route exposes a `_create*Handler({ services })` factory. Preserve this dependency-injection seam for integration tests; public SvelteKit method exports resolve Workers services and delegate.
 - Parse `periodId`, `date`, `historyId`, and request bodies through `src/lib/server/validation/**`.
 - Execute every Effect through `runApiEffect` at the route/page boundary and map failures with `toApiErrorResponse`.
 - Keep handlers limited to validation, service calls, and stable JSON serialization. Domain choices belong in `src/lib/server/**`.
-- Runtime platform with `DB` selects cached D1 services. Absent platform or the explicit dev flag selects in-memory services; a present platform without `DB` is an error.
+- `getApiServices()` reads `cloudflare:workers` `env.DB` and caches services per binding. Missing DB fails closed. Only an explicit in-memory flag in Vite development bypasses D1; built Workers ignore it. Resolve request tracing from `cloudflare:workers` separately, never in the service cache.
 
 ## Response Contracts
 
@@ -38,6 +38,6 @@
 
 ## Verification
 
-- API handler, response, validation, or platform-selection changes: `pnpm test:integration`.
+- API handler, response, validation, or runtime-binding changes: `pnpm test:integration`.
 - Page load or dashboard wiring: `pnpm check`; add focused E2E coverage for browser-visible changes.
 - Reset changes: integration-level guard coverage plus the E2E setup path.

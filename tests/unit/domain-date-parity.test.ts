@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   getNextPeriodStartDate,
   isDateWithinPeriod,
-} from "$lib/server/domain/budget-period";
-import { assertValidDate } from "$lib/server/domain/daily-entry";
+} from "#lib/server/domain/budget-period.ts";
+import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
 
 describe("shared domain calendar-date contract", () => {
   it.each([

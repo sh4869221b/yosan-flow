@@ -1,5 +1,6 @@
+import { cloudflareRuntime } from "../../helpers/cloudflare-runtime";
 import { describe, expect, it } from "vitest";
-import type { D1Database } from "$lib/server/db/d1-types";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
 import { POST as periodsPostDefaultRoute } from "../../../src/routes/api/periods/+server";
 import { PUT as periodPutDefaultRoute } from "../../../src/routes/api/periods/[periodId]/+server";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
@@ -7,6 +8,7 @@ import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 describe("period validation through D1 routes", () => {
   it("updates periods and preserves validation errors in D1 path", async () => {
     const fakeDb = createPeriodAwareD1Fake();
+    cloudflareRuntime.env = { DB: fakeDb };
     await createPeriod(fakeDb, {
       id: "p-a",
       startDate: "2026-04-20",
@@ -32,7 +34,6 @@ describe("period validation through D1 routes", () => {
           budgetYen: 100000,
         }),
       }),
-      platform: { env: { DB: fakeDb } },
     } as any);
     expect(overlapResponse.status).toBe(400);
     await expect(overlapResponse.json()).resolves.toMatchObject({
@@ -50,7 +51,6 @@ describe("period validation through D1 routes", () => {
           budgetYen: 100000,
         }),
       }),
-      platform: { env: { DB: fakeDb } },
     } as any);
     expect(continuityResponse.status).toBe(400);
     await expect(continuityResponse.json()).resolves.toMatchObject({
@@ -68,7 +68,6 @@ describe("period validation through D1 routes", () => {
           budgetYen: 120000,
         }),
       }),
-      platform: { env: { DB: fakeDb } },
     } as any);
     expect(updateResponse.status).toBe(200);
     await expect(updateResponse.json()).resolves.toMatchObject({
@@ -90,13 +89,13 @@ async function createPeriod(
   db: D1Database,
   body: CreatePeriodBody,
 ): Promise<void> {
+  cloudflareRuntime.env = { DB: db };
   const response = await periodsPostDefaultRoute({
     request: new Request("http://localhost/api/periods", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }),
-    platform: { env: { DB: db } },
   } as any);
   expect(response.status).toBe(201);
 }

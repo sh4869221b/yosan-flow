@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeRoute } from "$lib/server/observability/route";
+import { normalizeRoute } from "#lib/server/observability/route.ts";
 
 describe("telemetry route normalization", () => {
   it.each([

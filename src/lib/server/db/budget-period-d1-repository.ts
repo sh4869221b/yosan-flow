@@ -1,23 +1,23 @@
 import { and, asc, eq, gte, lte, ne } from "drizzle-orm";
 import { Effect } from "effect";
-import { createDrizzleD1Database } from "$lib/server/db/client";
-import { updateD1LinkedPeriodBoundary } from "$lib/server/db/budget-period-boundary-d1";
+import { createDrizzleD1Database } from "#lib/server/db/client.ts";
+import { updateD1LinkedPeriodBoundary } from "#lib/server/db/budget-period-boundary-d1.ts";
 import {
   findD1BudgetPeriodById,
   findD1SuccessorsByPredecessorId,
-} from "$lib/server/db/budget-period-d1-query";
-import type { D1Database } from "$lib/server/db/d1-types";
-import { toBudgetPeriodRecord } from "$lib/server/db/budget-period-row-mapper";
+} from "#lib/server/db/budget-period-d1-query.ts";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
+import { toBudgetPeriodRecord } from "#lib/server/db/budget-period-row-mapper.ts";
 import {
   assertPeriodHasNoOverlap,
   assertPeriodPredecessorContinuity,
   assertPeriodSuccessorContinuity,
   assertValidPeriodInput,
-} from "$lib/server/db/budget-period-validation-coordinator";
-import type { BudgetPeriodRepository } from "$lib/server/db/budget-period-types";
-import { PeriodNotFoundError } from "$lib/server/db/budget-period-types";
-import { budget_periods } from "$lib/server/db/schema";
-import { toEffectError } from "$lib/server/effect/runtime";
+} from "#lib/server/db/budget-period-validation-coordinator.ts";
+import type { BudgetPeriodRepository } from "#lib/server/db/budget-period-types.ts";
+import { PeriodNotFoundError } from "#lib/server/db/budget-period-types.ts";
+import { budget_periods } from "#lib/server/db/schema.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 type CreateD1BudgetPeriodRepositoryInput = {
   db: D1Database;

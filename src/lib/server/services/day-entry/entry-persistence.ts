@@ -1,14 +1,14 @@
 import { Effect } from "effect";
-import type { DatabaseClient } from "$lib/server/db/client";
-import type { BudgetPeriodRecord } from "$lib/server/db/budget-period-repository";
+import type { DatabaseClient } from "#lib/server/db/client.ts";
+import type { BudgetPeriodRecord } from "#lib/server/db/budget-period-repository.ts";
 import type {
   DailyHistoryRecord,
   DailyHistoryRepository,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/daily-history-repository.ts";
 import type {
   DailyTotalRecord,
   DailyTotalRepository,
-} from "$lib/server/db/daily-total-repository";
+} from "#lib/server/db/daily-total-repository.ts";
 import type { PreparedEntryInput } from "./commands";
 import {
   createDayEntryResult,

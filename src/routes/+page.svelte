@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
-  import DashboardWorkspace from "$lib/components/dashboard/DashboardWorkspace.svelte";
-  import "$lib/components/dashboard/dashboard-shell.css";
-  import DayEntryModal from "$lib/components/DayEntryModal.svelte";
-  import type { DayEntryCloseReason } from "$lib/dashboard/controller-types";
+  import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
+  import DashboardWorkspace from "#lib/components/dashboard/DashboardWorkspace.svelte";
+  import "#lib/components/dashboard/dashboard-shell.css";
+  import DayEntryModal from "#lib/components/DayEntryModal.svelte";
+  import type { DayEntryCloseReason } from "#lib/dashboard/controller-types.ts";
   import type { PageData } from "./$types";
 
   type DayEntryOrigin = {

@@ -1,25 +1,25 @@
 import { Effect } from "effect";
-import type { D1DayEntryWriter } from "$lib/server/db/day-entry-writer";
+import type { D1DayEntryWriter } from "#lib/server/db/day-entry-writer.ts";
 import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
+} from "#lib/server/db/budget-period-repository.ts";
 import type {
   D1DailyHistoryRepository,
   DailyHistoryRecord,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/daily-history-repository.ts";
 import {
   assertValidDate,
   assertValidInputYen,
   normalizeMemo,
-} from "$lib/server/domain/daily-entry";
-import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
-import { toEffectError } from "$lib/server/effect/runtime";
+} from "#lib/server/domain/daily-entry.ts";
+import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import {
   DateOutOfPeriodError,
   HistoryNotFoundError,
   PeriodNotFoundError,
-} from "$lib/server/services/day-entry-service";
+} from "#lib/server/services/day-entry-service.ts";
 import type { DayEntryServicePort } from "./types";
 
 type DayEntryCommand = {

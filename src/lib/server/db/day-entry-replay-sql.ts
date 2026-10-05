@@ -1,5 +1,8 @@
-import type { D1Database, D1PreparedStatement } from "$lib/server/db/d1-types";
-import type { D1DayEntryReplayCommand } from "$lib/server/db/day-entry-writer-types";
+import type {
+  D1Database,
+  D1PreparedStatement,
+} from "#lib/server/db/d1-types.ts";
+import type { D1DayEntryReplayCommand } from "#lib/server/db/day-entry-writer-types.ts";
 
 const HISTORY_REPLAY_CTE = `
   WITH RECURSIVE

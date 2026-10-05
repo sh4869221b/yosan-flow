@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import "./period-settings-form.css";
-  import type { PeriodSummary } from "$lib/dashboard/controller-types";
+  import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 
   type Props = {
     budgetInput: string;

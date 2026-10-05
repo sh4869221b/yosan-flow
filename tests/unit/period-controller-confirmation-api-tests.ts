@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { parsePeriodUpdateResponseEffect } from "$lib/dashboard/period-update-api";
+import { parsePeriodUpdateResponseEffect } from "#lib/dashboard/period-update-api.ts";
 import {
   createSummary,
   jsonResponse,

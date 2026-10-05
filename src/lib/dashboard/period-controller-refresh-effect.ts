@@ -1,17 +1,17 @@
 import { Effect } from "effect";
-import { periodSummaryUrl, periodsUrl } from "$lib/dashboard/api-urls";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
+import { periodSummaryUrl, periodsUrl } from "#lib/dashboard/api-urls.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
 import type {
   PeriodOption,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
+} from "#lib/dashboard/controller-types.ts";
 import type {
   PeriodRefreshError,
   PeriodRefreshCompletion,
   PeriodUpdateDependencies,
-} from "$lib/dashboard/period-controller-update-effect";
-import type { PeriodSettingsSubmission } from "$lib/dashboard/period-settings-state.svelte";
-import type { PeriodListResponse } from "$lib/dashboard/types";
+} from "#lib/dashboard/period-controller-update-effect.ts";
+import type { PeriodSettingsSubmission } from "#lib/dashboard/period-settings-state.svelte.ts";
+import type { PeriodListResponse } from "#lib/dashboard/types.ts";
 
 type Dependencies = Pick<
   PeriodUpdateDependencies,

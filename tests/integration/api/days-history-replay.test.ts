@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { HistoryNotFoundError } from "$lib/server/services/day-entry-service";
+import { HistoryNotFoundError } from "#lib/server/services/day-entry-service.ts";
 import {
   DEFAULT_DATE,
   DEFAULT_PERIOD_ID,

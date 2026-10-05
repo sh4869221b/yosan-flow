@@ -1,9 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { resolve } from "$app/paths";
   import { page } from "$app/state";
-  import type { PathnameWithSearchOrHash } from "$app/types";
-  import "$lib/components/dashboard/dashboard-shell.css";
+  import "#lib/components/dashboard/dashboard-shell.css";
 
   let retrying = $state(false);
 
@@ -16,14 +14,12 @@
   async function retry(): Promise<void> {
     if (retrying) return;
     retrying = true;
-    const retryPath =
-      `${page.url.pathname}${page.url.search}${page.url.hash}` as PathnameWithSearchOrHash;
+    const retryPath = `${page.url.pathname}${page.url.search}${page.url.hash}`;
     try {
-      await goto(resolve(retryPath), {
-        invalidateAll: true,
-        keepFocus: true,
-        noScroll: true,
-        replaceState: true,
+      await goto(retryPath, {
+        refreshAll: true,
+        reset: false,
+        replace: true,
       });
       focusHeading(
         "#selected-period-heading, #empty-period-heading, #page-error-heading",

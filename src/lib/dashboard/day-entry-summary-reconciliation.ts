@@ -1,10 +1,13 @@
 import { Effect } from "effect";
-import { periodSummaryUrl } from "$lib/dashboard/api-urls";
-import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
-import type { createDayEntrySubmissionTracker } from "$lib/dashboard/day-entry-submission-tracker";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import { findSummaryRow } from "$lib/dashboard/summary-rows";
+import { periodSummaryUrl } from "#lib/dashboard/api-urls.ts";
+import type {
+  DailyRow,
+  PeriodSummary,
+} from "#lib/dashboard/controller-types.ts";
+import type { createDayEntrySubmissionTracker } from "#lib/dashboard/day-entry-submission-tracker.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { findSummaryRow } from "#lib/dashboard/summary-rows.ts";
 
 type Dependencies = {
   readonly getHistoryMutationSequence: (_periodId: string) => number;

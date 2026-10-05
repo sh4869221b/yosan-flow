@@ -46,6 +46,26 @@ XDG_CONFIG_HOME="$PWD/.tmp-xdg-config" pnpm wrangler types worker-runtime.d.ts -
 - `tests/integration/`: API/repository integration tests.
 - `tests/e2e/`: Playwright dashboard tests.
 
+## Cloudflare runtime boundary
+
+Server routes and page loads read bindings from `cloudflare:workers` through
+`getApiServices()`. Services remain cached by D1 binding identity in a `WeakMap`;
+request tracing is resolved separately by `getRequestTracing()` and never stored
+in that cache. No route reads Cloudflare APIs from `event.platform`.
+
+A missing `env.DB` fails closed. The only in-memory runtime path is an explicit
+`YOSAN_FLOW_FORCE_IN_MEMORY_DEV=1` in Vite development, from the shell or local
+`.dev.vars`. Built Workers ignore that development flag. Dependency-injected
+handler factories still accept fresh in-memory services directly for tests.
+
+Vitest mocks `cloudflare:workers` in `tests/setup-cloudflare.ts`. Default-handler
+and migration tests configure `tests/helpers/cloudflare-runtime.ts`, which is
+reset before each test; they do not synthesize obsolete platform bindings. Tests
+using this mutable runtime seam must remain sequential within each test file.
+The reset endpoint keeps its explicit local/test token, required DB, deletion
+order and before/after counts. Never configure the E2E reset token in preview or
+production. Real adapter behavior is verified by the built Worker E2E suite.
+
 ## Development Guidelines
 
 - Keep the period-first budget model as the default design. Do not add month-first compatibility paths unless explicitly requested.

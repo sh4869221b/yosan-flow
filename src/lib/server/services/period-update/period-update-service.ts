@@ -2,24 +2,24 @@ import { Effect } from "effect";
 import {
   noopTracing,
   type TracingAdapter,
-} from "$lib/server/observability/tracing";
-import { withTracingEffect } from "$lib/server/observability/tracing-effect";
+} from "#lib/server/observability/tracing.ts";
+import { withTracingEffect } from "#lib/server/observability/tracing-effect.ts";
 import {
   LinkedPeriodBoundaryConflictError,
   type BudgetPeriodRecord,
   type BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
-import { PeriodNotFoundError } from "$lib/server/db/budget-period-types";
-import { decidePeriodBoundaryUpdate } from "$lib/server/services/period-update/period-boundary-decision";
-import { toEffectError } from "$lib/server/effect/runtime";
-import { assertValidPeriodInput } from "$lib/server/db/budget-period-validation-coordinator";
+} from "#lib/server/db/budget-period-repository.ts";
+import { PeriodNotFoundError } from "#lib/server/db/budget-period-types.ts";
+import { decidePeriodBoundaryUpdate } from "#lib/server/services/period-update/period-boundary-decision.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
+import { assertValidPeriodInput } from "#lib/server/db/budget-period-validation-coordinator.ts";
 import {
   PeriodUpdateConflictError,
   type PeriodBoundaryAfter,
   type PeriodBoundaryUpdateProposal,
   type PeriodSnapshot,
   type PeriodUpdateRequest,
-} from "$lib/server/services/period-update/period-update-types";
+} from "#lib/server/services/period-update/period-update-types.ts";
 
 export type PeriodUpdateServiceResult =
   | { readonly kind: "updated"; readonly period: BudgetPeriodRecord }

@@ -2,9 +2,7 @@ import type { RequestHandler } from "@sveltejs/kit";
 
 type RouteEvent = Parameters<RequestHandler>[0];
 
-export type RouteEventInput = Readonly<
-  Pick<RouteEvent, "params" | "platform" | "request">
->;
+export type RouteEventInput = Readonly<Pick<RouteEvent, "params" | "request">>;
 
 function createNoopSpan(): RouteEvent["tracing"]["root"] {
   const span = {
@@ -53,7 +51,7 @@ export function createRouteEvent(input: RouteEventInput): RouteEvent {
     getClientAddress: () => "127.0.0.1",
     locals: {},
     params: input.params,
-    platform: input.platform,
+    platform: undefined,
     request: input.request,
     route: { id: null },
     setHeaders: () => {},

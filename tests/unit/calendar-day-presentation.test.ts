@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCalendarDayPresentation,
   type CalendarDayPresentationInput,
-} from "$lib/components/calendar/calendar-day-presentation";
+} from "#lib/components/calendar/calendar-day-presentation.ts";
 
 const present = (
   overrides: Partial<CalendarDayPresentationInput> = {},

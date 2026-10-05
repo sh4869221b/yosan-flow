@@ -1,5 +1,5 @@
 import { json } from "@sveltejs/kit";
-import { toApiErrorResponseResult } from "$lib/server/effect/result";
+import { toApiErrorResponseResult } from "#lib/server/effect/result.ts";
 import { classifyApiError } from "./error-classification";
 import { createLogger } from "./logger";
 import type { TelemetryErrorCode, TelemetryEvent } from "./schema";

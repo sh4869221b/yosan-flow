@@ -1,8 +1,8 @@
 import { Effect } from "effect";
-import { dayHistoryUrl } from "$lib/dashboard/api-urls";
-import { runClientEffect } from "$lib/dashboard/client-effect";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import { createHistoryMutationLifecycle } from "$lib/dashboard/history-mutation-lifecycle";
+import { dayHistoryUrl } from "#lib/dashboard/api-urls.ts";
+import { runClientEffect } from "#lib/dashboard/client-effect.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import { createHistoryMutationLifecycle } from "#lib/dashboard/history-mutation-lifecycle.ts";
 import type {
   DeleteHistoryPayload,
   HistoryActionResult,
@@ -10,10 +10,13 @@ import type {
   HistoryMutationResponse,
   HistoryResponse,
   UpdateHistoryPayload,
-} from "$lib/dashboard/types";
-import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import { createRetainedHistoryStore } from "$lib/dashboard/retained-history-store";
+} from "#lib/dashboard/types.ts";
+import type {
+  DailyRow,
+  PeriodSummary,
+} from "#lib/dashboard/controller-types.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { createRetainedHistoryStore } from "#lib/dashboard/retained-history-store.ts";
 
 type HistoryControllerDependencies = {
   readonly getSelectedDate: () => string | null;

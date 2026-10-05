@@ -1,6 +1,6 @@
 import { Deferred, Effect, Exit, Fiber } from "effect";
 import { expect, it, vi } from "vitest";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import { ControlledScheduler } from "./helpers/controlled-scheduler";
 
 it("publishes the owner's revision before a queued mutation captures it", () => {

@@ -1,12 +1,12 @@
 import type { Effect } from "effect";
-import { clonePeriod } from "$lib/server/db/budget-period-row-mapper";
+import { clonePeriod } from "#lib/server/db/budget-period-row-mapper.ts";
 import {
   LinkedPeriodBoundaryConflictError,
   type BudgetPeriodRecord,
   type LinkedPeriodBoundaryUpdateCommand,
   type LinkedPeriodBoundaryUpdateResult,
-} from "$lib/server/db/budget-period-types";
-import { getNextPeriodStartDate } from "$lib/server/domain/budget-period";
+} from "#lib/server/db/budget-period-types.ts";
+import { getNextPeriodStartDate } from "#lib/server/domain/budget-period.ts";
 
 export type LinkedBoundaryOwnedEntryDates = {
   readonly totalDates: Readonly<Record<string, readonly string[]>>;

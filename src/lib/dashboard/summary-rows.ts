@@ -1,4 +1,7 @@
-import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
+import type {
+  DailyRow,
+  PeriodSummary,
+} from "#lib/dashboard/controller-types.ts";
 
 export function findSummaryRow(
   summary: PeriodSummary,

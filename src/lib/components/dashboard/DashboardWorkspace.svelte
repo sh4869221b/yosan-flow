@@ -1,13 +1,13 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { CalendarDays } from "@lucide/svelte";
-  import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
-  import BudgetSummary from "$lib/components/BudgetSummary.svelte";
-  import PeriodCalendar from "$lib/components/PeriodCalendar.svelte";
+  import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
+  import BudgetSummary from "#lib/components/BudgetSummary.svelte";
+  import PeriodCalendar from "#lib/components/PeriodCalendar.svelte";
   import CreatePeriodPanel from "./CreatePeriodPanel.svelte";
   import DashboardPeriodHeader from "./DashboardPeriodHeader.svelte";
   import PeriodSettingsPanel from "./PeriodSettingsPanel.svelte";
-  import type { DaySaveSuccess } from "$lib/dashboard/controller-types";
+  import type { DaySaveSuccess } from "#lib/dashboard/controller-types.ts";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 

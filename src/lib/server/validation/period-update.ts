@@ -3,12 +3,12 @@ import type {
   PeriodBoundaryUpdateProposal,
   PeriodSnapshot,
   PeriodUpdateRequest,
-} from "$lib/server/services/period-update/period-update-types";
-import { parseDate } from "$lib/server/validation/day";
+} from "#lib/server/services/period-update/period-update-types.ts";
+import { parseDate } from "#lib/server/validation/day.ts";
 import {
   ApiRouteError,
   parseNonNegativeIntegerYen,
-} from "$lib/server/validation/month";
+} from "#lib/server/validation/month.ts";
 
 const INVALID_BODY_MESSAGE = "リクエスト JSON が不正です。";
 

@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { decidePeriodBoundaryUpdate } from "$lib/server/services/period-update/period-boundary-decision";
+import { decidePeriodBoundaryUpdate } from "#lib/server/services/period-update/period-boundary-decision.ts";
 import {
   PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR,
   PERIOD_UPDATE_CONFLICT_ERROR,
   PeriodMultipleSuccessorsError,
   PeriodUpdateConflictError,
-} from "$lib/server/services/period-update/period-update-types";
+} from "#lib/server/services/period-update/period-update-types.ts";
 import type {
   PeriodSnapshot,
   PeriodUpdateRequest,
-} from "$lib/server/services/period-update/period-update-types";
+} from "#lib/server/services/period-update/period-update-types.ts";
 
 const target: PeriodSnapshot = {
   id: "period-target",

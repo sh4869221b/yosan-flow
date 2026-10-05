@@ -1,7 +1,10 @@
 <script lang="ts">
   import { tick } from "svelte";
   import HistoryRow from "./day-entry/HistoryRow.svelte";
-  import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
+  import type {
+    HistoryActionResult,
+    HistoryItem,
+  } from "#lib/dashboard/types.ts";
 
   type Props = {
     date?: string | null;

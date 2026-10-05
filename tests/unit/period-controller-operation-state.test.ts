@@ -4,10 +4,10 @@ import {
   captureClientEffects,
   settled,
 } from "./period-controller-effect-fixture";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
 import {
   createSummary,
   jsonResponse,

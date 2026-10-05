@@ -1,10 +1,10 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
+import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
 import type {
   PeriodOption,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
-import type { HistoryItem } from "$lib/dashboard/types";
+} from "#lib/dashboard/controller-types.ts";
+import type { HistoryItem } from "#lib/dashboard/types.ts";
 import {
   createSummary,
   jsonResponse,

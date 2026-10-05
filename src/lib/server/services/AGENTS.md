@@ -9,7 +9,7 @@
 - `month-summary-service.ts`: legacy-named route-facing facade; its exports and behavior are period-first.
 - `period-summary/`: pure-ish summary assembly, date ranges, food pace, recommendations.
 - `day-entry-service.ts`, `day-entry/`: generic/in-memory command preparation, persistence, replay, result shaping.
-- `api-services/`: common route port, D1/in-memory composition, platform cache, D1 command adapter.
+- `api-services/`: common route port, D1/in-memory composition, binding cache, D1 command adapter.
 - `history-id.ts`: injectable history ID generation.
 
 ## Composition Rules
@@ -17,7 +17,7 @@
 - Routes should import the facade instead of reconstructing service composition.
 - `InMemoryApiServices` is the shared route port despite its legacy name; both D1 and in-memory implementations must preserve its semantics.
 - D1 mutations use the atomic `D1DayEntryWriter`. In-memory mutations use `DayEntryService` plus a serialized promise queue. Preserve this intentional implementation difference and test parity.
-- `getApiServicesFromPlatform` caches D1 services per binding with a `WeakMap`; absent platform/forced dev uses the shared in-memory instance.
+- `getApiServices()` reads `cloudflare:workers` `env.DB` and caches D1 services per binding with a `WeakMap`. Missing DB fails closed; only an explicit Vite development flag selects the shared in-memory instance.
 - Keep clock and history-ID factories injectable for deterministic tests.
 
 ## Domain Workflows
@@ -33,4 +33,4 @@
 - Summary math/date/pace: focused `tests/unit/month-summary-*.test.ts` suites.
 - Generic day-entry/replay: unit plus `tests/integration/api/days-history-replay.test.ts`.
 - D1/in-memory composition or parity: integration routes using both injected services and the period-aware D1 fake.
-- Platform service selection: focused integration coverage and `pnpm check`.
+- Workers service selection: focused integration coverage and `pnpm check`.

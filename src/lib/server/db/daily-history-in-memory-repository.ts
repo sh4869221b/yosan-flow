@@ -2,13 +2,13 @@ import { Effect } from "effect";
 import {
   cloneHistory,
   toDailyHistoryRecordFromInput,
-} from "$lib/server/db/daily-history-mapper";
+} from "#lib/server/db/daily-history-mapper.ts";
 import type {
   DailyHistoryRecord,
   DailyHistoryRepository,
   DailyHistoryTransaction,
-} from "$lib/server/db/daily-history-types";
-import { toEffectError } from "$lib/server/effect/runtime";
+} from "#lib/server/db/daily-history-types.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 function findHistories(
   tx: DailyHistoryTransaction,

@@ -1,14 +1,14 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import {
-  getApiServicesFromPlatform,
+  getApiServices,
   type InMemoryApiServices,
-} from "$lib/server/services/month-summary-service";
-import { parseDate } from "$lib/server/validation/day";
+} from "#lib/server/services/month-summary-service.ts";
+import { parseDate } from "#lib/server/validation/day.ts";
 import {
   parsePeriodId,
   toApiErrorResponse,
-} from "$lib/server/validation/month";
+} from "#lib/server/validation/month.ts";
 
 export type PeriodDayHistoryRouteDependencies = {
   services: InMemoryApiServices;
@@ -38,6 +38,6 @@ export function _createPeriodDayHistoryHandler(
 
 export const GET: RequestHandler = async (event) => {
   return _createPeriodDayHistoryHandler({
-    services: getApiServicesFromPlatform(event.platform),
+    services: getApiServices(),
   })(event);
 };
