@@ -5,13 +5,9 @@ import {
   type PeriodUpdateApiOutcome,
 } from "#lib/dashboard/period-update-api.ts";
 import type { PeriodUpdateDependencies } from "#lib/dashboard/period-controller-update-effect.ts";
-import type {
-  PendingPeriodUpdateConfirmation,
-  PeriodUpdateConfirmationState,
-} from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
+import type { PendingPeriodUpdateConfirmation } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 
 type Dependencies = PeriodUpdateDependencies & {
-  readonly confirmationState: PeriodUpdateConfirmationState;
   readonly resetRange: () => void;
 };
 

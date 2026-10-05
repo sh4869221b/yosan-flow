@@ -7,12 +7,6 @@ export type PeriodRange = {
 
 export type PeriodRangeField = "start" | "end";
 
-export type PeriodRangeSelection = {
-  readonly startDate: string;
-  readonly endDate: string;
-  readonly isValid: boolean;
-};
-
 export type PeriodRangeValidation = {
   readonly startError: string | null;
   readonly endError: string | null;
@@ -31,7 +25,7 @@ function toDateValue(value: string): DateValue | undefined {
   }
 }
 
-export function createPeriodRange(input: {
+function createPeriodRange(input: {
   readonly startDate: string;
   readonly endDate: string;
 }): PeriodRange {
@@ -56,33 +50,23 @@ export function getPeriodRangeCalendarValue(input: {
   return range;
 }
 
-export function getPeriodRangeSelection(
-  range: PeriodRange,
-): PeriodRangeSelection {
-  const startDate = range.start?.toString() ?? "";
-  const endDate = range.end?.toString() ?? "";
-
-  return {
-    startDate,
-    endDate,
-    isValid: Boolean(startDate && endDate && startDate <= endDate),
-  };
-}
-
 export function getPeriodRangeValidation(input: {
   readonly startDate: string;
   readonly endDate: string;
 }): PeriodRangeValidation {
-  const selection = getPeriodRangeSelection(createPeriodRange(input));
+  const range = createPeriodRange(input);
+  const startDate = range.start?.toString() ?? "";
+  const endDate = range.end?.toString() ?? "";
+  const isValid = Boolean(startDate && endDate && startDate <= endDate);
   const rangeError =
-    selection.startDate && selection.endDate && !selection.isValid
+    startDate && endDate && !isValid
       ? "終了日は開始日以降にしてください。"
       : null;
 
   return {
-    startError: selection.startDate ? null : "有効な開始日を入力してください。",
-    endError: selection.endDate ? null : "有効な終了日を入力してください。",
+    startError: startDate ? null : "有効な開始日を入力してください。",
+    endError: endDate ? null : "有効な終了日を入力してください。",
     rangeError,
-    isValid: selection.isValid,
+    isValid,
   };
 }

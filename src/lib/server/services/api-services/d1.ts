@@ -3,15 +3,12 @@ import type { D1Database } from "#lib/server/db/d1-types.ts";
 import { createHistoryId as createDefaultHistoryId } from "#lib/server/services/history-id.ts";
 import { getJstDateParts } from "#lib/server/time/jst-format.ts";
 import { createPeriodUpdateService } from "#lib/server/services/period-update/period-update-service.ts";
+import { PeriodNotFoundError } from "#lib/server/services/day-entry-service.ts";
 import { createD1DayEntryService } from "./day-entry-command-service";
 import {
   assertNoOutOfRangePeriodEntries,
   createD1ApiServiceRepositories,
 } from "./repositories";
-import {
-  listPeriodDailyTotals,
-  listPeriodHistoryByDate,
-} from "./result-mappers";
 import type {
   CreateInMemoryApiServicesInput,
   InMemoryApiServices,
@@ -23,9 +20,13 @@ export function createD1ApiServices(
 ): InMemoryApiServices {
   const now = input.now ?? (() => new Date());
   const repositories = createD1ApiServiceRepositories(db);
-  const { budgetPeriodRepository, dailyTotalRepository } = repositories;
+  const {
+    budgetPeriodRepository,
+    dailyTotalRepository,
+    dailyHistoryRepository,
+  } = repositories;
   const dayEntryService = createD1DayEntryService({
-    dailyHistoryRepository: repositories.dailyHistoryRepository,
+    dailyHistoryRepository,
     budgetPeriodRepository,
     dayEntryWriter: repositories.dayEntryWriter,
     now,
@@ -73,9 +74,25 @@ export function createD1ApiServices(
     updatePeriod,
     listPeriods: () => budgetPeriodRepository.listPeriods(),
     listDailyTotalsByPeriodId: (periodId) =>
-      listPeriodDailyTotals(dailyTotalRepository, periodId),
+      dailyTotalRepository.listByPeriodId(periodId).pipe(
+        Effect.map((rows) =>
+          rows.map((row) => ({
+            date: row.date,
+            budgetPeriodId: row.budgetPeriodId,
+            totalUsedYen: row.totalUsedYen,
+          })),
+        ),
+      ),
     listHistoryByDate: (periodId, date) =>
-      listPeriodHistoryByDate(repositories, periodId, date),
+      budgetPeriodRepository
+        .findById(periodId)
+        .pipe(
+          Effect.flatMap((period) =>
+            period
+              ? dailyHistoryRepository.listHistoriesByDate(date, periodId)
+              : Effect.fail(new PeriodNotFoundError(periodId)),
+          ),
+        ),
     nowIso: () => now().toISOString(),
     jstToday: () => getJstDateParts(now()).date,
   };

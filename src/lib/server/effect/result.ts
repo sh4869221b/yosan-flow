@@ -1,11 +1,3 @@
-import { Effect } from "effect";
-import {
-  createApiResponseError,
-  createInternalApiError,
-  type ApiErrorKind,
-  type ApiResponseError,
-} from "#lib/server/effect/errors.ts";
-
 type ErrorResponseBody = {
   error: {
     code: string;
@@ -21,58 +13,47 @@ export type ApiErrorResponseResult = {
 const KNOWN_ERROR_RESPONSES: Record<
   string,
   {
-    readonly kind: ApiErrorKind;
     readonly status: number;
     readonly message: string;
   }
 > = {
   PERIOD_NOT_FOUND: {
-    kind: "not_found",
     status: 404,
     message: "対象の予算期間が見つかりません。",
   },
   DATE_OUT_OF_PERIOD: {
-    kind: "validation",
     status: 400,
     message: "指定された date は予算期間の範囲外です。",
   },
   HISTORY_NOT_FOUND: {
-    kind: "not_found",
     status: 404,
     message: "対象の履歴が見つかりません。",
   },
   PERIOD_OVERLAP: {
-    kind: "conflict",
     status: 400,
     message: "予算期間が既存期間と重複しています。",
   },
   PERIOD_CONTINUITY_VIOLATION: {
-    kind: "validation",
     status: 400,
     message: "前後の予算期間との連続性が不正です。",
   },
   PERIOD_PREDECESSOR_NOT_FOUND: {
-    kind: "validation",
     status: 400,
     message: "前期間が見つかりません。",
   },
   INVALID_PERIOD_RANGE: {
-    kind: "validation",
     status: 400,
     message: "開始日と終了日の範囲が不正です。",
   },
   PERIOD_HAS_OUT_OF_RANGE_ENTRIES: {
-    kind: "validation",
     status: 400,
     message: "期間外に出る日次データが存在するため、この変更は適用できません。",
   },
   PERIOD_MULTIPLE_SUCCESSORS: {
-    kind: "conflict",
     status: 409,
     message: "後続の予算期間が複数存在するため、変更できません。",
   },
   PERIOD_UPDATE_CONFLICT: {
-    kind: "conflict",
     status: 409,
     message: "確認後に予算期間が変更されたため、もう一度操作してください。",
   },
@@ -80,8 +61,6 @@ const KNOWN_ERROR_RESPONSES: Record<
 
 const KNOWN_ERROR_CODES = Object.keys(KNOWN_ERROR_RESPONSES);
 
-// Boundary: Effect is limited to API failure shaping. Repository and domain
-// layers continue to throw their existing errors so public behavior stays stable.
 function readStringProperty(value: unknown, property: string): string | null {
   if (typeof value !== "object" || value == null || !(property in value)) {
     return null;
@@ -104,19 +83,6 @@ function readNumberProperty(value: unknown, property: string): number | null {
     : null;
 }
 
-function kindFromStatus(status: number): ApiErrorKind {
-  if (status === 404) {
-    return "not_found";
-  }
-  if (status === 409) {
-    return "conflict";
-  }
-  if (status >= 500) {
-    return "database";
-  }
-  return "validation";
-}
-
 function resolveKnownCode(error: unknown): string | null {
   const explicitCode = readStringProperty(error, "code");
   if (explicitCode && explicitCode in KNOWN_ERROR_RESPONSES) {
@@ -129,51 +95,34 @@ function resolveKnownCode(error: unknown): string | null {
   );
 }
 
-function toApiResponseError(error: unknown): ApiResponseError {
+export function toApiErrorResponseResult(
+  error: unknown,
+): ApiErrorResponseResult {
   const routeStatus = readNumberProperty(error, "status");
   const routeCode = readStringProperty(error, "code");
   if (routeStatus != null && routeCode != null && error instanceof Error) {
-    return createApiResponseError({
-      kind: kindFromStatus(routeStatus),
+    return {
       status: routeStatus,
-      code: routeCode,
-      message: error.message,
-    });
+      body: { error: { code: routeCode, message: error.message } },
+    };
   }
 
   const knownCode = resolveKnownCode(error);
   if (knownCode) {
     const response = KNOWN_ERROR_RESPONSES[knownCode];
-    return createApiResponseError({
-      kind: response.kind,
+    return {
       status: response.status,
-      code: knownCode,
-      message: response.message,
-    });
+      body: { error: { code: knownCode, message: response.message } },
+    };
   }
 
-  return createInternalApiError();
-}
-
-function toApiErrorResponseResultEffect(
-  error: unknown,
-): Effect.Effect<ApiErrorResponseResult> {
-  return Effect.succeed(error).pipe(
-    Effect.map(toApiResponseError),
-    Effect.map((apiError) => ({
-      status: apiError.status,
-      body: {
-        error: {
-          code: apiError.code,
-          message: apiError.message,
-        },
+  return {
+    status: 500,
+    body: {
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "サーバーエラーが発生しました。",
       },
-    })),
-  );
-}
-
-export function toApiErrorResponseResult(
-  error: unknown,
-): ApiErrorResponseResult {
-  return Effect.runSync(toApiErrorResponseResultEffect(error));
+    },
+  };
 }

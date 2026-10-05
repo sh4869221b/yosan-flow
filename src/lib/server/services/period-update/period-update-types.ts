@@ -52,7 +52,7 @@ const PERIOD_MULTIPLE_SUCCESSORS_ERROR = {
   message: "後続の予算期間が複数存在するため、変更できません。",
 } as const;
 
-export const PERIOD_UPDATE_CONFLICT_ERROR = {
+const PERIOD_UPDATE_CONFLICT_ERROR = {
   code: "PERIOD_UPDATE_CONFLICT",
   message: "確認後に予算期間が変更されたため、もう一度操作してください。",
 } as const;

@@ -5,13 +5,11 @@ function toDateValue(date: string): number {
   return Date.parse(`${date}T00:00:00.000Z`);
 }
 
-function toDateString(dateValue: number): string {
-  return new Date(dateValue).toISOString().slice(0, 10);
-}
-
 export function getNextPeriodStartDate(previousEndDate: string): string {
   const previousEndDateValue = toDateValue(previousEndDate);
-  return toDateString(previousEndDateValue + 24 * 60 * 60 * 1000);
+  return new Date(previousEndDateValue + 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 }
 
 export function isDateWithinPeriod(

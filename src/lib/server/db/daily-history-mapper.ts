@@ -4,10 +4,6 @@ import type {
 } from "#lib/server/db/daily-history-types.ts";
 import type { DailyOperationHistoryRow } from "#lib/server/db/schema.ts";
 
-export function cloneHistory(row: DailyHistoryRecord): DailyHistoryRecord {
-  return { ...row };
-}
-
 export function toDailyHistoryRecord(
   row: DailyOperationHistoryRow,
 ): DailyHistoryRecord {

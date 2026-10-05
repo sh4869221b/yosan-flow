@@ -47,15 +47,6 @@ function dailyTotalRow(overrides: Partial<DailyTotalRow>): DailyTotalRow {
   };
 }
 
-function mutate(
-  sql: string,
-  args: unknown[],
-  state = createPeriodAwareD1FakeState(),
-) {
-  applyDailyOperationHistoryMutation(sql, args, state);
-  return state;
-}
-
 describe("applyDailyOperationHistoryMutation", () => {
   it("replays rows only within the selected period and date", () => {
     const state = createPeriodAwareD1FakeState();
@@ -99,7 +90,11 @@ describe("applyDailyOperationHistoryMutation", () => {
       }),
     );
 
-    mutate(REPLAY_SQL, [PERIOD_ID, DATE, PERIOD_ID, DATE], state);
+    applyDailyOperationHistoryMutation(
+      REPLAY_SQL,
+      [PERIOD_ID, DATE, PERIOD_ID, DATE],
+      state,
+    );
 
     expect(state.dailyOperationHistories).toMatchObject([
       { id: "later-add", before_total_yen: 100, after_total_yen: 150 },
@@ -116,7 +111,7 @@ describe("applyDailyOperationHistoryMutation", () => {
       toDailyTotalKey(DATE, PERIOD_ID),
       dailyTotalRow({ total_used_yen: 1000 }),
     );
-    mutate(
+    applyDailyOperationHistoryMutation(
       INSERT_SQL,
       [
         "direct",
@@ -133,7 +128,7 @@ describe("applyDailyOperationHistoryMutation", () => {
     );
     const snapshot = state.snapshot();
     expect(() =>
-      mutate(
+      applyDailyOperationHistoryMutation(
         INSERT_SQL,
         ["direct", PERIOD_ID, DATE, "add", 1, 0, 1, "dup", "2026"],
         state,
@@ -142,7 +137,7 @@ describe("applyDailyOperationHistoryMutation", () => {
       "D1_ERROR: UNIQUE constraint failed: daily_operation_histories.id",
     );
     state.restore(snapshot);
-    mutate(
+    applyDailyOperationHistoryMutation(
       COMPUTED_INSERT_SQL,
       [
         "computed-add",

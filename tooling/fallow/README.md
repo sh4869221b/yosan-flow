@@ -16,7 +16,7 @@ Renovate can update the exact npm dependency.
 ```bash
 pnpm install --frozen-lockfile
 pnpm fallow                       # human combined report; exits 1 with retained findings
-pnpm fallow:dead-code             # currently exits 1: existing findings
+pnpm fallow:dead-code             # currently no findings
 pnpm fallow:dupes                 # currently exits 0: findings, no percentage gate
 pnpm fallow:health                # currently exits 1: existing findings
 pnpm fallow:ci                    # CI gate: zero new findings; every baseline entry matched
@@ -133,8 +133,9 @@ Failure/review procedure:
 3. Inspect unmatched entries and establish why they no longer match before removing
    a resolved finding. In a scoped report, unmatched means unknown, not resolved.
    Inspect raw findings before any manual baseline refresh; no blanket rebaseline, new count allowance, threshold inflation or CI
-   baseline regeneration is allowed. #353's remaining two facade findings, eleven
-   clone groups and 57 health identities retain their existing recorded reasons.
+   baseline regeneration is allowed. Retained clone groups and health identities
+   keep their existing recorded reasons; the two facade findings were removed by
+   the wrapper cleanup described below.
 4. Re-run fixture tests and the full gate after config, baseline or analyzer changes.
    `tests/unit/fallow-ci.test.ts` runs the real executable against disposable projects:
    existing findings pass; new dead code, clones and health findings fail; unmatched
@@ -157,6 +158,26 @@ health report no longer reports the estimated CRAP-high identity
 matching file count were removed from the health baseline. This is an estimated
 reachability change, not a claim of measured runtime coverage. No new findings,
 threshold changes, analyzer upgrades, or bulk baseline refresh are included.
+
+### Wrapper and test cleanup
+
+The unused `LinkedPeriodBoundaryInvariantError` facade re-export was removed;
+its defining error class and repository invariants remain unchanged. The D1 fake
+factory now lives directly in `tests/integration/helpers/period-d1-fake.ts`, and
+its options type remains local instead of being re-exported without consumers.
+Fresh whole-project reports confirm both accepted dead-code occurrences are gone,
+so only those two identities were removed from the dead-code baseline. No new
+findings, exclusions, thresholds, or blanket baseline refresh were accepted.
+
+Single-use integration and E2E scenario registration functions were removed.
+The existing test entries import the scenario modules for registration directly;
+their assertions and the analyzer's file-discovery scope remain unchanged.
+
+The follow-up cleanup shares the in-memory history ordering implementation.
+Whole-project raw duplication reports retain the same ten other clone groups;
+only the resolved history-ordering group and its two fingerprint entries were
+removed from the duplication baseline. Same-timestamp ascending insertion order
+and descending reverse-insertion order remain covered by repository/API tests.
 
 ### Renovate and analyzer upgrades
 

@@ -1,7 +1,9 @@
+import { createPeriodUpdateConfirmationState } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 import { Effect } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
 import { createHistoryMutationLifecycle } from "#lib/dashboard/history-mutation-lifecycle.ts";
-import { createPeriodUpdateEffect } from "#lib/dashboard/period-controller-update-effect.ts";
+import { createPeriodConfirmationEffects } from "#lib/dashboard/period-controller-confirm-effect.ts";
+import { proposal } from "./period-controller-confirmation-fixture";
 import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
@@ -86,7 +88,27 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
     setError: vi.fn(),
     summaryRevision: revision,
   });
-  const updatePeriod = createPeriodUpdateEffect({
+  const confirmationState = createPeriodUpdateConfirmationState({
+    getSelectedPeriodId: () => "period-1",
+    summaryRevision: revision,
+  });
+  confirmationState.open({
+    proposal,
+    request: { ...proposal.target.after, confirmation: proposal },
+    ownership: {
+      targetId: "period-1",
+      successorId: "period-2",
+      requestSequence: 1,
+      selectedPeriodId: "period-1",
+      targetRevision: revision.get("period-1"),
+      successorRevision: revision.get("period-2"),
+    },
+  });
+  const pending = confirmationState.beginConfirmation();
+  if (pending == null) throw new Error("Expected pending confirmation");
+  const updatePeriod = createPeriodConfirmationEffects({
+    confirmationState,
+    resetRange: vi.fn(),
     getSelectedPeriodId: () => "period-1",
     getSummary: () => summary,
     getSummaryLoading: () => false,
@@ -111,14 +133,7 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
   );
   scheduler.step();
   expect(requests).toEqual(["DELETE"]);
-  Effect.runFork(
-    updatePeriod({
-      budgetYen: 12_000,
-      startDate: "2026-07-12",
-      endDate: "2026-08-10",
-    }),
-    { scheduler },
-  );
+  Effect.runFork(updatePeriod.confirm(pending), { scheduler });
   scheduler.step();
   expect(requests).toEqual(["DELETE"]);
 

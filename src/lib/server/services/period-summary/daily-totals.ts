@@ -19,28 +19,3 @@ export function buildDailyTotalMap(
   }
   return map;
 }
-
-export function sumDailyTotals(dailyTotalsByDate: Map<string, number>): number {
-  return [...dailyTotalsByDate.values()].reduce(
-    (total, current) => total + current,
-    0,
-  );
-}
-
-export function sumDailyTotalsThroughDate(
-  dailyTotalsByDate: Map<string, number>,
-  endDate: string,
-): number {
-  return [...dailyTotalsByDate.entries()].reduce((total, [date, value]) => {
-    return date <= endDate ? total + value : total;
-  }, 0);
-}
-
-export function sumDailyTotalsBeforeDate(
-  dailyTotalsByDate: Map<string, number>,
-  dateBefore: string,
-): number {
-  return [...dailyTotalsByDate.entries()].reduce((total, [date, value]) => {
-    return date < dateBefore ? total + value : total;
-  }, 0);
-}

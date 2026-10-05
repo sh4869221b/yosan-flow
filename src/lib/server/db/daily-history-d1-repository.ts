@@ -3,15 +3,11 @@ import { Effect } from "effect";
 import { createDrizzleD1Database } from "#lib/server/db/client.ts";
 import type { D1Database } from "#lib/server/db/d1-types.ts";
 import {
-  cloneHistory,
   toDailyHistoryInsertValues,
   toDailyHistoryRecord,
   toDailyHistoryRecordFromInput,
 } from "#lib/server/db/daily-history-mapper.ts";
-import type {
-  D1DailyHistoryRepository,
-  InsertDailyHistoryInput,
-} from "#lib/server/db/daily-history-types.ts";
+import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-types.ts";
 import { daily_operation_histories } from "#lib/server/db/schema.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 
@@ -24,33 +20,26 @@ export function createD1DailyHistoryRepository(
 ): D1DailyHistoryRepository {
   const database = createDrizzleD1Database(input.db);
 
-  const buildInsertHistoryQuery = (inputRow: InsertDailyHistoryInput) =>
-    database
-      .insert(daily_operation_histories)
-      .values(toDailyHistoryInsertValues(inputRow));
-
-  const listHistoriesByDateInternal = async (
-    date: string,
-    budgetPeriodId: string,
-  ) => {
-    const rows = await database
-      .select()
-      .from(daily_operation_histories)
-      .where(
-        and(
-          eq(daily_operation_histories.budget_period_id, budgetPeriodId),
-          eq(daily_operation_histories.date, date),
-        ),
-      )
-      .orderBy(desc(daily_operation_histories.created_at), sql`rowid DESC`)
-      .all();
-    return rows.map((row) => toDailyHistoryRecord(row));
-  };
-
   return {
     listHistoriesByDate(date, budgetPeriodId) {
       return Effect.tryPromise({
-        try: () => listHistoriesByDateInternal(date, budgetPeriodId),
+        try: async () => {
+          const rows = await database
+            .select()
+            .from(daily_operation_histories)
+            .where(
+              and(
+                eq(daily_operation_histories.budget_period_id, budgetPeriodId),
+                eq(daily_operation_histories.date, date),
+              ),
+            )
+            .orderBy(
+              desc(daily_operation_histories.created_at),
+              sql`rowid DESC`,
+            )
+            .all();
+          return rows.map((row) => toDailyHistoryRecord(row));
+        },
         catch: toEffectError,
       });
     },
@@ -58,8 +47,11 @@ export function createD1DailyHistoryRepository(
     insertHistory(inputRow) {
       return Effect.tryPromise({
         try: async () => {
-          await buildInsertHistoryQuery(inputRow).run();
-          return cloneHistory(toDailyHistoryRecordFromInput(inputRow));
+          await database
+            .insert(daily_operation_histories)
+            .values(toDailyHistoryInsertValues(inputRow))
+            .run();
+          return toDailyHistoryRecordFromInput(inputRow);
         },
         catch: toEffectError,
       });

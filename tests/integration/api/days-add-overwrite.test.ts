@@ -16,7 +16,7 @@ import {
 
 describe("day entry add and overwrite workflows", () => {
   it("adds to the day's total and records history", async () => {
-    const fixture = await createDayEntryFixture();
+    const fixture = createDayEntryFixture();
     await seedPeriod(fixture);
 
     const response = await Effect.runPromise(
@@ -41,7 +41,7 @@ describe("day entry add and overwrite workflows", () => {
   });
 
   it("rejects through the API Effect runner with the original service error", async () => {
-    const fixture = await createDayEntryFixture();
+    const fixture = createDayEntryFixture();
 
     await expect(
       runApiEffect(
@@ -55,7 +55,7 @@ describe("day entry add and overwrite workflows", () => {
   });
 
   it("rejects dates outside the selected period", async () => {
-    const fixture = await createDayEntryFixture();
+    const fixture = createDayEntryFixture();
     await seedPeriod(fixture);
 
     const error = await Effect.runPromise(
@@ -72,7 +72,7 @@ describe("day entry add and overwrite workflows", () => {
   });
 
   it("overwrites the day's total atomically", async () => {
-    const fixture = await createDayEntryFixture();
+    const fixture = createDayEntryFixture();
     await seedPeriod(fixture);
 
     await Effect.runPromise(
@@ -97,7 +97,7 @@ describe("day entry add and overwrite workflows", () => {
   });
 
   it("keeps totals scoped by budget period", async () => {
-    const fixture = await createDayEntryFixture();
+    const fixture = createDayEntryFixture();
     await seedPeriod(fixture);
     await seedPeriod(fixture, {
       id: "period-2026-05",

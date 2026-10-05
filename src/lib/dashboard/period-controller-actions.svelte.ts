@@ -24,12 +24,9 @@ type PeriodControllerActionDependencies = {
   readonly getInteractionDisabled: () => boolean;
   readonly getSummaryLoading: () => boolean;
   readonly getSummary: () => PeriodSummary | null;
-  readonly beginPeriodConfirmation: () => PendingPeriodUpdateConfirmation | null;
-  readonly clearPeriodConfirmation: () => void;
   readonly confirmPeriodUpdateEffect: (
     _pending: PendingPeriodUpdateConfirmation,
   ) => Effect.Effect<void, never>;
-  readonly getConfirmSaving: () => boolean;
   readonly refreshSummaryEffect: (
     _periodId: string,
   ) => Effect.Effect<void, never>;
@@ -37,10 +34,6 @@ type PeriodControllerActionDependencies = {
     _payload: SavePeriodPayload,
     _operation: PeriodSetting,
   ) => Effect.Effect<void, never>;
-  readonly updateCreatePeriodRange: (_range: {
-    endDate: string;
-    startDate: string;
-  }) => void;
 };
 
 export function createPeriodControllerActions(
@@ -88,37 +81,17 @@ export function createPeriodControllerActions(
   return {
     saveBudget,
     saveRange,
-    handleSavePeriod(payload: { budgetYen: number }): void {
-      if (
-        dependencies.getInteractionDisabled() ||
-        dependencies.getSummaryLoading() ||
-        dependencies.getSummary() == null
-      )
-        return;
-      dependencies.settings.budget.draft = String(payload.budgetYen);
-      saveBudget();
-    },
-    handleRangeChange(payload: { endDate: string; startDate: string }): void {
-      if (
-        dependencies.getInteractionDisabled() ||
-        dependencies.getSummaryLoading() ||
-        dependencies.getSummary() == null
-      )
-        return;
-      dependencies.settings.range.edit(payload);
-      saveRange();
-    },
     handleSelectPeriod(payload: { periodId: string }): void {
-      dependencies.clearPeriodConfirmation();
+      dependencies.confirmationState.clear();
       dependencies.creation.createState.setError(null);
       runClientEffect(dependencies.refreshSummaryEffect(payload.periodId));
     },
     refreshPeriodConfirmation(): void {
-      if (dependencies.getConfirmSaving()) return;
+      if (dependencies.confirmationState.confirmSaving) return;
       runClientEffect(dependencies.refreshConfirmationEffect());
     },
     confirmPeriodUpdate(): void {
-      const pending = dependencies.beginPeriodConfirmation();
+      const pending = dependencies.confirmationState.beginConfirmation();
       if (pending == null && dependencies.confirmationState.recoveryRequired) {
         runClientEffect(dependencies.refreshConfirmationEffect());
       }
@@ -127,8 +100,8 @@ export function createPeriodControllerActions(
       }
     },
     cancelPeriodUpdateConfirmation(): void {
-      if (dependencies.getConfirmSaving()) return;
-      dependencies.clearPeriodConfirmation();
+      if (dependencies.confirmationState.confirmSaving) return;
+      dependencies.confirmationState.clear();
       dependencies.settings.range.reset();
       const periodId = dependencies.getSummary()?.periodId;
       if (periodId)
@@ -168,12 +141,6 @@ export function createPeriodControllerActions(
         return;
       dependencies.creation.createState.setCreatedRefreshing(true);
       runClientEffect(createPeriodRecoveryEffect(dependencies.creation));
-    },
-    updateCreatePeriodRange(payload: {
-      endDate: string;
-      startDate: string;
-    }): void {
-      dependencies.updateCreatePeriodRange(payload);
     },
   };
 }

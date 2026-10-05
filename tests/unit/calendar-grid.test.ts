@@ -119,9 +119,8 @@ describe("buildMonths", () => {
     }
   });
 
-  it("uses the locale parameter for labels", () => {
-    const months = buildMonths("2026-05-01", "2026-05-01", "en-US");
-    expect(months[0].label).toContain("May");
-    expect(months[0].label).toContain("2026");
+  it("formats month labels in Japanese", () => {
+    const months = buildMonths("2026-05-01", "2026-05-01");
+    expect(months[0].label).toBe("2026年5月");
   });
 });

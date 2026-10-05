@@ -91,7 +91,8 @@ it("serializes a period update between earlier and later add groups", async () =
   try {
     await settled(firstAddStarted.promise);
     expect(fetchMock).toHaveBeenCalledOnce();
-    periodController.handleSavePeriod({ budgetYen: 12_000 });
+    periodController.budget.draft = "12000";
+    periodController.saveBudget();
     dayController.submitDayEntry({
       date: "2026-07-13",
       inputYen: 2_000,

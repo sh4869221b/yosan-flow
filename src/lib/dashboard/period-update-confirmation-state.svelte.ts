@@ -154,9 +154,7 @@ export function createPeriodUpdateConfirmationState(
       confirmSaving = true;
       return owned;
     },
-    owns(candidate: PendingPeriodUpdateConfirmation): boolean {
-      return isOwned(candidate);
-    },
+    owns: isOwned,
     finishConfirmation(): void {
       confirmSaving = false;
     },

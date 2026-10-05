@@ -1,4 +1,4 @@
-import { addDays, toPeriodId } from "#lib/dashboard/date.ts";
+import { addDays } from "#lib/dashboard/date.ts";
 
 type CreateRange = Readonly<{ endDate: string; startDate: string }>;
 type InitialState = Readonly<{ startDate: string }>;
@@ -7,7 +7,7 @@ export function createPeriodCreateState(initialState: InitialState) {
   const defaults = {
     startDate: initialState.startDate,
     endDate: addDays(initialState.startDate, 29),
-    periodId: toPeriodId(initialState.startDate),
+    periodId: `p-${initialState.startDate}`,
     budgetInput: "120000",
   };
   let createStartDate = $state(defaults.startDate);
@@ -72,9 +72,6 @@ export function createPeriodCreateState(initialState: InitialState) {
     get periodSaving() {
       return createSaving || recovery.createdRefreshing;
     },
-    get periodError() {
-      return createError;
-    },
     setSaving(value: boolean): void {
       createSaving = value;
     },
@@ -111,7 +108,7 @@ export function createPeriodCreateState(initialState: InitialState) {
       }
       createStartDate = range.startDate;
       createEndDate = range.endDate;
-      if (!manuallyEditedPeriodId) createPeriodId = toPeriodId(range.startDate);
+      if (!manuallyEditedPeriodId) createPeriodId = `p-${range.startDate}`;
     },
   };
 }

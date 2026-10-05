@@ -43,10 +43,9 @@ export function addDay(date: string): string {
 
 /**
  * Build a human-readable month label like "2026年5月".
- * The locale defaults to "ja-JP" but can be overridden for tests.
  */
-function buildMonthLabel(date: string, locale: string = "ja-JP"): string {
-  const formatter = new Intl.DateTimeFormat(locale, {
+function buildMonthLabel(date: string): string {
+  const formatter = new Intl.DateTimeFormat("ja-JP", {
     timeZone: "Asia/Tokyo",
     year: "numeric",
     month: "long",
@@ -66,7 +65,6 @@ function buildMonthLabel(date: string, locale: string = "ja-JP"): string {
 export function buildMonths(
   periodStartDate: string,
   periodEndDate: string,
-  locale: string = "ja-JP",
 ): CalendarMonth[] {
   if (!periodStartDate || !periodEndDate || periodStartDate > periodEndDate) {
     return [];
@@ -105,7 +103,7 @@ export function buildMonths(
 
     return {
       key,
-      label: buildMonthLabel(`${key}-01`, locale),
+      label: buildMonthLabel(`${key}-01`),
       weeks,
     };
   });

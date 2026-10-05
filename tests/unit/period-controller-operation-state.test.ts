@@ -7,7 +7,6 @@ import {
 import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
-import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
 import {
   createSummary,
   jsonResponse,
@@ -112,7 +111,8 @@ it("budget uses committed range", async () => {
   const { controller, summary } = createController();
   const { requests, starts } = captureUpdates(summary);
 
-  controller.handleSavePeriod({ budgetYen: 130_000 });
+  controller.budget.draft = "130000";
+  controller.saveBudget();
   await settled(starts[0].promise);
   expect(executions).toHaveLength(1);
   await settled(executions[0]);
@@ -134,16 +134,17 @@ it("failed range does not enter budget payload", async () => {
   const { controller, summary } = createController();
   const { requests, starts, fetchMock } = captureUpdates(summary, true);
 
-  controller.handleRangeChange(changedRange);
+  controller.range.edit(changedRange);
+  controller.saveRange();
   await settled(starts[0].promise);
   expect(executions).toHaveLength(1);
   await settled(executions[0]);
 
-  expect(controller.periodSaving).toBe(false);
+  expect(controller.createSaving || controller.createdRefreshing).toBe(false);
   expect(controller.range.serverError).toBe("range-save-failure");
-  expect(controller.periodError).toBeNull();
-  expect(controller.rangeStartDate).toBe(changedRange.startDate);
-  expect(controller.rangeEndDate).toBe(changedRange.endDate);
+  expect(controller.createError).toBeNull();
+  expect(controller.range.draft.startDate).toBe(changedRange.startDate);
+  expect(controller.range.draft.endDate).toBe(changedRange.endDate);
   expect(controller.summary).toMatchObject(committedRange);
   expect(
     fetchMock.mock.calls.map(([url, init]) => [url, init?.method ?? "GET"]),
@@ -153,7 +154,8 @@ it("failed range does not enter budget payload", async () => {
     [periodUrl, "GET"],
   ]);
 
-  controller.handleSavePeriod({ budgetYen: 130_000 });
+  controller.budget.draft = "130000";
+  controller.saveBudget();
   await settled(starts[1].promise);
   expect(executions).toHaveLength(2);
   await settled(executions[1]);
@@ -198,14 +200,15 @@ it("independent reset and accepted summary", async () => {
   );
 
   controller.budget.draft = "130000";
-  controller.handleRangeChange(changedRange);
+  controller.range.edit(changedRange);
+  controller.saveRange();
   await settled(started.promise);
   expect(executions).toHaveLength(1);
   await settled(executions[0]);
 
   expect(controller.summary).toEqual(spendingSummary);
-  expect(controller.rangeStartDate).toBe(changedRange.startDate);
-  expect(controller.rangeEndDate).toBe(changedRange.endDate);
+  expect(controller.range.draft.startDate).toBe(changedRange.startDate);
+  expect(controller.range.draft.endDate).toBe(changedRange.endDate);
   expect(controller.budget.draft).toBe("130000");
   expect(controller.budget.dirty).toBe(true);
   expect(controller.range.dirty).toBe(true);
@@ -243,7 +246,8 @@ it("external setting change requires reset", async () => {
   controller.budget.draft = "140000";
   expect(controller.budget.dirty).toBe(false);
   controller.saveBudget();
-  controller.handleSavePeriod({ budgetYen: 130_000 });
+  controller.budget.draft = "130000";
+  controller.saveBudget();
   expect(executions).toHaveLength(0);
   expect(requests).toEqual([]);
   expect(controller.budget.settingChanged).toBe(true);
@@ -396,7 +400,8 @@ it("syncs clean settings independently and keeps stale dirty settings sticky", (
   controller.range.edit({ startDate: "2026-09-04", endDate: "2026-09-27" });
   expect(controller.range.dirty).toBe(false);
   controller.saveRange();
-  controller.handleRangeChange(changedRange);
+  controller.range.edit(changedRange);
+  controller.saveRange();
   expect(executions).toHaveLength(0);
   expect(fetchMock).not.toHaveBeenCalled();
   controller.range.reset();
@@ -500,8 +505,10 @@ it("empties unavailable drafts through both accepted null summary paths", async 
   vi.stubGlobal("fetch", fetchMock);
   controller.saveBudget();
   controller.saveRange();
-  controller.handleSavePeriod({ budgetYen: 130_000 });
-  controller.handleRangeChange(changedRange);
+  controller.budget.draft = "130000";
+  controller.saveBudget();
+  controller.range.edit(changedRange);
+  controller.saveRange();
   expect(fetchMock).not.toHaveBeenCalled();
   expect(executions).toHaveLength(0);
 
@@ -519,7 +526,8 @@ it("empties unavailable drafts through both accepted null summary paths", async 
       return Promise.resolve(jsonResponse({ periods: [] }));
     },
   );
-  controller.handleRangeChange(changedRange);
+  controller.range.edit(changedRange);
+  controller.saveRange();
   await settled(started.promise);
   await settled(executions[0]);
   expect(controller.summary).toBeNull();
@@ -588,7 +596,8 @@ it("preserves new raw edits during an own save reconciliation", async () => {
       throw new Error(`Unexpected fetch: ${String(input)}`);
     }),
   );
-  controller.handleSavePeriod({ budgetYen: 130_000 });
+  controller.budget.draft = "130000";
+  controller.saveBudget();
   await settled(listStarted.promise);
   controller.budget.draft = "140000";
   listResponse.resolve(
@@ -599,26 +608,6 @@ it("preserves new raw edits during an own save reconciliation", async () => {
   expect(controller.budget.draft).toBe("140000");
   expect(controller.budget.dirty).toBe(true);
   expect(controller.budget.settingChanged).toBe(false);
-});
-
-it("exposes the same raw settings actions through the page facade", async () => {
-  const { data, summary } = createController();
-  const page = createDashboardPageController(() => data);
-  const { starts, requests } = captureUpdates(summary);
-  page.budget.draft = "130000";
-  page.range.edit(changedRange);
-  expect(page.rangeStartDate).toBe(changedRange.startDate);
-  expect(page.rangeEndDate).toBe(changedRange.endDate);
-  page.saveBudget();
-  await settled(starts[0].promise);
-  await settled(executions[0]);
-  expect(page.budget.dirty).toBe(false);
-  expect(page.range.draft).toEqual(changedRange);
-  expect(requests[0]).toEqual({
-    url: periodUrl,
-    method: "PUT",
-    body: { budgetYen: 130_000, ...committedRange },
-  });
 });
 
 it("requires a range reset after an accepted same-period settings GET", async () => {
@@ -737,7 +726,8 @@ it("blocks ordinary resets during the existing management save", async () => {
     }),
   );
   controller.budget.draft = "130000";
-  controller.handleRangeChange(changedRange);
+  controller.range.edit(changedRange);
+  controller.saveRange();
   await settled(started.promise);
   controller.budget.reset();
   controller.range.reset();
@@ -794,9 +784,9 @@ it.each(["budget", "range"] as const)(
       expect(controller.periodInteractionDisabled).toBe(true);
       expect(controller.budget.saving).toBe(operation === "budget");
       expect(controller.range.saving).toBe(operation === "range");
-      expect(controller.periodSaving).toBe(false);
-      controller.handleSavePeriod({ budgetYen: 140_000 });
-      controller.handleRangeChange({ startDate: "", endDate: "invalid" });
+      expect(controller.createSaving || controller.createdRefreshing).toBe(
+        false,
+      );
       controller.saveBudget();
       controller.saveRange();
       controller.createInitialPeriod();
@@ -811,7 +801,7 @@ it.each(["budget", "range"] as const)(
         endDate: null,
         range: null,
       });
-      expect(controller.periodError).toBeNull();
+      expect(controller.createError).toBeNull();
     }
     try {
       assertLocked();
@@ -868,9 +858,10 @@ it.each([
         throw new Error(`Unexpected fetch: ${url}`);
       }),
     );
-    controller.handleSavePeriod({ budgetYen: 130_000 });
+    controller.budget.draft = "130000";
+    controller.saveBudget();
     try {
-      controller.handleSavePeriod({ budgetYen: 140_000 });
+      controller.saveBudget();
       expect(executions).toHaveLength(1);
       expect(controller.budget.draft).toBe("130000");
       await settled(started.promise);
@@ -883,7 +874,7 @@ it.each([
       controller.budget.draft = "150000";
       controller.range.edit({ startDate: "", endDate: "invalid" });
       expect(controller.periodInteractionDisabled).toBe(true);
-      controller.handleSavePeriod({ budgetYen: 160_000 });
+      controller.saveBudget();
       expect(controller.budget.draft).toBe("150000");
     } finally {
       response.resolve(
@@ -901,7 +892,7 @@ it.each([
     });
     expect(controller.budget.success).toBe(false);
     expect(controller.budget.serverError).toBeNull();
-    expect(controller.periodError).toBeNull();
+    expect(controller.createError).toBeNull();
     expect(controller.periodInteractionDisabled).toBe(false);
     expect(requests.filter((request) => request.startsWith("PUT"))).toEqual([
       `PUT ${periodUrl}`,
@@ -944,7 +935,7 @@ it.each(["budget", "range"] as const)(
     controller.createBudgetInput = "invalid";
     controller.createInitialPeriod();
     await settled(executions[0]);
-    const createError = controller.periodError;
+    const createError = controller.createError;
     expect(createError).not.toBeNull();
     controller.budget.draft = "130000";
     controller.range.edit(changedRange);
@@ -960,7 +951,7 @@ it.each(["budget", "range"] as const)(
     expect(controller[counterpart].success).toBe(true);
     expect(controller[operation].serverError).toBe(`${operation}-failure`);
     expect(controller[operation].dirty).toBe(true);
-    expect(controller.periodError).toBe(createError);
+    expect(controller.createError).toBe(createError);
     controller[operation].reset();
     expect(controller[operation].serverError).toBeNull();
     expect(controller[counterpart].success).toBe(true);
@@ -1016,7 +1007,7 @@ it.each(["budget", "range"] as const)(
     expect(controller.summary?.spentToDateYen).toBe(1_000);
     expect(controller.budget.draft).toBe("130000");
     expect(controller.range.draft).toEqual(changedRange);
-    expect(controller.periodError).toBeNull();
+    expect(controller.createError).toBeNull();
     expect(controller.periodInteractionDisabled).toBe(false);
   },
 );
@@ -1055,12 +1046,14 @@ it.each(["POST", "list", "summary"] as const)(
     controller.range.edit(changedRange);
     controller.createInitialPeriod();
     try {
-      expect(controller.periodSaving).toBe(true);
+      expect(controller.createSaving || controller.createdRefreshing).toBe(
+        true,
+      );
       expect(controller.budget.saving).toBe(false);
       expect(controller.range.saving).toBe(false);
       controller.createInitialPeriod();
-      controller.handleSavePeriod({ budgetYen: 140_000 });
-      controller.handleRangeChange(committedRange);
+      controller.saveBudget();
+      controller.saveRange();
       expect(executions).toHaveLength(1);
       await settled(started.promise);
     } finally {
@@ -1077,20 +1070,20 @@ it.each(["POST", "list", "summary"] as const)(
       ...(failure === "summary" ? [`GET ${periodUrl}`] : []),
     ]);
     expect(controller.summary).toEqual(summary);
-    expect(controller.periodSaving).toBe(false);
+    expect(controller.createSaving || controller.createdRefreshing).toBe(false);
     expect(controller.periodInteractionDisabled).toBe(false);
     expect(controller.budget.draft).toBe("130000");
     expect(controller.range.draft).toEqual(changedRange);
     expect(controller.budget.serverError).toBeNull();
     expect(controller.range.serverError).toBeNull();
-    expect(controller.periodError).toBe(
+    expect(controller.createError).toBe(
       `${failure === "POST" ? "create" : failure}-failure`,
     );
     expect(controller.summaryError).toBeNull();
   },
 );
 
-it("rejects bridges before editing while a selection is loading", async () => {
+it("rejects settings submissions while a selection is loading", async () => {
   const { controller, summary } = createController();
   const response = Promise.withResolvers<Response>();
   vi.stubGlobal(
@@ -1101,8 +1094,8 @@ it("rejects bridges before editing while a selection is loading", async () => {
   controller.range.edit(changedRange);
   controller.handleSelectPeriod({ periodId: period.id });
   try {
-    controller.handleSavePeriod({ budgetYen: 140_000 });
-    controller.handleRangeChange(committedRange);
+    controller.saveBudget();
+    controller.saveRange();
     expect(executions).toHaveLength(1);
     expect(controller.budget.draft).toBe("130000");
     expect(controller.range.draft).toEqual(changedRange);
@@ -1159,8 +1152,8 @@ it.each(["budget", "range"] as const)(
       expect(controller[operation].saving).toBe(true);
       expect(controller.periodInteractionDisabled).toBe(true);
       expect(requests).toEqual([]);
-      controller.handleSavePeriod({ budgetYen: 140_000 });
-      controller.handleRangeChange(committedRange);
+      controller.saveBudget();
+      controller.saveRange();
       controller.createInitialPeriod();
       expect(executions).toHaveLength(1);
       controller.budget.draft = "150000";
@@ -1303,7 +1296,7 @@ it.each(["budget", "range"] as const)(
     expect(
       controller[operation === "budget" ? "range" : "budget"].serverError,
     ).toBeNull();
-    expect(controller.periodError).toBeNull();
+    expect(controller.createError).toBeNull();
     expect(controller.periodInteractionDisabled).toBe(false);
   },
 );
@@ -1334,7 +1327,8 @@ it("does not publish an old reconciliation error after A to B to A", async () =>
       throw new Error(`Unexpected fetch: ${method} ${url}`);
     }),
   );
-  controller.handleSavePeriod({ budgetYen: 130_000 });
+  controller.budget.draft = "130000";
+  controller.saveBudget();
   try {
     await settled(listStarted.promise);
     controller.handleSelectPeriod({ periodId: "other" });
@@ -1405,7 +1399,7 @@ it("holds create-only saving through its successful list and summary refresh", a
   );
   controller.createInitialPeriod();
   function assertCreating() {
-    expect(controller.periodSaving).toBe(true);
+    expect(controller.createSaving || controller.createdRefreshing).toBe(true);
     expect(controller.periodInteractionDisabled).toBe(true);
     expect(controller.budget.saving).toBe(false);
     expect(controller.range.saving).toBe(false);
@@ -1428,9 +1422,9 @@ it("holds create-only saving through its successful list and summary refresh", a
   }
   expect(posts).toHaveLength(1);
   expect(controller.summary).toEqual(createdSummary);
-  expect(controller.periodSaving).toBe(false);
+  expect(controller.createSaving || controller.createdRefreshing).toBe(false);
   expect(controller.periodInteractionDisabled).toBe(false);
-  expect(controller.periodError).toBeNull();
+  expect(controller.createError).toBeNull();
   expect(controller.budget.success).toBe(false);
   expect(controller.range.success).toBe(false);
 });

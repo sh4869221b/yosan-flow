@@ -1,10 +1,7 @@
 import { Effect } from "effect";
 import { periodSummaryUrl } from "#lib/dashboard/api-urls.ts";
 import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
-import type {
-  PendingPeriodUpdateConfirmation,
-  PeriodUpdateConfirmationState,
-} from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
+import type { PeriodUpdateConfirmationState } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 import {
   fetchPeriodUpdateEffect,
   type PeriodUpdateApiOutcome,
@@ -23,7 +20,7 @@ export type PeriodRefreshCompletion = (
   _result: "accepted" | "failed" | "dropped",
 ) => void;
 export type PeriodUpdateDependencies = {
-  readonly confirmationState?: PeriodUpdateConfirmationState;
+  readonly confirmationState: PeriodUpdateConfirmationState;
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary: () => PeriodSummary | null;
   readonly getSummaryLoading: () => boolean;
@@ -53,21 +50,6 @@ export type PeriodUpdateDependencies = {
   >;
   readonly summaryRevision: PeriodSummaryRevision;
 };
-
-function requestEffect(
-  periodId: string,
-  payload: SavePeriodPayload | PendingPeriodUpdateConfirmation["request"],
-) {
-  return fetchPeriodUpdateEffect(
-    periodSummaryUrl(periodId),
-    {
-      body: JSON.stringify(payload),
-      headers: { "content-type": "application/json" },
-      method: "PUT",
-    },
-    "保存に失敗しました。",
-  );
-}
 
 function reconcileEffect(
   dependencies: PeriodUpdateDependencies,
@@ -129,7 +111,7 @@ export function createPeriodUpdateEffect(
   ): Effect.Effect<void, never> => {
     const payload = { ...input };
     const submission = operation == null ? undefined : { operation, payload };
-    if (operation !== "budget") dependencies.confirmationState?.clear();
+    if (operation !== "budget") dependencies.confirmationState.clear();
     const periodId = dependencies.getSelectedPeriodId();
     if (periodId == null || dependencies.getSummaryLoading())
       return Effect.void;
@@ -150,27 +132,17 @@ export function createPeriodUpdateEffect(
     dependencies.setSaving(true, operation);
     localDependencies.setError(null);
     return Effect.gen(function* () {
-      let legacyMutation: number | null = null;
       const result = yield* dependencies.summaryRevision.withMutationSlot(
         periodId,
         "period",
-        Effect.gen(function* () {
-          if (dependencies.confirmationState == null) {
-            legacyMutation =
-              dependencies.summaryRevision.beginMutation(periodId);
-          }
-          return yield* requestEffect(periodId, payload);
-        }).pipe(
-          Effect.ensuring(
-            Effect.sync(() => {
-              if (legacyMutation != null) {
-                dependencies.summaryRevision.completeMutation(
-                  periodId,
-                  legacyMutation,
-                );
-              }
-            }),
-          ),
+        fetchPeriodUpdateEffect(
+          periodSummaryUrl(periodId),
+          {
+            body: JSON.stringify(payload),
+            headers: { "content-type": "application/json" },
+            method: "PUT",
+          },
+          "保存に失敗しました。",
         ),
       );
       if (
@@ -186,7 +158,7 @@ export function createPeriodUpdateEffect(
           return;
         }
         const successorId = result.proposal.successor.before.id;
-        dependencies.confirmationState?.open({
+        dependencies.confirmationState.open({
           proposal: result.proposal,
           request: { ...payload, confirmation: result.proposal },
           ownership: {
@@ -200,8 +172,7 @@ export function createPeriodUpdateEffect(
         });
         return;
       }
-      const mutation =
-        legacyMutation ?? dependencies.summaryRevision.beginMutation(periodId);
+      const mutation = dependencies.summaryRevision.beginMutation(periodId);
       const mutationIsFresh =
         dependencies.summaryRevision.isMutationFresh(periodId, mutation) &&
         dependencies.summaryRevision.get(periodId) === request.revision;
@@ -217,9 +188,7 @@ export function createPeriodUpdateEffect(
       } else {
         localDependencies.setError(result.message);
       }
-      if (legacyMutation == null) {
-        dependencies.summaryRevision.completeMutation(periodId, mutation);
-      }
+      dependencies.summaryRevision.completeMutation(periodId, mutation);
       yield* reconcileEffect(
         localDependencies,
         periodId,

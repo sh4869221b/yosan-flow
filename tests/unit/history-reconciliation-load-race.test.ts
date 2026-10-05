@@ -1,3 +1,4 @@
+import { createPeriodUpdateConfirmationState } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 import { Effect } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
 import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
@@ -136,6 +137,10 @@ it("recovers histories after a later period mutation repairs the summary", async
     revision,
   );
   const updatePeriod = createPeriodUpdateEffect({
+    confirmationState: createPeriodUpdateConfirmationState({
+      getSelectedPeriodId: () => "period-1",
+      summaryRevision: revision,
+    }),
     getSelectedPeriodId: () => "period-1",
     getSummary: () => summary,
     getSummaryLoading: () => false,

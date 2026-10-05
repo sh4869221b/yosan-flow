@@ -9,11 +9,8 @@ import type { PeriodSummary } from "#lib/server/services/period-summary/period-s
 import { buildPeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
 
 export { getApiServices } from "#lib/server/services/api-services/cache.ts";
-export { createD1ApiServices } from "#lib/server/services/api-services/d1.ts";
-export { createInMemoryApiServices } from "#lib/server/services/api-services/in-memory.ts";
 export type { InMemoryApiServices } from "#lib/server/services/api-services/types.ts";
 
-export { buildPeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
 export type { PeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
 
 export function getPeriodSummaryFromServices(

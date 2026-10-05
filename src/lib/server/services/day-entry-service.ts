@@ -1,4 +1,6 @@
 import { Effect } from "effect";
+import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import type { DatabaseClient } from "#lib/server/db/client.ts";
 import type {
   BudgetPeriodRecord,
@@ -17,8 +19,7 @@ import { persistEntryEffect } from "./day-entry/entry-persistence";
 import { replayHistoryMutationEffect } from "./day-entry/history-mutation";
 import {
   prepareEntryEffect,
-  validateHistoryDeleteEffect,
-  validateHistoryUpdateEffect,
+  validateEntryInputEffect,
   type ExecuteEntryInput,
 } from "./day-entry/preparation";
 
@@ -93,10 +94,6 @@ export class HistoryNotFoundError extends Error {
   }
 }
 
-function defaultNow(): string {
-  return new Date().toISOString();
-}
-
 export class DayEntryService {
   private readonly databaseClient: DatabaseClient<
     BudgetPeriodRecord,
@@ -114,7 +111,7 @@ export class DayEntryService {
     this.budgetPeriodRepository = input.budgetPeriodRepository;
     this.dailyTotalRepository = input.dailyTotalRepository;
     this.dailyHistoryRepository = input.dailyHistoryRepository;
-    this.now = input.now ?? defaultNow;
+    this.now = input.now ?? (() => new Date().toISOString());
     this.createHistoryId = input.createHistoryId ?? createDefaultHistoryId;
   }
 
@@ -140,7 +137,7 @@ export class DayEntryService {
     command: UpdateHistoryCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen({ self: this }, function* () {
-      const memo = yield* validateHistoryUpdateEffect(command);
+      const memo = yield* validateEntryInputEffect(command);
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
         mutateTarget: (history) => ({
@@ -156,7 +153,10 @@ export class DayEntryService {
     command: HistoryMutationCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen({ self: this }, function* () {
-      yield* validateHistoryDeleteEffect(command);
+      yield* Effect.try({
+        try: () => assertValidDate(command.date),
+        catch: toEffectError,
+      });
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
         mutateTarget: () => null,

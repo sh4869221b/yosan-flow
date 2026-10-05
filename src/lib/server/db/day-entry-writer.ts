@@ -1,9 +1,7 @@
 import { Effect } from "effect";
 import type { D1Database } from "#lib/server/db/d1-types.ts";
-import {
-  executeDailyEntryWrite,
-  executeHistoryReplayWrite,
-} from "#lib/server/db/day-entry-writer-executor.ts";
+import { buildHistoryReplayStatements } from "#lib/server/db/day-entry-replay-sql.ts";
+import { buildDailyEntryStatements } from "#lib/server/db/day-entry-write-sql.ts";
 import type { D1DayEntryWriter } from "#lib/server/db/day-entry-writer-types.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 
@@ -19,14 +17,18 @@ export function createD1DayEntryWriter(
   return {
     writeDailyEntry(command) {
       return Effect.tryPromise({
-        try: () => executeDailyEntryWrite(input.db, command),
+        try: async () => {
+          await input.db.batch(buildDailyEntryStatements(input.db, command));
+        },
         catch: toEffectError,
       });
     },
 
     writeHistoryReplay(command) {
       return Effect.tryPromise({
-        try: () => executeHistoryReplayWrite(input.db, command),
+        try: async () => {
+          await input.db.batch(buildHistoryReplayStatements(input.db, command));
+        },
         catch: toEffectError,
       });
     },

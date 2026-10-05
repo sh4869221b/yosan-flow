@@ -5,9 +5,7 @@ import {
   dayHistoryUrl,
   historyItemUrl,
   periodSummaryUrl,
-  periodsUrl,
 } from "#lib/dashboard/api-urls.ts";
-import { runClientEffect } from "#lib/dashboard/client-effect.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
 
 afterEach(() => {
@@ -43,7 +41,6 @@ describe("dashboard API URLs", () => {
     const historyId = "history/id ?";
 
     // When / Then
-    expect(periodsUrl()).toBe("/api/periods");
     expect(periodSummaryUrl(periodId)).toBe(
       "/api/periods/period%2Fwith%20space%3F",
     );
@@ -140,24 +137,5 @@ describe("fetchJsonEffect", () => {
     if (result._tag === "Failure") {
       expect(result.failure).toBe("fallback");
     }
-  });
-});
-
-describe("runClientEffect", () => {
-  it("starts the Effect without returning its Promise", async () => {
-    // Given
-    let ran = false;
-    const effect = Effect.sync(() => {
-      ran = true;
-    });
-
-    // When
-    const result = runClientEffect(effect);
-
-    // Then
-    expect(result).toBeUndefined();
-    await vi.waitFor(() => {
-      expect(ran).toBe(true);
-    });
   });
 });

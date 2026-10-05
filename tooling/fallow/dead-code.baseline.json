@@ -11,12 +11,8 @@
   "identity": "dc1",
   "scope_reasons": ["include-entry-exports"],
   "unused_files": [],
-  "unused_exports": [
-    "unused-export:src/lib/server/db/budget-period-repository.ts:LinkedPeriodBoundaryInvariantError"
-  ],
-  "unused_types": [
-    "unused-type:tests/integration/helpers/period-d1-fake.ts:PeriodAwareD1FakeOptions"
-  ],
+  "unused_exports": [],
+  "unused_types": [],
   "private_type_leaks": [],
   "deprecated_exports_in_use": [],
   "unused_dependencies": [],

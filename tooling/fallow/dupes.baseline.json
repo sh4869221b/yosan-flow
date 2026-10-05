@@ -1,7 +1,6 @@
 {
   "kind": "dupes",
   "clone_groups": [
-    "src/lib/server/db/daily-history-in-memory-repository.ts:46-53|src/lib/server/db/daily-history-in-memory-repository.ts:62-69",
     "tests/integration/helpers/period-d1-fake-modules/daily-operation-history-sql.ts:37-47|tests/integration/helpers/period-d1-fake-modules/daily-total-sql.ts:28-38",
     "src/routes/api/periods/[periodId]/days/[date]/add/+server.ts:34-62|src/routes/api/periods/[periodId]/days/[date]/overwrite/+server.ts:34-62",
     "tests/e2e/period-boundary-confirmation-adversarial-scenarios.ts:63-74|tests/e2e/period-boundary-confirmation-helpers.ts:178-187",
@@ -14,7 +13,6 @@
     "tests/integration/api/period-boundary-update-validation-scenarios.ts:200-207|tests/integration/api/period-boundary-update-validation-scenarios.ts:97-104"
   ],
   "clone_fingerprints": [
-    "dup:5b977ee3:2",
     "dup:937a7025:2",
     "dup:62e58745:2",
     "dup:7387b151:2",
@@ -27,7 +25,6 @@
     "dup:15c8fcde:2"
   ],
   "normalized_clone_fingerprints": [
-    "dup:c77b3abb6f87acd9-r10:2",
     "dup:c77b3abb6f87acd9-r3:2",
     "dup:c77b3abb6f87acd9-r2:2",
     "dup:c77b3abb6f87acd9-r9:2",

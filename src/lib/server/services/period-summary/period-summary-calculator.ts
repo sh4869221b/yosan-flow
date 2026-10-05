@@ -2,13 +2,8 @@ import { Effect } from "effect";
 import type { BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
 import { getJstDateParts } from "#lib/server/time/jst-format.ts";
-import {
-  buildDailyTotalMap,
-  sumDailyTotals,
-  sumDailyTotalsBeforeDate,
-  sumDailyTotalsThroughDate,
-} from "./daily-totals";
-import { buildDateRange, resolveDaysRemaining } from "./date-range";
+import { buildDailyTotalMap } from "./daily-totals";
+import { buildDateRange } from "./date-range";
 import { buildFoodPaceSummary, type FoodPaceSummary } from "./food-pace";
 import { buildFoodPaceRecommendations } from "./recommendations";
 
@@ -79,15 +74,14 @@ export function buildPeriodSummary(
     );
     const periodDates = buildDateRange(period.startDate, period.endDate);
     const periodLengthDays = periodDates.length;
-    const plannedTotalYen = sumDailyTotals(dailyTotalsByDate);
-    const spentToDateYen = sumDailyTotalsThroughDate(
-      dailyTotalsByDate,
-      jstToday,
-    );
-    const spentBeforeTodayYen = sumDailyTotalsBeforeDate(
-      dailyTotalsByDate,
-      jstToday,
-    );
+    let plannedTotalYen = 0;
+    let spentToDateYen = 0;
+    let spentBeforeTodayYen = 0;
+    for (const [date, totalUsedYen] of dailyTotalsByDate) {
+      plannedTotalYen += totalUsedYen;
+      if (date <= jstToday) spentToDateYen += totalUsedYen;
+      if (date < jstToday) spentBeforeTodayYen += totalUsedYen;
+    }
     const usedTodayYen = dailyTotalsByDate.get(jstToday) ?? 0;
     const remainingAtTodayYen = period.budgetYen - spentBeforeTodayYen;
     const isTodayWithinPeriod = isDateWithinPeriod(
@@ -129,11 +123,6 @@ export function buildPeriodSummary(
     const todayRecommendedYen = recommendationMap.get(jstToday) ?? 0;
     const varianceFromRecommendationYen = usedTodayYen - todayRecommendedYen;
     const remainingAfterDayYenPreview = remainingAtTodayYen - usedTodayYen;
-    const daysRemaining = resolveDaysRemaining(
-      period.startDate,
-      period.endDate,
-      jstToday,
-    );
 
     return {
       periodId: period.id,
@@ -149,7 +138,7 @@ export function buildPeriodSummary(
       todayRecommendedYen,
       varianceFromRecommendationYen,
       remainingAfterDayYenPreview,
-      daysRemaining,
+      daysRemaining: remainingDates.length,
       foodPace,
       dailyRows,
     };

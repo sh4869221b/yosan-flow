@@ -80,31 +80,26 @@ function createHarness(
   seed: Seed = {},
 ): Harness {
   const periods = [...(seed.periods ?? [target, successor])];
-  if (implementation === "d1") {
-    const preparedSql: string[] = [];
-    const db = createPeriodAwareD1Fake(preparedSql, {
-      periods: periods.map(toD1Row),
-      totalDates: seed.totalDates,
-      historyDates: seed.historyDates,
-      linkedBoundaryChangesOverride: seed.linkedBoundaryChangesOverride,
-    });
-    const repository = createD1BudgetPeriodRepository({ db });
-    return {
-      update: (input) => runApiEffect(repository.updateLinkedBoundary(input)),
-      readPair: async () => readPair(repository),
-    };
-  }
-
-  const repository = createInMemoryBudgetPeriodRepository(periods, {
-    listOwnedEntryDates: () => ({
-      totalDates: seed.totalDates ?? {},
-      historyDates: seed.historyDates ?? {},
-    }),
-    runSerializedEffect: (work) => work(),
-  });
+  const repository =
+    implementation === "d1"
+      ? createD1BudgetPeriodRepository({
+          db: createPeriodAwareD1Fake([], {
+            periods: periods.map(toD1Row),
+            totalDates: seed.totalDates,
+            historyDates: seed.historyDates,
+            linkedBoundaryChangesOverride: seed.linkedBoundaryChangesOverride,
+          }),
+        })
+      : createInMemoryBudgetPeriodRepository(periods, {
+          listOwnedEntryDates: () => ({
+            totalDates: seed.totalDates ?? {},
+            historyDates: seed.historyDates ?? {},
+          }),
+          runSerializedEffect: (work) => work(),
+        });
   return {
     update: (input) => runApiEffect(repository.updateLinkedBoundary(input)),
-    readPair: async () => readPair(repository),
+    readPair: () => readPair(repository),
   };
 }
 
