@@ -262,10 +262,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Identify APT archive cache
+        id: e2e-apt-key
+        run: bash scripts/e2e-apt-cache.sh key
+
+      - name: Restore APT archives
+        id: e2e-apt-cache
+        uses: actions/cache@v6
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: .tmp-e2e-apt-cache/*.deb
+          key: ${{ steps.e2e-apt-key.outputs.key }}
+
       - name: Install Playwright browser
         id: e2e-browser
         background: true
-        run: pnpm exec playwright install --with-deps --only-shell chromium
+        run: bash scripts/e2e-apt-cache.sh install
 
       - name: Build E2E application
         id: e2e-build

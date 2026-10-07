@@ -182,6 +182,41 @@ Do not enable the CI-only flag for local runs. Roll back the optimization by
 removing the two background steps/wait and this flag from both workflows, restoring
 the serial browser install before the unchanged local build path.
 
+#### APT archive-cache trial
+
+The browser-install step caches only regular `.deb` archives in a dedicated
+workspace staging directory. It never restores installed packages, dpkg state,
+APT indexes, configuration, browser binaries, or Wrangler/D1 data. Cache keys are
+exact matches over OS release, architecture, APT version, source configuration,
+lockfile, helper script, and UTC date. Runner image revisions are logged but do
+not fragment the key: identical authenticated archives can be reused across them.
+Cache scope follows GitHub Actions' normal branch/PR rules; no broad restore keys
+or new token permissions are used.
+
+Restored archives go **only into a fresh isolated `archives/partial` directory**.
+APT's HTTP(S) acquisition verifies complete partial files against package hashes
+from its authenticated indexes before accepting them. Restoring directly to final
+`archives/*.deb` is unsafe because APT can accept those files on size alone.
+The helper rejects symlinks, nested/nonregular entries, unexpected names, and
+caches exceeding 256 archives or 1 GiB before privileged processing.
+
+Only Playwright's dependency installation runs with a per-process `APT_CONFIG`.
+Its upstream `apt-get update && apt-get install` still runs on every cache hit;
+update errors fail closed, and repository authentication is unchanged. Downloaded
+archives are kept in the isolated directory; normal APT hooks remain in place and
+no `/etc` file is changed. Only completed archives are exported after successful
+installation. Headless Shell/FFmpeg installation remains unprivileged. A missing,
+evicted, stale or incomplete cache merely requires ordinary package downloads;
+invalid cache structure fails rather than crossing the privilege boundary.
+
+Compare cold/warm runs with the same code, recording image revision, cache-hit
+status, restore/save cost, archive counts/bytes, apt transfer bytes/time and total
+E2E job time. Cache restoration and apt update/install overhead can outweigh the
+small download on a fast mirror; an archive-cache hit is not by itself a speedup.
+To roll this trial back, remove the key/cache steps and restore the browser command
+to `pnpm exec playwright install --with-deps --only-shell chromium` in both workflows.
+The parallel build/wait and CI-only prebuilt guard remain unchanged.
+
 Both CI and the manual E2E workflow run shards `1/2` and `2/2` on independent hosted runners, with one Playwright worker and runner-local Wrangler/D1 state per shard. `fail-fast: false` lets the other shard finish after a failure, and `Quality checks` requires both CI shards to succeed. The **E2E timing summary** runs after both shards complete and publishes a separate section for each shard. Open the workflow run's summary or the `Summarize completed E2E job` log for timing, outcome counts and the five slowest individual tests in each shard.
 
 - **Job** is the completed E2E job's `completed_at - started_at`, excluding queue time and the dependent summary job. It includes the measurement upload.

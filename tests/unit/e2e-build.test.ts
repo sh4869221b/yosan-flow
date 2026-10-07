@@ -181,9 +181,7 @@ describe("E2E setup workflow contract", () => {
     "waits for successful browser install and same-job build in %s",
     (workflow) => {
       const text = readFileSync(`.github/workflows/${workflow}.yml`, "utf8");
-      expect(text).toContain(
-        "run: pnpm exec playwright install --with-deps --only-shell chromium",
-      );
+      expect(text).toContain("run: bash scripts/e2e-apt-cache.sh install");
       expect(text).toMatch(/id: e2e-browser\n\s+background: true/);
       expect(text).toMatch(
         /id: e2e-build\n\s+background: true\n\s+run: node scripts\/e2e-build.ts build/,
