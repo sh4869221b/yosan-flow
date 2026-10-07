@@ -53,7 +53,7 @@ case "${1:-}" in
     config="$work/apt.conf"
     printf 'Dir::Cache::archives "%s/";\nAPT::Keep-Downloaded-Packages "true";\nAPT::Update::Error-Mode "any";\n' "$archives" > "$config"
     effective=$(sudo env APT_CONFIG="$config" apt-config shell archives Dir::Cache::archives keep APT::Keep-Downloaded-Packages errors APT::Update::Error-Mode)
-    [[ "$effective" == "archives='$archives/';"$'\n'"keep='true';"$'\n'"errors='any';" ]] || { echo 'Unexpected effective APT cache configuration' >&2; exit 1; }
+    [[ "$effective" == "archives='$archives/'"$'\n'"keep='true'"$'\n'"errors='any'" ]] || { echo 'Unexpected effective APT cache configuration' >&2; exit 1; }
     # Run only dependency installation as root so APT_CONFIG reaches the upstream
     # apt-get update && apt-get install. No persistent /etc changes or hook removal.
     cli=$(node -p "require.resolve('@playwright/test/cli')")

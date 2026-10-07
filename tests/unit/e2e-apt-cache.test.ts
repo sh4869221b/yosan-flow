@@ -54,8 +54,10 @@ if (args[0] !== 'env' || !args[1].startsWith('APT_CONFIG=')) process.exit(90);
 const config = readFileSync(args[1].slice('APT_CONFIG='.length), 'utf8');
 const archives = config.match(/Dir::Cache::archives "([^";]+)";/)[1];
 if (args[2] === 'apt-config') {
-  const keep = process.env.APT_TEST_MODE === 'config-mismatch' ? 'false' : 'true';
-  console.log("archives='" + archives + "';\\nkeep='" + keep + "';\\nerrors='any';");
+  if (process.env.APT_TEST_MODE === 'config-mismatch') writeFileSync(args[1].slice('APT_CONFIG='.length), config.replace('Packages "true"', 'Packages "false"'));
+  const result = spawnSync('/usr/bin/apt-config', args.slice(3), {env: {...process.env, APT_CONFIG:args[1].slice('APT_CONFIG='.length)}, encoding:'utf8'});
+  process.stdout.write(result.stdout);
+  process.exit(result.status);
 } else {
   if (args.at(-2) !== 'install-deps' || args.at(-1) !== 'chromium') process.exit(91);
   if (readdirSync(archives).some(name => name.endsWith('.deb'))) process.exit(92);

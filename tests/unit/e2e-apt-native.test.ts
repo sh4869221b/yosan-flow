@@ -90,7 +90,11 @@ async function fixture(initial?: Buffer, response = bytes) {
           reject(error);
           return;
         }
-        resolve({ status: error?.code ?? 0, stdout, stderr });
+        resolve({
+          status: typeof error?.code === "number" ? error.code : 0,
+          stdout,
+          stderr,
+        });
       },
     );
   });
