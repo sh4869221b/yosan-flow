@@ -13,9 +13,10 @@ record_timing() {
 trap record_timing EXIT
 if [[ "${NIX_CACHE_HIT:-}" == true ]]; then
   mode=cached
-  cached_bin="/nix/var/nix/profiles/per-user/$USER/profile/bin"
-  [[ "$("$cached_bin/nix" --version)" == "nix (Nix) 2.26.3" ]]
-  printf '%s\n' "$cached_bin" >> "$GITHUB_PATH"
+  cached_executable=$(cat /nix/.yosan-e2e-nix-path)
+  [[ "$cached_executable" == /nix/store/*/bin/nix ]]
+  [[ "$("$cached_executable" --version)" == "nix (Nix) 2.26.3" ]]
+  printf '%s\n' "$(dirname "$cached_executable")" >> "$GITHUB_PATH"
   exit 0
 fi
 # A failed extraction may leave a partially restored store. Do not accept it.
@@ -27,5 +28,9 @@ curl --fail --location --retry 3 "https://releases.nixos.org/nix/nix-2.26.3/$arc
 printf '%s  %s\n' d378a057253fb98f05c3e7c431c1852cca6afae3376f5853a9fcb7ae423a05ad ".tmp-nix-e2e/$archive" | sha256sum --check
 tar -xJf ".tmp-nix-e2e/$archive" -C .tmp-nix-e2e
 bash .tmp-nix-e2e/nix-2.26.3-x86_64-linux/install --no-daemon --no-modify-profile --no-channel-add --yes
-printf '%s\n' "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+nix_executable=$(readlink -f "$HOME/.nix-profile/bin/nix")
+[[ "$nix_executable" == /nix/store/*/bin/nix ]]
+[[ "$("$nix_executable" --version)" == "nix (Nix) 2.26.3" ]]
+printf '%s\n' "$nix_executable" > /nix/.yosan-e2e-nix-path
+printf '%s\n' "$(dirname "$nix_executable")" >> "$GITHUB_PATH"
 rm -rf ".tmp-nix-e2e/$archive" .tmp-nix-e2e/nix-2.26.3-x86_64-linux
