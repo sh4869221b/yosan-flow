@@ -116,21 +116,11 @@ function interval(value: Record<string, unknown>): number | undefined {
   return value.status === "completed" ? end - start : undefined;
 }
 
-export function renderSummary(input: {
-  readonly report?: unknown;
-  readonly timing?: unknown;
-  readonly jobs: unknown;
-  readonly jobName: string;
-}): string {
-  const matches = array(object(input.jobs).jobs)
-    .map(object)
-    .filter((job) => string(job.name) === input.jobName);
-  if (matches.length > 1) throw new Error("Ambiguous E2E job name");
-  const job = matches[0];
+function startupTiming(value: unknown): { startup?: number; build?: number } {
   let startup: number | undefined;
   let build: number | undefined;
-  if (input.timing !== undefined) {
-    const timing = object(input.timing);
+  if (value !== undefined) {
+    const timing = object(value);
     const start = number(timing.buildStartedAt);
     if (timing.buildCompletedAt !== undefined) {
       build = number(timing.buildCompletedAt) - start;
@@ -143,6 +133,21 @@ export function renderSummary(input: {
         throw new Error("HTTP readiness precedes build completion");
     }
   }
+  return { startup, build };
+}
+
+export function renderSummary(input: {
+  readonly report?: unknown;
+  readonly timing?: unknown;
+  readonly jobs: unknown;
+  readonly jobName: string;
+}): string {
+  const matches = array(object(input.jobs).jobs)
+    .map(object)
+    .filter((job) => string(job.name) === input.jobName);
+  if (matches.length > 1) throw new Error("Ambiguous E2E job name");
+  const job = matches[0];
+  const { startup, build } = startupTiming(input.timing);
   const report =
     input.report === undefined ? undefined : summarizeReport(input.report);
   const lines = [

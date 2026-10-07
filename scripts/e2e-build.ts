@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -22,9 +23,12 @@ export function e2eEnvironment() {
 }
 
 function identity() {
-  if (process.env.CI !== "true" || process.env.GITHUB_ACTIONS !== "true") {
-    throw new Error("Prebuilt E2E is restricted to GitHub Actions CI");
-  }
+  assert.equal(process.env.CI, "true", "Prebuilt E2E requires CI");
+  assert.equal(
+    process.env.GITHUB_ACTIONS,
+    "true",
+    "Prebuilt E2E requires GitHub Actions",
+  );
   const keys = [
     "GITHUB_SHA",
     "GITHUB_RUN_ID",
@@ -34,34 +38,39 @@ function identity() {
   const run = Object.fromEntries(
     keys.map((key) => {
       const value = process.env[key];
-      if (!value) throw new Error(`Missing CI build identity: ${key}`);
+      assert.ok(value, `Missing CI build identity: ${key}`);
       return [key, value];
     }),
   );
   const head = execFileSync("git", ["rev-parse", "HEAD"], {
     encoding: "utf8",
   }).trim();
-  if (head !== run.GITHUB_SHA)
-    throw new Error("Prebuilt E2E checkout differs from GITHUB_SHA");
+  assert.equal(
+    head,
+    run.GITHUB_SHA,
+    "Prebuilt E2E checkout differs from GITHUB_SHA",
+  );
   execFileSync("git", ["diff", "--quiet", "HEAD", "--"]);
   const untracked = execFileSync(
     "git",
     ["ls-files", "--others", "--exclude-standard"],
     { encoding: "utf8" },
   );
-  if (untracked.trim())
-    throw new Error(
-      "Prebuilt E2E requires a clean checkout without untracked inputs",
-    );
-  if (
-    readdirSync(".").some(
-      (name) =>
-        /^(\.env(?:\.|$)|\.dev\.vars(?:\.|$))/.test(name) &&
-        !name.endsWith(".example"),
-    )
-  ) {
-    throw new Error("Prebuilt E2E does not accept local environment files");
-  }
+  assert.equal(
+    untracked.trim(),
+    "",
+    "Prebuilt E2E requires a clean checkout without untracked inputs",
+  );
+  const localEnvironmentFiles = readdirSync(".").filter(
+    (name) =>
+      /^(\.env(?:\.|$)|\.dev\.vars(?:\.|$))/.test(name) &&
+      !name.endsWith(".example"),
+  );
+  assert.deepEqual(
+    localEnvironmentFiles,
+    [],
+    "Prebuilt E2E does not accept local environment files",
+  );
   const environment = Object.fromEntries(
     Object.entries({ ...process.env, ...e2eEnvironment() })
       .filter(
@@ -128,22 +137,32 @@ function verifyE2EBuild() {
   const current = identity();
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const timing = JSON.parse(readFileSync(timingPath, "utf8"));
-  if (
-    JSON.stringify(current) !== JSON.stringify(manifest.identity) ||
-    outputDigest() !== manifest.digest
-  ) {
-    throw new Error("Prebuilt E2E identity or output does not match this job");
-  }
-  if (
-    !Number.isFinite(manifest.buildStartedAt) ||
-    !Number.isFinite(manifest.buildCompletedAt) ||
-    manifest.buildCompletedAt < manifest.buildStartedAt ||
-    timing.buildStartedAt !== manifest.buildStartedAt ||
-    timing.buildCompletedAt !== manifest.buildCompletedAt ||
-    timing.readyObservedAt !== undefined
-  ) {
-    throw new Error("Prebuilt E2E timing is missing, stale or inconsistent");
-  }
+  assert.ok(
+    JSON.stringify(current) === JSON.stringify(manifest.identity),
+    "Prebuilt E2E identity does not match this job",
+  );
+  assert.equal(
+    outputDigest(),
+    manifest.digest,
+    "Prebuilt E2E output does not match this job",
+  );
+  assert.ok(Number.isFinite(manifest.buildStartedAt), "Missing build start");
+  assert.ok(
+    Number.isFinite(manifest.buildCompletedAt),
+    "Missing build completion",
+  );
+  assert.ok(
+    manifest.buildCompletedAt >= manifest.buildStartedAt,
+    "Build completion precedes start",
+  );
+  assert.deepEqual(
+    timing,
+    {
+      buildStartedAt: manifest.buildStartedAt,
+      buildCompletedAt: manifest.buildCompletedAt,
+    },
+    "Prebuilt E2E timing is missing, stale or inconsistent",
+  );
 }
 
 if (import.meta.main) {
