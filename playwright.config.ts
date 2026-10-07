@@ -1,16 +1,17 @@
 import { defineConfig } from "@playwright/test";
+import { e2eEnvironment } from "./scripts/e2e-build.ts";
 
 const host = "127.0.0.1";
 const port = 4173;
 const xdgConfigHome = `${process.cwd()}/.tmp-xdg-config`;
 const persistDir = `${process.cwd()}/.tmp-wrangler-state`;
-const e2eEnv = [
-  "COREPACK_HOME=/tmp/corepack",
-  "PNPM_HOME=/tmp/pnpm",
-  "XDG_DATA_HOME=/tmp",
-  `XDG_CONFIG_HOME=${xdgConfigHome}`,
-  "YOSAN_FLOW_E2E_RESET_TOKEN=local-e2e-reset-token",
-].join(" ");
+const e2eEnv = Object.entries(e2eEnvironment())
+  .map(([key, value]) => `${key}=${value}`)
+  .join(" ");
+const prebuilt = process.env.YOSAN_FLOW_E2E_PREBUILT === "1";
+const build = prebuilt
+  ? `"${process.execPath}" scripts/e2e-build.ts verify`
+  : `"${process.execPath}" scripts/e2e-timing.ts start && ${e2eEnv} pnpm build`;
 
 export default defineConfig({
   globalSetup: "./scripts/e2e-timing.ts",
@@ -30,10 +31,9 @@ export default defineConfig({
     // Run the long-lived Wrangler server directly so Playwright can terminate it cleanly.
     command: [
       "bash -lc '",
-      `rm -rf "${persistDir}" "${xdgConfigHome}" .tmp-e2e-timing.json`,
+      `rm -rf "${persistDir}" "${xdgConfigHome}"${prebuilt ? "" : " .tmp-e2e-timing.json"}`,
       ` && mkdir -p "${persistDir}" "${xdgConfigHome}/.wrangler/logs"`,
-      ` && "${process.execPath}" scripts/e2e-timing.ts start`,
-      ` && ${e2eEnv} pnpm build`,
+      ` && ${build}`,
       ` && ${e2eEnv} pnpm wrangler d1 migrations apply DB --local --persist-to "${persistDir}"`,
       ` && exec env ${e2eEnv} ./node_modules/.bin/wrangler dev --local --persist-to "${persistDir}" --ip ${host} --port ${port} --var YOSAN_FLOW_E2E_RESET_TOKEN:local-e2e-reset-token`,
       "'",

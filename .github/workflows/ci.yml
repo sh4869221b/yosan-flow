@@ -263,9 +263,21 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browser
+        id: e2e-browser
+        background: true
         run: pnpm exec playwright install --with-deps --only-shell chromium
 
+      - name: Build E2E application
+        id: e2e-build
+        background: true
+        run: node scripts/e2e-build.ts build
+
+      - name: Wait for E2E prerequisites
+        wait: [e2e-browser, e2e-build]
+
       - name: E2E tests
+        env:
+          YOSAN_FLOW_E2E_PREBUILT: "1"
         run: pnpm test:e2e --shard=${{ env.E2E_SHARD }}/2
 
       - name: Upload E2E diagnostics
