@@ -88,7 +88,7 @@
     background: rgba(47, 34, 25, 0.56);
     inset: 0;
     position: fixed;
-    z-index: 50;
+    z-index: 60;
   }
 
   :global(.period-boundary-content) {
@@ -109,7 +109,7 @@
     top: 50%;
     transform: translate(-50%, -50%);
     width: 100%;
-    z-index: 51;
+    z-index: 61;
   }
 
   :global(.period-boundary-content [data-dialog-title]) {

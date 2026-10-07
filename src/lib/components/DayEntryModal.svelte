@@ -121,9 +121,9 @@
 <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
   {#if isOpen}
     <Dialog.Portal>
-      <Dialog.Overlay class="day-entry-overlay" />
+      <Dialog.Overlay class="dashboard-dialog-overlay day-entry-overlay" />
       <Dialog.Content
-        class="day-entry-content"
+        class="dashboard-dialog-content day-entry-content"
         data-testid="day-entry-modal"
         onOpenAutoFocus={handleOpenAutoFocus}
         onCloseAutoFocus={handleCloseAutoFocus}
