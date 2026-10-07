@@ -30,7 +30,7 @@ export default defineConfig({
   webServer: {
     // Run the long-lived Wrangler server directly so Playwright can terminate it cleanly.
     command: [
-      "bash -lc '",
+      "bash -c '",
       `rm -rf "${persistDir}" "${xdgConfigHome}"${prebuilt ? "" : " .tmp-e2e-timing.json"}`,
       ` && mkdir -p "${persistDir}" "${xdgConfigHome}/.wrangler/logs"`,
       ` && ${build}`,

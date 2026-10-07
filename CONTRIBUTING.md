@@ -165,7 +165,11 @@ suppress whole files or run autofix in CI to obtain a pass.
 
 ### E2E timing and baseline
 
-CI installs only Chromium Headless Shell (plus its dependencies) because the suite
+The local Nix candidate and its cache/failure policy are documented in
+[Nix E2E preparation](tooling/ci/nix-e2e.md). It pins matching browser revisions,
+Node, pnpm and Japanese fonts; hosted adoption and performance are pending.
+
+CI prepares only Chromium Headless Shell (plus its dependencies) because the suite
 uses default headless Chromium without a browser channel. If tests later require
 headed Chromium or a channel, review the installation command in both workflows.
 After dependency installation, native GitHub Actions background steps install the
