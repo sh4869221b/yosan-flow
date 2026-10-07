@@ -116,6 +116,26 @@ function interval(value: Record<string, unknown>): number | undefined {
   return value.status === "completed" ? end - start : undefined;
 }
 
+function startupTiming(value: unknown): { startup?: number; build?: number } {
+  let startup: number | undefined;
+  let build: number | undefined;
+  if (value !== undefined) {
+    const timing = object(value);
+    const start = number(timing.buildStartedAt);
+    if (timing.buildCompletedAt !== undefined) {
+      build = number(timing.buildCompletedAt) - start;
+      if (build < 0) throw new Error("Build completion precedes build start");
+    }
+    if (timing.readyObservedAt !== undefined) {
+      startup = number(timing.readyObservedAt) - start;
+      if (startup < 0) throw new Error("HTTP readiness precedes build start");
+      if (build !== undefined && startup < build)
+        throw new Error("HTTP readiness precedes build completion");
+    }
+  }
+  return { startup, build };
+}
+
 export function renderSummary(input: {
   readonly report?: unknown;
   readonly timing?: unknown;
@@ -127,15 +147,7 @@ export function renderSummary(input: {
     .filter((job) => string(job.name) === input.jobName);
   if (matches.length > 1) throw new Error("Ambiguous E2E job name");
   const job = matches[0];
-  let startup: number | undefined;
-  if (input.timing !== undefined) {
-    const timing = object(input.timing);
-    const start = number(timing.buildStartedAt);
-    if (timing.readyObservedAt !== undefined) {
-      startup = number(timing.readyObservedAt) - start;
-      if (startup < 0) throw new Error("HTTP readiness precedes build start");
-    }
-  }
+  const { startup, build } = startupTiming(input.timing);
   const report =
     input.report === undefined ? undefined : summarizeReport(input.report);
   const lines = [
@@ -147,10 +159,11 @@ export function renderSummary(input: {
     "| --- | ---: |",
     `| Completed E2E job wall-clock | ${seconds(job && interval(job))} |`,
     `| Build start → Playwright HTTP-ready observation | ${seconds(startup)} |`,
+    `| E2E application build | ${seconds(build)} |`,
     `| Playwright run (stats.duration) | ${seconds(report?.duration)} |`,
     `| Test attempts total (including retries) | ${seconds(report?.attemptDuration)} |`,
     "",
-    "Job wall-clock excludes queue time and this summary job. Step intervals do not necessarily sum to job wall-clock. Startup includes build, migrations, server startup, HTTP detection and hook handoff.",
+    "Job wall-clock excludes queue time and this summary job. Step intervals do not necessarily sum to job wall-clock. Startup includes build, any remaining parallel browser-install wait, migrations, server startup, HTTP detection and hook handoff.",
     "",
     "### E2E job steps",
     "",

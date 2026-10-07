@@ -201,7 +201,8 @@ needed; never refresh baselines automatically or waive failures for a bot PR.
   accidental extra exports. The local plugin records only three additional `default`
   export contracts: Drizzle config, Playwright config and Playwright global setup.
   `scripts/e2e-summary.ts` is invoked by Actions, and `scripts/e2e-timing.ts` by
-  Playwright/its server command. Both are explicit support roots, not runtime roots.
+  Playwright/its server command. `scripts/nix-e2e.ts` is invoked by the Nix
+  preparation shell script. These are explicit support roots, not runtime roots.
 - Vitest and Playwright discover tests. Their helpers, fixtures, injected handlers and
   test-only dependencies remain in the graph; `production` is false. No tests-wide
   ignore or complexity exemption is added. Built-in duplication discovery is retained

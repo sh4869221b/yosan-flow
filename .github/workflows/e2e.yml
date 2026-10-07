@@ -17,24 +17,66 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 12.9.1
+      - name: Prepare Nix store directory
+        run: |
+          if [ ! -d /nix ]; then
+            sudo install -d -m 0755 -o "$USER" -g "$(id -gn)" /nix
+          fi
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Restore Nix store
+        id: nix-cache
+        uses: actions/cache@v5
         with:
-          node-version-file: .node_version
-          cache: pnpm
+          path: |
+            /nix
+            ~/.cache/nix
+          key: nix-e2e-v1-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', '.node_version', 'package.json', 'scripts/install-nix-e2e.sh', 'scripts/nix-e2e.sh', 'scripts/nix-e2e.ts') }}
+
+      - name: Install Nix
+        env:
+          NIX_CACHE_HIT: ${{ steps.nix-cache.outputs.cache-hit }}
+        run: bash scripts/install-nix-e2e.sh
+
+      - name: Record runner and Nix cache
+        env:
+          NIX_CACHE_HIT: ${{ steps.nix-cache.outputs.cache-hit }}
+        run: |
+          mkdir -p .tmp-nix-e2e
+          python3 - <<'PYTHON'
+          import json, os
+          keys = ['ImageOS', 'ImageVersion', 'RUNNER_OS', 'RUNNER_ARCH', 'NIX_CACHE_HIT', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB']
+          with open('.tmp-nix-e2e/runner.json', 'w') as output:
+              json.dump({key: os.environ.get(key) for key in keys}, output)
+          PYTHON
+
+      - name: Prepare Nix tools
+        run: bash scripts/nix-e2e.sh tools
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-nix-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'flake.lock') }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Prepare Nix Playwright browser
+        id: e2e-browser
+        background: true
+        run: bash scripts/nix-e2e.sh browsers
+
+      - name: Build E2E application
+        id: e2e-build
+        background: true
+        run: node scripts/e2e-build.ts build
+
+      - name: Wait for E2E prerequisites
+        wait: [e2e-browser, e2e-build]
 
       - name: Run E2E tests
+        env:
+          YOSAN_FLOW_E2E_PREBUILT: "1"
         run: pnpm test:e2e --shard=${{ matrix.shard }}/2
 
       - name: Upload E2E diagnostics
@@ -46,6 +88,7 @@ jobs:
             test-results/
             playwright-report/
             .tmp-xdg-config/.wrangler/logs/
+            .tmp-nix-e2e/japanese-font.png
           if-no-files-found: warn
           include-hidden-files: true
           retention-days: 7
@@ -58,6 +101,9 @@ jobs:
           path: |
             test-results/results.json
             .tmp-e2e-timing.json
+            .tmp-nix-e2e/*-timing.json
+            .tmp-nix-e2e/manifest.json
+            .tmp-nix-e2e/runner.json
           if-no-files-found: warn
           include-hidden-files: true
           retention-days: 7

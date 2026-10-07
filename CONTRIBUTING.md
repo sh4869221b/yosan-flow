@@ -165,11 +165,32 @@ suppress whole files or run autofix in CI to obtain a pass.
 
 ### E2E timing and baseline
 
+The local Nix candidate and its cache/failure policy are documented in
+[Nix E2E preparation](tooling/ci/nix-e2e.md). It pins matching browser revisions,
+Node, pnpm and Japanese fonts; hosted adoption and performance are pending.
+
+CI prepares only Chromium Headless Shell (plus its dependencies) because the suite
+uses default headless Chromium without a browser channel. If tests later require
+headed Chromium or a channel, review the installation command in both workflows.
+After dependency installation, native GitHub Actions background steps install the
+browser and build the E2E application on the same runner. An explicit `wait`
+requires both to succeed before Playwright starts. Each shard still builds its own
+application and owns its local D1 store; no cross-job build cache is used.
+
+`YOSAN_FLOW_E2E_PREBUILT=1` is only set for the CI test step. The prebuild manifest
+must match the checkout SHA, run/attempt/job, working directory, Node version,
+build-related environment, served-output digest and original build timing. Missing,
+stale or mismatched evidence fails closed rather than rebuilding or testing stale
+output. Normal `pnpm test:e2e` still builds before migrations and Wrangler startup.
+Do not enable the CI-only flag for local runs. Roll back the optimization by
+removing the two background steps/wait and this flag from both workflows, restoring
+the serial browser install before the unchanged local build path.
+
 Both CI and the manual E2E workflow run shards `1/2` and `2/2` on independent hosted runners, with one Playwright worker and runner-local Wrangler/D1 state per shard. `fail-fast: false` lets the other shard finish after a failure, and `Quality checks` requires both CI shards to succeed. The **E2E timing summary** runs after both shards complete and publishes a separate section for each shard. Open the workflow run's summary or the `Summarize completed E2E job` log for timing, outcome counts and the five slowest individual tests in each shard.
 
 - **Job** is the completed E2E job's `completed_at - started_at`, excluding queue time and the dependent summary job. It includes the measurement upload.
 - **E2E step** is the existing `pnpm test:e2e` step interval. Every other completed step has its own interval; their sum need not equal job wall-clock.
-- **Startup** is build start to Playwright's HTTP-ready observation. It includes build, D1 migrations, server startup, HTTP detection and the handoff to global setup.
+- **Startup** is build start to Playwright's HTTP-ready observation. It includes build, any remaining parallel browser-install wait, D1 migrations, server startup, HTTP detection and the handoff to global setup. CI records **E2E application build** separately; the local build path leaves that optional metric unavailable.
 - **Playwright** is the JSON report's `stats.duration`. **Attempts** sums every individual test/project entry's attempt durations, including retries. The top five rank those individual entries by their summed durations.
 - Counts use final report outcomes: expected, unexpected/failed, flaky and skipped. A test that passes after a failed attempt is flaky, not an additional failed test.
 
