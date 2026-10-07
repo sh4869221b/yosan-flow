@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import {
   chmodSync,
@@ -144,6 +143,7 @@ async function browsers() {
   );
   assert.match(ffmpegOutput, /ffmpeg version/);
   // Keep Playwright's existing default sandbox behavior; require no sysctl changes.
+  const { chromium } = await import("@playwright/test");
   const browser = await chromium.launch();
   try {
     assert.equal(browser.version(), manifest.headlessShell.browserVersion);
