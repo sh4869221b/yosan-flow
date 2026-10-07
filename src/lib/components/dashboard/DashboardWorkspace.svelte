@@ -7,8 +7,8 @@
   import CreatePeriodPanel from "./CreatePeriodPanel.svelte";
   import DashboardPeriodHeader from "./DashboardPeriodHeader.svelte";
   import PeriodSettingsPanel from "./PeriodSettingsPanel.svelte";
+  import ResponsiveActionPanel from "./ResponsiveActionPanel.svelte";
   import type { DaySaveSuccess } from "#lib/dashboard/controller-types.ts";
-  import "./period-action-card.css";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 
@@ -31,7 +31,9 @@
   }: Props = $props();
   let focusIntent = $state<"selection" | "retry" | null>(null);
   let requestedPeriodId = $state<string | null>(null);
-  let additionalCreateDetails: HTMLDetailsElement | undefined = $state();
+  let additionalCreatePanel: ResponsiveActionPanel | undefined = $state();
+  let additionalCreateOpen = $state(false);
+  let focusCreatedPeriodOnClose = false;
   let initialCreateActive = $state(false);
   let createFocusIntent = $state<"initial" | "additional" | null>(null);
   let createSourceElement: HTMLElement | null = null;
@@ -53,9 +55,10 @@
 
   function closeAdditionalCreate(): void {
     createFocusIntent = null;
-    if (additionalCreateDetails) {
-      additionalCreateDetails.open = false;
-      additionalCreateDetails.querySelector("summary")?.focus();
+    if (additionalCreatePanel) {
+      additionalCreateOpen = false;
+      if (!additionalCreatePanel.isMobile())
+        additionalCreatePanel.focusTrigger();
     } else {
       document.getElementById("period-settings-heading")?.focus();
     }
@@ -148,7 +151,12 @@
       controller.selectedPeriodId === periodId &&
       controller.summary?.periodId === periodId
     ) {
-      document.getElementById("selected-period-heading")?.focus();
+      if (surface === "additional" && additionalCreatePanel?.isMobile()) {
+        focusCreatedPeriodOnClose = true;
+        additionalCreateOpen = false;
+      } else {
+        document.getElementById("selected-period-heading")?.focus();
+      }
     } else if (
       pending &&
       error &&
@@ -194,7 +202,7 @@
         controller.createdRefreshing
       )
         return;
-      if (surface === "additional" && !additionalCreateDetails?.open) {
+      if (surface === "additional" && !additionalCreateOpen) {
         createFocusIntent = null;
         return;
       }
@@ -305,32 +313,35 @@
         <h2 id="period-settings-heading" tabindex="-1">期間設定</h2>
         <PeriodSettingsPanel {controller} />
       </section>
-      <details
-        bind:this={additionalCreateDetails}
-        class="period-action-card"
-        data-testid="create-period-panel"
-        ontoggle={() => {
-          if (
-            !additionalCreateDetails?.open &&
-            createFocusIntent === "additional"
-          )
-            createFocusIntent = null;
+      <ResponsiveActionPanel
+        bind:this={additionalCreatePanel}
+        bind:open={additionalCreateOpen}
+        title="次の予算期間を作成する"
+        description="今の期間が終わった後の期間を追加します。"
+        testId="create-period-panel"
+        sheetTestId="create-period-sheet"
+        onClose={() => {
+          if (createFocusIntent === "additional") createFocusIntent = null;
+        }}
+        onCloseAutoFocus={(event) => {
+          if (focusCreatedPeriodOnClose) {
+            event.preventDefault();
+            focusCreatedPeriodOnClose = false;
+            document.getElementById("selected-period-heading")?.focus();
+          }
         }}
       >
-        <summary>
+        {#snippet icon()}
           <CalendarPlus size={20} strokeWidth={2.4} aria-hidden="true" />
-          次の予算期間を作成する
-        </summary>
-        <div class="details-body">
-          <CreatePeriodPanel
-            variant="secondary-action"
-            {controller}
-            onSubmit={() => submitCreate("additional")}
-            onRetry={() => retryCreate("additional")}
-            onCancel={closeAdditionalCreate}
-          />
-        </div>
-      </details>
+        {/snippet}
+        <CreatePeriodPanel
+          variant="secondary-action"
+          {controller}
+          onSubmit={() => submitCreate("additional")}
+          onRetry={() => retryCreate("additional")}
+          onCancel={closeAdditionalCreate}
+        />
+      </ResponsiveActionPanel>
     </section>
   {/if}
 </section>

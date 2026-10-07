@@ -34,6 +34,36 @@ for (const viewport of [
     });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    const select = page.getByTestId("period-select");
+    const range = page.getByRole("form", { name: "期間設定", exact: true });
+    const settingsTitle = "期間の終了日や予算を変更する";
+    const settingsSheet = page.getByRole("dialog", {
+      name: settingsTitle,
+      exact: true,
+    });
+    const settingsTrigger =
+      viewport.width <= 760
+        ? page.getByRole("button", { name: settingsTitle, exact: true })
+        : page.getByText(settingsTitle, { exact: true });
+
+    async function openSettings(): Promise<void> {
+      if (!(await range.isVisible())) await settingsTrigger.click();
+      await expect(range).toBeVisible();
+    }
+
+    async function closeSettingsSheet(): Promise<void> {
+      if (viewport.width > 760 || !(await settingsSheet.isVisible())) return;
+      await settingsSheet
+        .getByRole("button", { name: "閉じる", exact: true })
+        .click();
+      await expect(settingsSheet).toBeHidden();
+      await expect(settingsTrigger).toBeFocused();
+    }
+
+    async function selectPeriod(id: string): Promise<void> {
+      await closeSettingsSheet();
+      await select.selectOption(id);
+    }
 
     await page.goto(`${getBaseUrl()}/`);
     await waitForDashboardReady(page);
@@ -95,9 +125,7 @@ for (const viewport of [
     await expect(modal).toBeHidden();
     await expect(dayButton).toBeFocused();
 
-    await page
-      .getByText("期間の終了日や予算を変更する", { exact: true })
-      .click();
+    await openSettings();
     const budget = page.getByRole("region", { name: "予算設定", exact: true });
     await budget.getByLabel("期間予算 (円)").fill("130000");
     await budget
@@ -112,17 +140,17 @@ for (const viewport of [
     await expect(budget.getByRole("status")).toHaveText("予算を保存しました。");
     await expect(page.getByTestId("budget-value")).toContainText("130,000");
 
+    await closeSettingsSheet();
     await page.getByText("次の予算期間を作成する", { exact: true }).click();
     await page.getByLabel("期間ID", { exact: true }).fill(nextId);
     await page.getByTestId("create-period-range-start").fill(today);
     await page.getByTestId("create-period-range-end").fill(nextEnd);
     await page.getByLabel("新規予算額 (円)").fill("90000");
     await page.getByRole("button", { name: "期間を作成", exact: true }).click();
-    const select = page.getByTestId("period-select");
     await expect(select).toHaveValue(nextId);
     await expect(page.getByTestId("budget-value")).toContainText("90,000");
     await expect(page.getByTestId("today-food-used")).toContainText("0 円");
-    await select.selectOption(periodId);
+    await selectPeriod(periodId);
     await expect(page.getByTestId("period-id")).toContainText(periodId);
     await expect(page.getByTestId("budget-value")).toContainText("130,000");
     await dayButton.click();
@@ -131,15 +159,10 @@ for (const viewport of [
     ).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(modal).toBeHidden();
-    await select.selectOption(nextId);
+    await selectPeriod(nextId);
     await expect(page.getByTestId("period-id")).toContainText(nextId);
 
-    const range = page.getByRole("form", { name: "期間設定", exact: true });
-    if (!(await range.isVisible())) {
-      await page
-        .getByText("期間の終了日や予算を変更する", { exact: true })
-        .click();
-    }
+    await openSettings();
     const rangeEnd = range.getByTestId("current-period-range-end");
     const apply = range.getByTestId("current-period-range-apply");
     await rangeEnd.fill(extendedEnd);
@@ -153,8 +176,9 @@ for (const viewport of [
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toHaveCount(0);
 
-    await select.selectOption(periodId);
+    await selectPeriod(periodId);
     await expect(page.getByTestId("period-id")).toContainText(periodId);
+    await openSettings();
     await rangeEnd.fill(today);
     await apply.click();
     await expect(dialog).toBeVisible();
@@ -171,9 +195,10 @@ for (const viewport of [
       .click();
     await expect(dialog).toHaveCount(0);
     await expect(rangeEnd).toHaveValue(end);
-    await select.selectOption(nextId);
+    await selectPeriod(nextId);
     await expect(currentRange).toHaveText(`${today} - ${extendedEnd}`);
-    await select.selectOption(periodId);
+    await selectPeriod(periodId);
+    await openSettings();
     await expect(rangeEnd).toHaveValue(end);
     await rangeEnd.fill(today);
     await apply.click();
@@ -189,14 +214,14 @@ for (const viewport of [
     await waitForDashboardReady(page);
     await expect(currentRange).toHaveText(`${start} - ${today}`);
     await expect(page.getByTestId("budget-value")).toContainText("130,000");
-    await select.selectOption(nextId);
+    await selectPeriod(nextId);
     await expect(currentRange).toHaveText(
       `${addDays(today, 1)} - ${extendedEnd}`,
     );
     await page.reload();
     await waitForDashboardReady(page);
     await expect(select).toHaveValue(periodId);
-    await select.selectOption(nextId);
+    await selectPeriod(nextId);
     await expect(currentRange).toHaveText(
       `${addDays(today, 1)} - ${extendedEnd}`,
     );
