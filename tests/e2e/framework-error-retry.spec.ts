@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { getBaseUrl, resetTestData } from "./dashboard-shared";
+import {
+  getBaseUrl,
+  resetTestData,
+  waitForDashboardReady,
+} from "./dashboard-shared";
 
 test("retries a framework page-load error without losing URL or focus", async ({
   page,
@@ -9,6 +13,7 @@ test("retries a framework page-load error without losing URL or focus", async ({
   const initialUrl = `${getBaseUrl()}/?periodId=before-retry`;
   const retryUrl = `${getBaseUrl()}/?periodId=after-retry&keep=1#empty-period-heading`;
   await page.goto(initialUrl);
+  await waitForDashboardReady(page);
   await expect(page.locator("#empty-period-heading")).toBeVisible();
 
   const releaseRetry = Promise.withResolvers<void>();

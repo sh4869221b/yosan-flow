@@ -3,7 +3,7 @@ import {
   configureDashboardDayEntryE2E,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
-import { getBaseUrl } from "./dashboard-shared";
+import { getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
@@ -14,6 +14,7 @@ test("rejects malformed day-entry yen values before requests", async ({
   const { periodId, todayDate } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   let addRequestCount = 0;
   await page.route(
     `**/api/periods/${periodId}/days/${todayDate}/add`,
@@ -71,6 +72,7 @@ test("shows save error and keeps input on failed day entry update", async ({
   const { periodId, todayDate } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   const retryBarrier = Promise.withResolvers<void>();
   let addRequestCount = 0;
   await page.route(
@@ -136,6 +138,7 @@ test("shows history load error while keeping the day entry modal usable", async 
   const { periodId, todayDate } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await page.route(
     `**/api/periods/${periodId}/days/${todayDate}/history`,
     async (route) => {

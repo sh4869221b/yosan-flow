@@ -9,7 +9,7 @@ import {
   configureDashboardDayEntryE2E,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
-import { getBaseUrl } from "./dashboard-shared";
+import { getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
@@ -31,6 +31,7 @@ async function openHistoryWithEntries(
   periodId: string,
   date: string,
 ): Promise<Locator> {
+  await waitForDashboardReady(page);
   const historyUrl = new URL(
     `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(date)}/history`,
     getBaseUrl(),
@@ -61,6 +62,7 @@ test("keeps loading and empty history states exclusive", async ({
     await route.continue();
   });
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await page.getByTestId(`calendar-day-${todayDate}`).click();
   await historyRequested.promise;
 
@@ -122,6 +124,7 @@ test("keeps retry focused through a failed history GET and moves it after succes
     });
   });
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await page.getByTestId(`calendar-day-${todayDate}`).click();
 
   const modal = page.getByTestId("day-entry-modal");
@@ -171,6 +174,7 @@ test("loads a readable history row with wrapping memo", async ({
   );
   expect(response.ok()).toBe(true);
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await page.getByTestId(`calendar-day-${todayDate}`).click();
 
   const modal = page.getByTestId("day-entry-modal");

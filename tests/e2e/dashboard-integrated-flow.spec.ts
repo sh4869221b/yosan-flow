@@ -3,7 +3,12 @@ import {
   configureDashboardDayEntryE2E,
   saveDayEntrySuccessfully,
 } from "./dashboard-day-entry-helpers";
-import { addDays, getBaseUrl, getCurrentJstDate } from "./dashboard-shared";
+import {
+  addDays,
+  getBaseUrl,
+  getCurrentJstDate,
+  waitForDashboardReady,
+} from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
@@ -31,6 +36,7 @@ for (const viewport of [
     page.on("pageerror", (error) => errors.push(error.message));
 
     await page.goto(`${getBaseUrl()}/`);
+    await waitForDashboardReady(page);
     await expect(page.getByTestId("create-period-panel")).toBeVisible();
     await page.getByLabel("期間ID", { exact: true }).fill(periodId);
     await page.getByTestId("initial-period-range-start").fill(start);
@@ -180,6 +186,7 @@ for (const viewport of [
     await expect(dialog).toHaveCount(0);
     await expect(currentRange).toHaveText(`${start} - ${today}`);
     await page.reload();
+    await waitForDashboardReady(page);
     await expect(currentRange).toHaveText(`${start} - ${today}`);
     await expect(page.getByTestId("budget-value")).toContainText("130,000");
     await select.selectOption(nextId);
@@ -187,6 +194,7 @@ for (const viewport of [
       `${addDays(today, 1)} - ${extendedEnd}`,
     );
     await page.reload();
+    await waitForDashboardReady(page);
     await expect(select).toHaveValue(periodId);
     await select.selectOption(nextId);
     await expect(currentRange).toHaveText(
