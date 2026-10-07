@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { CalendarDays } from "@lucide/svelte";
+  import { CalendarDays, CalendarPlus } from "@lucide/svelte";
   import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
   import BudgetSummary from "#lib/components/BudgetSummary.svelte";
   import PeriodCalendar from "#lib/components/PeriodCalendar.svelte";
@@ -8,6 +8,7 @@
   import DashboardPeriodHeader from "./DashboardPeriodHeader.svelte";
   import PeriodSettingsPanel from "./PeriodSettingsPanel.svelte";
   import type { DaySaveSuccess } from "#lib/dashboard/controller-types.ts";
+  import "./period-action-card.css";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 
@@ -306,7 +307,7 @@
       </section>
       <details
         bind:this={additionalCreateDetails}
-        class="card"
+        class="period-action-card"
         data-testid="create-period-panel"
         ontoggle={() => {
           if (
@@ -316,7 +317,10 @@
             createFocusIntent = null;
         }}
       >
-        <summary>次の予算期間を作成する</summary>
+        <summary>
+          <CalendarPlus size={20} strokeWidth={2.4} aria-hidden="true" />
+          次の予算期間を作成する
+        </summary>
         <div class="details-body">
           <CreatePeriodPanel
             variant="secondary-action"
@@ -354,7 +358,6 @@
   }
 
   .empty-state,
-  .secondary-actions > section,
   .workspace-shell > section[aria-labelledby="page-error-heading"] {
     background: #fffdf8;
     border: 1px solid #e4ddd2;
@@ -379,11 +382,6 @@
     white-space: nowrap;
   }
 
-  .secondary-actions summary {
-    cursor: pointer;
-    font-weight: 800;
-  }
-
   button {
     background: #2f6d3b;
     border: 0;
@@ -394,12 +392,6 @@
     font-weight: 800;
     min-height: 2.65rem;
     padding: 0 1rem;
-  }
-
-  .details-body {
-    border-top: 1px solid #e2d7c4;
-    margin-top: 1rem;
-    padding-top: 1rem;
   }
 
   .workspace-heading {
