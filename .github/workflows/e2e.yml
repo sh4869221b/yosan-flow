@@ -17,8 +17,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Install Nix
-        run: bash scripts/install-nix-e2e.sh
+      - name: Prepare Nix store directory
+        run: |
+          if [ ! -d /nix ]; then
+            sudo install -d -m 0755 -o "$USER" -g "$(id -gn)" /nix
+          fi
 
       - name: Restore Nix store
         id: nix-cache
@@ -28,6 +31,11 @@ jobs:
             /nix
             ~/.cache/nix
           key: nix-e2e-v1-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', '.node_version', 'package.json', 'scripts/install-nix-e2e.sh', 'scripts/nix-e2e.sh', 'scripts/nix-e2e.ts') }}
+
+      - name: Install Nix
+        env:
+          NIX_CACHE_HIT: ${{ steps.nix-cache.outputs.cache-hit }}
+        run: bash scripts/install-nix-e2e.sh
 
       - name: Record runner and Nix cache
         env:

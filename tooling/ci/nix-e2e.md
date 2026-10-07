@@ -58,8 +58,12 @@ from the official npm registry, fetched by Nix evaluation without compilation.
 No third-party cache, paid service, credentials or new trusted signing key is used.
 
 GitHub Actions caches `/nix` and the Nix evaluation cache under an exact key
-covering the lock, version definitions and preparation code. Installation from
-the hash-pinned official archive runs before restoration. This is a trusted
+covering the lock, version definitions and preparation code. The single-user
+store directory is created before restoration. An exact successful hit reuses
+its Nix 2.26.3 user profile after checking the version; a cold miss installs from
+the hash-pinned official archive. An incomplete restoration stops preparation.
+Installing before restoration would collide with immutable store files.
+This is a trusted
 branch-scoped Actions cache, including its Nix executable/database/profile, not
 a new public binary cache. After restoration, preparation verifies the contents
 and trusted signatures of the tools/browser library closures. The two npm source
