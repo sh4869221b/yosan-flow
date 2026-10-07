@@ -5,6 +5,7 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
+  waitForDashboardReady,
 } from "./dashboard-shared";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -18,6 +19,7 @@ test("creates period", async ({ page }) => {
   const endDate = addDays(today, 29);
 
   await page.goto(`${getBaseUrl()}/`);
+  await waitForDashboardReady(page);
   await expect(page.getByTestId("create-period-panel")).toBeVisible();
   await expect(page.getByLabel("期間ID")).toBeVisible();
   await expect(page.getByLabel("新規予算額 (円)")).toBeVisible();
@@ -61,6 +63,7 @@ test("preserves manually edited create ID after applying range", async ({
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   await page.goto(`${getBaseUrl()}/`);
+  await waitForDashboardReady(page);
   await page.getByLabel("期間ID").fill(periodId);
   await page.getByTestId("initial-period-range-start").fill(today);
   await page.getByTestId("initial-period-range-end").fill(endDate);
@@ -108,6 +111,7 @@ test("updates period start and end dates from settings inputs", async ({
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await expect(page.getByTestId("period-id")).toContainText(periodId);
   await page.getByText("期間の終了日や予算を変更する").click();
   await page.getByTestId("current-period-range-start").fill(updatedStartDate);
@@ -149,6 +153,7 @@ test("switches between current and future budget periods", async ({
   });
 
   await page.goto(`${getBaseUrl()}/`);
+  await waitForDashboardReady(page);
   await expect(page.getByTestId("period-id")).toContainText(currentPeriodId);
 
   await page.getByTestId("period-select").selectOption(futurePeriodId);
@@ -200,6 +205,7 @@ test("creates the next budget period from secondary settings", async ({
   });
 
   await page.goto(`${getBaseUrl()}/`);
+  await waitForDashboardReady(page);
   await expect(page.getByTestId("period-id")).toContainText(currentPeriodId);
   await page.getByText("次の予算期間を作成する").click();
   await page.getByLabel("期間ID").fill(nextPeriodId);
@@ -235,6 +241,7 @@ test("shows an error when shrinking a period would exclude saved entries", async
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await page.getByText("期間の終了日や予算を変更する").click();
   await page.getByTestId("current-period-range-end").fill(invalidEndDate);
   await page.getByTestId("current-period-range-apply").click();

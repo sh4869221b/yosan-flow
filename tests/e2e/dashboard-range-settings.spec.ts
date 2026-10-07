@@ -5,7 +5,12 @@ import {
   type APIRequestContext,
 } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
-import { addDays, getBaseUrl, resetTestData } from "./dashboard-shared";
+import {
+  addDays,
+  getBaseUrl,
+  resetTestData,
+  waitForDashboardReady,
+} from "./dashboard-shared";
 import {
   holdResponse,
   waitForResponse,
@@ -30,6 +35,7 @@ async function openRange(page: Page, request: APIRequestContext) {
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
+  await waitForDashboardReady(page);
   await page.getByText("期間の終了日や予算を変更する").click();
   const form = page.getByRole("form", { name: "期間設定", exact: true });
   return {

@@ -1,7 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { configureDashboardDayEntryE2E } from "./dashboard-day-entry-helpers";
 import { seedPeriod } from "./helpers/db";
-import { addDays, getBaseUrl, getCurrentJstDate } from "./dashboard-shared";
+import {
+  addDays,
+  getBaseUrl,
+  getCurrentJstDate,
+  waitForDashboardReady,
+} from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
@@ -16,6 +21,7 @@ test("moves one roving calendar focus across months with keyboard", async ({
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-keys`);
+  await waitForDashboardReady(page);
 
   const januaryEnd = page.getByTestId("calendar-day-2026-01-31");
   const februaryStart = page.getByTestId("calendar-day-2026-02-01");
@@ -77,6 +83,7 @@ test("calendar handoff opens the focused date once with Enter and retains select
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-keys`);
+  await waitForDashboardReady(page);
 
   const date = "2026-02-01";
   const day = page.getByTestId(`calendar-day-${date}`);
@@ -114,6 +121,7 @@ test("calendar handoff opens the focused date once with Space", async ({
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-keys`);
+  await waitForDashboardReady(page);
 
   const date = "2026-02-01";
   const day = page.getByTestId(`calendar-day-${date}`);
@@ -150,6 +158,7 @@ test("keyboard keeps disabled calendar dates focusable without opening history",
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-current`);
+  await waitForDashboardReady(page);
 
   const periodSummaryBarrier = Promise.withResolvers<void>();
   const nextSummaryUrl = `${getBaseUrl()}/api/periods/p-calendar-next`;
@@ -213,6 +222,7 @@ test("keeps selection separate from keyboard focus and resets it for another per
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-current`);
+  await waitForDashboardReady(page);
 
   const todayDay = page.getByTestId(`calendar-day-${today}`);
   const tomorrowDay = page.getByTestId(`calendar-day-${addDays(today, 1)}`);
@@ -257,6 +267,7 @@ test("keeps future allowance unchanged while future calendar input remains avail
     budgetYen: 90000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-future`);
+  await waitForDashboardReady(page);
 
   const futureDay = page.getByTestId(`calendar-day-${futureStart}`);
   await expect(page.getByTestId("today-food-allowance")).toContainText("0 円");
@@ -279,6 +290,7 @@ test("blocks calendar activation while a period save is in flight, then restores
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-save`);
+  await waitForDashboardReady(page);
 
   const saveBarrier = Promise.withResolvers<void>();
   const periodUrl = `${getBaseUrl()}/api/periods/p-calendar-save`;
@@ -340,6 +352,7 @@ test("keeps the calendar inside every supported viewport without clipping state 
     ],
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-responsive`);
+  await waitForDashboardReady(page);
   const todayDay = page.getByTestId(`calendar-day-${today}`);
   await todayDay.click();
   await page

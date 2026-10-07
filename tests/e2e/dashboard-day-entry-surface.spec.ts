@@ -5,7 +5,7 @@ import {
   openDayEntryAndWaitForHistory,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
-import { getBaseUrl } from "./dashboard-shared";
+import { getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
@@ -190,6 +190,7 @@ test("returns focus to the calendar origin and announces an accepted save", asyn
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await origin.focus();
   const initialHistoryResponse = page.waitForResponse(
     (response) =>
@@ -244,6 +245,7 @@ test("falls back to the calendar heading when its origin is removed", async ({
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   const origin = page.getByTestId(`calendar-day-${todayDate}`);
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await origin.focus();
   await origin.press("Enter");
   const modal = page.getByTestId("day-entry-modal");
