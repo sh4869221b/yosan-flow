@@ -70,7 +70,7 @@ export function createPeriodControllerState(
 
   const {
     refreshSummaryEffect,
-    refreshSummaryOnResumeEffect,
+    refreshOnResumeEffect,
     refreshPeriodListEffect,
   } = createPeriodRefreshEffects({
     summaryRequests,
@@ -87,7 +87,9 @@ export function createPeriodControllerState(
       periods = value;
     },
     selectEmpty: () => {
+      const periodChanged = selectedPeriodId != null;
       selectedPeriodId = null;
+      if (periodChanged) onPeriodChanged();
     },
   });
 
@@ -181,12 +183,8 @@ export function createPeriodControllerState(
     },
     updateCreatePeriodRange: createState.updateRange,
     refreshOnResume(complete: () => void): void {
-      const periodId = selectedPeriodId;
       runClientEffect(
-        (periodId == null
-          ? Effect.void
-          : refreshSummaryOnResumeEffect(periodId)
-        ).pipe(Effect.ensuring(Effect.sync(complete))),
+        refreshOnResumeEffect().pipe(Effect.ensuring(Effect.sync(complete))),
       );
     },
     setSummary(nextSummary: PeriodSummary | null): void {

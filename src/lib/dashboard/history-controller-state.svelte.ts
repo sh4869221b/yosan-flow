@@ -3,6 +3,7 @@ import { dayHistoryUrl } from "#lib/dashboard/api-urls.ts";
 import { runClientEffect } from "#lib/dashboard/client-effect.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
 import { createHistoryMutationLifecycle } from "#lib/dashboard/history-mutation-lifecycle.ts";
+import { createHistoryResumeEffect } from "#lib/dashboard/history-resume.ts";
 import type {
   DeleteHistoryPayload,
   HistoryActionResult,
@@ -22,6 +23,7 @@ type HistoryControllerDependencies = {
   readonly getSelectedDate: () => string | null;
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary?: () => PeriodSummary | null;
+  readonly getModalOpen?: () => boolean;
   readonly setSelectedRow: (_row: DailyRow | null) => void;
   readonly setSummary: (_summary: PeriodSummary) => void;
 };
@@ -35,50 +37,76 @@ export function createHistoryControllerState(
   let historyMutationVersion = $state(0);
   let histories = $state<HistoryItem[]>([]);
   let historyRequestSequence = 0;
+  let historySessionGeneration = 0;
   let activeHistoryRequest: { periodId: string; date: string } | null = null;
   // Imperative request-order bookkeeping, never rendered or observed by a rune.
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- Reactive subscriptions would couple race guards to UI effects.
   const mutationSequences = new Map<string, number>();
   const retainedHistories = createRetainedHistoryStore();
 
+  function ownsHistoryRequest(
+    sequence: number,
+    periodId: string,
+    date: string,
+    isCurrent?: () => boolean,
+  ): boolean {
+    return (
+      sequence === historyRequestSequence &&
+      dependencies.getSelectedPeriodId() === periodId &&
+      dependencies.getSelectedDate() === date &&
+      (isCurrent?.() ?? true)
+    );
+  }
+
   function loadHistoryResultEffect(
     date: string,
+    options: {
+      readonly background?: boolean;
+      readonly isCurrent?: () => boolean;
+    } = {},
   ): Effect.Effect<HistoryActionResult, never> {
     const selectedPeriodId = dependencies.getSelectedPeriodId();
     if (selectedPeriodId == null) {
       return Effect.succeed({ kind: "ignored" });
     }
-    const retained = retainedHistories.replay(
-      selectedPeriodId,
-      date,
-      summaryRevision.get(selectedPeriodId),
-      summaryRevision.getMutationSequence(selectedPeriodId),
-      dependencies.getSummary?.() ?? null,
-    );
-    if (retained.histories != null) {
-      histories = [...retained.histories];
-    } else if (retained.invalidated) {
-      histories = [];
+    if (!options.background) {
+      const retained = retainedHistories.replay(
+        selectedPeriodId,
+        date,
+        summaryRevision.get(selectedPeriodId),
+        summaryRevision.getMutationSequence(selectedPeriodId),
+        dependencies.getSummary?.() ?? null,
+      );
+      if (retained.histories != null) {
+        histories = [...retained.histories];
+      } else if (retained.invalidated) {
+        histories = [];
+      }
     }
     historyRequestSequence += 1;
     const requestSequence = historyRequestSequence;
     activeHistoryRequest = { periodId: selectedPeriodId, date };
     return Effect.gen(function* () {
-      historyLoading = true;
-      historyError = null;
+      if (!options.background) {
+        historyLoading = true;
+        historyError = null;
+      }
       const result = yield* fetchJsonEffect<HistoryResponse>(
         dayHistoryUrl(selectedPeriodId, date),
         undefined,
         "履歴の取得に失敗しました。",
       ).pipe(Effect.result);
-      const requestIsCurrent =
-        requestSequence === historyRequestSequence &&
-        dependencies.getSelectedPeriodId() === selectedPeriodId &&
-        dependencies.getSelectedDate() === date;
+      const requestIsCurrent = ownsHistoryRequest(
+        requestSequence,
+        selectedPeriodId,
+        date,
+        options.isCurrent,
+      );
       if (result._tag === "Failure" && requestIsCurrent) {
         historyError = result.failure;
       } else if (result._tag === "Success" && requestIsCurrent) {
         histories = result.success.histories ?? [];
+        historyError = null;
         retainedHistories.clear(selectedPeriodId, date);
       }
       if (requestSequence === historyRequestSequence) {
@@ -137,6 +165,17 @@ export function createHistoryControllerState(
 
   return {
     cancelHistoryLoad,
+    refreshOnResumeEffect: createHistoryResumeEffect({
+      ...dependencies,
+      getModalOpen: dependencies.getModalOpen ?? (() => true),
+      getSessionGeneration: () => historySessionGeneration,
+      getRequestSequence: () => historyRequestSequence,
+      loadHistoryEffect: (date, isCurrent) =>
+        loadHistoryResultEffect(date, { background: true, isCurrent }).pipe(
+          Effect.asVoid,
+        ),
+      summaryRevision,
+    }),
     getMutationSequence(periodId: string): number {
       return mutationSequences.get(periodId) ?? 0;
     },
@@ -153,6 +192,7 @@ export function createHistoryControllerState(
       return histories;
     },
     resetHistories(): void {
+      historySessionGeneration += 1;
       histories = [];
       historyError = null;
     },

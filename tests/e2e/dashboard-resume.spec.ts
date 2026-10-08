@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   configureDashboardDayEntryE2E,
   openDayEntryAndWaitForHistory,
@@ -8,56 +8,15 @@ import {
 import { addDays, getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
 import { seedPeriod } from "./helpers/db";
 import { waitForResponse } from "./period-operation-state-helpers";
+import {
+  holdDashboardRead as holdNextSummary,
+  resumeDashboard as resume,
+} from "./dashboard-resume-helpers";
 
 configureDashboardDayEntryE2E();
 test.use({ launchOptions: { args: ["--disable-features=BackForwardCache"] } });
 
 const resumeEvents = ["visibilitychange", "pageshow", "online"] as const;
-type ResumeEvent = (typeof resumeEvents)[number];
-
-async function resume(page: Page, event: ResumeEvent): Promise<void> {
-  await page.evaluate((event) => {
-    if (event === "visibilitychange") {
-      document.dispatchEvent(new Event(event));
-    } else if (event === "pageshow") {
-      window.dispatchEvent(new PageTransitionEvent(event, { persisted: true }));
-    } else {
-      window.dispatchEvent(new Event(event));
-    }
-  }, event);
-}
-
-async function holdNextSummary(page: Page, summaryUrl: string) {
-  const arrived = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  const finished = Promise.withResolvers<void>();
-  let captured = false;
-  await page.route(summaryUrl, async (route) => {
-    if (route.request().method() !== "GET" || captured) {
-      await route.fallback();
-      return;
-    }
-    captured = true;
-    const response = await route.fetch();
-    arrived.resolve();
-    await release.promise;
-    const delivered = page.waitForResponse(
-      (candidate) => candidate.request() === route.request(),
-    );
-    await route.fulfill({ response });
-    await (await delivered).finished();
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-    );
-    finished.resolve();
-  });
-  return {
-    arrived: arrived.promise,
-    release: release.resolve,
-    finished: finished.promise,
-  };
-}
 
 test.describe("history restoration without back-forward cache", () => {
   // HTTP history cache must stay enabled: request routing would disable it and
@@ -140,14 +99,20 @@ for (const event of resumeEvents) {
     expect(
       (
         await request.post(`${summaryUrl}/days/${selectedDate}/add`, {
-          data: { inputYen: 2000 },
+          data: { inputYen: 2000, memo: "saved while away" },
         })
       ).ok(),
     ).toBe(true);
     await expect(page.getByTestId(`used-${selectedDate}`)).toHaveText("0 円");
     const refreshed = waitForResponse(page, summaryUrl, "GET");
+    const historyRefreshed = waitForResponse(
+      page,
+      `${summaryUrl}/days/${selectedDate}/history`,
+      "GET",
+    );
     await resume(page, event);
     expect((await refreshed).ok()).toBe(true);
+    expect((await historyRefreshed).ok()).toBe(true);
     await expect(page.getByTestId(`used-${selectedDate}`)).toHaveText(
       "2000 円",
     );
@@ -157,6 +122,11 @@ for (const event of resumeEvents) {
     ).toHaveAttribute("aria-pressed", "true");
     await expect(modal).toBeVisible();
     await expect(modal).toContainText(`対象日: ${selectedDate}`);
+    const savedHistory = modal.locator("li").filter({
+      hasText: "saved while away",
+    });
+    await expect(savedHistory).toContainText("入力 2000 円");
+    await expect(modal.getByText("履歴はまだありません。")).toBeHidden();
     await expect(amount).toHaveValue("777");
     await expect(amount).toBeFocused();
     await expect(modal.getByLabel("メモ")).toHaveValue("unsaved draft");

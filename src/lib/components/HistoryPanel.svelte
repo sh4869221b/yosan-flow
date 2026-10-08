@@ -62,6 +62,21 @@
   let activeEdit = $state.raw<EditOperation | null>(null);
   let activeDelete = $state.raw<DeleteOperation | null>(null);
   let historyHeading = $state<HTMLHeadingElement | null>(null);
+  let missingEditHeading = $state<HTMLHeadingElement | null>(null);
+  let missingDeleteHeading = $state<HTMLHeadingElement | null>(null);
+
+  const missingEdit = $derived(
+    isOpen &&
+      editingHistoryId != null &&
+      !histories.some((history) => history.id === editingHistoryId),
+  );
+  const missingDelete = $derived(
+    isOpen &&
+      confirmingDeleteHistoryId != null &&
+      pendingDeleteHistoryId == null &&
+      activeDelete == null &&
+      !histories.some((history) => history.id === confirmingDeleteHistoryId),
+  );
 
   const listError = $derived(
     errorMessage &&
@@ -113,6 +128,29 @@
     resetDelete();
     activeRetry = null;
   });
+
+  $effect.pre(() => {
+    if (!missingEdit && !missingDelete) return;
+    const focusedElement = document.activeElement;
+    const focusedRow = focusedElement?.closest(".history-panel li");
+    if (focusedRow == null) return;
+    void tick().then(() => {
+      if (!shouldRestoreMissingHistoryFocus(focusedElement)) return;
+      const heading = missingEdit ? missingEditHeading : missingDeleteHeading;
+      heading?.focus();
+    });
+  });
+
+  function shouldRestoreMissingHistoryFocus(element: Element | null): boolean {
+    return isOpen && element?.isConnected === false;
+  }
+
+  async function finishMissingHistory(edit: boolean): Promise<void> {
+    if (edit) cancelEdit();
+    else resetDelete();
+    await tick();
+    if (isOpen) historyHeading?.focus();
+  }
 
   function clearDeleteSuccess(): void {
     deleteSuccessMessage = null;
@@ -308,6 +346,43 @@
   {#if deleteSuccessMessage}
     <p class="status" role="status">{deleteSuccessMessage}</p>
   {/if}
+  {#if missingEdit}
+    <div class="missing-history">
+      <h3 tabindex="-1" bind:this={missingEditHeading}>
+        編集中の履歴は削除されました
+      </h3>
+      <p>入力途中の内容を確認してから編集を終了してください。</p>
+      <label>
+        編集中の入力額 (円)
+        <input readonly value={editInputYen} />
+      </label>
+      <label>
+        編集中のメモ
+        <textarea readonly rows="2" value={editMemo}></textarea>
+      </label>
+      <button
+        class="retry-button"
+        type="button"
+        onclick={() => void finishMissingHistory(true)}
+      >
+        編集を終了
+      </button>
+    </div>
+  {/if}
+  {#if missingDelete}
+    <div class="missing-history">
+      <h3 tabindex="-1" bind:this={missingDeleteHeading}>
+        削除を確認していた履歴は削除されました
+      </h3>
+      <button
+        class="retry-button"
+        type="button"
+        onclick={() => void finishMissingHistory(false)}
+      >
+        削除確認を終了
+      </button>
+    </div>
+  {/if}
   {#if loading}
     <p class="status" role="status">履歴を読み込み中...</p>
   {:else if listError}
@@ -349,6 +424,19 @@
 </section>
 
 <style>
+  .missing-history,
+  .missing-history label {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .missing-history input,
+  .missing-history textarea {
+    font: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
   .history-panel {
     border: 1px solid #e7ddd0;
     border-radius: 10px;

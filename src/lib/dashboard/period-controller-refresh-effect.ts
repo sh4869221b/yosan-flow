@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { periodSummaryUrl, PERIODS_URL } from "#lib/dashboard/api-urls.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import { createPeriodResumeRefreshEffect } from "#lib/dashboard/period-resume-refresh-effect.ts";
 import type {
   PeriodOption,
   PeriodSummary,
@@ -137,7 +138,10 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
   return {
     refreshSummaryEffect,
     refreshPeriodListEffect,
-    refreshSummaryOnResumeEffect: (periodId: string) =>
-      refreshSummaryEffect(periodId, true, undefined, undefined, true),
+    refreshOnResumeEffect: createPeriodResumeRefreshEffect({
+      ...dependencies,
+      refreshSummary: (periodId) =>
+        refreshSummaryEffect(periodId, true, undefined, undefined, true),
+    }),
   };
 }

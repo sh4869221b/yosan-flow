@@ -2,6 +2,7 @@ import { expect, it, vi } from "vitest";
 import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
 import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { PERIODS_URL } from "#lib/dashboard/api-urls.ts";
 import {
   captureClientEffects,
   settled,
@@ -36,9 +37,11 @@ it("refreshes the selected summary without losing settings or day-entry drafts",
     vi.fn((url: string) =>
       Promise.resolve(
         jsonResponse(
-          url.endsWith("/history")
-            ? { periodId: period.id, date: "2026-07-12", histories: [] }
-            : freshSummary,
+          url === PERIODS_URL
+            ? { periods: [period] }
+            : url.endsWith("/history")
+              ? { periodId: period.id, date: "2026-07-12", histories: [] }
+              : freshSummary,
         ),
       ),
     ),
@@ -53,6 +56,7 @@ it("refreshes the selected summary without losing settings or day-entry drafts",
   const complete = vi.fn();
   controller.refreshOnResume(complete);
   await settled(executions[1]);
+  await vi.waitFor(() => expect(complete).toHaveBeenCalledOnce());
 
   expect(controller.summary).toEqual(freshSummary);
   expect(controller.selectedPeriodId).toBe(period.id);
@@ -72,7 +76,10 @@ it("discards a resume response captured before a newer spending publication", as
   const started = Promise.withResolvers<void>();
   vi.stubGlobal(
     "fetch",
-    vi.fn(() => {
+    vi.fn((url: string) => {
+      if (url === PERIODS_URL) {
+        return Promise.resolve(jsonResponse({ periods: [period] }));
+      }
       started.resolve();
       return response.promise;
     }),

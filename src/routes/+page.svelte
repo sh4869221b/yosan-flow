@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
   import { observeDashboardResume } from "#lib/dashboard/dashboard-resume.ts";
+  import { getDashboardToday } from "#lib/dashboard/dashboard-current-date.ts";
+  import { getJstToday } from "#lib/dashboard/date.ts";
   import DashboardWorkspace from "#lib/components/dashboard/DashboardWorkspace.svelte";
   import "#lib/components/dashboard/dashboard-shell.css";
   import DayEntryModal from "#lib/components/DayEntryModal.svelte";
@@ -20,6 +22,10 @@
   let hydrated = $state(false);
   let resumeRequested = $state(false);
   let resumeRefreshing = $state(false);
+  let todayFallback = $state<string | null>(null);
+  const today = $derived(
+    getDashboardToday(controller.summary, todayFallback ?? data.today),
+  );
   const resumeBlocked = $derived(
     resumeRefreshing ||
       controller.summaryLoading ||
@@ -33,6 +39,7 @@
     resumeRequested = false;
     resumeRefreshing = true;
     controller.refreshOnResume(() => {
+      todayFallback = getJstToday();
       resumeRefreshing = false;
     });
   });
@@ -84,7 +91,7 @@
 <main class="dashboard-page" aria-busy={!hydrated}>
   <DashboardWorkspace
     {controller}
-    today={data.today}
+    {today}
     daySaveSuccess={controller.daySaveSuccess}
     onDayEntryRequested={rememberDayEntryOrigin}
   />
