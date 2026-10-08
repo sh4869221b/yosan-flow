@@ -1,7 +1,10 @@
+import { Effect } from "effect";
+import { runClientEffect } from "#lib/dashboard/client-effect.ts";
 import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
 import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
 import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { findSummaryRow } from "#lib/dashboard/summary-rows.ts";
 import type { DayEntryCloseReason } from "#lib/dashboard/controller-types.ts";
 import type { PageData } from "../../routes/$types";
 
@@ -23,6 +26,7 @@ export function createDashboardPageController(getData: () => PageData) {
       getSelectedDate: () => dayEntryController.selectedDate,
       getSelectedPeriodId: () => periodController.selectedPeriodId,
       getSummary: () => periodController.summary,
+      getModalOpen: () => dayEntryController.modalOpen,
       setSelectedRow: (row) => dayEntryController.setSelectedRow(row),
       setSummary: periodController.setSummary,
     },
@@ -159,6 +163,21 @@ export function createDashboardPageController(getData: () => PageData) {
     },
     saveBudget: periodController.saveBudget,
     saveRange: periodController.saveRange,
+    refreshOnResume(complete: () => void): void {
+      periodController.refreshOnResume(() => {
+        const summary = periodController.summary;
+        if (dayEntryController.modalOpen && summary != null) {
+          dayEntryController.setSelectedRow(
+            findSummaryRow(summary, dayEntryController.selectedDate),
+          );
+        }
+        runClientEffect(
+          historyController
+            .refreshOnResumeEffect()
+            .pipe(Effect.ensuring(Effect.sync(complete))),
+        );
+      });
+    },
     handleSelectPeriod(payload: { periodId: string }): void {
       dayEntryController.invalidateDaySelection();
       periodController.handleSelectPeriod(payload);

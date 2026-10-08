@@ -24,6 +24,7 @@ describe("period CRUD APIs", () => {
       request: new Request("http://localhost/api/periods", { method: "GET" }),
     } as any);
     expect(listResponse.status).toBe(200);
+    expect(listResponse.headers.get("cache-control")).toBe("no-store");
     await expect(listResponse.json()).resolves.toMatchObject({
       periods: [{ id: "p-2026-04" }],
     });

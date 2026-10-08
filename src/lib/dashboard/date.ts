@@ -4,3 +4,9 @@ export function addDays(date: string, days: number): string {
     .toISOString()
     .slice(0, 10);
 }
+
+export function getJstToday(now: Date = new Date()): string {
+  return new Date(now.getTime() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+}

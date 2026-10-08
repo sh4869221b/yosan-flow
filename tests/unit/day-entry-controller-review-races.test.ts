@@ -56,10 +56,9 @@ describe("day-entry controller review races", () => {
     firstResponse.resolve(jsonResponse(combinedSummary));
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      "/api/periods/period-1",
-      undefined,
-    );
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/periods/period-1", {
+      cache: "no-store",
+    });
     await vi.waitFor(() => expect(summary).toEqual(combinedSummary));
     expect(summary.dailyRows).toEqual([
       expect.objectContaining({ date: "2026-07-12", usedYen: 2_000 }),

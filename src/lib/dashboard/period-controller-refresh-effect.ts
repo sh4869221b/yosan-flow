@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { periodSummaryUrl, PERIODS_URL } from "#lib/dashboard/api-urls.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import { createPeriodResumeRefreshEffect } from "#lib/dashboard/period-resume-refresh-effect.ts";
 import type {
   PeriodOption,
   PeriodSummary,
@@ -33,10 +34,12 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
     reportError: PeriodRefreshError = true,
     submission?: PeriodSettingsSubmission,
     complete?: PeriodRefreshCompletion,
+    background = false,
   ): Effect.Effect<void, never> {
     const request = summaryRequests.start(periodId);
+    const setLoading = background ? () => undefined : dependencies.setLoading;
     return Effect.gen(function* () {
-      dependencies.setLoading(true);
+      setLoading(true);
       dependencies.setError(null);
       if (request.mutationWasActive) {
         yield* summaryRevision.awaitMutationSettlement(
@@ -49,6 +52,7 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
             reportError,
             submission,
             complete,
+            background,
           );
         else complete?.("dropped");
         return;
@@ -68,7 +72,7 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
           complete?.("accepted");
         } else complete?.("dropped");
       } else complete?.("dropped");
-      if (summaryRequests.owns(request)) dependencies.setLoading(false);
+      if (summaryRequests.owns(request)) setLoading(false);
     });
   }
 
@@ -131,5 +135,13 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
     });
   }
 
-  return { refreshSummaryEffect, refreshPeriodListEffect };
+  return {
+    refreshSummaryEffect,
+    refreshPeriodListEffect,
+    refreshOnResumeEffect: createPeriodResumeRefreshEffect({
+      ...dependencies,
+      refreshSummary: (periodId) =>
+        refreshSummaryEffect(periodId, true, undefined, undefined, true),
+    }),
+  };
 }

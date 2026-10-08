@@ -37,7 +37,7 @@ export function _createPeriodGetHandler(
           dependencies.tracing,
         ),
       );
-      return json(summary);
+      return json(summary, { headers: { "cache-control": "no-store" } });
     } catch (error) {
       if (!(error instanceof Error)) {
         return toApiErrorResponse(toEffectError(error));
