@@ -451,7 +451,9 @@ for (const operation of ["edit", "delete confirmation"] as const) {
     const targetRow = modal.locator("li").filter({
       hasText: "externally removed history",
     });
-    const dayAmount = modal.getByLabel("入力額 (円)", { exact: true }).first();
+    const dayAmount = modal
+      .locator(".entry-form")
+      .getByRole("textbox", { name: "入力額 (円)", exact: true });
     if (operation === "edit") {
       await targetRow
         .getByRole("button", { name: "編集", exact: true })
@@ -467,6 +469,9 @@ for (const operation of ["edit", "delete confirmation"] as const) {
       await expect(
         targetRow.getByRole("button", { name: "削除を確定", exact: true }),
       ).toBeVisible();
+      await expect(
+        targetRow.getByRole("button", { name: "取消", exact: true }),
+      ).toBeFocused();
       await dayAmount.fill("444");
       await dayAmount.focus();
     }
