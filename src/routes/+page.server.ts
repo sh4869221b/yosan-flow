@@ -19,7 +19,8 @@ function resolveRequestedPeriodId(url: URL): string | null {
   }
 }
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, setHeaders }) => {
+  setHeaders({ "cache-control": "no-store" });
   const services = getApiServices();
   const tracing = getRequestTracing();
   const requestedPeriodId = resolveRequestedPeriodId(url);

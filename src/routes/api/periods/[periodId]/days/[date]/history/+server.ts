@@ -25,11 +25,10 @@ export function _createPeriodDayHistoryHandler(
         dependencies.services.listHistoryByDate(periodId, date),
       );
 
-      return json({
-        periodId,
-        date,
-        histories,
-      });
+      return json(
+        { periodId, date, histories },
+        { headers: { "cache-control": "no-store" } },
+      );
     } catch (error) {
       return toApiErrorResponse(error);
     }

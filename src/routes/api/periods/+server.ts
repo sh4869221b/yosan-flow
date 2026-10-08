@@ -65,7 +65,7 @@ export function _createPeriodsListHandler(
   return async () => {
     try {
       const periods = await runApiEffect(dependencies.services.listPeriods());
-      return json({ periods });
+      return json({ periods }, { headers: { "cache-control": "no-store" } });
     } catch (error) {
       return toApiErrorResponse(error);
     }

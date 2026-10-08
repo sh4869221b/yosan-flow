@@ -47,6 +47,7 @@ describe("period day and history APIs", () => {
       }),
     } as any);
     expect(periodResponse.status).toBe(200);
+    expect(periodResponse.headers.get("cache-control")).toBe("no-store");
     const periodBody = await periodResponse.json();
     expect(periodBody).toMatchObject({
       periodId: "p-2026-04",
@@ -66,6 +67,7 @@ describe("period day and history APIs", () => {
       ),
     } as any);
     expect(historyResponse.status).toBe(200);
+    expect(historyResponse.headers.get("cache-control")).toBe("no-store");
     const historyBody = await historyResponse.json();
     expect(historyBody).toHaveProperty("histories.length", 2);
     expect(historyBody).toMatchObject({

@@ -2,6 +2,7 @@ import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controll
 import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
 import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { findSummaryRow } from "#lib/dashboard/summary-rows.ts";
 import type { DayEntryCloseReason } from "#lib/dashboard/controller-types.ts";
 import type { PageData } from "../../routes/$types";
 
@@ -159,6 +160,17 @@ export function createDashboardPageController(getData: () => PageData) {
     },
     saveBudget: periodController.saveBudget,
     saveRange: periodController.saveRange,
+    refreshOnResume(complete: () => void): void {
+      periodController.refreshOnResume(() => {
+        const summary = periodController.summary;
+        if (dayEntryController.modalOpen && summary != null) {
+          dayEntryController.setSelectedRow(
+            findSummaryRow(summary, dayEntryController.selectedDate),
+          );
+        }
+        complete();
+      });
+    },
     handleSelectPeriod(payload: { periodId: string }): void {
       dayEntryController.invalidateDaySelection();
       periodController.handleSelectPeriod(payload);

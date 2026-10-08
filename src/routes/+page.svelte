@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
+  import { observeDashboardResume } from "#lib/dashboard/dashboard-resume.ts";
   import DashboardWorkspace from "#lib/components/dashboard/DashboardWorkspace.svelte";
   import "#lib/components/dashboard/dashboard-shell.css";
   import DayEntryModal from "#lib/components/DayEntryModal.svelte";
@@ -17,9 +18,32 @@
   const controller = createDashboardPageController(() => data);
   let dayEntryOrigin = $state<DayEntryOrigin | null>(null);
   let hydrated = $state(false);
+  let resumeRequested = $state(false);
+  let resumeRefreshing = $state(false);
+  const resumeBlocked = $derived(
+    resumeRefreshing ||
+      controller.summaryLoading ||
+      controller.periodInteractionDisabled,
+  );
+
+  $effect(() => {
+    if (!resumeRequested || resumeBlocked) {
+      return;
+    }
+    resumeRequested = false;
+    resumeRefreshing = true;
+    controller.refreshOnResume(() => {
+      resumeRefreshing = false;
+    });
+  });
 
   onMount(() => {
     hydrated = true;
+    return observeDashboardResume(document, window, (requiresFollowUp) => {
+      if (!resumeRefreshing || requiresFollowUp) {
+        resumeRequested = true;
+      }
+    });
   });
 
   function rememberDayEntryOrigin(origin: DayEntryOrigin): void {

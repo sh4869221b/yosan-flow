@@ -32,7 +32,7 @@ export function fetchJsonEffect<T>(
 ): Effect.Effect<T, string> {
   return Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
-      try: () => fetch(url, init),
+      try: () => fetch(url, { ...init, cache: "no-store" }),
       catch: () => fallbackError,
     });
     if (!response.ok) {

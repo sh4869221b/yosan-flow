@@ -1,3 +1,5 @@
+import { Effect } from "effect";
+import { runClientEffect } from "#lib/dashboard/client-effect.ts";
 import { createPeriodRefreshEffects } from "#lib/dashboard/period-controller-refresh-effect.ts";
 import { createPeriodConfirmationEffects } from "#lib/dashboard/period-controller-confirm-effect.ts";
 import type {
@@ -66,25 +68,28 @@ export function createPeriodControllerState(
     else confirmationState.dropIfStale();
   }
 
-  const { refreshSummaryEffect, refreshPeriodListEffect } =
-    createPeriodRefreshEffects({
-      summaryRequests,
-      summaryRevision,
-      publishSummary,
-      getSelectedPeriodId: () => selectedPeriodId,
-      setLoading: (value) => {
-        summaryLoading = value;
-      },
-      setError: (value) => {
-        summaryError = value;
-      },
-      setPeriods: (value) => {
-        periods = value;
-      },
-      selectEmpty: () => {
-        selectedPeriodId = null;
-      },
-    });
+  const {
+    refreshSummaryEffect,
+    refreshSummaryOnResumeEffect,
+    refreshPeriodListEffect,
+  } = createPeriodRefreshEffects({
+    summaryRequests,
+    summaryRevision,
+    publishSummary,
+    getSelectedPeriodId: () => selectedPeriodId,
+    setLoading: (value) => {
+      summaryLoading = value;
+    },
+    setError: (value) => {
+      summaryError = value;
+    },
+    setPeriods: (value) => {
+      periods = value;
+    },
+    selectEmpty: () => {
+      selectedPeriodId = null;
+    },
+  });
 
   const periodUpdateDependencies = {
     confirmationState,
@@ -175,6 +180,15 @@ export function createPeriodControllerState(
       return createState.createdRefreshPending;
     },
     updateCreatePeriodRange: createState.updateRange,
+    refreshOnResume(complete: () => void): void {
+      const periodId = selectedPeriodId;
+      runClientEffect(
+        (periodId == null
+          ? Effect.void
+          : refreshSummaryOnResumeEffect(periodId)
+        ).pipe(Effect.ensuring(Effect.sync(complete))),
+      );
+    },
     setSummary(nextSummary: PeriodSummary | null): void {
       settings.adopt(nextSummary);
       summary = nextSummary;

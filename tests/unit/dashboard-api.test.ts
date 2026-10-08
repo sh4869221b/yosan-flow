@@ -57,6 +57,27 @@ describe("dashboard API URLs", () => {
 });
 
 describe("fetchJsonEffect", () => {
+  it("bypasses cached JSON without losing supplied request options", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const init: RequestInit = {
+      method: "GET",
+      headers: { accept: "application/json" },
+      cache: "force-cache",
+    };
+
+    await Effect.runPromise(
+      fetchJsonEffect("/api/periods/p-1", init, "fallback"),
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith("/api/periods/p-1", {
+      ...init,
+      cache: "no-store",
+    });
+    expect(init.cache).toBe("force-cache");
+  });
+
   it("returns parsed JSON when the response is successful", async () => {
     // Given
     const body = { periodId: "period-1", totalUsedYen: 1200 };
