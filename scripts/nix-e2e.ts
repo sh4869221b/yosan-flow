@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import {
   chmodSync,
-  copyFileSync,
   mkdirSync,
   readFileSync,
   rmSync,
@@ -12,6 +11,7 @@ import {
 } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
+import { preparePnpm } from "./pnpm-e2e.ts";
 
 const directory = resolve(".tmp-nix-e2e");
 const manifest = JSON.parse(
@@ -29,24 +29,17 @@ function link(target: string, path: string) {
   symlinkSync(target, path);
 }
 
-function tools() {
+async function tools() {
   assert.equal(process.version, `v${manifest.nodeVersion}`);
-  const bundle = JSON.parse(
-    readFileSync(`${manifest.pnpmSource}/package.json`, "utf8"),
+  const project = JSON.parse(readFileSync("package.json", "utf8"));
+  assert.equal(project.packageManager, `pnpm@${manifest.pnpmVersion}`);
+  const pnpmDirectory = await preparePnpm(
+    project.packageManager,
+    readFileSync("pnpm-lock.yaml", "utf8"),
+    directory,
   );
-  const native = JSON.parse(
-    readFileSync(`${manifest.pnpmNative}/package.json`, "utf8"),
-  );
-  assert.equal(bundle.version, manifest.pnpmVersion);
-  assert.equal(native.version, manifest.pnpmVersion);
-  const pnpmDirectory = join(directory, "pnpm");
   const bin = join(directory, "bin");
-  mkdirSync(pnpmDirectory, { recursive: true });
   mkdirSync(bin, { recursive: true });
-  // Keep the native executable next to its node-gyp payload, as npm install does.
-  copyFileSync(`${manifest.pnpmNative}/pnpm`, join(pnpmDirectory, "pnpm"));
-  chmodSync(join(pnpmDirectory, "pnpm"), 0o755);
-  link(`${manifest.pnpmSource}/dist`, join(pnpmDirectory, "dist"));
   writeFileSync(
     join(bin, "pnpm"),
     `#!${paths.bash}/bin/bash\nexec ${quote(join(pnpmDirectory, "pnpm"))} "$@"\n`,
@@ -173,6 +166,6 @@ async function browsers() {
   }
 }
 
-if (process.argv[2] === "tools") tools();
+if (process.argv[2] === "tools") await tools();
 else if (process.argv[2] === "browsers") await browsers();
 else throw new Error("Expected tools or browsers");

@@ -32,8 +32,7 @@ if [[ "$stage" == tools ]]; then
   measure tools-fetch "$nix_command" "${nix_flags[@]}" build --no-update-lock-file --out-link .tmp-nix-e2e/tools .#node .#bash .#coreutils
   node_path=$("$nix_command" "${nix_flags[@]}" eval --no-update-lock-file .#e2eManifest.paths.node --raw)
   measure tools-verify "$nix_command" "${nix_flags[@]}" store verify --no-update-lock-file \
-    --recursive --sigs-needed 1 .#node .#bash .#coreutils \
-    .#e2eManifest.pnpmSource .#e2eManifest.pnpmNative
+    --recursive --sigs-needed 1 .#node .#bash .#coreutils
   measure tools-configure "$node_path/bin/node" scripts/nix-e2e.ts tools
 else
   measure browsers-fetch "$nix_command" "${nix_flags[@]}" build --no-update-lock-file --out-link .tmp-nix-e2e/browsers \
