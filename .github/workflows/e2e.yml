@@ -30,7 +30,7 @@ jobs:
           path: |
             /nix
             ~/.cache/nix
-          key: nix-e2e-v1-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', '.node_version', 'package.json', 'scripts/install-nix-e2e.sh', 'scripts/nix-e2e.sh', 'scripts/nix-e2e.ts') }}
+          key: nix-e2e-v1-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', '.node_version', 'package.json', 'scripts/install-nix-e2e.sh', 'scripts/nix-e2e.sh', 'scripts/nix-e2e.ts', 'scripts/pnpm-e2e.ts') }}
 
       - name: Install Nix
         env:

@@ -28,10 +28,18 @@ existing checkout/run/environment/output digest manifest.
 
 `flake.lock` fixes nixpkgs. Node is its signed cached `nodejs-slim_24` output,
 with its version checked against `.node_version`. Nixpkgs has a different pnpm
-version, so the exact published pnpm bundle and native Linux executable are both
-content-hash pinned. Neither Rust nor Chromium is compiled. The native executable
+version, so preparation downloads the exact published pnpm bundle and native Linux
+executable selected by `package.json#packageManager`. Their SHA-512 integrity pins
+come from the package-manager document in `pnpm-lock.yaml`, which Renovate updates
+with `packageManager`. Preparation rejects inconsistent locked versions, missing or
+ambiguous integrity pins, altered archives and mismatched package/binary versions
+before using pnpm. GitHub Actions also reads `packageManager` directly; there are
+no separate pnpm version or Nix archive hashes for Renovate to miss. Neither Rust
+nor Chromium is compiled. The native executable
 is copied into disposable project state next to the bundle's node-gyp payload.
-Updates to project Node/pnpm or Playwright require reviewing these pins.
+Updates to project Node or Playwright still require reviewing their Nix pins.
+The pnpm lockfile format reader deliberately fails closed on an unsupported format;
+review it when approving a pnpm major update.
 
 The project-installed Playwright package is checked against nixpkgs metadata
 before launching the browser. The candidate exposes only its matching official
@@ -54,7 +62,9 @@ All nixpkgs outputs must be available from the signed official `cache.nixos.org`
 cache or already in the local store. Commands enforce signature checks, set the
 remote builder list empty and set maximum local build jobs to zero. Cache misses
 fail preparation. The npm bundles are an explicit content-hash verified exception
-from the official npm registry, fetched by Nix evaluation without compilation.
+from the official npm registry, verified against the committed lockfile by the
+Nix-provided Node runtime before extraction into disposable project state. No npm
+archive is compiled or installed into the Nix store.
 No third-party cache, paid service, credentials or new trusted signing key is used.
 
 GitHub Actions caches `/nix` and the Nix evaluation cache under an exact key
@@ -68,9 +78,10 @@ does not depend on an uncached profile symlink in the runner's home directory.
 This is a trusted
 branch-scoped Actions cache, including its Nix executable/database/profile, not
 a new public binary cache. After restoration, preparation verifies the contents
-and trusted signatures of the tools/browser library closures. The two npm source
-paths are also content-verified; their content addresses are the explicit
-exception to signed nixpkgs outputs. This does not claim to independently verify
+and trusted signatures of the tools/browser library closures. The two npm archives
+are independently integrity-verified against the committed lockfile on every
+preparation; they remain the explicit exception to signed nixpkgs outputs. This
+does not claim to independently verify
 the entire Actions cache. Cache restore and post-job saving appear in job timings.
 
 A cold/warm comparison reruns the same PR CI once after its initial cache save,

@@ -46,8 +46,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 12.9.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -74,8 +72,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 12.9.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -104,8 +100,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 12.9.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -139,8 +133,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 12.9.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -164,8 +156,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 12.9.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -194,8 +184,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 12.9.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -221,8 +209,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 12.9.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -261,7 +247,7 @@ jobs:
           path: |
             /nix
             ~/.cache/nix
-          key: nix-e2e-v1-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', '.node_version', 'package.json', 'scripts/install-nix-e2e.sh', 'scripts/nix-e2e.sh', 'scripts/nix-e2e.ts') }}
+          key: nix-e2e-v1-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix', '.node_version', 'package.json', 'scripts/install-nix-e2e.sh', 'scripts/nix-e2e.sh', 'scripts/nix-e2e.ts', 'scripts/pnpm-e2e.ts') }}
 
       - name: Install Nix
         env:

@@ -12,18 +12,10 @@
       browsers = (builtins.fromJSON (builtins.readFile
         "${nixpkgs}/pkgs/development/web/playwright/browsers.json")).browsers;
       driver = pkgs.playwright-driver;
-      # Nixpkgs pnpm is 12.9.0; use the exact published npm bundle without
-      # compiling the newer pnpm Rust implementation or changing packageManager.
-      pnpmVersion = "12.9.1";
-      pnpmSource = assert project.packageManager == "pnpm@${pnpmVersion}";
-        builtins.fetchTarball {
-          url = "https://registry.npmjs.org/pnpm/-/pnpm-${pnpmVersion}.tgz";
-          sha256 = "sha256-J1P3qwPmsq9AXvEuY7ILQnJzi4KffiN+m/viH2D4Wf8=";
-        };
-      pnpmNative = builtins.fetchTarball {
-        url = "https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-${pnpmVersion}.tgz";
-        sha256 = "sha256-BpfzKeM4Qa5DHc6aRgJnm2iMtJd3DRDXrUBU0gr+MgM=";
-      };
+      # Renovate owns packageManager and its archive integrity pins in pnpm-lock.yaml.
+      # Preparation checks them before extracting or running the published binary.
+      pnpmMatch = builtins.match "pnpm@([0-9]+\\.[0-9]+\\.[0-9]+)" project.packageManager;
+      pnpmVersion = assert pnpmMatch != null; builtins.head pnpmMatch;
       packages = {
         node = assert pkgs.nodejs-slim_24.version == nodeVersion; pkgs.nodejs-slim_24;
         headless-shell = assert driver.version == "1.63.0";
@@ -41,7 +33,7 @@
       # Only existing nixpkgs outputs: no custom derivation or browser source build.
       e2eManifest = {
         inherit nodeVersion;
-        inherit pnpmVersion pnpmSource pnpmNative;
+        inherit pnpmVersion;
         playwrightVersion = driver.version;
         headlessShell = browsers.chromium-headless-shell;
         ffmpeg = browsers.ffmpeg;
