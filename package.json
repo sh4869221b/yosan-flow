@@ -36,7 +36,7 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@sveltejs/adapter-cloudflare": "^8.0.0",
-    "@sveltejs/kit": "^3.0.0",
+    "@sveltejs/kit": "^3.0.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@types/node": "^24.19.1",
     "@vitest/coverage-v8": "^5.0.3",
