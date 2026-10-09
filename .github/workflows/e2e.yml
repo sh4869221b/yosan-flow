@@ -25,7 +25,7 @@ jobs:
 
       - name: Restore Nix store
         id: nix-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             /nix
@@ -53,7 +53,7 @@ jobs:
         run: bash scripts/nix-e2e.sh tools
 
       - name: Cache pnpm store
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-nix-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'flake.lock') }}
