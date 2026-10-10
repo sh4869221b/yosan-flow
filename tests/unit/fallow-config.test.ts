@@ -27,6 +27,14 @@ function write(root: string, path: string, content: string): void {
 function fixture(): string {
   const directory = mkdtempSync(join(root, ".tmp-fallow-config-"));
   fixtures.push(directory);
+  // Missing imports must not inherit the parent checkout's .tmp-* gitignore.
+  const initialized = spawnSync("git", ["init", "--quiet"], {
+    cwd: directory,
+    encoding: "utf8",
+    timeout: 15_000,
+  });
+  expect(initialized.error).toBeUndefined();
+  expect(initialized.status, initialized.stderr).toBe(0);
   write(
     directory,
     ".fallowrc.jsonc",

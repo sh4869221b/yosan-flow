@@ -71,6 +71,7 @@ function fixture(prepare?: (directory: string) => void): string {
     "package.json",
     JSON.stringify({
       private: true,
+      scripts: { check: "svelte-kit sync" },
       devDependencies: { "@sveltejs/kit": "*" },
     }),
   );
