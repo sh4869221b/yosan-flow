@@ -170,8 +170,8 @@ importers:
         specifier: ^3.12.4
         version: 3.12.4
       '@lucide/svelte':
-        specifier: ^1.52.0
-        version: 1.52.0(svelte@5.57.2(@typescript-eslint/types@8.71.1))
+        specifier: ^1.53.0
+        version: 1.53.0(svelte@5.57.2(@typescript-eslint/types@8.71.1))
       bits-ui:
         specifier: ^2.19.5
         version: 2.19.5(@internationalized/date@3.12.4)(@sveltejs/kit@3.0.1(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.2(@typescript-eslint/types@8.71.1))(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.71.1))(typescript@6.0.3)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.71.1))
@@ -1228,8 +1228,8 @@ packages:
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
 
-  '@lucide/svelte@1.52.0':
-    resolution: {integrity: sha512-bQ8t3IcZxWqAdmdMZPyZEv8Qf+MDgBAf7n43eRQoXyBeLWr8HWToiMIO6vKlHxC/lnMiCDdTzm09hjy92ch46A==}
+  '@lucide/svelte@1.53.0':
+    resolution: {integrity: sha512-RZTHcLAwwjAz+rO1S4IPQSTzDycGZWhSYa0GS3sXAoJ3GTHdBZyHCXutIxJketIAoaIkcmFK5Ucfo2+WBYpKLA==}
     peerDependencies:
       svelte: ^5
 
@@ -3225,7 +3225,7 @@ snapshots:
 
   '@keyv/serialize@1.1.1': {}
 
-  '@lucide/svelte@1.52.0(svelte@5.57.2(@typescript-eslint/types@8.71.1))':
+  '@lucide/svelte@1.53.0(svelte@5.57.2(@typescript-eslint/types@8.71.1))':
     dependencies:
       svelte: 5.57.2(@typescript-eslint/types@8.71.1)
 
