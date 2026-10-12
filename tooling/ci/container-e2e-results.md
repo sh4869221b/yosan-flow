@@ -104,3 +104,7 @@ read-only home による Docker client metadata 書込み失敗、既存 proxy �
 - `tooling/ci/container/fonts.conf`
 - `tooling/ci/container/image.json`
 - `tooling/ci/container-e2e-results.md`
+
+## Nix 比較の追加調査
+
+追加の実行障害、初回取得／cache 操作の独立計測、再現性・署名・容量・更新待ち・コード量・CachyOS・GitHub Actions の比較は [Nix とコンテナーの比較](nix-container-comparison.md) に保存しました。Nix はこの cloud sandbox で標準 store / namespace の条件を満たせず、cold/warm E2E は未比較です。速度の優劣は断定していません。前回の143件・固定 SHA・計測値を保持しています。
