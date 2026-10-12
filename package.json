@@ -61,7 +61,7 @@
     "bits-ui": "^2.19.5",
     "drizzle-orm": "^0.45.3",
     "effect": "^4.0.2",
-    "@lucide/svelte": "^1.53.0"
+    "@lucide/svelte": "^1.54.0"
   },
   "imports": {
     "#lib/*": "./src/lib/*"
