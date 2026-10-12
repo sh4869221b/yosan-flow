@@ -15,7 +15,7 @@
     "test:unit": "vitest run --passWithNoTests tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:coverage": "vitest run --coverage tests/unit tests/integration",
-    "test:e2e": "svelte-kit sync && playwright test",
+    "test:e2e": "bash scripts/e2e-container.sh",
     "build": "vite build",
     "db:generate": "drizzle-kit generate",
     "db:generate:custom": "drizzle-kit generate --custom",
@@ -31,7 +31,8 @@
     "fallow:dead-code": "svelte-kit sync && fallow dead-code",
     "fallow:dupes": "fallow dupes",
     "fallow:health": "svelte-kit sync && fallow health",
-    "fallow:ci": "svelte-kit sync && node scripts/fallow-ci.ts"
+    "fallow:ci": "svelte-kit sync && node scripts/fallow-ci.ts",
+    "test:e2e:worker": "svelte-kit sync && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",
@@ -53,14 +54,14 @@
     "typescript-eslint": "^8.71.1",
     "vite": "^8.3.3",
     "vitest": "^5.0.3",
-    "wrangler": "^4.148.0"
+    "wrangler": "^4.149.0"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.4",
     "bits-ui": "^2.19.5",
     "drizzle-orm": "^0.45.3",
-    "effect": "^4.0.1",
-    "@lucide/svelte": "^1.52.0"
+    "effect": "^4.0.2",
+    "@lucide/svelte": "^1.53.0"
   },
   "imports": {
     "#lib/*": "./src/lib/*"
