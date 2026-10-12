@@ -1,5 +1,7 @@
 # 案1: Container E2E 試験結果
 
+追記: この文書はローカル段階の記録です。承認後に実施した同条件 GitHub Actions 比較は [hosted 結果](hosted-e2e-comparison.md#hosted-result-2026-10-12-utc) を参照してください。
+
 2026-10-12 UTC、保存済みクラウド環境で実装・実行したローカル試験です。push、PR 作成・編集、マージ、デプロイ、クラウド設定変更は実施していません。
 
 ## 固定した条件
