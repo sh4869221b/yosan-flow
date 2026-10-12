@@ -1,0 +1,237 @@
+name: E2E method comparison
+
+on:
+  push:
+    branches: [codex/experiment-e2e-hosted-comparison]
+    paths:
+      - .github/workflows/e2e-compare.yml
+      - scripts/e2e-compare.ts
+      - scripts/e2e-container*
+      - tooling/ci/container/**
+      - flake.nix
+      - flake.lock
+      - scripts/nix-e2e*
+      - scripts/install-nix-e2e.sh
+      - scripts/pnpm-e2e.ts
+      - .node_version
+      - package.json
+      - pnpm-lock.yaml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: e2e-method-comparison-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  cold:
+    name: Compare cold ${{ matrix.method }} (shard ${{ matrix.shard }}/2)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        method: [nix, container]
+        shard: [1, 2]
+    env:
+      E2E_METHOD: ${{ matrix.method }}
+      E2E_SHARD: ${{ matrix.shard }}
+      E2E_PHASE: cold
+    steps: &comparison-steps
+      - name: Check out exact push SHA
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up common orchestration Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+
+      - name: Record frozen source and hosted runner
+        run: node scripts/e2e-compare.ts runner
+
+      - name: Prepare empty Nix store directory
+        if: ${{ matrix.method == 'nix' }}
+        shell: bash
+        run: |
+          if [ ! -d /nix ]; then
+            sudo install -d -m 0755 -o "$USER" -g "$(id -gn)" /nix
+          fi
+          test -z "$(find /nix -mindepth 1 -maxdepth 1 -print -quit)"
+
+      - name: Download isolated snapshot
+        if: ${{ env.E2E_PHASE == 'warm' }}
+        uses: actions/download-artifact@v7
+        with:
+          name: comparison-cache-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.method }}-${{ matrix.shard }}
+          path: .tmp-e2e-compare/cache
+
+      - name: Verify and restore isolated snapshot
+        if: ${{ env.E2E_PHASE == 'warm' }}
+        run: node scripts/e2e-compare.ts cache-restore
+
+      - name: Install or reuse pinned Nix
+        if: ${{ matrix.method == 'nix' }}
+        env:
+          NIX_CACHE_HIT: ${{ env.E2E_PHASE == 'warm' && 'true' || 'false' }}
+        run: node scripts/e2e-compare.ts exec installer bash scripts/install-nix-e2e.sh
+
+      - name: Prepare signed Nix tools
+        if: ${{ matrix.method == 'nix' }}
+        run: bash scripts/nix-e2e.sh tools
+
+      - name: Install frozen Nix dependencies
+        if: ${{ matrix.method == 'nix' }}
+        run: node scripts/e2e-compare.ts exec dependencies pnpm install --frozen-lockfile --store-dir .tmp-container-store
+
+      - name: Verify Nix runtime and full test inventory
+        if: ${{ matrix.method == 'nix' }}
+        run: node scripts/e2e-compare.ts exec inventory node scripts/e2e-compare.ts installed
+
+      - name: Prepare signed Nix browser and fonts
+        if: ${{ matrix.method == 'nix' }}
+        id: nix-browser
+        background: true
+        run: bash scripts/nix-e2e.sh browsers
+
+      - name: Build Nix E2E application
+        if: ${{ matrix.method == 'nix' }}
+        id: nix-build
+        background: true
+        run: node scripts/e2e-compare.ts exec application-build node scripts/e2e-build.ts build
+
+      - name: Wait for Nix prerequisites
+        if: ${{ matrix.method == 'nix' }}
+        wait: [nix-browser, nix-build]
+
+      - name: Run guarded Nix E2E tests
+        if: ${{ matrix.method == 'nix' }}
+        env:
+          YOSAN_FLOW_E2E_PREBUILT: "1"
+        run: node scripts/e2e-compare.ts exec tests pnpm test:e2e --shard=${{ matrix.shard }}/2
+
+      - name: Run guarded fixed-container E2E
+        if: ${{ matrix.method == 'container' }}
+        env:
+          E2E_COMPARE: "1"
+        run: bash scripts/e2e-container.sh ${{ matrix.shard }}
+
+      - name: Record cache capacity
+        run: node scripts/e2e-compare.ts sizes
+
+      - name: Save isolated cold snapshot
+        if: ${{ env.E2E_PHASE == 'cold' }}
+        run: node scripts/e2e-compare.ts cache-save
+
+      - name: Upload isolated cold snapshot
+        if: ${{ env.E2E_PHASE == 'cold' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comparison-cache-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.method }}-${{ matrix.shard }}
+          path: .tmp-e2e-compare/cache/
+          if-no-files-found: error
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 1
+
+      - name: Upload diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comparison-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.E2E_PHASE }}-${{ matrix.method }}-${{ matrix.shard }}
+          path: |
+            test-results/
+            playwright-report/
+            .tmp-xdg-config/.wrangler/logs/
+            .tmp-nix-e2e/japanese-font.png
+            .tmp-container-e2e/japanese-font.png
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload timings and identities
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comparison-timing-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.E2E_PHASE }}-${{ matrix.method }}-${{ matrix.shard }}
+          path: |
+            test-results/results.json
+            .tmp-e2e-timing.json
+            .tmp-e2e-build.json
+            .tmp-e2e-compare/*.json
+            .tmp-nix-e2e/*-timing.json
+            .tmp-nix-e2e/manifest.json
+            .tmp-container-e2e/*-timing.json
+            .tmp-container-e2e/manifest.json
+            .tmp-container-e2e/runner.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
+  warm:
+    name: Compare warm ${{ matrix.method }} (shard ${{ matrix.shard }}/2)
+    needs: cold
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        method: [nix, container]
+        shard: [1, 2]
+    env:
+      E2E_METHOD: ${{ matrix.method }}
+      E2E_SHARD: ${{ matrix.shard }}
+      E2E_PHASE: warm
+    steps: *comparison-steps
+
+  summary:
+    name: Compare validated E2E methods
+    needs: [cold, warm]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out exact push SHA
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+      - name: Download all timing evidence
+        uses: actions/download-artifact@v7
+        with:
+          pattern: comparison-timing-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: .tmp-comparison-download
+      - name: Validate source, dependencies, counts and runner images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" > .tmp-comparison-download/jobs.json
+          for phase in cold warm; do
+            for method in nix container; do
+              for shard in 1 2; do
+                source=".tmp-comparison-download/comparison-timing-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$phase-$method-$shard"
+                target=".tmp-comparison-download/$phase-$method-$shard"
+                test -d "$source"
+                mv "$source" "$target"
+              done
+            done
+          done
+          node scripts/e2e-compare.ts summary .tmp-comparison-download .tmp-comparison-download/jobs.json
+      - name: Upload validated comparison
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comparison-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .tmp-e2e-compare/summary.json
+            .tmp-comparison-download/jobs.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7

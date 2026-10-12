@@ -178,19 +178,23 @@ describe("CI-only E2E prebuild", () => {
 
 describe("E2E setup workflow contract", () => {
   it.each(["ci", "e2e"])(
-    "runs preparation, build and test in the same fixed container in %s",
+    "waits for successful browser install and same-job build in %s",
     (workflow) => {
       const text = readFileSync(`.github/workflows/${workflow}.yml`, "utf8");
-      expect(text).toMatch(/run: bash scripts\/e2e-container.sh /);
-      expect(text).not.toContain("run: bash scripts/nix-e2e.sh");
-      expect(text).not.toContain("continue-on-error");
-      const inner = readFileSync("scripts/e2e-container-inner.sh", "utf8");
-      expect(inner.indexOf("measure smoke")).toBeLessThan(
-        inner.indexOf("measure build"),
+      expect(text).toContain("run: bash scripts/nix-e2e.sh browsers");
+      expect(text).toMatch(/id: e2e-browser\n\s+background: true/);
+      expect(text).toMatch(
+        /id: e2e-build\n\s+background: true\n\s+run: node scripts\/e2e-build.ts build/,
       );
-      expect(inner).toContain("measure build node scripts/e2e-build.ts build");
-      expect(inner).toContain("export YOSAN_FLOW_E2E_PREBUILT=1");
-      expect(inner).toContain('measure tests pnpm test:e2e "--shard=$shard/2"');
+      expect(text).toContain("wait: [e2e-browser, e2e-build]");
+      expect(text.indexOf("run: pnpm install --frozen-lockfile")).toBeLessThan(
+        text.indexOf("id: e2e-browser"),
+      );
+      expect(text.indexOf("wait: [e2e-browser, e2e-build]")).toBeLessThan(
+        text.indexOf('YOSAN_FLOW_E2E_PREBUILT: "1"'),
+      );
+      expect(text).not.toContain("continue-on-error");
+      expect(text).toMatch(/pnpm test:e2e --shard=.+\/2/);
     },
   );
 

@@ -13,6 +13,15 @@ record_timing() {
   finished=$(date +%s%3N)
   printf '{"stage":"total","startedAt":%s,"completedAt":%s,"status":%s}\n' "$started" "$finished" "$status" > .tmp-container-e2e/total-timing.json
 }
+measure() {
+  local name=$1 start end status
+  shift
+  start=$(date +%s%3N)
+  if "$@"; then status=0; else status=$?; fi
+  end=$(date +%s%3N)
+  printf '{"stage":"%s","startedAt":%s,"completedAt":%s,"status":%s}\n' "$name" "$start" "$end" "$status" > ".tmp-container-e2e/$name-timing.json"
+  return "$status"
+}
 trap record_timing EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
@@ -25,19 +34,25 @@ cp tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf .tmp-containe
 image_key=$(cat tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf tooling/ci/container/image.json .node_version | sha256sum | cut -d' ' -f1)
 image="yosan-flow-e2e:$image_key"
 if [[ -f .tmp-container-cache/image.tar.gz ]]; then
-  docker load --input .tmp-container-cache/image.tar.gz
+  measure image-load docker load --input .tmp-container-cache/image.tar.gz
 fi
 cache_hit=false
 if docker image inspect "$image" >/dev/null 2>&1; then
   cache_hit=true
 else
-  docker build --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY --platform linux/amd64 --build-arg "PLAYWRIGHT_IMAGE=$playwright_image" --build-arg "NODE_IMAGE=$node_image" --tag "$image" .tmp-container-e2e/image-context
+  measure image-pull-playwright docker pull "$playwright_image" &
+  playwright_pull=$!
+  measure image-pull-node docker pull "$node_image" &
+  node_pull=$!
+  wait "$playwright_pull"
+  wait "$node_pull"
+  measure image-build docker build --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY --platform linux/amd64 --build-arg "PLAYWRIGHT_IMAGE=$playwright_image" --build-arg "NODE_IMAGE=$node_image" --tag "$image" .tmp-container-e2e/image-context
 fi
 image_id=$(docker image inspect "$image" --format '{{.Id}}')
 printf '{"image":"%s","imageId":"%s","cacheHit":%s,"shard":%s}\n' "$image" "$image_id" "$cache_hit" "$shard" > .tmp-container-e2e/runner.json
 # Explicit allowlist: existing egress proxy and CI identity only; no cloud tokens.
 environment=()
-for key in CI GITHUB_ACTIONS GITHUB_SHA GITHUB_RUN_ID GITHUB_RUN_ATTEMPT GITHUB_JOB HTTP_PROXY HTTPS_PROXY NO_PROXY NODE_USE_ENV_PROXY; do
+for key in CI GITHUB_ACTIONS GITHUB_SHA GITHUB_RUN_ID GITHUB_RUN_ATTEMPT GITHUB_JOB E2E_COMPARE E2E_METHOD E2E_SHARD HTTP_PROXY HTTPS_PROXY NO_PROXY NODE_USE_ENV_PROXY; do
   if [[ -v $key ]]; then environment+=(--env "$key"); fi
 done
 # Reuse an already configured host egress CA read-only, without installing a
@@ -65,7 +80,7 @@ docker run --rm --init --platform linux/amd64 --shm-size=1g \
   --mount "type=bind,src=$PWD/.tmp-container-store,dst=/pnpm-store" \
   "$image" bash scripts/e2e-container-inner.sh "$shard" || status=$?
 if [[ $status == 0 && ${GITHUB_ACTIONS:-} == true && ! -f .tmp-container-cache/image.tar.gz ]]; then
-  docker save "$image" | gzip > .tmp-container-cache/image.tar.gz.tmp
+  measure image-save bash -c 'set -euo pipefail; docker save "$1" | gzip > "$2"' _ "$image" .tmp-container-cache/image.tar.gz.tmp
   mv .tmp-container-cache/image.tar.gz.tmp .tmp-container-cache/image.tar.gz
 fi
 exit "$status"

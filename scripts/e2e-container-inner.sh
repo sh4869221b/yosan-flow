@@ -15,6 +15,9 @@ measure() {
 measure tools node scripts/e2e-container-prepare.ts
 export PATH="$PWD/.tmp-container-e2e/pnpm:$PATH"
 measure dependencies pnpm install --frozen-lockfile --store-dir /pnpm-store
+if [[ ${E2E_COMPARE:-} == 1 ]]; then
+  measure inventory node scripts/e2e-compare.ts installed
+fi
 measure smoke node scripts/e2e-container-smoke.ts
 if [[ ${GITHUB_ACTIONS:-} == true ]]; then
   measure build node scripts/e2e-build.ts build

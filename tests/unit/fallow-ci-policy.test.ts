@@ -139,7 +139,7 @@ describe("Fallow CI wiring", () => {
     expect(workflow).toContain("steps: &e2e-steps");
     expect(workflow).toContain("steps: *e2e-steps");
     expect(workflow).toContain(
-      "run: bash scripts/e2e-container.sh ${{ env.E2E_SHARD }}",
+      "run: pnpm test:e2e --shard=${{ env.E2E_SHARD }}/2",
     );
     expect(workflow).not.toMatch(/continue-on-error|pull_request_target/);
   });

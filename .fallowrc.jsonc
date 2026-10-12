@@ -18,6 +18,7 @@
         "scripts/e2e-container-config.ts",
         "scripts/e2e-container-prepare.ts",
         "scripts/e2e-container-smoke.ts",
+        "scripts/e2e-compare.ts",
       ],
       "entryPointRole": "support",
       "usedExports": [
