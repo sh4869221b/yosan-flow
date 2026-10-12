@@ -15,6 +15,9 @@
         "scripts/e2e-summary.ts",
         "scripts/ci-changes.ts",
         "scripts/nix-e2e.ts",
+        "scripts/e2e-container-config.ts",
+        "scripts/e2e-container-prepare.ts",
+        "scripts/e2e-container-smoke.ts",
       ],
       "entryPointRole": "support",
       "usedExports": [
