@@ -176,7 +176,7 @@ importers:
         specifier: ^2.19.5
         version: 2.19.5(@internationalized/date@3.12.4)(@sveltejs/kit@3.0.1(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.2(@typescript-eslint/types@8.71.1))(vite@8.3.4(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.71.1))(typescript@6.0.3)(vite@8.3.4(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.71.1))
       drizzle-orm:
-        specifier: ^0.45.3
+        specifier: ^0.45.4
         version: 0.45.4(@cloudflare/workers-types@5.20261009.1)
       effect:
         specifier: ^4.0.2
