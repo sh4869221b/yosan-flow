@@ -65,7 +65,7 @@ it("passes filters literally, supports a full local suite and excludes cloud/app
     readFileSync(join(f.cwd, "docker-args.json"), "utf8"),
   );
   expect(args).toContain(
-    "type=volume,dst=/work/yosan-flow/node_modules,volume-nocopy",
+    `type=bind,src=${f.cwd}/.tmp-container-modules,dst=/work/yosan-flow/node_modules`,
   );
   expect(args.slice(-5)).toEqual([
     "bash",

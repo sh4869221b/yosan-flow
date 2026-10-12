@@ -4,12 +4,16 @@ set -euo pipefail
 # Default local invocation runs the complete suite with the existing single worker.
 node scripts/e2e-container-config.ts >/dev/null
 mkdir -p .tmp-container-e2e .tmp-container-store
+# Owned, disposable dependencies; never mount or replace host node_modules.
+rm -rf .tmp-container-modules
+mkdir -p .tmp-container-modules
 export DOCKER_CONFIG="$PWD/.tmp-container-e2e/docker-config"
 rm -f .tmp-container-e2e/*-timing.json .tmp-container-e2e/manifest.json .tmp-container-e2e/runner.json .tmp-container-e2e/japanese-font.png .tmp-e2e-timing.json .tmp-e2e-build.json
 rm -rf test-results playwright-report
 started=$(date +%s%3N)
 record_timing() {
   status=$?
+  rm -rf .tmp-container-modules || status=1
   printf '{"stage":"total","startedAt":%s,"completedAt":%s,"status":%s}\n' "$started" "$(date +%s%3N)" "$status" > .tmp-container-e2e/total-timing.json
 }
 measure() {
@@ -70,5 +74,5 @@ docker run --rm --init --platform linux/amd64 --shm-size=1g \
   "${environment[@]}" "${certificate[@]}" "${git_metadata[@]}" \
   --mount "type=bind,src=$PWD,dst=/work/yosan-flow" \
   --mount "type=bind,src=$PWD/.tmp-container-store,dst=/pnpm-store" \
-  --mount "type=volume,dst=/work/yosan-flow/node_modules,volume-nocopy" \
+  --mount "type=bind,src=$PWD/.tmp-container-modules,dst=/work/yosan-flow/node_modules" \
   "$image" bash scripts/e2e-container-inner.sh "$@"
