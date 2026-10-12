@@ -106,10 +106,10 @@ digest を review し、binary/smoke/E2E を再検証します。pnpm は manage
 packageManager の更新を再利用します。font/Ubuntu 変更は package pin/config を
 review。`latest` や古い browser、host executable への自動 fallback はありません。
 
-この移行は Playwright 更新を含みません。#522 の Playwright update と #526 の
-lock maintenance は別 PR のままで、merge 後に rebase/再検証が必要です。解決版が
-変わるなら matching image 更新も必要で、npm-only update は fail closed です。
-既存 PR をこの作業で編集・merge せず、比較 PR #527 も閉じません。
+Playwright update は npm の要求版・lock の解決版と official image tag/digest を
+同じ PR で更新して検証します。npm-only update は fail closed です。
+重複する lock maintenance #526 は別 PR として扱い、更新後に rebase/再検証が
+必要です。比較 PR #527 は独立した計測記録として扱います。
 
 CachyOS では Ubuntu userland の隔離が目的ですが、今回の検証環境は cloud Linux
 と hosted Ubuntu です。CachyOS、Podman/rootless、他 architecture は未検証です。
