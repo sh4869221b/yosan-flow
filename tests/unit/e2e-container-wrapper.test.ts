@@ -38,12 +38,17 @@ function fixture() {
   chmodSync(docker, 0o755);
   return {
     cwd,
-    run: (args: string[]) =>
+    run: (args: string[], environment: NodeJS.ProcessEnv = {}) =>
       spawnSync("bash", ["scripts/e2e-container.sh", ...args], {
         cwd,
         encoding: "utf8",
         env: {
           ...process.env,
+          HTTP_PROXY: undefined,
+          HTTPS_PROXY: undefined,
+          NO_PROXY: undefined,
+          NODE_USE_ENV_PROXY: undefined,
+          ...environment,
           PATH: `${bin}:${process.env.PATH}`,
           CLOUDFLARE_API_TOKEN: "secret-fixture-not-forwarded",
           VITE_TEST_SECRET: "another-secret-not-forwarded",
@@ -54,6 +59,57 @@ function fixture() {
 afterEach(() => {
   for (const cwd of fixtures.splice(0))
     rmSync(cwd, { recursive: true, force: true });
+});
+it.each([
+  { HTTP_PROXY: "http://proxy.example:8080" },
+  { HTTPS_PROXY: "http://proxy.example:8080" },
+  {
+    HTTP_PROXY: "http://proxy.example:8080",
+    HTTPS_PROXY: "http://proxy.example:8080",
+    NO_PROXY: "localhost,127.0.0.1",
+  },
+  { HTTPS_PROXY: "http://proxy.example:8080", NODE_USE_ENV_PROXY: "0" },
+  { HTTP_PROXY: "http://proxy.example:8080", NODE_USE_ENV_PROXY: "1" },
+])(
+  "enables container native fetch for forwarded proxies: %j",
+  (environment) => {
+    const f = fixture();
+    const result = f.run([], environment);
+    expect(result.status, result.stderr).toBe(0);
+    const args: string[] = JSON.parse(
+      readFileSync(join(f.cwd, "docker-args.json"), "utf8"),
+    );
+    expect(args.filter((arg) => arg.startsWith("NODE_USE_ENV_PROXY"))).toEqual([
+      "NODE_USE_ENV_PROXY=1",
+    ]);
+    for (const key of Object.keys(environment).filter(
+      (key) => key !== "NODE_USE_ENV_PROXY",
+    ))
+      expect(args).toContain(key);
+  },
+);
+it.each([{}, { NO_PROXY: "localhost" }, { HTTP_PROXY: "", HTTPS_PROXY: "" }])(
+  "does not activate native fetch without a proxy URL: %j",
+  (environment) => {
+    const f = fixture();
+    expect(f.run([], environment).status).toBe(0);
+    const args: string[] = JSON.parse(
+      readFileSync(join(f.cwd, "docker-args.json"), "utf8"),
+    );
+    expect(args.some((arg) => arg.startsWith("NODE_USE_ENV_PROXY"))).toBe(
+      false,
+    );
+  },
+);
+it("preserves an explicit host proxy flag when no proxy URL is forwarded", () => {
+  const f = fixture();
+  expect(f.run([], { NODE_USE_ENV_PROXY: "1" }).status).toBe(0);
+  const args: string[] = JSON.parse(
+    readFileSync(join(f.cwd, "docker-args.json"), "utf8"),
+  );
+  expect(args.filter((arg) => arg.startsWith("NODE_USE_ENV_PROXY"))).toEqual([
+    "NODE_USE_ENV_PROXY",
+  ]);
 });
 
 it("passes filters literally, supports a full local suite and excludes cloud/app credentials", () => {

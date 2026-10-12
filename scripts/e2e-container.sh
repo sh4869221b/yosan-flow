@@ -53,9 +53,15 @@ image_id=$(docker image inspect "$image" --format '{{.Id}}')
 printf '{"image":"%s","imageId":"%s","localImageCacheHit":%s}\n' "$image" "$image_id" "$cache_hit" > .tmp-container-e2e/runner.json
 # Egress proxy and CI identity only. Do not forward cloud credentials or app env.
 environment=()
-for key in CI GITHUB_ACTIONS GITHUB_SHA GITHUB_RUN_ID GITHUB_RUN_ATTEMPT GITHUB_JOB HTTP_PROXY HTTPS_PROXY NO_PROXY NODE_USE_ENV_PROXY; do
+for key in CI GITHUB_ACTIONS GITHUB_SHA GITHUB_RUN_ID GITHUB_RUN_ATTEMPT GITHUB_JOB HTTP_PROXY HTTPS_PROXY NO_PROXY; do
   if [[ -v $key ]]; then environment+=(--env "$key"); fi
 done
+# Native fetch needs explicit proxy activation, even when the host flag is absent.
+if [[ -n ${HTTP_PROXY:-} || -n ${HTTPS_PROXY:-} ]]; then
+  environment+=(--env NODE_USE_ENV_PROXY=1)
+elif [[ -v NODE_USE_ENV_PROXY ]]; then
+  environment+=(--env NODE_USE_ENV_PROXY)
+fi
 certificate=()
 if [[ -n ${NODE_EXTRA_CA_CERTS:-} ]]; then
   test -f "$NODE_EXTRA_CA_CERTS"

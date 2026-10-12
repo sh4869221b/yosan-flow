@@ -28,6 +28,9 @@ E2E checkout に `.env*` / `.dev.vars*`（example 除く）がある場合は、
 worktree を使ってください。未コミット変更を試す場合も env file を含まない
 作業領域が必要です。host の cloud token / app env は container に転送しません。
 CI の E2E checkout は `persist-credentials: false` にし、Git token を残しません。
+HTTP/HTTPS proxy URL を転送する場合は、host の flag の有無にかかわらず
+container 内で `NODE_USE_ENV_PROXY=1` を設定し、bootstrap の native fetch に適用します。
+host の環境や TLS/CA 設定は変更しません。
 
 ```bash
 git worktree add --detach ../yosan-flow-e2e HEAD
