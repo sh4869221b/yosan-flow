@@ -3,6 +3,9 @@
 Issue #472 reduces avoidable runner use, not the duration of an ordinary full CI.
 Hosted measurements, negative controls, and remaining observation limits: [acceptance evidence](acceptance.md).
 
+E2E runtime/image/cache の運用は [Container E2E](container-e2e.md) を参照してください。
+通常開発と非 E2E CI の runner は変更せず、２ shard の gating/Quality 契約を維持します。
+
 ## Documentation allowlist (decided before implementation)
 
 Only `README.md`, `CONTRIBUTING.md`, `DESIGN.md`, `tooling/fallow/README.md`,

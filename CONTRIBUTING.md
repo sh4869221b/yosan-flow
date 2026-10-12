@@ -165,26 +165,27 @@ suppress whole files or run autofix in CI to obtain a pass.
 
 ### E2E timing and baseline
 
-The local Nix candidate and its cache/failure policy are documented in
-[Nix E2E preparation](tooling/ci/nix-e2e.md). It pins matching browser revisions,
-Node, pnpm and Japanese fonts; hosted adoption and performance are pending.
+Local and hosted E2E use the [fixed container runner](tooling/ci/container-e2e.md).
+The normal Node/pnpm development environment and non-E2E CI are unchanged. Run
+`pnpm test:e2e` from a secret-free checkout with Docker/BuildKit available; examples
+and a dedicated worktree procedure are documented there. CI/manual workflows use
+the same wrapper with shards `1/2` and `2/2`. The internal `test:e2e:worker` script
+runs Playwright only inside that container. One worker, local D1 migrations/reset
+and the existing browser/headless settings remain mandatory.
 
-CI prepares only Chromium Headless Shell (plus its dependencies) because the suite
-uses default headless Chromium without a browser channel. If tests later require
-headed Chromium or a channel, review the installation command in both workflows.
-After dependency installation, native GitHub Actions background steps install the
-browser and build the E2E application on the same runner. An explicit `wait`
-requires both to succeed before Playwright starts. Each shard still builds its own
-application and owns its local D1 store; no cross-job build cache is used.
+The official Playwright/Node images use digest pins, Node/pnpm definitions are
+reused, and the resolved Playwright lock version must match the image. Japanese
+fonts, browser version and FFmpeg video are smoke-tested before building. Each
+shard installs, builds and tests in the same container/path. Image tar/gzip cache
+and comparison snapshot artifacts are not used; Actions caches only the pnpm
+store. See the runner guide for distribution/authentication limits and updates.
 
-`YOSAN_FLOW_E2E_PREBUILT=1` is only set for the CI test step. The prebuild manifest
-must match the checkout SHA, run/attempt/job, working directory, Node version,
-build-related environment, served-output digest and original build timing. Missing,
-stale or mismatched evidence fails closed rather than rebuilding or testing stale
-output. Normal `pnpm test:e2e` still builds before migrations and Wrangler startup.
-Do not enable the CI-only flag for local runs. Roll back the optimization by
-removing the two background steps/wait and this flag from both workflows, restoring
-the serial browser install before the unchanged local build path.
+`YOSAN_FLOW_E2E_PREBUILT=1` is set only inside the CI container after a successful
+same-container build. The original SHA/run/attempt/job/cwd/Node/environment/output
+and timing guards remain intact. A local invocation uses the original build path;
+do not set this CI-only flag manually. Generated output is never shared across
+shards, and each shard owns its disposable local D1. Revert this migration as a
+reviewed change for rollback; do not relax the prebuild or reset guards.
 
 Both CI and the manual E2E workflow run shards `1/2` and `2/2` on independent hosted runners, with one Playwright worker and runner-local Wrangler/D1 state per shard. `fail-fast: false` lets the other shard finish after a failure, and `Quality checks` requires both CI shards to succeed. The **E2E timing summary** runs after both shards complete and publishes a separate section for each shard. Open the workflow run's summary or the `Summarize completed E2E job` log for timing, outcome counts and the five slowest individual tests in each shard.
 

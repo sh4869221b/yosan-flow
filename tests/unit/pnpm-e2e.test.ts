@@ -22,15 +22,16 @@ describe("E2E pnpm lockfile pins", () => {
     }
   });
 
-  it("uses a future Renovate update without a separate Nix/workflow pin", () => {
+  it("uses a future Renovate update without a separate container/workflow pin", () => {
     const version = packageManager.slice("pnpm@".length);
     const updatedLock = lockfile.replaceAll(version, "99.0.0");
     expect(
       pnpmSources("pnpm@99.0.0", updatedLock).map(({ version }) => version),
     ).toEqual(["99.0.0", "99.0.0"]);
-    const flake = readFileSync("flake.nix", "utf8");
-    expect(flake).toContain("project.packageManager");
-    expect(flake).not.toMatch(/pnpmVersion = "|pnpm-\$\{pnpmVersion\}\.tgz/);
+    const prepare = readFileSync("scripts/e2e-container-prepare.ts", "utf8");
+    expect(prepare).toContain('readFileSync("package.json", "utf8")');
+    expect(prepare).toContain("packageManager");
+    expect(prepare).not.toMatch(/pnpm@[0-9]/);
     for (const name of ["ci.yml", "renovate-format.yml"]) {
       expect(readFileSync(`.github/workflows/${name}`, "utf8")).not.toMatch(
         /uses: pnpm\/action-setup@[^\n]+\n\s+with:\n\s+version:/,
