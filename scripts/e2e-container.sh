@@ -70,4 +70,5 @@ docker run --rm --init --platform linux/amd64 --shm-size=1g \
   "${environment[@]}" "${certificate[@]}" "${git_metadata[@]}" \
   --mount "type=bind,src=$PWD,dst=/work/yosan-flow" \
   --mount "type=bind,src=$PWD/.tmp-container-store,dst=/pnpm-store" \
+  --mount "type=volume,dst=/work/yosan-flow/node_modules,volume-nocopy" \
   "$image" bash scripts/e2e-container-inner.sh "$@"

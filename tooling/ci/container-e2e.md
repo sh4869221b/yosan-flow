@@ -37,6 +37,8 @@ pnpm test:e2e
 ```
 
 workspace は生成物のため writable、外部 Git metadata は read-only で mount。
+node_modules は anonymous disposable volume（--rm で回収）に分離し、host の
+開発依存を上書きしません。pnpm store だけを専用 bind mount で再利用します。
 一つの container を `/work/yosan-flow` で動かし、呼出し元 UID/GID を使います。
 既存の CI prebuild SHA/run/attempt/job/cwd/Node/env/output digest/timing guard
 は変更しません。CI だけ container 内で build 後に PREBUILT flag を設定します。

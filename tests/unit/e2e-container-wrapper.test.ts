@@ -64,6 +64,9 @@ it("passes filters literally, supports a full local suite and excludes cloud/app
   const args: string[] = JSON.parse(
     readFileSync(join(f.cwd, "docker-args.json"), "utf8"),
   );
+  expect(args).toContain(
+    "type=volume,dst=/work/yosan-flow/node_modules,volume-nocopy",
+  );
   expect(args.slice(-5)).toEqual([
     "bash",
     "scripts/e2e-container-inner.sh",
