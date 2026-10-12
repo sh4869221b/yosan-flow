@@ -14,6 +14,8 @@ record_timing() {
   printf '{"stage":"total","startedAt":%s,"completedAt":%s,"status":%s}\n' "$started" "$finished" "$status" > .tmp-container-e2e/total-timing.json
 }
 trap record_timing EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
 node scripts/e2e-container-config.ts > .tmp-container-e2e/config.json
 playwright_image=$(node scripts/e2e-container-config.ts playwrightImage)
 node_image=$(node scripts/e2e-container-config.ts nodeImage)
@@ -22,8 +24,8 @@ mkdir -p .tmp-container-e2e/image-context
 cp tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf .tmp-container-e2e/image-context/
 image_key=$(cat tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf tooling/ci/container/image.json .node_version | sha256sum | cut -d' ' -f1)
 image="yosan-flow-e2e:$image_key"
-if [[ -f .tmp-container-cache/image.tar ]]; then
-  docker load --input .tmp-container-cache/image.tar
+if [[ -f .tmp-container-cache/image.tar.gz ]]; then
+  docker load --input .tmp-container-cache/image.tar.gz
 fi
 cache_hit=false
 if docker image inspect "$image" >/dev/null 2>&1; then
@@ -45,16 +47,25 @@ if [[ -n ${NODE_EXTRA_CA_CERTS:-} ]]; then
   test -f "$NODE_EXTRA_CA_CERTS"
   certificate=(--mount "type=bind,src=$NODE_EXTRA_CA_CERTS,dst=/tmp/egress-ca.crt,readonly" --env NODE_EXTRA_CA_CERTS=/tmp/egress-ca.crt)
 fi
+# A linked local worktree points to a Git directory outside the checkout.
+# Mount that existing metadata read-only so the prebuild identity can verify HEAD.
+git_metadata=()
+common_directory=$(realpath "$(git rev-parse --git-common-dir)")
+case "$common_directory" in
+  "$PWD"/*) ;;
+  *) git_metadata=(--mount "type=bind,src=$common_directory,dst=$common_directory,readonly") ;;
+esac
 # Private IPC/shared memory rather than modifying host IPC or security settings.
 status=0
 docker run --rm --init --platform linux/amd64 --shm-size=1g \
   --user "$(id -u):$(id -g)" --workdir /work/yosan-flow \
   --env HOME=/tmp --env PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-  "${environment[@]}" "${certificate[@]}" \
+  "${environment[@]}" "${certificate[@]}" "${git_metadata[@]}" \
   --mount "type=bind,src=$PWD,dst=/work/yosan-flow" \
   --mount "type=bind,src=$PWD/.tmp-container-store,dst=/pnpm-store" \
   "$image" bash scripts/e2e-container-inner.sh "$shard" || status=$?
-if [[ ${GITHUB_ACTIONS:-} == true && ! -f .tmp-container-cache/image.tar ]]; then
-  docker save --output .tmp-container-cache/image.tar "$image"
+if [[ $status == 0 && ${GITHUB_ACTIONS:-} == true && ! -f .tmp-container-cache/image.tar.gz ]]; then
+  docker save "$image" | gzip > .tmp-container-cache/image.tar.gz.tmp
+  mv .tmp-container-cache/image.tar.gz.tmp .tmp-container-cache/image.tar.gz
 fi
 exit "$status"

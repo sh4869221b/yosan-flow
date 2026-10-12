@@ -73,7 +73,8 @@ builds, verifies and tests at `/work/yosan-flow`. Playwright still clears its
 own disposable local D1 state, migrates and launches Wrangler with its existing
 reset/local guard. In Actions the existing guarded `e2e-build.ts build` and
 `YOSAN_FLOW_E2E_PREBUILT=1` path are used inside that same container and path.
-Local runs retain the normal Playwright build path. The previous parallel
+Local runs retain the normal Playwright build path. Linked worktrees mount their
+existing external Git metadata read-only for the identity verifier. The previous parallel
 browser/build preparation becomes serial smoke/build; this trades overlap for a
 simple persistent-container identity. No manifest guard is relaxed.
 
@@ -85,9 +86,9 @@ private IPC and `--shm-size=1g`. No privileged mode, added capabilities, sysctl,
 Docker daemon reconfiguration or security-policy change is required. If Docker
 is unavailable or cannot execute, stop rather than altering host permissions.
 
-Actions restores a derived-image tar archive using an exact key covering image
+Actions restores a compressed derived-image tar archive using an exact key covering image
 configuration, Dockerfile, fonts and Node definition; the script loads it, records
-the final image ID and saves a missing archive before returning. The exact pnpm
+the final image ID and atomically saves a missing archive after successful tests before returning. The exact pnpm
 store key also covers the dependency lock. Both shards own their state. Missing
 or unusable archives, unavailable registries or failing verification are errors.
 The image key is identical locally and in CI; installed Node/browser smoke checks
