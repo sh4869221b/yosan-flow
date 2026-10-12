@@ -7,6 +7,7 @@ Yosan Flow は Cloudflare Workers 上で動く、SvelteKit 製の期間単位の
 - Node.js: [.node_version](.node_version) に指定されたバージョンを使用
 - pnpm: [package.json](package.json) の `packageManager` に指定されたバージョンを使用
 - Cloudflare アカウント（D1/Workers 利用時）
+- E2E: Linux amd64 上の Docker/BuildKit（通常の開発には不要）
 
 ## フレームワーク設定
 
@@ -102,11 +103,14 @@ Renovate is configured in `renovate.json`.
 - Core dependencies still require Dependency Dashboard approval for major updates, but their patch/minor updates create PRs automatically after the 3-day release age gate.
 - Core dependencies are the SvelteKit/Svelte/Vite stack, Cloudflare/Wrangler deployment path, Drizzle/Effect server boundary, TypeScript/check/test tooling, and primary Bits UI/date UI dependencies.
 
-E2E を確認する場合:
+E2E を確認する場合（秘密 env file を含まない checkout を使用）:
 
 ```bash
 pnpm test:e2e
 ```
+
+ローカル／CI とも [コンテナー E2E](tooling/ci/container-e2e.md) を使います。
+`.dev.vars` を使う通常開発とは別に、secret-free worktree で検証できます。
 
 Server/API coverage を確認する場合:
 

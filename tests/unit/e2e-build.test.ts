@@ -178,23 +178,30 @@ describe("CI-only E2E prebuild", () => {
 
 describe("E2E setup workflow contract", () => {
   it.each(["ci", "e2e"])(
-    "waits for successful browser install and same-job build in %s",
+    "runs smoke, guarded build and tests in the same container in %s",
     (workflow) => {
       const text = readFileSync(`.github/workflows/${workflow}.yml`, "utf8");
-      expect(text).toContain("run: bash scripts/nix-e2e.sh browsers");
-      expect(text).toMatch(/id: e2e-browser\n\s+background: true/);
-      expect(text).toMatch(
-        /id: e2e-build\n\s+background: true\n\s+run: node scripts\/e2e-build.ts build/,
+      expect(text).toMatch(/run: bash scripts\/e2e-container.sh --shard=.+\/2/);
+      expect(text).toContain("persist-credentials: false");
+      expect(text).not.toMatch(
+        /nix-e2e|Cache E2E image|comparison-cache|continue-on-error/,
       );
-      expect(text).toContain("wait: [e2e-browser, e2e-build]");
-      expect(text.indexOf("run: pnpm install --frozen-lockfile")).toBeLessThan(
-        text.indexOf("id: e2e-browser"),
+      const inner = readFileSync("scripts/e2e-container-inner.sh", "utf8");
+      expect(inner.indexOf("measure smoke")).toBeLessThan(
+        inner.indexOf("measure build"),
       );
-      expect(text.indexOf("wait: [e2e-browser, e2e-build]")).toBeLessThan(
-        text.indexOf('YOSAN_FLOW_E2E_PREBUILT: "1"'),
+      expect(inner).toContain("measure build node scripts/e2e-build.ts build");
+      expect(inner).toContain("export YOSAN_FLOW_E2E_PREBUILT=1");
+      expect(inner).toContain(
+        'measure tests pnpm run test:e2e:worker "$@" --workers=1',
       );
-      expect(text).not.toContain("continue-on-error");
-      expect(text).toMatch(/pnpm test:e2e --shard=.+\/2/);
+      const outer = readFileSync("scripts/e2e-container.sh", "utf8");
+      expect(outer).not.toMatch(/docker save|docker load|image.tar|gzip/);
+      const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+      expect(scripts["test:e2e"]).toBe("bash scripts/e2e-container.sh");
+      expect(scripts["test:e2e:worker"]).toBe(
+        "svelte-kit sync && playwright test",
+      );
     },
   );
 
