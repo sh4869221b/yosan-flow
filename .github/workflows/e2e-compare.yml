@@ -92,21 +92,19 @@ jobs:
         if: ${{ matrix.method == 'nix' }}
         run: node scripts/e2e-compare.ts exec inventory node scripts/e2e-compare.ts installed
 
-      - name: Prepare signed Nix browser and fonts
+      - name: Prepare Nix browser and build concurrently
         if: ${{ matrix.method == 'nix' }}
-        id: nix-browser
-        background: true
-        run: bash scripts/nix-e2e.sh browsers
-
-      - name: Build Nix E2E application
-        if: ${{ matrix.method == 'nix' }}
-        id: nix-build
-        background: true
-        run: node scripts/e2e-compare.ts exec application-build node scripts/e2e-build.ts build
-
-      - name: Wait for Nix prerequisites
-        if: ${{ matrix.method == 'nix' }}
-        wait: [nix-browser, nix-build]
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/nix-e2e.sh browsers &
+          browser=$!
+          node scripts/e2e-compare.ts exec application-build node scripts/e2e-build.ts build &
+          build=$!
+          status=0
+          wait "$browser" || status=1
+          wait "$build" || status=1
+          exit "$status"
 
       - name: Run guarded Nix E2E tests
         if: ${{ matrix.method == 'nix' }}
