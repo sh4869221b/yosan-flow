@@ -9,7 +9,7 @@ source was unchanged from [`aba727b`](https://github.com/sh4869221b/yosan-flow/c
 The original snapshot was taken on 2026-10-02 with #352's tooling configuration and
 `tests/unit/fallow-config.test.ts`. Runtime/package-manager versions come from
 `.node_version` and `package.json#packageManager`; dependencies come from the lockfile.
-The original capture used **3.30.0**. Fallow is now pinned exactly to **3.31.0**
+The original capture used **3.30.0**. Fallow is now pinned exactly to **3.33.0**
 (Node >=22), with the same three-day release-age policy and no exception.
 Renovate can update the exact npm dependency.
 
@@ -191,6 +191,36 @@ separate action/binary version is introduced.
 Renovate PRs must pass the same fixtures and gate. If an update changes JSON contracts,
 detection or baseline identities, inspect every delta and update the runner/docs as
 needed; never refresh baselines automatically or waive failures for a bot PR.
+
+### 3.33.0 duplication identity migration (#536, 2026-10-13)
+
+On source revision `559f6608ec9334d4c57c1646957f3ff7d099f96d`, fresh
+3.32.0 and 3.33.0 raw scans using the same configuration both report schema 10,
+177 files, 21,169 lines, 92,888 tokens, ten groups and twenty instances
+(216 duplicated lines / 577 duplicated tokens). Every group's complete data
+matches except its normalized fingerprint: file paths, start/end lines and
+columns, token/line counts and instance membership are identical. The 3.32.0
+baseline gate matches all ten previously reviewed entries with zero new/stale
+entries, establishing the retained inventory before migration.
+
+[Upstream issue #3290](https://github.com/fallow-rs/fallow/issues/3290) and
+[the fix](https://github.com/fallow-rs/fallow/commit/d98b6789a6d30ddd51347a71916117a2c02a812d)
+replace empty fragment token sequences with lexical fallback tokens. Nine groups
+previously shared the `c77b3abb6f87acd9-rN` bucket. The Svelte/CSS group changes
+from `c7273d1e` to `6c87f7b4`; its unchanged instances are
+`PeriodBoundaryConfirmationDialog.svelte:96-105` and `dialog-surface.css:10-19`.
+The internal tokenizer path for that mixed group was not instrumented; the
+migration relies on the measured identity of its full group data and source
+contents, rather than assuming both instances used the empty-token path.
+
+Only after this comparison, `fallow dupes --no-cache --no-fragments
+--save-baseline tooling/fallow/dupes.baseline.json` saved the ten retained groups.
+Native saving also updates legacy location/raw fingerprint fields to the current
+source positions, including the earlier shared CSS move. All existing exception
+reasons remain applicable. No new clone was accepted, and dead-code/health
+baselines, thresholds, exclusions and gate policy are unchanged. The migrated
+native comparison requires `matched_entries == baseline_entries == 10`, zero
+new/stale entries, and an enforced passing stale-baseline gate.
 
 ## Discovery and exception policy
 
