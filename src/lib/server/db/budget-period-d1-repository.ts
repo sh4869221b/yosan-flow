@@ -27,6 +27,39 @@ export function createD1BudgetPeriodRepository(
   input: CreateD1BudgetPeriodRepositoryInput,
 ): BudgetPeriodRepository {
   const database = createDrizzleD1Database(input.db);
+
+  async function assertNoOverlap(
+    target: { id: string; startDate: string; endDate: string },
+    excludedId?: string,
+  ): Promise<void> {
+    const [overlapped] = await database
+      .select({ id: budget_periods.id })
+      .from(budget_periods)
+      .where(
+        and(
+          excludedId === undefined
+            ? undefined
+            : ne(budget_periods.id, excludedId),
+          lte(budget_periods.start_date, target.endDate),
+          gte(budget_periods.end_date, target.startDate),
+        ),
+      )
+      .limit(1)
+      .all();
+    if (overlapped) {
+      assertPeriodHasNoOverlap(
+        [
+          {
+            id: overlapped.id,
+            startDate: target.startDate,
+            endDate: target.endDate,
+          },
+        ],
+        target,
+      );
+    }
+  }
+
   return {
     findById(id) {
       return Effect.tryPromise({
@@ -108,33 +141,7 @@ export function createD1BudgetPeriodRepository(
             inputRow.startDate,
           );
 
-          const [overlapped] = await database
-            .select({ id: budget_periods.id })
-            .from(budget_periods)
-            .where(
-              and(
-                lte(budget_periods.start_date, inputRow.endDate),
-                gte(budget_periods.end_date, inputRow.startDate),
-              ),
-            )
-            .limit(1)
-            .all();
-          if (overlapped) {
-            assertPeriodHasNoOverlap(
-              [
-                {
-                  id: overlapped.id,
-                  startDate: inputRow.startDate,
-                  endDate: inputRow.endDate,
-                },
-              ],
-              {
-                id: inputRow.id,
-                startDate: inputRow.startDate,
-                endDate: inputRow.endDate,
-              },
-            );
-          }
+          await assertNoOverlap(inputRow);
 
           await database
             .insert(budget_periods)
@@ -207,34 +214,7 @@ export function createD1BudgetPeriodRepository(
             })),
           );
 
-          const [overlapped] = await database
-            .select({ id: budget_periods.id })
-            .from(budget_periods)
-            .where(
-              and(
-                ne(budget_periods.id, inputRow.id),
-                lte(budget_periods.start_date, inputRow.endDate),
-                gte(budget_periods.end_date, inputRow.startDate),
-              ),
-            )
-            .limit(1)
-            .all();
-          if (overlapped) {
-            assertPeriodHasNoOverlap(
-              [
-                {
-                  id: overlapped.id,
-                  startDate: inputRow.startDate,
-                  endDate: inputRow.endDate,
-                },
-              ],
-              {
-                id: inputRow.id,
-                startDate: inputRow.startDate,
-                endDate: inputRow.endDate,
-              },
-            );
-          }
+          await assertNoOverlap(inputRow, inputRow.id);
 
           await database
             .update(budget_periods)
