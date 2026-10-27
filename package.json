@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@internationalized/date": "^3.12.4",
-    "bits-ui": "^2.20.0",
+    "bits-ui": "^2.20.2",
     "drizzle-orm": "^0.45.4",
     "effect": "^4.0.5",
     "@lucide/svelte": "^1.61.0"
