@@ -1,5 +1,3 @@
-@import "./dialog-surface.css";
-
 .day-entry-content .entry-header {
   align-items: center;
   display: flex;
@@ -14,7 +12,7 @@
 
 .day-entry-content .entry-icon {
   align-items: center;
-  background: #e1f0dd;
+  background: var(--accent);
   border-radius: 999px;
   color: var(--icon-foreground);
   display: inline-flex;
@@ -25,7 +23,7 @@
 }
 
 .day-entry-content .eyebrow {
-  color: #357b3d;
+  color: var(--primary);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -33,23 +31,8 @@
   text-transform: uppercase;
 }
 
-.day-entry-content [data-dialog-title] {
-  color: var(--foreground);
-  font-size: 1.45rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.1;
-  margin: 0;
-}
-
-.day-entry-content [data-dialog-description] {
-  color: #67584c;
-  line-height: 1.5;
-  margin: 0;
-}
-
 .day-entry-content .target-date {
-  color: #67584c;
+  color: var(--muted-foreground);
   display: block;
   font-size: 0.86rem;
   font-weight: 800;
@@ -83,9 +66,5 @@
 @media (max-width: 760px) {
   .day-entry-content .entry-header {
     align-items: flex-start;
-  }
-
-  .day-entry-content [data-dialog-title] {
-    font-size: 1.2rem;
   }
 }
