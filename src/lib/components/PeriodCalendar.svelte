@@ -116,8 +116,9 @@
   }
 
   h2 {
-    color: #38291f;
+    color: var(--foreground);
     font-size: 1.05rem;
+    font-weight: 700;
     margin: 0;
   }
 

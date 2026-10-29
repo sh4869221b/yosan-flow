@@ -432,14 +432,32 @@
 
   .missing-history input,
   .missing-history textarea {
+    background: var(--input-background);
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
+    color: var(--foreground);
     font: inherit;
+    padding: 0.65rem 0.75rem;
     width: 100%;
     box-sizing: border-box;
   }
 
+  .missing-history input {
+    min-height: var(--control-height);
+  }
+
+  .missing-history textarea {
+    resize: vertical;
+  }
+
+  .missing-history h3 {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
   .history-panel {
-    border: 1px solid #e7ddd0;
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     display: grid;
     gap: 0.9rem;
     padding: 1rem;
@@ -453,8 +471,9 @@
   }
 
   h2 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1rem;
+    font-weight: 700;
     letter-spacing: 0;
     margin: 0;
   }
@@ -466,15 +485,15 @@
   .history-heading p,
   .status,
   small {
-    color: #76675b;
+    color: var(--muted-foreground);
     font-size: 0.84rem;
   }
 
   .empty-history {
     align-content: center;
     background: #fffaf0;
-    border: 1px dashed #dcccb7;
-    border-radius: 10px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
     display: grid;
     gap: 0.35rem;
     min-height: 13rem;
@@ -483,24 +502,24 @@
   }
 
   .empty-history p {
-    color: #2f2219;
+    color: var(--foreground);
     font-weight: 900;
   }
 
   .error-message {
-    background: #fff1f0;
-    border: 1px solid #efc3bd;
-    border-radius: 10px;
-    color: #9b2c22;
+    background: var(--destructive-subtle);
+    border: 1px solid var(--destructive-border);
+    border-radius: var(--radius-lg);
+    color: var(--destructive);
     font-weight: 800;
     padding: 0.75rem 0.85rem;
   }
 
   .retry-button {
-    background: #fffdf8;
-    border: 1px solid #d9cdbc;
-    border-radius: 8px;
-    color: #2f2219;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--card-foreground);
     cursor: pointer;
     font: inherit;
     font-weight: 900;

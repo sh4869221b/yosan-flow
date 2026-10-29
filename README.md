@@ -18,19 +18,27 @@ SvelteKit の設定は `vite.config.ts` の `sveltekit(...)` にまとめてい�
 設定変更時も型・lint・Fallow と既存のテストをすべて実行してください。
 移行仕様は [SvelteKit の公式ガイド](https://svelte.dev/docs/kit/migrating-to-sveltekit-3) を参照してください。
 
-### スタイルの初期構成
+### スタイルと共通テーマ
 
 Tailwind CSS v4 は開発依存の `tailwindcss` / `@tailwindcss/vite` を通じて生成します。
 ルート `src/routes/+layout.svelte` が `src/app.css` を一度だけ読み込み、追加の DOM
 ラッパーを設けず子ページを描画します。layer 順序は `theme, base, components, utilities`。
-初期段階では theme / utilities だけを読み込み、Preflight は無効です。utility の探索元は
-`src` に限定し、既存のページ・error 画面の `dashboard-shell.css` 読み込みを維持します。
+theme / Preflight / utilities を読み込み、utility の探索元は `src` に限定します。
+`app.css` の `:root` が意味ベースの色・角丸・影・共通余白の正本で、`@theme inline static` が
+同じ値を Tailwind utility へ接続します。`static` は、対応する utility をまだ使っていない
+角丸などの alias も出力し、scoped CSS の `var()` 参照を有効に保ちます。
+背景・文字・日本語フォント・標準フォーカスは
+base が所有し、ページ・error 画面の `dashboard-shell.css` はページ配置を所有します。
+
+Preflight の標準 reset を採用し、行間・box sizing・フォームのフォントを揃えます。
+移行前とのピクセル一致は要求せず、読みやすさ、業務状態の区別、キーボード操作、
+モバイルでの収まりを維持します。見出しの強調や入力欄の表示は各部品で明示します。
 
 既存の layer 外の CSS は通常の utility 宣言より優先されます。例えば `.dashboard-page`
 の padding は `p-0` を追加するだけでは変わりません。移行時は対象の旧宣言を局所的に置換し、
-全体への `!important` 追加で競合を隠さないでください。Preflight の最終方針と共通トークンは
-[#581](https://github.com/sh4869221b/yosan-flow/issues/581) で扱います。
-表示比較・生成 CSS の確認方法は [Styling migration](CONTRIBUTING.md#styling-migration) を参照してください。
+全体への `!important` 追加で競合を隠さないでください。shadcn 部品を導入するときも、この
+テーマと reset を維持します。トークン対応表、所有範囲、表示・生成 CSS の確認方法は
+[Styling migration](CONTRIBUTING.md#styling-migration) を参照してください。
 
 ## セットアップ（ローカル）
 

@@ -118,11 +118,11 @@
 
 <style>
   :global(.action-sheet-trigger) {
-    background: #fffdf8;
-    border: 1px solid #e4ddd2;
-    border-radius: 12px;
-    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-    padding: 1.15rem 1.25rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--elevation-card);
+    padding: var(--panel-padding-block) var(--panel-padding-inline);
   }
 
   :global(.action-sheet-trigger) {
@@ -134,19 +134,19 @@
   }
 
   :global(.action-sheet-trigger svg) {
-    color: #397d3d;
+    color: var(--icon-foreground);
     flex: 0 0 auto;
   }
 
   :global(.action-sheet-trigger) {
-    border-radius: 18px;
+    border-radius: var(--radius-2xl);
     box-sizing: border-box;
-    color: #2f2219;
+    color: var(--card-foreground);
     cursor: pointer;
     font: inherit;
     font-weight: 800;
     min-height: 4.9rem;
-    padding: 0.95rem;
+    padding: var(--panel-padding-mobile);
     text-align: left;
     width: 100%;
   }
@@ -160,6 +160,7 @@
 
   :global(.action-sheet-content [data-dialog-title]) {
     font-size: 1.2rem;
+    font-weight: 700;
     line-height: 1.4;
     margin: 0;
   }
@@ -171,21 +172,21 @@
   }
 
   :global(.action-sheet-close) {
-    background: #f5f1e9;
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
-    color: #2f2219;
+    background: var(--secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--secondary-foreground);
     cursor: pointer;
     flex: 0 0 auto;
     font: inherit;
     font-weight: 800;
-    min-height: 2.65rem;
+    min-height: var(--control-height);
     padding: 0 0.75rem;
   }
 
   :global(.action-sheet-trigger:focus-visible),
   :global(.action-sheet-close:focus-visible) {
-    outline: 3px solid #2f76c2;
+    outline: 3px solid var(--ring);
     outline-offset: 3px;
   }
 </style>

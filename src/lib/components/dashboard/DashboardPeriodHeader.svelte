@@ -80,7 +80,7 @@
 <style>
   .summary-header {
     align-items: center;
-    border-bottom: 1px solid #e9e1d6;
+    border-bottom: 1px solid var(--border);
     display: flex;
     gap: 1.35rem;
     justify-content: space-between;
@@ -95,7 +95,7 @@
   }
 
   .eyebrow {
-    border-right: 1px solid #e4ddd2;
+    border-right: 1px solid var(--border);
     color: #3a2419;
     font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(1.55rem, 3vw, 2.15rem);
@@ -107,6 +107,7 @@
 
   h2 {
     font-size: 1.35rem;
+    font-weight: 700;
     letter-spacing: 0;
     line-height: 1.2;
     margin: 0;
@@ -137,19 +138,16 @@
   }
 
   .period-select .loading-status {
-    color: #76675b;
+    color: var(--muted-foreground);
     font-size: 0.82rem;
   }
 
   select {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
-    box-sizing: border-box;
-    color: #2f2219;
-    font: inherit;
-    max-width: 100%;
-    min-height: 2.65rem;
+    background: var(--input-background);
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
+    color: var(--foreground);
+    min-height: var(--control-height);
     padding: 0 0.85rem;
     width: 100%;
   }

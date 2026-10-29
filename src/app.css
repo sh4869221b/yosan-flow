@@ -1,5 +1,154 @@
 @layer theme, base, components, utilities;
 
-/* Keep Preflight disabled during the initial migration; see issue #581. */
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities) source("./");
+
+@layer base {
+  :root {
+    --font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
+    --background: #f8f5ef;
+    --background-mobile: #f4f1eb;
+    --foreground: #2f2219;
+    --card: #fffdf8;
+    --card-foreground: var(--foreground);
+    --popover: var(--card);
+    --popover-foreground: var(--foreground);
+    --primary: #2f6d3b;
+    --primary-foreground: #fff;
+    --secondary: #f5f1e9;
+    --secondary-foreground: var(--foreground);
+    --muted: #f8f3e9;
+    --muted-foreground: #76675b;
+    --accent: #dcefd7;
+    --accent-foreground: #245f31;
+    --destructive: #9b2c22;
+    --destructive-foreground: #fff;
+    --border: #e4ddd2;
+    --input: #ded3c6;
+    --input-background: #fff;
+    --ring: #2f76c2;
+
+    /* Financial states are independent of actions and validation feedback. */
+    --budget-positive: #3e8445;
+    --budget-used: #3a2a20;
+    --budget-spent: #d96945;
+    --budget-negative: #b4473e;
+    --budget-over: #8b3a3a;
+    --icon-foreground: #397d3d;
+    --destructive-subtle: #fff1f0;
+    --destructive-border: #efc3bd;
+    --success: #276432;
+    --success-subtle: #edf7ea;
+    --success-border: #bad8b7;
+    --planned: #74501b;
+    --planned-subtle: #fff7e8;
+    --planned-border: #ecd6aa;
+    --invalid: #8b3a3a;
+    --invalid-border: #b33a3a;
+    --focus-range: var(--accent-foreground);
+    --focus-summary: var(--icon-foreground);
+    --focus-confirmation: #e1a540;
+
+    --radius: 10px;
+    --panel-radius: 12px;
+    --elevation-card: 0 18px 60px rgba(51, 38, 26, 0.07);
+    --elevation-dialog: 0 24px 80px rgba(51, 38, 26, 0.24);
+    --overlay: rgba(47, 34, 25, 0.56);
+    --panel-padding-block: 1.15rem;
+    --panel-padding-inline: 1.25rem;
+    --panel-padding-mobile: 0.95rem;
+    --page-gutter: 1.35rem;
+    --control-height: 2.65rem;
+  }
+
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-family);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  :where(button, input, select, textarea):disabled,
+  :where(button, input, select, textarea)[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+
+  @media (max-width: 900px) {
+    :root {
+      --page-gutter: 1rem;
+    }
+  }
+
+  @media (max-width: 760px) {
+    :root {
+      --background: var(--background-mobile);
+      --page-gutter: 0.75rem;
+    }
+  }
+}
+
+/* Static keeps aliases available to scoped CSS even before utilities use them. */
+@theme inline static {
+  --font-sans: var(--font-family);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-ring: var(--ring);
+  --color-budget-positive: var(--budget-positive);
+  --color-budget-used: var(--budget-used);
+  --color-budget-spent: var(--budget-spent);
+  --color-budget-negative: var(--budget-negative);
+  --color-budget-over: var(--budget-over);
+  --color-icon-foreground: var(--icon-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-destructive-border: var(--destructive-border);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-border: var(--success-border);
+  --color-planned: var(--planned);
+  --color-planned-subtle: var(--planned-subtle);
+  --color-planned-border: var(--planned-border);
+  --color-invalid: var(--invalid);
+  --color-invalid-border: var(--invalid-border);
+  --color-overlay: var(--overlay);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-panel: var(--panel-radius);
+  --shadow-card: var(--elevation-card);
+  --shadow-dialog: var(--elevation-dialog);
+  --spacing-control: var(--control-height);
+  --spacing-page-gutter: var(--page-gutter);
+}

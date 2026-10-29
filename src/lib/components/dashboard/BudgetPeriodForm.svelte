@@ -185,8 +185,9 @@
 
 <style>
   h2 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1.25rem;
+    font-weight: 700;
     margin: 0;
   }
   form {
@@ -206,42 +207,14 @@
     color: #4d4036;
     font-weight: 700;
   }
-  input,
-  button {
-    border-radius: 8px;
-    box-sizing: border-box;
-    font: inherit;
-    min-height: 2.65rem;
-  }
   input {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    color: #2f2219;
+    background: var(--input-background);
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
+    color: var(--foreground);
+    min-height: var(--control-height);
     min-width: 0;
     padding: 0 0.85rem;
     width: 100%;
-  }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  button {
-    background: #2f6d3b;
-    border: 1px solid #2f6d3b;
-    color: #fff;
-    cursor: pointer;
-    font-weight: 800;
-    padding: 0 1rem;
-  }
-  .cancel {
-    background: #fffdf8;
-    border-color: #ded3c6;
-    color: #4d4036;
-  }
-  button:disabled,
-  button[aria-disabled="true"] {
-    cursor: default;
-    opacity: 0.65;
   }
 </style>

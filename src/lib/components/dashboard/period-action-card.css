@@ -1,9 +1,9 @@
 details.period-action-card {
-  background: #fffdf8;
-  border: 1px solid #e4ddd2;
-  border-radius: 12px;
-  box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-  padding: 1.15rem 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--elevation-card);
+  padding: var(--panel-padding-block) var(--panel-padding-inline);
 }
 
 .period-action-card > summary {
@@ -17,7 +17,7 @@ details.period-action-card {
 }
 
 .period-action-card > summary > svg {
-  color: #397d3d;
+  color: var(--icon-foreground);
   flex: 0 0 auto;
 }
 
@@ -26,7 +26,7 @@ details.period-action-card {
 }
 
 .period-action-card > summary::after {
-  color: #2f2219;
+  color: var(--foreground);
   content: "⌄";
   flex: 0 0 auto;
   font-size: 1.35rem;
@@ -40,7 +40,7 @@ details.period-action-card {
 
 .period-action-card > summary:focus-visible {
   border-radius: 4px;
-  outline: 2px solid #397d3d;
+  outline: 2px solid var(--focus-summary);
   outline-offset: 4px;
 }
 
@@ -52,8 +52,8 @@ details.period-action-card {
 
 @media (max-width: 760px) {
   details.period-action-card {
-    border-radius: 18px;
-    padding: 0.95rem;
+    border-radius: var(--radius-2xl);
+    padding: var(--panel-padding-mobile);
   }
 
   .period-action-card > summary {

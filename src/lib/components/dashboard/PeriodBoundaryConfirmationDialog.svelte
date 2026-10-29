@@ -1,6 +1,7 @@
 <script lang="ts">
   import { AlertDialog } from "bits-ui";
   import type { PeriodBoundaryUpdateProposal } from "#lib/dashboard/period-update-api.ts";
+  import "../dialog-surface.css";
 
   type Props = {
     proposal: PeriodBoundaryUpdateProposal | null;
@@ -90,30 +91,15 @@
 
 <style>
   :global(.period-boundary-overlay) {
-    background: rgba(47, 34, 25, 0.56);
+    background: var(--overlay);
     inset: 0;
     position: fixed;
     z-index: 60;
   }
 
   :global(.period-boundary-content) {
-    background: #fffdf8;
-    border: 1px solid #d8cdbf;
-    border-radius: 14px;
-    box-shadow: 0 24px 80px rgba(51, 38, 26, 0.24);
-    box-sizing: border-box;
-    color: #2f2219;
-    display: grid;
-    gap: 1rem;
-    left: 50%;
-    max-height: calc(100dvh - 2rem);
     max-width: min(36rem, calc(100vw - 2rem));
-    overflow-y: auto;
     padding: 1.5rem;
-    position: fixed;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
     z-index: 61;
   }
 
@@ -137,9 +123,9 @@
   }
 
   dl > div {
-    background: #f8f3e9;
-    border: 1px solid #e4ddd2;
-    border-radius: 10px;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     padding: 0.9rem 1rem;
   }
 
@@ -190,27 +176,27 @@
   }
 
   :global(.period-boundary-actions button) {
-    border: 1px solid #2f6d3b;
-    border-radius: 8px;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-md);
     cursor: pointer;
     font: inherit;
     font-weight: 800;
-    min-height: 2.65rem;
+    min-height: var(--control-height);
     padding: 0 1rem;
   }
 
   :global(.period-boundary-actions [data-alert-dialog-cancel]) {
-    background: #fffdf8;
-    color: #2f6d3b;
+    background: var(--card);
+    color: var(--primary);
   }
 
   :global(.period-boundary-actions [data-alert-dialog-action]) {
-    background: #2f6d3b;
-    color: #fff;
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   :global(.period-boundary-actions button:focus) {
-    outline: 3px solid #e1a540;
+    outline: 3px solid var(--focus-confirmation);
     outline-offset: 3px;
   }
 
@@ -221,7 +207,7 @@
 
   @media (max-width: 520px) {
     :global(.period-boundary-content) {
-      border-radius: 18px;
+      border-radius: var(--radius-2xl);
       max-height: calc(100dvh - 1.5rem);
       max-width: calc(100vw - 1.5rem);
       padding: 1.1rem;

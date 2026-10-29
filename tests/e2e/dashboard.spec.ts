@@ -295,6 +295,10 @@ test("shows total negative adjustment on desktop and hides it when on track", as
   await expect(page.getByTestId("total-negative-adjustment")).toContainText(
     `-${totalAdjustmentYen.toLocaleString("ja-JP")} 円`,
   );
+  await expect(page.getByTestId("total-negative-adjustment")).toHaveCSS(
+    "color",
+    "rgb(180, 71, 62)",
+  );
 
   const onTrackPeriodId = "p-adjustment-total-on-track";
   const onTrackStartDate = addDays(today, 30);
@@ -337,4 +341,40 @@ test("shows total negative adjustment on mobile", async ({ page, request }) => {
   await expect(page.getByTestId("total-negative-adjustment")).toContainText(
     "-9,800 円",
   );
+  await expect(page.getByTestId("total-negative-adjustment")).toHaveCSS(
+    "color",
+    "rgb(180, 71, 62)",
+  );
+});
+
+test("keeps an overspent budget warning readable on desktop and mobile", async ({
+  page,
+  request,
+}) => {
+  const today = getCurrentJstDate();
+  const periodId = "p-overspent-warning";
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate: today,
+    endDate: addDays(today, 29),
+    budgetYen: 120000,
+    dailyTotals: [{ date: today, totalUsedYen: 120500 }],
+  });
+  await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
+  await waitForDashboardReady(page);
+
+  const warning = page
+    .getByRole("region", { name: "予算サマリー" })
+    .getByRole("status");
+  for (const width of [1280, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(warning).toHaveText("予算を 500 円 超過しています。");
+    await expect(warning).toBeVisible();
+    await expect(warning).toHaveCSS("color", "rgb(139, 58, 58)");
+    expect(
+      await warning.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+  }
 });

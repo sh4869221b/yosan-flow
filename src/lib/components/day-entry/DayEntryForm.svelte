@@ -156,16 +156,17 @@
 
 <style>
   .entry-form {
-    border: 1px solid #e7ddd0;
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     display: grid;
     gap: 0.9rem;
     padding: 1rem;
   }
 
   h3 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1rem;
+    font-weight: 700;
     margin: 0;
   }
 
@@ -177,8 +178,8 @@
   }
 
   .money-input {
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
     display: grid;
     grid-template-columns: 3rem minmax(0, 1fr);
     overflow: hidden;
@@ -187,7 +188,7 @@
   .money-input > span {
     align-items: center;
     background: #fbf6ee;
-    border-right: 1px solid #ded3c6;
+    border-right: 1px solid var(--input);
     color: #5d4a3b;
     display: inline-flex;
     font-weight: 900;
@@ -204,10 +205,10 @@
 
   input,
   textarea {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
-    color: #2f2219;
+    background: var(--input-background);
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
+    color: var(--foreground);
     width: 100%;
   }
 
@@ -220,11 +221,15 @@
     padding: 0 0.85rem;
   }
 
+  .money-input input:focus-visible {
+    outline-offset: -2px;
+  }
+
   .error-message {
-    background: #fff1f0;
-    border: 1px solid #efc3bd;
-    border-radius: 10px;
-    color: #9b2c22;
+    background: var(--destructive-subtle);
+    border: 1px solid var(--destructive-border);
+    border-radius: var(--radius-lg);
+    color: var(--destructive);
     font-weight: 800;
     margin: 0;
     padding: 0.75rem 0.85rem;
@@ -244,7 +249,7 @@
 
   button {
     align-items: center;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     display: inline-flex;
     font-weight: 900;
@@ -260,15 +265,15 @@
   }
 
   .primary-button {
-    background: #2f6d3b;
-    border: 1px solid #2f6d3b;
-    color: #fff;
+    background: var(--primary);
+    border: 1px solid var(--primary);
+    color: var(--primary-foreground);
   }
 
   .secondary-button {
-    background: #fffdf8;
-    border: 1px solid #d9cdbc;
-    color: #2f2219;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--card-foreground);
   }
 
   @media (max-width: 760px) {

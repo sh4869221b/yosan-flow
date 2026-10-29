@@ -40,23 +40,24 @@
 
 <style>
   section {
-    background: #fffdf8;
-    border: 1px solid #e4ddd2;
-    border-radius: 14px;
-    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-    color: #2f2219;
-    padding: 1.15rem 1.25rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--elevation-card);
+    color: var(--card-foreground);
+    padding: var(--panel-padding-block) var(--panel-padding-inline);
   }
 
   h2 {
     font-size: 1.1rem;
+    font-weight: 700;
     margin: 0;
   }
 
   @media (max-width: 760px) {
     section {
-      border-radius: 18px;
-      padding: 0.95rem;
+      border-radius: var(--radius-2xl);
+      padding: var(--panel-padding-mobile);
     }
   }
 </style>

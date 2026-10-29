@@ -50,24 +50,26 @@
 
 <style>
   .error-shell {
-    background: #fffdf8;
-    border: 1px solid #e4ddd2;
-    border-radius: 14px;
-    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-    padding: 1.15rem 1.25rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--elevation-card);
+    display: grid;
+    gap: 1rem;
+    justify-items: start;
+    padding: var(--panel-padding-block) var(--panel-padding-inline);
   }
   h1 {
-    margin-top: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
   }
   button {
-    background: #2f6d3b;
-    border: 0;
-    border-radius: 8px;
-    color: #fff;
+    background: var(--primary);
+    border-radius: var(--radius-md);
+    color: var(--primary-foreground);
     cursor: pointer;
-    font: inherit;
     font-weight: 800;
-    min-height: 2.65rem;
+    min-height: var(--control-height);
     padding: 0 1rem;
   }
 </style>

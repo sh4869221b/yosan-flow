@@ -80,12 +80,13 @@ Tailwind CSS v4 uses the `tailwindcss` and `@tailwindcss/vite` development
 dependencies. Keep the existing SvelteKit configuration, Cloudflare adapter and
 proxy, version polling, and Worker output contract when changing the Vite plugin
 configuration. The root `src/routes/+layout.svelte` imports `src/app.css` once and
-renders its children without an extra DOM wrapper. The initial stylesheet is:
+renders its children without an extra DOM wrapper. The stylesheet imports are:
 
 ```css
 @layer theme, base, components, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities) source("./");
 ```
 
@@ -94,19 +95,94 @@ The source path is relative to `src/app.css`, so utility detection starts in
 complete, static utility class names in scanned source. Keep the existing
 `dashboard-shell.css` imports in both `+page.svelte` and `+error.svelte`.
 
-Preflight is deliberately omitted during the initial adoption in
-[#580](https://github.com/sh4869221b/yosan-flow/issues/580). Do not replace these
-imports with the aggregate `@import "tailwindcss"`, which includes Preflight.
-[#581](https://github.com/sh4869221b/yosan-flow/issues/581) owns the final reset
-decision and semantic tokens; this initial configuration is not that decision.
-Component replacement and old-style cleanup belong to the later migration issues.
+### Semantic tokens
+
+`src/app.css` defines canonical values in `:root` within `base`, making them
+available to both the dashboard and portaled dialogs. `@theme inline static` connects
+those values to Tailwind: for example, `--color-primary: var(--primary)` generates
+`bg-primary` / `text-primary`, while scoped CSS uses `var(--primary)` directly.
+Keep `static`: without it, Tailwind can omit aliases such as `--radius-md`,
+`--radius-lg` and `--radius-panel` when no corresponding utility class is used,
+leaving scoped `var()` references unresolved. `static` guarantees alias output;
+canonical values still belong to `:root`.
+Use complete CSS colors, not HSL channel fragments, and do not maintain a second
+palette for shadcn. The token names follow the
+[shadcn-svelte theme convention](https://www.shadcn-svelte.com/docs/theming).
+
+| Role                      | Canonical token and current value                                                                               | Use                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Page                      | `background: #f8f5ef`, `background-mobile: #f4f1eb`, `foreground: #2f2219`                                      | `background` switches to the mobile value at 760px; foreground remains shared           |
+| Raised surfaces           | `card: #fffdf8`, `popover: var(--card)`                                                                         | Each has a foreground alias to `foreground`; dialogs use popover                        |
+| Primary action            | `primary: #2f6d3b`, `primary-foreground: #fff`                                                                  | Save and other primary actions                                                          |
+| Secondary action          | `secondary: #f5f1e9`, `secondary-foreground: var(--foreground)`                                                 | Close/cancel and range-navigation surfaces                                              |
+| Quiet surface and text    | `muted: #f8f3e9`, `muted-foreground: #76675b`                                                                   | Neutral comparisons, metadata and supporting text                                       |
+| Selection                 | `accent: #dcefd7`, `accent-foreground: #245f31`                                                                 | Selected range dates                                                                    |
+| Destructive action        | `destructive: #9b2c22`, `destructive-foreground: #fff`                                                          | Delete confirmation actions                                                             |
+| Borders and inputs        | `border: #e4ddd2`, `input: #ded3c6`, `input-background: #fff`                                                   | `input` is a border color; input fill has a separate role                               |
+| Budget amounts            | `budget-positive: #3e8445`, `budget-used: #3a2a20`                                                              | Allowance/remaining totals and today's used amount                                      |
+| Recorded spending         | `budget-spent: #d96945`                                                                                         | Calendar amounts with a recorded expenditure                                            |
+| Shortfall and excess      | `budget-negative: #b4473e`, `budget-over: #8b3a3a`                                                              | Negative adjustment and the existing over-budget warning                                |
+| Validation                | `invalid: #8b3a3a`, `invalid-border: #b33a3a`                                                                   | Invalid-field messages and borders; message shades are consolidated                     |
+| Destructive feedback      | `destructive-subtle: #fff1f0`, `destructive-border: #efc3bd`                                                    | Error/delete-confirmation surfaces                                                      |
+| Success feedback          | `success: #276432`, `success-subtle: #edf7ea`, `success-border: #bad8b7`                                        | Saved/saving status presentation                                                        |
+| Planned entry             | `planned: #74501b`, `planned-subtle: #fff7e8`, `planned-border: #ecd6aa`                                        | Future-day entry note                                                                   |
+| Icons and focus           | `icon-foreground: #397d3d`, `ring: #2f76c2`                                                                     | Emphasized icons and the standard keyboard outline                                      |
+| Specific focus treatments | `focus-range: var(--accent-foreground)`, `focus-summary: var(--icon-foreground)`, `focus-confirmation: #e1a540` | Existing range, disclosure and boundary-confirmation indicators                         |
+| Radius                    | `radius: 10px`, `panel-radius: 12px`                                                                            | Theme sizes `md/lg/xl/2xl` resolve to 8/10/14/18px; `panel` is 12px                     |
+| Elevation                 | `elevation-card: 0 18px 60px rgba(51, 38, 26, 0.07)`, `elevation-dialog: 0 24px 80px rgba(51, 38, 26, 0.24)`    | Exposed as `shadow-card` and `shadow-dialog`                                            |
+| Overlay                   | `overlay: rgba(47, 34, 25, 0.56)`                                                                               | Dialog backdrop                                                                         |
+| Panel spacing             | `panel-padding-block: 1.15rem`, `panel-padding-inline: 1.25rem`, `panel-padding-mobile: 0.95rem`                | Shared card/dialog padding; sheets also account for safe areas                          |
+| Page and controls         | `page-gutter: 1.35rem` / `1rem` / `0.75rem`, `control-height: 2.65rem`                                          | Gutter changes at 900px/760px; exposed as `page-gutter` and `control` spacing utilities |
+
+All token names in the table have a `--` prefix in CSS. Financial roles remain
+separate from actions and validation even when their current values coincide.
+Token extraction does not add state classification: remaining amounts keep their
+existing presentation, and a spent calendar day does not mean it is over budget.
+Calendar weekday colors, hover/today treatments, gradients and exceptional local
+dimensions remain with their component owners. Tailwind's default spacing unit is
+unchanged. Add a token when it names a shared meaning, rather than converting
+every literal or rounding every dimension to the utility scale.
+
+During the later shadcn initialization, preserve this stylesheet and its token
+values instead of accepting a CLI replacement theme. Add chart, sidebar or dark
+tokens only when a component actually needs them. Basic UI, Dialog/Sheet and
+RangeCalendar replacement remain the responsibility of the later migration issues.
+
+### Reset and ownership
+
+[#581](https://github.com/sh4869221b/yosan-flow/issues/581) adopts the complete
+Preflight reset before component migration. This provides consistent defaults for
+existing controls and future shadcn components. Its `border-box`, inherited
+control fonts, `1.5` default line-height and cleared browser margins are intentional;
+matching the earlier browser-default geometry is not an acceptance condition.
+Do not restore content-box or browser margins globally, or add broad `revert`
+rules solely to reproduce an old screenshot.
+
+The small application base supplies the Japanese font stack, page foreground and
+background, default border color, and a visible `2px` keyboard outline with a
+`2px` offset. Disabled native controls (including `aria-disabled` buttons) use
+reduced opacity and a disabled cursor; existing saving-state rules can override
+these defaults. Bits UI range days own their equivalent disabled treatment.
+Setting border color does not create a border: components still own
+its width and style. Existing component focus rules take precedence where their
+shape or offset matters, including selected calendar cells.
+
+Component CSS owns heading weight/size, intentional content gaps, input surfaces,
+responsive layout and state treatments. Empty/error headings and missing-history
+readonly inputs need explicit presentation because Preflight clears their native
+defaults. The two calendar tables retain their deliberate separate borders and
+cell sizing; history lists and disclosure markers retain their authored rules.
+The page shell owns only page width, centering and token-based padding; body
+defaults and responsive page tokens are owned by `app.css`.
 
 Existing unlayered CSS takes precedence over normal declarations in Tailwind's
 layers. For example, `.dashboard-page` in `dashboard-shell.css` keeps its padding
-of `1.35rem`, `1rem` or `0.75rem` at the existing breakpoints even if `p-0` is
-added. Migrate one property and its responsive/state variants together: replace
+from `--page-gutter` at the existing breakpoints even if `p-0` is added. Migrate
+one property and its responsive/state variants together: replace
 or remove its old declaration locally when a utility takes ownership. Do not add
 blanket `!important` or move all existing CSS into a layer to hide conflicts.
+
+### Styling verification
 
 Verify utility generation and computed styles in both Vite development and the
 built Worker. Browser-only class injection does not generate a utility: any
@@ -118,10 +194,19 @@ without Preflight.
 
 Compare desktop/mobile screenshots and key computed styles using the same seed,
 clock, viewport and loaded fonts. Include body, headings, button/input/textarea,
-native select, calendar, dialogs and mobile sheets. Check initial SSR before
+native select, lists/tables, calendar, dialogs and mobile sheets. Exercise empty,
+loading, invalid, disabled, success and destructive states, including missing
+history while editing. A focused control must have a visible indicator even when
+selected/today states overlap. Check the control's bounds inside its cell, not
+only document overflow. Check initial SSR before
 hydration, hydrated interactions, direct error-page loads, router errors and
 retry/back navigation for missing or accumulating styles. Preserve existing URL,
-focus, loading and `data-testid` contracts. Save comparison evidence separately
+focus, loading and `data-testid` contracts. Use 1280px/375px for main comparisons,
+320px/768px and a wide desktop such as 1600px for overflow, and both sides of the
+760px/900px breakpoints for responsive transitions. Differences in line-height,
+control fonts, palette consolidation and card geometry are expected; review them
+for hierarchy, readability, clipping, reachable actions and state distinction
+instead of requiring zero pixel differences. Save comparison evidence separately
 before another container run clears `test-results` and `playwright-report`.
 
 Run affected specs through the existing container entry point, for example:
@@ -132,6 +217,19 @@ pnpm test:e2e tests/e2e/dashboard-shell.spec.ts tests/e2e/dashboard-hydration.sp
 
 These specs run against the built Worker; they do not replace the separate Vite
 development smoke check. Complete the required quality gates below as well.
+
+The #581 reset decision was checked on 2026-10-29 against the `6c2e13d` baseline:
+33 candidate captures covered the surfaces above, including 25 paired comparisons,
+with no horizontal overflow at the listed widths. Vite and Worker computed styles
+agreed for 25 semantic utility roles, seven reset elements and seven direct alias
+references at desktop/mobile widths. The final fixture-free Worker build retains
+the static aliases. The container E2E suite passed all 152 cases, including visible
+calendar focus, cell bounds, financial feedback, disabled controls and error/retry
+navigation. Local static checks, unit/integration tests and migration verification
+also passed. Pixel equality was deliberately not used as the acceptance criterion;
+the intended changes are the normalized typography, control defaults, palette and
+border-box geometry described above. The GitHub `Quality checks` aggregate remains
+a separate PR gate.
 
 ## Verification
 

@@ -436,8 +436,8 @@
 <style>
   li {
     background: #fffaf0;
-    border: 1px solid #eadcc9;
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     display: grid;
     gap: 0.35rem;
     padding: 0.75rem;
@@ -470,7 +470,7 @@
   .history-input span,
   dt,
   .history-memo span {
-    color: #76675b;
+    color: var(--muted-foreground);
     font-size: 0.78rem;
     font-weight: 800;
   }
@@ -488,7 +488,7 @@
   }
 
   dd {
-    color: #2f2219;
+    color: var(--foreground);
     font-weight: 800;
     margin: 0;
   }
@@ -503,9 +503,9 @@
   }
 
   .delete-confirmation {
-    background: #fff1f0;
-    border: 1px solid #efc3bd;
-    border-radius: 8px;
+    background: var(--destructive-subtle);
+    border: 1px solid var(--destructive-border);
+    border-radius: var(--radius-md);
     display: grid;
     gap: 0.5rem;
     padding: 0.75rem;
@@ -522,10 +522,10 @@
   }
 
   .delete-confirm-button {
-    background: #9b2c22;
-    border: 1px solid #9b2c22;
-    border-radius: 8px;
-    color: #fff;
+    background: var(--destructive);
+    border: 1px solid var(--destructive);
+    border-radius: var(--radius-md);
+    color: var(--destructive-foreground);
     cursor: pointer;
     font: inherit;
     font-weight: 900;
@@ -534,12 +534,12 @@
   }
 
   .error-message {
-    color: #9b2c22;
+    color: var(--destructive);
     font-weight: 800;
   }
 
   .edit-status {
-    color: #276432;
+    color: var(--success);
     font-weight: 800;
   }
 
@@ -559,7 +559,7 @@
 
   button {
     align-items: center;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     display: inline-flex;
     font-weight: 900;
@@ -576,20 +576,20 @@
 
   .icon-button,
   .cancel-button {
-    background: #fffdf8;
-    border: 1px solid #d9cdbc;
-    color: #2f2219;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--card-foreground);
   }
 
   .icon-button.danger {
-    border-color: #efc3bd;
-    color: #9b2c22;
+    border-color: var(--destructive-border);
+    color: var(--destructive);
   }
 
   .save-button {
-    background: #2f6d3b;
-    border: 1px solid #2f6d3b;
-    color: #fff;
+    background: var(--primary);
+    border: 1px solid var(--primary);
+    color: var(--primary-foreground);
   }
 
   .inline-edit {
@@ -605,10 +605,10 @@
 
   input,
   textarea {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
-    color: #2f2219;
+    background: var(--input-background);
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
+    color: var(--foreground);
     padding: 0.65rem 0.75rem;
     width: 100%;
   }
@@ -624,7 +624,7 @@
 
   p,
   time {
-    color: #76675b;
+    color: var(--muted-foreground);
     font-size: 0.84rem;
   }
 
