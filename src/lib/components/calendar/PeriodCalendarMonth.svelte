@@ -189,8 +189,8 @@
   }
 
   button:hover {
-    background: #f4fbf1;
-    border-color: #83a978;
+    background: color-mix(in oklch, var(--accent), var(--card) 50%);
+    border-color: var(--primary);
   }
 
   button:focus-visible {
@@ -217,9 +217,9 @@
   }
 
   .today {
-    background: #f1f8ef;
-    border-color: #7eaa75;
-    box-shadow: inset 0 0 0 1px #7eaa75;
+    background: var(--accent);
+    border-color: var(--primary);
+    box-shadow: inset 0 0 0 1px var(--primary);
     font-weight: 700;
   }
 
