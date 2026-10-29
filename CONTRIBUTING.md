@@ -231,6 +231,57 @@ the intended changes are the normalized typography, control defaults, palette an
 border-box geometry described above. The GitHub `Quality checks` aggregate remains
 a separate PR gate.
 
+### Dialog UI maintenance
+
+`ui/dialog/**` and `ui/alert-dialog/**` contain the acquired Dialog UI. The
+acquisition command, CLI, registry and unmodified hashes are recorded separately
+in `tooling/shadcn/dialog-source.json`; the basic-UI acquisition remains intact.
+Repeat acquisition in a disposable directory following the procedure below,
+using `add dialog alert-dialog --no-deps-install --yes --overwrite`. Overwrite is
+only for staging: this command also regenerates its Button dependency. Do not
+copy that Button, dependency range updates or generated theme changes back over
+the existing basic UI. The CLI version does not pin the live registry.
+
+Current local changes and contracts:
+
+- Content owns exactly one Portal and Overlay. Its `class`, `overlayClass` and
+  `portalProps` are forwarded independently. Root, native refs, heading levels,
+  attributes and lifecycle/event callbacks pass through the wrappers.
+- The generated automatic X button is omitted. Callers own explicit close
+  controls and availability; in particular, day-entry saving prevents closing,
+  while the responsive settings/create panel retains its own close behavior.
+- Dialog Content uses one scroll owner, the existing surface tokens and a
+  centered desktop layout. At `max-width: 760px` it becomes a bottom sheet with
+  dynamic viewport height and safe-area padding. Use the exact media query,
+  since Tailwind's `max-[760px]` is strictly less than 760px and would disagree
+  with the application's `MediaQuery` at the boundary.
+- The surface class constant is shared locally by Dialog and AlertDialog.
+  Overlay/content layers are 50/51 and 60/61 respectively, so a boundary alert
+  remains above an open settings sheet. AlertDialog stays centered on mobile.
+- Title/Description styles use existing tokens. Action/Cancel use the existing
+  `buttonVariants` from `ui/button/button.svelte`, merged through `cn`; Action
+  does not close before the controlled confirmation finishes. Cancel receives
+  initial focus, and caller-owned close autofocus remains authoritative.
+- Imports have explicit `.ts` / `.svelte` extensions. Wrapper prop omissions
+  use local `Omit` types. Unused Header/Footer/Media/Trigger parts, duplicate
+  barrel aliases, animation classes and extra dependencies are omitted.
+  No Sheet package or separate swipe-dismiss behavior is needed for the shared
+  responsive Dialog presentation.
+
+Business components still own session lifetime, saving guards and focus recovery.
+Keep day-entry's conditional mount and date key, and keep desktop
+`details`/`summary` in `ResponsiveActionPanel`. The old shared
+`dialog-surface.css` is removed; the remaining day-entry and disclosure CSS owns
+only their local content, status and marker behavior. Do not restore global
+surface rules that compete with the acquired UI utilities.
+
+Before accepting an update, run the day-entry surface/mobile/session/history
+race, mobile-action-sheet and boundary-confirmation scenarios, including
+GET-only recovery. `dashboard-dialog-adapters.spec.ts` covers resize across
+760/761px, retained drafts, single forms, nonsaving outside-click suppression,
+focus traps and nested alerts. Inspect desktop/mobile height, scrolling, focus
+and stacked surfaces, then run all required gates.
+
 ### Basic UI maintenance
 
 `src/lib/components/ui/**` is project-owned source acquired from shadcn-svelte,

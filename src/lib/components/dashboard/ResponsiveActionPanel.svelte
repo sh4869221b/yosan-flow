@@ -1,8 +1,9 @@
 <script lang="ts">
   import { tick, type Snippet } from "svelte";
   import { MediaQuery } from "svelte/reactivity";
-  import { Dialog } from "bits-ui";
-  import "../dialog-surface.css";
+  import * as Dialog from "#lib/components/ui/dialog/index.ts";
+  import { buttonVariants } from "#lib/components/ui/button/button.svelte";
+  import { cn } from "#lib/utils.ts";
   import "./period-action-card.css";
 
   type Props = {
@@ -53,9 +54,12 @@
 
   function handleCloseAutoFocus(event: Event): void {
     onCloseAutoFocus(event);
-    if (!event.defaultPrevented && !mobile.current) {
+    if (!event.defaultPrevented) {
       event.preventDefault();
-      void tick().then(focusTrigger);
+      void tick().then(() => {
+        // Resizing can remove the element the dialog would otherwise restore.
+        if (!mobile.current || !open) focusTrigger();
+      });
     }
   }
 </script>
@@ -68,39 +72,47 @@
 {#if mobile.current}
   <Dialog.Root bind:open onOpenChange={handleOpenChange}>
     <div data-testid={open ? undefined : testId}>
-      <Dialog.Trigger class="action-sheet-trigger" bind:ref={trigger}>
+      <Dialog.Trigger
+        type="button"
+        class="action-sheet-trigger flex min-h-[4.9rem] w-full items-center gap-3 rounded-2xl border border-border bg-card p-(--panel-padding-mobile) text-left font-extrabold text-card-foreground shadow-card outline-offset-[3px] [&_svg]:shrink-0 [&_svg]:text-icon-foreground"
+        bind:ref={trigger}
+      >
         {@render label()}
       </Dialog.Trigger>
     </div>
     {#if open}
-      <Dialog.Portal>
-        <Dialog.Overlay class="dashboard-dialog-overlay" />
-        <Dialog.Content
-          class="dashboard-dialog-content action-sheet-content"
-          data-testid={sheetTestId}
-          onOpenAutoFocus={focusHeading}
-          onCloseAutoFocus={handleCloseAutoFocus}
-          onInteractOutside={(event) => event.preventDefault()}
-        >
-          <div class="sheet-header">
-            <Dialog.Title level={2} tabindex={-1} bind:ref={heading}>
-              {title}
-            </Dialog.Title>
-            <Dialog.Close class="action-sheet-close">閉じる</Dialog.Close>
-          </div>
-          <Dialog.Description class="action-sheet-description">
-            {description}
-          </Dialog.Description>
-          <div data-testid={testId}>
-            {@render children()}
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
+      <Dialog.Content
+        class="action-sheet-content"
+        overlayClass="dashboard-dialog-overlay"
+        data-testid={sheetTestId}
+        onOpenAutoFocus={focusHeading}
+        onCloseAutoFocus={handleCloseAutoFocus}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
+        <div class="flex items-start justify-between gap-3">
+          <Dialog.Title level={2} tabindex={-1} bind:ref={heading}>
+            {title}
+          </Dialog.Title>
+          <Dialog.Close
+            type="button"
+            class={cn(
+              buttonVariants({ variant: "secondary" }),
+              "shrink-0 px-3 font-extrabold",
+            )}>閉じる</Dialog.Close
+          >
+        </div>
+        <Dialog.Description class="action-sheet-description">
+          {description}
+        </Dialog.Description>
+        <div data-testid={testId}>
+          {@render children()}
+        </div>
+      </Dialog.Content>
     {/if}
   </Dialog.Root>
 {:else}
   <details
-    class="period-action-card"
+    class="period-action-card rounded-panel border border-border bg-card px-(--panel-padding-inline) py-(--panel-padding-block) shadow-card"
     bind:open
     data-testid={testId}
     ontoggle={() => {
@@ -115,78 +127,3 @@
     </div>
   </details>
 {/if}
-
-<style>
-  :global(.action-sheet-trigger) {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-panel);
-    box-shadow: var(--elevation-card);
-    padding: var(--panel-padding-block) var(--panel-padding-inline);
-  }
-
-  :global(.action-sheet-trigger) {
-    align-items: center;
-    display: flex;
-    gap: 0.75rem;
-    list-style: none;
-    min-height: 3.8rem;
-  }
-
-  :global(.action-sheet-trigger svg) {
-    color: var(--icon-foreground);
-    flex: 0 0 auto;
-  }
-
-  :global(.action-sheet-trigger) {
-    border-radius: var(--radius-2xl);
-    box-sizing: border-box;
-    color: var(--card-foreground);
-    cursor: pointer;
-    font: inherit;
-    font-weight: 800;
-    min-height: 4.9rem;
-    padding: var(--panel-padding-mobile);
-    text-align: left;
-    width: 100%;
-  }
-
-  .sheet-header {
-    align-items: flex-start;
-    display: flex;
-    gap: 0.75rem;
-    justify-content: space-between;
-  }
-
-  :global(.action-sheet-content [data-dialog-title]) {
-    font-size: 1.2rem;
-    font-weight: 700;
-    line-height: 1.4;
-    margin: 0;
-  }
-
-  :global(.action-sheet-description) {
-    color: #67584c;
-    line-height: 1.5;
-    margin: 0;
-  }
-
-  :global(.action-sheet-close) {
-    background: var(--secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--secondary-foreground);
-    cursor: pointer;
-    flex: 0 0 auto;
-    font: inherit;
-    font-weight: 800;
-    min-height: var(--control-height);
-    padding: 0 0.75rem;
-  }
-
-  :global(.action-sheet-trigger:focus-visible),
-  :global(.action-sheet-close:focus-visible) {
-    outline: 3px solid var(--ring);
-    outline-offset: 3px;
-  }
-</style>
