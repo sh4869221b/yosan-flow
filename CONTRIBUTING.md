@@ -346,7 +346,9 @@ Local adaptations to retain on updates:
   barrel exports are omitted. Previous/next buttons share one direction-based
   wrapper while retaining each primitive's behavior. Its child snippet applies
   the Japanese label after the primitive's props on the native button, so the
-  default English label cannot overwrite it. An explicit focus outline style
+  default English label cannot overwrite it. Combine the caller's disabled state
+  with the primitive's boundary restriction on that native button, including its
+  ARIA/data disabled attributes. An explicit focus outline style
   overrides the base Button's `outline-none`. The shared component forwards native
   root props, value/placeholder bindings and all three selection callbacks.
 - Preserve `ja-JP`, one month, short weekdays, fixed weeks, prevent-deselect and

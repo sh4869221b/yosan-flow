@@ -11,6 +11,7 @@
   let {
     ref = $bindable(null),
     direction,
+    disabled: callerDisabled = false,
     class: className,
     "aria-label": ariaLabel,
     children,
@@ -38,6 +39,7 @@
 
 <NavigationButton
   bind:ref
+  disabled={callerDisabled}
   class={cn(
     buttonVariants({ variant }),
     "size-(--cell-size) min-h-(--cell-size) p-0 select-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-[color:var(--focus-range)] focus-visible:-outline-offset-3 rtl:rotate-180",
@@ -46,7 +48,15 @@
   {...restProps}
 >
   {#snippet child({ props })}
-    <button {...props} type="button" aria-label={ariaLabel}>
+    {@const disabled = callerDisabled || props.disabled === true}
+    <button
+      {...props}
+      type="button"
+      aria-label={ariaLabel}
+      {disabled}
+      aria-disabled={disabled}
+      data-disabled={disabled ? "" : undefined}
+    >
       {#if children}
         {@render children()}
       {:else}
