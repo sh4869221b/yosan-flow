@@ -179,8 +179,8 @@ importers:
         specifier: ^0.45.4
         version: 0.45.4
       effect:
-        specifier: ^4.0.5
-        version: 4.0.5
+        specifier: ^4.0.6
+        version: 4.0.6
     devDependencies:
       '@playwright/test':
         specifier: ^1.64.1
@@ -1682,8 +1682,8 @@ packages:
       sqlite3:
         optional: true
 
-  effect@4.0.5:
-    resolution: {integrity: sha512-BY4/28NlpOd99yzmV741xbVGmp+1U7tks4oB7F/Png64bTa5tm5eCA6W0RiXsnuLDDoJpjfVSo4Dnq4BZb/89Q==}
+  effect@4.0.6:
+    resolution: {integrity: sha512-Tc3mkzuLR6t6P9dhLt0D2GrxYtmU5td4XEJEiXCmILz53IRIfJyHsKZWjTA3xEjiwpNTtXBgI4iqYPxMztBDrw==}
 
   error-stack-parser-es@1.0.5:
     resolution: {integrity: sha512-5qucVt2XcuGMcEGgWI7i+yZpmpByQ8J1lHhcL7PwqCwu9FPP3VUXzT4ltHe5i2z9dePwEHcDVOAfSnHsOlCXRA==}
@@ -3412,7 +3412,7 @@ snapshots:
 
   drizzle-orm@0.45.4: {}
 
-  effect@4.0.5: {}
+  effect@4.0.6: {}
 
   error-stack-parser-es@1.0.5: {}
 

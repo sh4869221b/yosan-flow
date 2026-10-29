@@ -1,6 +1,6 @@
 import { cloudflareRuntime } from "../helpers/cloudflare-runtime";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { Context, Effect, Exit, Fiber } from "effect";
+import { Cause, Context, Effect, Exit, Fiber } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import {
@@ -179,7 +179,7 @@ describe("request tracing Effect bridge", () => {
     expect(exit).toEqual(Exit.die(defect));
   });
 
-  it("preserves both a typed failure and its finalizer defect", async () => {
+  it("preserves both causes when a finalizer defect elects the typed failure", async () => {
     const error = new Error("private failure");
     const defect = new Error("private finalizer defect");
     const { tracing } = recordingTracing();
@@ -189,8 +189,19 @@ describe("request tracing Effect bridge", () => {
       withTracingEffect(tracing, "summary.calculate", work),
     );
     expect(actual).toEqual(expected);
-    expect(Exit.hasFails(actual)).toBe(true);
+    expect(actual).toEqual(
+      Exit.failCause(Cause.combine(Cause.die(error), Cause.die(defect))),
+    );
+    expect(Exit.hasFails(actual)).toBe(false);
     expect(Exit.hasDies(actual)).toBe(true);
+    const recover = vi.fn(() => Effect.succeed("recovered"));
+    const recovered = await Effect.runPromiseExit(
+      withTracingEffect(tracing, "summary.calculate", work).pipe(
+        Effect.catch(recover),
+      ),
+    );
+    expect(recovered).toEqual(actual);
+    expect(recover).not.toHaveBeenCalled();
   });
 
   it("waits for interrupted work's asynchronous finalizer and closes its span", async () => {

@@ -213,6 +213,8 @@ API / page は request ごとに `tracing-workers.ts` の `getRequestTracing()` 
 
 共通の `TracingAdapter.withSpan` は固定の業務 span 名と任意の属性 supplier を受け取ります。callback に native Span は渡さず、不正な名前では span を作らず work を一度実行し、同期 return / throw と Promise 自体の同一性を維持します。`withTracingEffect` は Effect 実行時に span を開始し、元の成功・失敗・defect を保ったまま完了を待ち、中断時は内部処理の finalizer 完了を待ちます。戻り値やエラーを span 属性やログにコピーしません。
 
+`runApiEffect` は通常の typed error を元の値のまま返却境界へ伝えます。defect または中断を含む失敗は、原因全体を `Error.cause` に保持した内部エラーとして扱い、業務エラーの 4xx に再分類しません。Effect が typed failure と finalizer defect を合成すると、typed failure も Die に昇格します。tracing bridge はこの原因構造を保持し、typed-error recovery が finalizer defect を握りつぶさないことを検証しています。原因を response body・span 属性・ログ payload にコピーしません。
+
 この契約はアプリケーションが作る payload / カスタム span に適用します。Cloudflare が付加する URL・ID・SQL などの標準メタデータは、所有者が承認した例外であり、この sanitizer の対象外です。保存される telemetry 全体の無害化は保証しません。アプリケーション側でこれらの値を payload にコピーすることも禁止します。標準属性は [Cloudflare の Spans and attributes](https://developers.cloudflare.com/workers/observability/traces/spans-and-attributes/) を参照してください。この一覧から D1 の bind 値が SQL に含まれるとは断定しません。
 
 業務 span のコード導入は [#337](https://github.com/sh4869221b/yosan-flow/issues/337)、以下の運用手順と環境検証は [#338](https://github.com/sh4869221b/yosan-flow/issues/338) に対応します。ローカルテストの native fake や過去 PR の記録は、現在の Dashboard と実 trace の確認を代替しません。
