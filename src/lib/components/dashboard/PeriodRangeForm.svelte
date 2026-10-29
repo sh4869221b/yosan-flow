@@ -9,6 +9,7 @@
   import type { PeriodSettingsState } from "#lib/dashboard/period-settings-state.svelte.ts";
   import PeriodRangePicker from "#lib/components/PeriodRangePicker.svelte";
   import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
+  import { Button } from "#lib/components/ui/button/index.ts";
 
   type Props = {
     range: PeriodSettingsState["range"];
@@ -225,10 +226,11 @@
           : "期間の変更を完了できませんでした"}
       </h3>
       {#if confirmation.recovery}
-        <button
+        <Button
+          class="justify-self-start"
           type="button"
           onclick={onretry}
-          disabled={confirmation.refreshing}>最新情報を再取得</button
+          disabled={confirmation.refreshing}>最新情報を再取得</Button
         >
       {/if}
       <p>{confirmation.result.message}</p>
@@ -298,21 +300,21 @@
     <p class="notice">ほかの操作が完了するまでお待ちください。</p>
   {/if}
   <div class="actions">
-    <button
+    <Button
       type="submit"
       data-testid="current-period-range-apply"
       {disabled}
       aria-disabled={submitUnavailable}
       aria-describedby={range.serverError
         ? "range-settings-server-error"
-        : undefined}>{submitLabel}</button
+        : undefined}>{submitLabel}</Button
     >
-    <button
-      class="cancel"
+    <Button
+      variant="outline"
       type="button"
       disabled={disabled || !canReset}
       onclick={reset}
-      >{range.settingChanged ? "最新の期間に戻す" : "キャンセル"}</button
+      >{range.settingChanged ? "最新の期間に戻す" : "キャンセル"}</Button
     >
   </div>
   {#if range.serverError}<p id="range-settings-server-error" role="alert">
@@ -355,8 +357,5 @@
     margin: 0;
     font-size: 1rem;
     font-weight: 700;
-  }
-  .confirmation-error button {
-    justify-self: start;
   }
 </style>

@@ -2,6 +2,9 @@
   import { tick } from "svelte";
   import "./period-settings-form.css";
   import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
 
   type Props = {
     budgetInput: string;
@@ -46,7 +49,7 @@
   );
 
   let form: HTMLFormElement | undefined = $state();
-  let input: HTMLInputElement | undefined = $state();
+  let input: HTMLInputElement | null = $state(null);
   let heading: HTMLHeadingElement | undefined = $state();
   let focusIntent = $state<{
     periodId: string | null;
@@ -138,9 +141,9 @@
       最新の予算が変更されました。最新の予算に戻してから編集してください。
     </p>
   {/if}
-  <label for="budget-settings-input">期間予算 (円)</label>
-  <input
-    bind:this={input}
+  <Label for="budget-settings-input">期間予算 (円)</Label>
+  <Input
+    bind:ref={input}
     id="budget-settings-input"
     type="text"
     inputmode="numeric"
@@ -156,20 +159,20 @@
   {/if}
   {#if dirty}<p class="notice">未保存の変更があります</p>{/if}
   <div class="actions">
-    <button
+    <Button
       type="submit"
       {disabled}
       aria-disabled={!dirty || settingChanged}
       aria-describedby={serverError
         ? "budget-settings-server-error"
-        : undefined}>{submitLabel}</button
+        : undefined}>{submitLabel}</Button
     >
-    <button
-      class="cancel"
+    <Button
+      variant="outline"
       type="button"
       disabled={disabled || !canReset}
       onclick={reset}
-      >{settingChanged ? "最新の予算に戻す" : "キャンセル"}</button
+      >{settingChanged ? "最新の予算に戻す" : "キャンセル"}</Button
     >
   </div>
   {#if serverError}
@@ -202,19 +205,8 @@
     color: #4d4036;
     overflow-wrap: anywhere;
   }
-  label,
   .notice {
     color: #4d4036;
     font-weight: 700;
-  }
-  input {
-    background: var(--input-background);
-    border: 1px solid var(--input);
-    border-radius: var(--radius-md);
-    color: var(--foreground);
-    min-height: var(--control-height);
-    min-width: 0;
-    padding: 0 0.85rem;
-    width: 100%;
   }
 </style>

@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { untrack } from "svelte";
+  import { Label } from "#lib/components/ui/label/index.ts";
+  import * as NativeSelect from "#lib/components/ui/native-select/index.ts";
+
   type HeaderSummary = {
     readonly periodId: string;
     readonly startDate: string;
@@ -32,6 +36,13 @@
     selectPeriod,
   }: Props = $props();
 
+  let selectValue = $state(untrack(() => selectedPeriodId ?? ""));
+
+  $effect(() => {
+    // Roll back both the native selection and its binding after a failed switch.
+    if (!loading) selectValue = selectedPeriodId ?? "";
+  });
+
   function handleSelectPeriod(event: Event): void {
     if (!(event.currentTarget instanceof HTMLSelectElement)) {
       return;
@@ -50,24 +61,26 @@
       </p>
     {/if}
   </div>
-  <label class="period-select">
-    <span>期間を切り替え</span>
-    <select
+  <div class="period-select grid gap-1.5">
+    <Label for="dashboard-period-select">期間を切り替え</Label>
+    <NativeSelect.Root
+      id="dashboard-period-select"
+      class="w-full"
       data-testid="period-select"
-      value={selectedPeriodId ?? ""}
+      bind:value={selectValue}
       onchange={handleSelectPeriod}
       disabled={saving || interactionDisabled || loading}
     >
       {#each periods as period (period.id)}
-        <option value={period.id}>
+        <NativeSelect.Option value={period.id}>
           {period.startDate} - {period.endDate}
-        </option>
+        </NativeSelect.Option>
       {/each}
-    </select>
+    </NativeSelect.Root>
     {#if loading}
       <span class="loading-status" role="status">読み込み中...</span>
     {/if}
-  </label>
+  </div>
 </div>
 
 {#if summary}
@@ -121,35 +134,13 @@
     white-space: nowrap;
   }
 
-  label {
-    color: #4d4036;
-    display: grid;
-    font-weight: 700;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-
   .period-select {
     min-width: min(18rem, 100%);
-  }
-
-  .period-select span {
-    font-size: 0.82rem;
   }
 
   .period-select .loading-status {
     color: var(--muted-foreground);
     font-size: 0.82rem;
-  }
-
-  select {
-    background: var(--input-background);
-    border: 1px solid var(--input);
-    border-radius: var(--radius-md);
-    color: var(--foreground);
-    min-height: var(--control-height);
-    padding: 0 0.85rem;
-    width: 100%;
   }
 
   .period-line {
@@ -196,10 +187,6 @@
 
     .period-line {
       display: none;
-    }
-
-    select {
-      min-height: 2.45rem;
     }
   }
 </style>

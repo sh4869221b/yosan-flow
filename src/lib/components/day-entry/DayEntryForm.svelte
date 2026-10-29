@@ -1,6 +1,10 @@
 <script lang="ts">
   import { Save, X } from "@lucide/svelte";
   import { tick, type Snippet } from "svelte";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
+  import { Textarea } from "#lib/components/ui/textarea/index.ts";
   import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 
   const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
@@ -28,7 +32,7 @@
   }: Props = $props();
 
   let inputError = $state<string | null>(null);
-  let amountInput: HTMLInputElement;
+  let amountInput = $state<HTMLInputElement | null>(null);
   let formHeading: HTMLHeadingElement;
   let saveErrorElement = $state<HTMLParagraphElement>();
   let submitFocusTarget: HTMLElement | null = null;
@@ -73,8 +77,8 @@
     if (parsed == null) {
       inputError = AMOUNT_ERROR;
       await tick();
-      amountInput.focus();
-      amountInput.scrollIntoView({ block: "nearest" });
+      amountInput?.focus();
+      amountInput?.scrollIntoView({ block: "nearest" });
       return;
     }
     inputError = null;
@@ -91,55 +95,59 @@
   <h3 id="day-entry-form-heading" tabindex="-1" bind:this={formHeading}>
     入力内容
   </h3>
-  <label for="day-entry-amount">
-    入力額 (円)
+  <div class="field">
+    <Label for="day-entry-amount">入力額 (円)</Label>
     <span class="money-input">
       <span aria-hidden="true">¥</span>
-      <input
+      <Input
+        class="h-auto min-h-[3.15rem] rounded-none border-0 px-[0.85rem] py-0 text-[1.35rem] font-extrabold shadow-none focus-visible:outline-none focus-visible:ring-0 md:text-[1.35rem]"
         id="day-entry-amount"
         type="text"
         inputmode="numeric"
-        bind:this={amountInput}
+        bind:ref={amountInput}
         bind:value={inputYen}
         aria-invalid={inputError != null}
         aria-describedby={inputError ? "day-entry-amount-error" : undefined}
         oninput={handleAmountInput}
       />
     </span>
-  </label>
+  </div>
   {#if inputError}
     <p id="day-entry-amount-error" class="error-message" role="alert">
       {inputError}
     </p>
   {/if}
 
-  <label for="day-entry-memo">
-    メモ
-    <textarea
+  <div class="field">
+    <Label for="day-entry-memo">メモ</Label>
+    <Textarea
+      class="min-h-[5.2rem]"
       id="day-entry-memo"
-      rows="3"
+      rows={3}
       bind:value={memo}
-      placeholder="例: ランチ、食材の買い物など"></textarea>
-  </label>
+      placeholder="例: ランチ、食材の買い物など"
+    />
+  </div>
 
   {#if preview}
     {@render preview()}
   {/if}
 
   <div class="actions">
-    <button
-      class="secondary-button"
+    <Button
+      variant="outline"
+      class="h-auto min-h-12"
       type="button"
       onclick={handleClose}
       disabled={saving}
     >
       <X size={18} strokeWidth={2.4} aria-hidden="true" />
       閉じる
-    </button>
-    <button class="primary-button" type="submit" disabled={saving}>
+    </Button>
+    <Button class="h-auto min-h-12" type="submit" disabled={saving}>
       <Save size={18} strokeWidth={2.4} aria-hidden="true" />
       {saving ? "保存中..." : "保存する"}
-    </button>
+    </Button>
   </div>
 
   {#if saveError}
@@ -170,9 +178,8 @@
     margin: 0;
   }
 
-  label {
+  .field {
     display: grid;
-    font-weight: 800;
     gap: 0.45rem;
     min-width: 0;
   }
@@ -195,34 +202,9 @@
     justify-content: center;
   }
 
-  input,
-  textarea,
-  button {
-    box-sizing: border-box;
-    font: inherit;
-    max-width: 100%;
-  }
-
-  input,
-  textarea {
-    background: var(--input-background);
-    border: 1px solid var(--input);
-    border-radius: var(--radius-md);
-    color: var(--foreground);
-    width: 100%;
-  }
-
-  .money-input input {
-    border: 0;
-    border-radius: 0;
-    font-size: 1.35rem;
-    font-weight: 800;
-    min-height: 3.15rem;
-    padding: 0 0.85rem;
-  }
-
-  .money-input input:focus-visible {
-    outline-offset: -2px;
+  .money-input:focus-within {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 
   .error-message {
@@ -235,45 +217,10 @@
     padding: 0.75rem 0.85rem;
   }
 
-  textarea {
-    min-height: 5.2rem;
-    padding: 0.75rem 0.85rem;
-    resize: vertical;
-  }
-
   .actions {
     display: grid;
     gap: 0.75rem;
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  }
-
-  button {
-    align-items: center;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    display: inline-flex;
-    font-weight: 900;
-    gap: 0.45rem;
-    justify-content: center;
-    min-height: 3rem;
-    padding: 0 1rem;
-  }
-
-  button:disabled {
-    cursor: wait;
-    opacity: 0.65;
-  }
-
-  .primary-button {
-    background: var(--primary);
-    border: 1px solid var(--primary);
-    color: var(--primary-foreground);
-  }
-
-  .secondary-button {
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--card-foreground);
   }
 
   @media (max-width: 760px) {

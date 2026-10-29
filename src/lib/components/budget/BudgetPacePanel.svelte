@@ -23,9 +23,15 @@
   }
 </script>
 
-<div class="today-pace" data-testid="food-pace-panel">
+<div
+  class="today-pace overflow-hidden rounded-panel border border-border max-[760px]:rounded-xl"
+  data-testid="food-pace-panel"
+>
   <p class="allowance-card">
-    <span class="food-icon" aria-hidden="true">
+    <span
+      class="food-icon rounded-full bg-accent text-icon-foreground"
+      aria-hidden="true"
+    >
       <Utensils size={30} strokeWidth={2.4} />
     </span>
     <span>今日の食費枠</span>
@@ -46,7 +52,10 @@
   </p>
 </div>
 
-<div class="pace-details" class:with-total={pace.totalAdjustmentYen > 0}>
+<div
+  class="pace-details border-t border-border"
+  class:with-total={pace.totalAdjustmentYen > 0}
+>
   <p data-testid="food-pace-status">
     <span>状態</span>
     <strong>{paceStatusLabel}</strong>
@@ -86,15 +95,11 @@
   }
 
   .today-pace {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-panel);
     grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr));
     margin-top: 1rem;
-    overflow: hidden;
   }
 
   .pace-details {
-    border-top: 1px solid var(--border);
     grid-template-columns: repeat(4, minmax(0, 1fr));
     margin-top: 0.95rem;
     padding-top: 0.95rem;
@@ -130,9 +135,6 @@
 
   .food-icon {
     align-items: center;
-    background: var(--accent);
-    border-radius: 999px;
-    color: var(--icon-foreground);
     display: inline-flex;
     font-size: 0.95rem;
     font-weight: 900;
@@ -143,7 +145,7 @@
     width: 3.8rem;
   }
 
-  .today-pace span,
+  .today-pace span:not(.food-icon),
   .pace-details span {
     color: var(--muted-foreground);
     display: block;
@@ -182,7 +184,6 @@
 
   @media (max-width: 760px) {
     .today-pace {
-      border-radius: var(--radius-xl);
       grid-template-columns: repeat(2, minmax(0, 1fr));
       margin-top: 0.7rem;
     }
@@ -235,7 +236,7 @@
       width: 2.75rem;
     }
 
-    .today-pace span,
+    .today-pace span:not(.food-icon),
     .pace-details span {
       font-size: 0.78rem;
     }

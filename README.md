@@ -40,6 +40,14 @@ Preflight の標準 reset を採用し、行間・box sizing・フォームの�
 テーマと reset を維持します。トークン対応表、所有範囲、表示・生成 CSS の確認方法は
 [Styling migration](CONTRIBUTING.md#styling-migration) を参照してください。
 
+基本UIは `src/lib/components/ui` の shadcn-svelte 由来のプロジェクト所有コードです。
+Button / Input / Textarea / Label / Native Select / Card を使い、業務状態や API 操作は
+既存のフォームと controller が所有します。期間切替は native `<select>` のままです。
+配置先は `components.json`、取得元・CLI・生成時のハッシュは
+[`tooling/shadcn/source.json`](tooling/shadcn/source.json) に記録しています。
+更新時は [Basic UI maintenance](CONTRIBUTING.md#basic-ui-maintenance) に従い、
+生成コードとローカル変更を比較してください。
+
 ## セットアップ（ローカル）
 
 ```bash

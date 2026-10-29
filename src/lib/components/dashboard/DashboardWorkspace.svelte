@@ -3,6 +3,8 @@
   import { CalendarDays, CalendarPlus } from "@lucide/svelte";
   import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
   import BudgetSummary from "#lib/components/BudgetSummary.svelte";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import * as Card from "#lib/components/ui/card/index.ts";
   import PeriodCalendar from "#lib/components/PeriodCalendar.svelte";
   import CreatePeriodPanel from "./CreatePeriodPanel.svelte";
   import DashboardPeriodHeader from "./DashboardPeriodHeader.svelte";
@@ -213,65 +215,95 @@
 </script>
 
 {#snippet primaryWorkspace(summary: NonNullable<Controller["summary"]>)}
-  <section class="primary-workspace" aria-label="日別入力">
-    <div class="workspace-heading">
-      <span class="heading-icon" aria-hidden="true">
-        <CalendarDays size={25} strokeWidth={2.4} />
-      </span>
-      <div>
-        <p class="eyebrow">Step 1</p>
-        <h2>カレンダーの日付を選んで入力</h2>
-        <p>日付を押すと、その日の入力と履歴をまとめて確認できます。</p>
-      </div>
-    </div>
-
-    <section aria-labelledby="period-calendar-heading">
-      <h2 id="period-calendar-heading" tabindex="-1">カレンダー</h2>
-      {#key summary.periodId}
-        <PeriodCalendar
-          rows={summary.dailyRows}
-          startDate={summary.startDate}
-          endDate={summary.endDate}
-          {today}
-          disabled={controller.summaryLoading ||
-            controller.periodInteractionDisabled ||
-            summary.periodId !== controller.selectedPeriodId}
-          disabledReason={controller.summaryLoading
-            ? "期間を読み込み中です"
-            : "期間の操作が完了するまで入力できません"}
-          requestEdit={requestCalendarDayEntry}
-        />
-        {#if daySaveSuccess?.periodId === controller.selectedPeriodId}
-          <p data-testid="day-entry-save-status" role="status">
-            {daySaveSuccess.date} の支出を保存しました。
-          </p>
-        {/if}
-      {/key}
-    </section>
+  <section aria-label="日別入力">
+    <Card.Root class="gap-4">
+      <Card.Header>
+        <div class="flex items-center gap-4 max-[760px]:items-start">
+          <span
+            class="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-icon-foreground"
+            aria-hidden="true"
+          >
+            <CalendarDays size={25} strokeWidth={2.4} />
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-extrabold text-primary uppercase">Step 1</p>
+            <h2
+              class="text-[clamp(1.25rem,2vw,1.55rem)] leading-tight font-bold max-[760px]:text-base"
+            >
+              カレンダーの日付を選んで入力
+            </h2>
+            <p class="mt-1.5 text-muted-foreground max-[760px]:hidden">
+              日付を押すと、その日の入力と履歴をまとめて確認できます。
+            </p>
+          </div>
+        </div>
+      </Card.Header>
+      <Card.Content>
+        <section aria-labelledby="period-calendar-heading">
+          <h2 id="period-calendar-heading" class="sr-only" tabindex="-1">
+            カレンダー
+          </h2>
+          {#key summary.periodId}
+            <PeriodCalendar
+              rows={summary.dailyRows}
+              startDate={summary.startDate}
+              endDate={summary.endDate}
+              {today}
+              disabled={controller.summaryLoading ||
+                controller.periodInteractionDisabled ||
+                summary.periodId !== controller.selectedPeriodId}
+              disabledReason={controller.summaryLoading
+                ? "期間を読み込み中です"
+                : "期間の操作が完了するまで入力できません"}
+              requestEdit={requestCalendarDayEntry}
+            />
+            {#if daySaveSuccess?.periodId === controller.selectedPeriodId}
+              <p data-testid="day-entry-save-status" role="status">
+                {daySaveSuccess.date} の支出を保存しました。
+              </p>
+            {/if}
+          {/key}
+        </section>
+      </Card.Content>
+    </Card.Root>
   </section>
 {/snippet}
 
 <section class="workspace-shell">
   {#if initialCreateActive || (controller.periods.length === 0 && !controller.summaryLoading && !controller.summaryError)}
     <section
-      class="empty-state card"
       data-testid="create-period-panel"
       aria-labelledby="empty-period-heading"
     >
-      <span class="heading-icon" aria-hidden="true">
-        <CalendarDays size={25} strokeWidth={2.4} />
-      </span>
-      <p class="eyebrow">Step 1</p>
-      <h1 id="empty-period-heading" tabindex="-1">最初の予算期間を作成</h1>
-      <p>
-        まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。
-      </p>
-      <CreatePeriodPanel
-        variant="empty-state"
-        {controller}
-        onSubmit={() => submitCreate("initial")}
-        onRetry={() => retryCreate("initial")}
-      />
+      <Card.Root class="gap-4">
+        <Card.Header class="gap-3">
+          <span
+            class="inline-flex size-11 items-center justify-center rounded-full bg-accent text-icon-foreground"
+            aria-hidden="true"
+          >
+            <CalendarDays size={25} strokeWidth={2.4} />
+          </span>
+          <p class="text-xs font-extrabold text-primary uppercase">Step 1</p>
+          <h1
+            id="empty-period-heading"
+            class="text-[clamp(1.25rem,2vw,1.55rem)] font-bold"
+            tabindex="-1"
+          >
+            最初の予算期間を作成
+          </h1>
+          <p class="text-muted-foreground">
+            まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。
+          </p>
+        </Card.Header>
+        <Card.Content>
+          <CreatePeriodPanel
+            variant="empty-state"
+            {controller}
+            onSubmit={() => submitCreate("initial")}
+            onRetry={() => retryCreate("initial")}
+          />
+        </Card.Content>
+      </Card.Root>
     </section>
   {:else}
     <DashboardPeriodHeader
@@ -289,13 +321,25 @@
         aria-labelledby="page-error-heading"
         aria-busy={controller.summaryLoading}
       >
-        <h2 id="page-error-heading" tabindex="-1">読み込みに失敗しました</h2>
-        {#if controller.summaryError}
-          <p role="alert">{controller.summaryError}</p>
-        {:else}
-          <p role="status">読み込み中...</p>
-        {/if}
-        <button type="button" onclick={retrySummary}>再読み込み</button>
+        <Card.Root class="gap-3">
+          <Card.Header>
+            <h2
+              id="page-error-heading"
+              class="text-[clamp(1.25rem,2vw,1.55rem)] font-bold"
+              tabindex="-1"
+            >
+              読み込みに失敗しました
+            </h2>
+          </Card.Header>
+          <Card.Content class="grid justify-items-start gap-3">
+            {#if controller.summaryError}
+              <p role="alert">{controller.summaryError}</p>
+            {:else}
+              <p role="status">読み込み中...</p>
+            {/if}
+            <Button type="button" onclick={retrySummary}>再読み込み</Button>
+          </Card.Content>
+        </Card.Root>
       </section>
     {/if}
 
@@ -308,9 +352,11 @@
       {@render primaryWorkspace(controller.summary)}
     {/if}
 
-    <section class="secondary-actions">
+    <section class="grid content-start gap-3">
       <section aria-labelledby="period-settings-heading">
-        <h2 id="period-settings-heading" tabindex="-1">期間設定</h2>
+        <h2 id="period-settings-heading" class="sr-only" tabindex="-1">
+          期間設定
+        </h2>
         <PeriodSettingsPanel {controller} />
       </section>
       <ResponsiveActionPanel
@@ -360,143 +406,9 @@
     grid-column: 1 / -1;
   }
 
-  .primary-workspace {
-    background: var(--card);
-    color: var(--card-foreground);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-panel);
-    box-shadow: var(--elevation-card);
-    padding: var(--panel-padding-block) var(--panel-padding-inline);
-  }
-
-  .empty-state,
-  .workspace-shell > section[aria-labelledby="page-error-heading"] {
-    background: var(--card);
-    color: var(--card-foreground);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-panel);
-    box-shadow: var(--elevation-card);
-    display: grid;
-    gap: 0.75rem;
-    padding: var(--panel-padding-block) var(--panel-padding-inline);
-  }
-
-  #empty-period-heading,
-  #page-error-heading {
-    font-size: clamp(1.25rem, 2vw, 1.55rem);
-    font-weight: 700;
-  }
-
-  .workspace-shell > section[aria-labelledby="page-error-heading"] > button {
-    justify-self: start;
-  }
-
-  .empty-state p {
-    color: var(--muted-foreground);
-  }
-
-  #period-settings-heading,
-  #period-calendar-heading {
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    padding: 0;
-    position: absolute;
-    width: 1px;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-
-  button {
-    background: var(--primary);
-    border-radius: var(--radius-md);
-    color: var(--primary-foreground);
-    cursor: pointer;
-    font-weight: 800;
-    min-height: var(--control-height);
-    padding: 0 1rem;
-  }
-
-  .workspace-heading {
-    align-items: center;
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 0.9rem;
-  }
-
-  .workspace-heading > div {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .heading-icon {
-    align-items: center;
-    background: #e1f0dd;
-    border-radius: 999px;
-    color: var(--icon-foreground);
-    display: inline-flex;
-    flex: 0 0 auto;
-    height: 2.75rem;
-    justify-content: center;
-    width: 2.75rem;
-  }
-
-  .workspace-heading h2 {
-    color: var(--card-foreground);
-    font-size: clamp(1.25rem, 2vw, 1.55rem);
-    font-weight: 700;
-    letter-spacing: 0;
-    line-height: 1.1;
-    margin: 0;
-  }
-
-  .workspace-heading p {
-    color: var(--muted-foreground);
-    margin: 0;
-  }
-
-  .workspace-heading div > p:not(.eyebrow) {
-    margin-top: 0.35rem;
-  }
-
-  .eyebrow {
-    color: #357b3d;
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0;
-    text-transform: uppercase;
-  }
-
-  .secondary-actions {
-    display: grid;
-    gap: 0.75rem;
-    align-content: start;
-  }
-
   @media (max-width: 900px) {
     .workspace-shell {
       grid-template-columns: 1fr;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .primary-workspace {
-      border-radius: var(--radius-2xl);
-      padding: var(--panel-padding-mobile);
-    }
-
-    .workspace-heading {
-      align-items: flex-start;
-      display: flex;
-    }
-
-    .workspace-heading h2 {
-      font-size: 1.05rem;
-      line-height: 1.25;
-    }
-
-    .workspace-heading div > p:not(.eyebrow) {
-      display: none;
     }
   }
 </style>

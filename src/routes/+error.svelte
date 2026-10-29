@@ -2,6 +2,8 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import * as Card from "#lib/components/ui/card/index.ts";
   import "#lib/components/dashboard/dashboard-shell.css";
 
   let retrying = $state(false);
@@ -39,37 +41,19 @@
 </script>
 
 <main class="dashboard-page">
-  <section class="error-shell" aria-labelledby="page-error-heading">
-    <h1 id="page-error-heading" tabindex="-1">読み込みに失敗しました</h1>
-    <p>{page.error?.message ?? "ページを読み込めませんでした。"}</p>
-    <button type="button" aria-disabled={retrying} onclick={retry}
-      >再読み込み</button
-    >
+  <section aria-labelledby="page-error-heading">
+    <Card.Root class="gap-4">
+      <Card.Header>
+        <h1 id="page-error-heading" class="text-2xl font-bold" tabindex="-1">
+          読み込みに失敗しました
+        </h1>
+      </Card.Header>
+      <Card.Content class="grid justify-items-start gap-4">
+        <p>{page.error?.message ?? "ページを読み込めませんでした。"}</p>
+        <Button type="button" aria-disabled={retrying} onclick={retry}>
+          再読み込み
+        </Button>
+      </Card.Content>
+    </Card.Root>
   </section>
 </main>
-
-<style>
-  .error-shell {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--elevation-card);
-    display: grid;
-    gap: 1rem;
-    justify-items: start;
-    padding: var(--panel-padding-block) var(--panel-padding-inline);
-  }
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-  }
-  button {
-    background: var(--primary);
-    border-radius: var(--radius-md);
-    color: var(--primary-foreground);
-    cursor: pointer;
-    font-weight: 800;
-    min-height: var(--control-height);
-    padding: 0 1rem;
-  }
-</style>
