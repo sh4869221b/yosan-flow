@@ -321,6 +321,68 @@ classes with `cn` when accepting caller classes. Keep new wrapper-specific prop
 omissions local with TypeScript's `Omit` rather than adding unused utility types
 to the shared module solely to match an upstream barrel.
 
+### Range calendar maintenance
+
+`ui/range-calendar/**` owns the shadcn-svelte presentation and the internal Bits UI
+boundary. `PeriodRangeCalendar.svelte` adapts its native start/end/complete callbacks
+to the period form, using `period-range-selection.ts`. The picker still owns raw
+text conversion, and `period-range-state.ts` owns parsing and validation.
+
+The acquisition command, CLI/style settings and untouched generated file hashes
+are recorded in `tooling/shadcn/range-calendar-source.json`. Follow the isolated
+acquisition workflow above, substituting `add range-calendar` and using
+`--overwrite` only in the disposable staging directory. The CLI also generates a
+Button dependency and proposes manifest changes: compare these, but preserve the
+application's existing Button, utilities, dependency versions and theme. Never
+copy a whole generated dependency tree onto the application checkout.
+
+Local adaptations to retain on updates:
+
+- Keep imports explicit, using `#lib/utils.ts` and the existing
+  `ui/button/button.svelte` variant exports. Use local `Omit` types for snippet
+  omissions rather than expanding shared utilities.
+- Keep only consumed parts. The application uses a heading with previous/next
+  controls; caption dropdowns, month/year selects and their unused containers or
+  barrel exports are omitted. Previous/next buttons share one direction-based
+  wrapper while retaining each primitive's behavior. Its child snippet applies
+  the Japanese label after the primitive's props on the native button, so the
+  default English label cannot overwrite it. An explicit focus outline style
+  overrides the base Button's `outline-none`. The shared component forwards native
+  root props, value/placeholder bindings and all three selection callbacks.
+- Preserve `ja-JP`, one month, short weekdays, fixed weeks, prevent-deselect and
+  the Japanese navigation labels at the business adapter. The shared heading
+  uses the primitive's locale formatting. The DOM order remains manual inputs,
+  previous month, next month, then the active day.
+- The table fills available width. Day controls have at least the existing 42px
+  height, with an inset keyboard outline using `--focus-range`. Focused endpoints
+  use `--primary-foreground` for a clear outline against their primary background.
+  The existing semantic tokens own selection, endpoints, today, disabled text and
+  focus; no dark theme or animation dependency is required. Styles are local to
+  the acquired components, not global selectors targeting every
+  `[data-range-calendar-*]` element.
+- Preserve partial publication immediately after a new start. Matching complete
+  values are published only after the start/end callbacks agree. Re-selecting the
+  same start retains the existing microtask so the final end callback in that
+  turn can distinguish clearing from same-day completion. Parent range updates
+  synchronize the adapter; raw invalid input and disabled state remain owned by
+  the form. Do not replace this contract with only `onValueChange` or add another
+  deferred notification layer.
+
+`period-range-selection.test.ts` protects publication order, stale complete values,
+parent resets and disabled state. `period-range-picker.spec.ts` covers raw input,
+partial/same-day selection, repeated starts, rapid ranges, keyboard navigation,
+parent period changes and mobile dimensions. For an upstream update, compare the
+actual browser callback and publication sequences before and after the change,
+then run the focused calendar/settings/create/boundary E2E and all quality gates.
+Temporary measurement hooks must not be added to product routes or controllers.
+
+The budget display calendar remains a separate native-button implementation.
+Its roving tabindex, selected/focused date, `aria-disabled`, month navigation and
+day-presentation rules stay with that component. Surface, hover, today, selection
+and financial colors use the existing tokens. Weekend colors and complex cell
+geometry remain local; a recorded expenditure does not introduce a new
+overspending classification. Dialog and sheet behavior is owned by #583.
+
 ## Verification
 
 Format files before opening a review:

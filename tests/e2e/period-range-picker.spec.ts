@@ -153,6 +153,71 @@ test("calendar sync publishes a partial selection without retaining the old end"
   ).toHaveAttribute("data-selected", "");
 });
 
+for (const scenario of [
+  {
+    name: "completes the reselected start as a same-day range",
+    dates: ["2026-09-01"],
+    start: "2026-09-01",
+    end: "2026-09-01",
+  },
+  {
+    name: "keeps successive completed ranges independent",
+    dates: ["2026-09-03", "2026-09-10", "2026-09-12"],
+    start: "2026-09-10",
+    end: "2026-09-12",
+  },
+]) {
+  test(`calendar clears the old end when reselecting its start and ${scenario.name}`, async ({
+    page,
+    request,
+  }) => {
+    const periodId = "p-range-calendar-reselect";
+    await seedPeriod(request, getBaseUrl(), {
+      periodId,
+      startDate: "2026-09-01",
+      endDate: "2026-09-30",
+      budgetYen: 120000,
+    });
+    await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
+    await waitForDashboardReady(page);
+    await page.getByText("期間の日付や予算を変更する").click();
+
+    let mutations = 0;
+    page.on("request", (request) => {
+      if (
+        request.method() === "PUT" &&
+        request.url() === `${getBaseUrl()}/api/periods/${periodId}`
+      ) {
+        mutations += 1;
+      }
+    });
+    const start = page.getByTestId("current-period-range-start");
+    const end = page.getByTestId("current-period-range-end");
+    const calendar = page.locator("[data-range-calendar-root]").first();
+    const day = (date: string) =>
+      calendar.locator(`[data-range-calendar-day][data-value="${date}"]`);
+
+    await day("2026-09-01").click();
+    await expect(start).toHaveValue("2026-09-01");
+    await expect(end).toHaveValue("");
+    await page.getByTestId("current-period-range-apply").click();
+    await expect(end).toHaveAttribute("aria-invalid", "true");
+    expect(mutations).toBe(0);
+
+    // Keep successive interactions together without waiting on intermediate
+    // field assertions, so a queued old end cannot overwrite a later range.
+    for (const date of scenario.dates) await day(date).click();
+
+    await expect(start).toHaveValue(scenario.start);
+    await expect(end).toHaveValue(scenario.end);
+    await expect(end).toHaveAttribute("aria-invalid", "false");
+    await expect(day(scenario.start)).toHaveAttribute("data-selected", "");
+    await expect(day(scenario.end)).toHaveAttribute("data-selected", "");
+    await expect(day("2026-09-30")).not.toHaveAttribute("data-selected", "");
+    expect(mutations).toBe(0);
+  });
+}
+
 test("calendar starts a fresh range from invalid and reversed controlled raw values", async ({
   page,
   request,
@@ -259,15 +324,15 @@ test("calendar keyboard follows the manual inputs and updates the controlled ran
   const start = page.getByTestId("current-period-range-start");
   const end = page.getByTestId("current-period-range-end");
   const calendar = page.locator("[data-range-calendar-root]").first();
-  const previousMonth = calendar.locator("button").first();
-  const nextMonth = calendar.locator("button").last();
+  const previousMonth = calendar.getByRole("button", { name: "前の月" });
+  const nextMonth = calendar.getByRole("button", { name: "次の月" });
   await start.focus();
   await start.press("Tab");
   await expect(end).toBeFocused();
   await end.press("Tab");
-  await expect(previousMonth).toBeFocused();
+  await expectVisibleCalendarFocus(previousMonth, "rgb(36, 95, 49)");
   await page.keyboard.press("Tab");
-  await expect(nextMonth).toBeFocused();
+  await expectVisibleCalendarFocus(nextMonth, "rgb(36, 95, 49)");
   await page.keyboard.press("Tab");
 
   const septemberSecond = calendar.locator(
@@ -284,6 +349,7 @@ test("calendar keyboard follows the manual inputs and updates the controlled ran
   await page.keyboard.press("Enter");
   await expect(start).toHaveValue("2026-09-02");
   await expect(end).toHaveValue("");
+  await expectVisibleCalendarFocus(septemberSecond, "rgb(255, 255, 255)");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -331,8 +397,8 @@ test("calendar disables its mouse and keyboard controls while a range save is he
   const start = page.getByTestId("current-period-range-start");
   const end = page.getByTestId("current-period-range-end");
   const calendar = page.locator("[data-range-calendar-root]").first();
-  const previousMonth = calendar.locator("button").first();
-  const nextMonth = calendar.locator("button").last();
+  const previousMonth = calendar.getByRole("button", { name: "前の月" });
+  const nextMonth = calendar.getByRole("button", { name: "次の月" });
   const day = calendar.locator(
     '[data-range-calendar-day][data-value="2026-09-10"]',
   );
