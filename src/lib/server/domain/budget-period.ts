@@ -12,6 +12,13 @@ export function getNextPeriodStartDate(previousEndDate: string): string {
     .slice(0, 10);
 }
 
+export function getPreviousPeriodEndDate(nextStartDate: string): string {
+  const nextStartDateValue = toDateValue(nextStartDate);
+  return new Date(nextStartDateValue - 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+}
+
 export function isDateWithinPeriod(
   date: string,
   startDate: string,

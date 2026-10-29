@@ -33,7 +33,13 @@ describe("period update API parser", () => {
     );
     const malformedProposal = await Effect.runPromise(
       parsePeriodUpdateResponseEffect(
-        jsonResponse({ ...confirmationBody, proposal: { version: 2 } }, 409),
+        jsonResponse(
+          {
+            ...confirmationBody,
+            proposal: { editedPeriodId: proposal.editedPeriodId },
+          },
+          409,
+        ),
         "fallback",
       ),
     );
@@ -54,12 +60,42 @@ describe("period update API parser", () => {
     expect(malformedProposal).toEqual({
       kind: "error",
       code: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
-      message: "この変更には後続期間の確認が必要です。",
+      message: "この変更には関連する期間の確認が必要です。",
     });
     expect(malformedSuccess).toEqual({
       kind: "error",
       code: null,
       message: "fallback",
     });
+  });
+  it("accepts the stable code independently of message and rejects invalid ownership", async () => {
+    const parse = (body: unknown) =>
+      Effect.runPromise(
+        parsePeriodUpdateResponseEffect(jsonResponse(body, 409), "fallback"),
+      );
+    expect(
+      await parse({
+        ...confirmationBody,
+        error: {
+          code: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
+          message: "changed",
+        },
+      }),
+    ).toEqual({ kind: "confirmation-required", proposal });
+    for (const invalid of [
+      { ...proposal, previous: null },
+      { ...proposal, editedPeriodId: "unrelated" },
+      {
+        ...proposal,
+        next: {
+          ...proposal.next,
+          after: { ...proposal.next.after, id: "other" },
+        },
+      },
+    ]) {
+      expect(
+        (await parse({ ...confirmationBody, proposal: invalid })).kind,
+      ).toBe("error");
+    }
   });
 });

@@ -25,8 +25,8 @@ export const successorPeriod = {
 };
 
 export const proposal: PeriodBoundaryUpdateProposal = {
-  version: 1,
-  target: {
+  editedPeriodId: targetPeriod.id,
+  previous: {
     before: targetPeriod,
     after: {
       id: targetPeriod.id,
@@ -35,7 +35,7 @@ export const proposal: PeriodBoundaryUpdateProposal = {
       budgetYen: targetPeriod.budgetYen,
     },
   },
-  successor: {
+  next: {
     before: successorPeriod,
     after: {
       id: successorPeriod.id,
@@ -49,7 +49,7 @@ export const proposal: PeriodBoundaryUpdateProposal = {
 export const confirmationBody = {
   error: {
     code: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
-    message: "この変更には後続期間の確認が必要です。",
+    message: "この変更には関連する期間の確認が必要です。",
   },
   proposal,
 };
@@ -64,8 +64,8 @@ export function forPeriod(
 export function updatedTargetSummary(): PeriodSummary {
   return {
     ...createSummary(0),
-    endDate: proposal.target.after.endDate,
-    budgetYen: proposal.target.after.budgetYen,
+    endDate: proposal.previous.after.endDate,
+    budgetYen: proposal.previous.after.budgetYen,
   };
 }
 

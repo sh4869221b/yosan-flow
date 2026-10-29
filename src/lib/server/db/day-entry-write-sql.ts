@@ -68,7 +68,11 @@ function buildHistoryInsertStatement(
         memo,
         created_at
       )
-      VALUES (?, ?, ?, ?, ?, ${currentTotalSql}, ${afterTotalSql}, ?, ?)
+      SELECT ?, ?, ?, ?, ?, ${currentTotalSql}, ${afterTotalSql}, ?, ?
+      WHERE EXISTS (
+        SELECT 1 FROM budget_periods
+        WHERE id = ? AND start_date <= ? AND end_date >= ?
+      )
       `,
     )
     .bind(
@@ -84,6 +88,9 @@ function buildHistoryInsertStatement(
         : [history.inputYen]),
       history.memo,
       history.createdAt,
+      history.budgetPeriodId,
+      history.date,
+      history.date,
     );
 }
 
@@ -102,7 +109,11 @@ function buildDailyTotalUpsertStatement(
         total_used_yen,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?)
+      SELECT ?, ?, ?, ?, ?
+      WHERE EXISTS (
+        SELECT 1 FROM budget_periods
+        WHERE id = ? AND start_date <= ? AND end_date >= ?
+      )
       ON CONFLICT (budget_period_id, date) DO UPDATE SET
         year_month = excluded.year_month,
         total_used_yen = ${
@@ -119,5 +130,8 @@ function buildDailyTotalUpsertStatement(
       total.yearMonth,
       total.totalUsedYen,
       total.nowIso,
+      total.budgetPeriodId,
+      total.date,
+      total.date,
     );
 }

@@ -5,6 +5,7 @@ import type { PeriodUpdateConfirmationState } from "#lib/dashboard/period-update
 import {
   fetchPeriodUpdateEffect,
   type PeriodUpdateApiOutcome,
+  type PeriodBoundaryUpdateProposal,
 } from "#lib/dashboard/period-update-api.ts";
 import type { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
 import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
@@ -99,6 +100,32 @@ function publishUpdatedSummary(
   return false;
 }
 
+function openConfirmation(
+  dependencies: PeriodUpdateDependencies,
+  proposal: PeriodBoundaryUpdateProposal,
+  payload: SavePeriodPayload,
+  periodId: string,
+  request: ReturnType<PeriodUpdateDependencies["summaryRequests"]["start"]>,
+): void {
+  const previousId = proposal.previous.before.id;
+  const nextId = proposal.next.before.id;
+  const revision = (id: string) =>
+    id === periodId ? request.revision : dependencies.summaryRevision.get(id);
+  dependencies.confirmationState.open({
+    proposal,
+    request: { ...payload, confirmation: proposal },
+    ownership: {
+      editedPeriodId: periodId,
+      previousId,
+      nextId,
+      requestSequence: request.sequence,
+      selectedPeriodId: periodId,
+      previousRevision: revision(previousId),
+      nextRevision: revision(nextId),
+    },
+  });
+}
+
 export function createPeriodUpdateEffect(
   dependencies: PeriodUpdateDependencies,
 ) {
@@ -153,23 +180,20 @@ export function createPeriodUpdateEffect(
         return;
       }
       if (result.kind === "confirmation-required") {
-        if (operation === "budget") {
+        if (
+          operation === "budget" ||
+          result.proposal.editedPeriodId !== periodId
+        ) {
           localDependencies.setError("保存に失敗しました。");
-          return;
+        } else {
+          openConfirmation(
+            dependencies,
+            result.proposal,
+            payload,
+            periodId,
+            request,
+          );
         }
-        const successorId = result.proposal.successor.before.id;
-        dependencies.confirmationState.open({
-          proposal: result.proposal,
-          request: { ...payload, confirmation: result.proposal },
-          ownership: {
-            targetId: periodId,
-            successorId,
-            requestSequence: request.sequence,
-            selectedPeriodId: periodId,
-            targetRevision: request.revision,
-            successorRevision: dependencies.summaryRevision.get(successorId),
-          },
-        });
         return;
       }
       const mutation = dependencies.summaryRevision.beginMutation(periodId);

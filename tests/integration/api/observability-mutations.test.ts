@@ -308,7 +308,7 @@ describe("mutation terminal events", () => {
     const preview: PreviewBody = await response.json();
     expect(preview.error).toEqual({
       code: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
-      message: "この変更には後続期間の確認が必要です。",
+      message: "この変更には関連する期間の確認が必要です。",
     });
     expect(log.mock.calls).toEqual([
       [

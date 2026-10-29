@@ -46,8 +46,8 @@ it.each([false, true])(
     controller.budget.draft = "13000";
     if (withPending) {
       controller.range.edit({
-        startDate: proposal.target.after.startDate,
-        endDate: proposal.target.after.endDate,
+        startDate: proposal.previous.after.startDate,
+        endDate: proposal.previous.after.endDate,
       });
       controller.saveRange();
       await settled(executions[0]);
@@ -116,10 +116,10 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
       return Promise.resolve(
         jsonResponse({
           periods: [
-            { ...targetPeriod, endDate: proposal.target.after.endDate },
+            { ...targetPeriod, endDate: proposal.previous.after.endDate },
             {
               ...successorPeriod,
-              startDate: proposal.successor.after.startDate,
+              startDate: proposal.next.after.startDate,
             },
           ],
         }),
@@ -135,8 +135,8 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
 
   controller.budget.draft = "13000";
   controller.range.edit({
-    startDate: proposal.target.after.startDate,
-    endDate: proposal.target.after.endDate,
+    startDate: proposal.previous.after.startDate,
+    endDate: proposal.previous.after.endDate,
   });
   controller.saveRange();
   await settled(executions[0]);
@@ -147,8 +147,8 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   expect(revision.getMutationSequence(targetPeriod.id)).toBe(0);
   expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
     budgetYen: targetPeriod.budgetYen,
-    startDate: proposal.target.after.startDate,
-    endDate: proposal.target.after.endDate,
+    startDate: proposal.previous.after.startDate,
+    endDate: proposal.previous.after.endDate,
   });
   expect(controller.range.success).toBe(false);
   expect(controller.budget.success).toBe(false);
@@ -160,8 +160,8 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   expect(executions).toHaveLength(1);
   expect(controller.budget.draft).toBe("13000");
   expect(controller.range.draft).toEqual({
-    startDate: proposal.target.after.startDate,
-    endDate: proposal.target.after.endDate,
+    startDate: proposal.previous.after.startDate,
+    endDate: proposal.previous.after.endDate,
   });
   expect(controller.periodUpdateProposal).toEqual(proposal);
 
@@ -177,10 +177,10 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
     expect(controller.budget.draft).toBe("13000");
     expect(controller.range.success).toBe(false);
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
-      budgetYen: proposal.target.after.budgetYen,
+      budgetYen: proposal.previous.after.budgetYen,
       confirmation: proposal,
-      endDate: proposal.target.after.endDate,
-      startDate: proposal.target.after.startDate,
+      endDate: proposal.previous.after.endDate,
+      startDate: proposal.previous.after.startDate,
     });
   } finally {
     confirmResponse.resolve(jsonResponse(summary));
@@ -219,8 +219,8 @@ it("proposal cancel preserves budget draft without confirming and restores autho
   controller.budget.draft = "13000";
   controller.createBudgetInput = "777";
   controller.range.edit({
-    startDate: proposal.target.after.startDate,
-    endDate: proposal.target.after.endDate,
+    startDate: proposal.previous.after.startDate,
+    endDate: proposal.previous.after.endDate,
   });
   controller.saveRange();
   await settled(executions[0]);
@@ -262,8 +262,8 @@ it.each([targetPeriod.id, successorPeriod.id])(
     const controller = createController(revision);
     controller.budget.draft = "13000";
     controller.range.edit({
-      startDate: proposal.target.after.startDate,
-      endDate: proposal.target.after.endDate,
+      startDate: proposal.previous.after.startDate,
+      endDate: proposal.previous.after.endDate,
     });
     controller.saveRange();
     await settled(executions[0]);
@@ -355,8 +355,8 @@ it("drops stale proposals and preserves conflicts", async () => {
 
   controller.budget.draft = "13000";
   controller.range.edit({
-    startDate: proposal.target.after.startDate,
-    endDate: proposal.target.after.endDate,
+    startDate: proposal.previous.after.startDate,
+    endDate: proposal.previous.after.endDate,
   });
   controller.saveRange();
   await settled(executions[0]);
@@ -367,8 +367,8 @@ it("drops stale proposals and preserves conflicts", async () => {
   expect(fetchMock).toHaveBeenCalledOnce();
 
   controller.range.edit({
-    startDate: proposal.target.after.startDate,
-    endDate: proposal.target.after.endDate,
+    startDate: proposal.previous.after.startDate,
+    endDate: proposal.previous.after.endDate,
   });
   controller.saveRange();
   await settled(executions[1]);
@@ -414,8 +414,8 @@ it("ignores a preview that settles after selection changes", async () => {
   const controller = createController();
 
   controller.range.edit({
-    startDate: proposal.target.after.startDate,
-    endDate: proposal.target.after.endDate,
+    startDate: proposal.previous.after.startDate,
+    endDate: proposal.previous.after.endDate,
   });
   controller.saveRange();
   try {
@@ -522,9 +522,9 @@ it("ignores a preview superseded by a newer save request", async () => {
   const first = Effect.runPromise(
     update(
       {
-        budgetYen: proposal.target.after.budgetYen,
-        startDate: proposal.target.after.startDate,
-        endDate: proposal.target.after.endDate,
+        budgetYen: proposal.previous.after.budgetYen,
+        startDate: proposal.previous.after.startDate,
+        endDate: proposal.previous.after.endDate,
       },
       "range",
     ),
@@ -612,7 +612,7 @@ it.each(["list", "summary", "saved-list"])(
     vi.stubGlobal("fetch", fetchMock);
     const controller = createController();
     controller.budget.draft = "13000";
-    controller.range.edit(proposal.target.after);
+    controller.range.edit(proposal.previous.after);
     controller.saveRange();
     await settled(executions[0]);
     controller.confirmPeriodUpdate();
@@ -685,7 +685,7 @@ it.each([
       }),
     );
     const controller = createController(revision);
-    controller.range.edit(proposal.target.after);
+    controller.range.edit(proposal.previous.after);
     controller.saveRange();
     await settled(executions[0]);
     controller.confirmPeriodUpdate();
@@ -754,7 +754,7 @@ it("does not release a new confirmation lock when an old recovery GET settles", 
     }),
   );
   const controller = createController();
-  controller.range.edit(proposal.target.after);
+  controller.range.edit(proposal.previous.after);
   controller.saveRange();
   await settled(executions[0]);
   controller.confirmPeriodUpdate();
@@ -763,7 +763,7 @@ it("does not release a new confirmation lock when an old recovery GET settles", 
   await settled(retryStarted.promise);
   controller.handleSelectPeriod({ periodId: targetPeriod.id });
   await settled(executions[3]);
-  controller.range.edit(proposal.target.after);
+  controller.range.edit(proposal.previous.after);
   controller.saveRange();
   await settled(executions[4]);
   controller.confirmPeriodUpdate();
@@ -779,3 +779,200 @@ it("does not release a new confirmation lock when an old recovery GET settles", 
     await settled(executions[5]);
   }
 });
+
+it("owns a proposal edited on the later period and invalidates either side", () => {
+  const revision = createPeriodSummaryRevision();
+  const state = createPeriodUpdateConfirmationState({
+    getSelectedPeriodId: () => successorPeriod.id,
+    summaryRevision: revision,
+  });
+  const reverse = { ...proposal, editedPeriodId: successorPeriod.id };
+  const pending = {
+    proposal: reverse,
+    request: { ...reverse.next.after, confirmation: reverse },
+    ownership: {
+      editedPeriodId: successorPeriod.id,
+      previousId: targetPeriod.id,
+      nextId: successorPeriod.id,
+      requestSequence: 1,
+      selectedPeriodId: successorPeriod.id,
+      previousRevision: revision.get(targetPeriod.id),
+      nextRevision: revision.get(successorPeriod.id),
+    },
+  };
+  expect(state.open(pending)).toBe(true);
+  revision.advance(targetPeriod.id);
+  expect(state.pending).toBeNull();
+  expect(state.recovery?.periodId).toBe(successorPeriod.id);
+  const fresh = {
+    ...pending,
+    ownership: {
+      ...pending.ownership,
+      previousRevision: revision.get(targetPeriod.id),
+    },
+  };
+  expect(state.open(fresh)).toBe(true);
+  revision.advance(successorPeriod.id);
+  expect(state.pending).toBeNull();
+});
+
+it("confirms and publishes an edit to the later period using its own URL", async () => {
+  const revision = createPeriodSummaryRevision();
+  const reverse = {
+    ...proposal,
+    editedPeriodId: successorPeriod.id,
+    previous: {
+      ...proposal.previous,
+      after: { ...proposal.previous.after, endDate: "2026-07-12" },
+    },
+    next: {
+      ...proposal.next,
+      after: { ...proposal.next.after, startDate: "2026-07-13" },
+    },
+  };
+  const selectedSummary = {
+    ...forPeriod(createSummary(0), successorPeriod.id),
+    startDate: successorPeriod.startDate,
+    endDate: successorPeriod.endDate,
+    budgetYen: successorPeriod.budgetYen,
+  };
+  const updatedSummary = {
+    ...selectedSummary,
+    startDate: reverse.next.after.startDate,
+  };
+  const order: string[] = [];
+  let puts = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      const url = String(input);
+      order.push(`${method} ${url}`);
+      if (method === "PUT") {
+        puts++;
+        return Promise.resolve(
+          puts === 1
+            ? jsonResponse({ ...confirmationBody, proposal: reverse }, 409)
+            : jsonResponse(updatedSummary),
+        );
+      }
+      if (url === "/api/periods")
+        return Promise.resolve(
+          jsonResponse({ periods: [targetPeriod, successorPeriod] }),
+        );
+      return Promise.resolve(
+        jsonResponse(puts ? updatedSummary : selectedSummary),
+      );
+    }),
+  );
+  const controller = createController(revision);
+  controller.handleSelectPeriod({ periodId: successorPeriod.id });
+  await settled(executions[0]);
+  controller.range.edit(reverse.next.after);
+  controller.saveRange();
+  await settled(executions[1]);
+  expect(controller.periodUpdateProposal).toEqual(reverse);
+  controller.confirmPeriodUpdate();
+  await settled(executions[2]);
+  expect(order.filter((entry) => entry.startsWith("PUT"))).toEqual([
+    `PUT /api/periods/${successorPeriod.id}`,
+    `PUT /api/periods/${successorPeriod.id}`,
+  ]);
+  expect(controller.summary?.periodId).toBe(successorPeriod.id);
+  expect(revision.get(targetPeriod.id)).toBeGreaterThan(0);
+  expect(revision.get(successorPeriod.id)).toBeGreaterThan(0);
+});
+
+it.each(["cancel", "stale-previous", "stale-next", "saved-refresh"])(
+  "handles later-period confirmation %s without publishing an unrelated summary",
+  async (scenario) => {
+    const revision = createPeriodSummaryRevision();
+    const reverse = {
+      ...proposal,
+      editedPeriodId: successorPeriod.id,
+      previous: {
+        ...proposal.previous,
+        after: { ...proposal.previous.after, endDate: "2026-07-12" },
+      },
+      next: {
+        ...proposal.next,
+        after: { ...proposal.next.after, startDate: "2026-07-13" },
+      },
+    };
+    const selected = {
+      ...forPeriod(createSummary(0), successorPeriod.id),
+      startDate: successorPeriod.startDate,
+      endDate: successorPeriod.endDate,
+      budgetYen: successorPeriod.budgetYen,
+    };
+    const saved = { ...selected, startDate: reverse.next.after.startDate };
+    const calls: string[] = [];
+    let puts = 0;
+    let failRefresh = true;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        calls.push(`${method} ${url}`);
+        if (method === "PUT")
+          return Promise.resolve(
+            ++puts === 1
+              ? jsonResponse({ ...confirmationBody, proposal: reverse }, 409)
+              : jsonResponse(saved),
+          );
+        if (url === "/api/periods")
+          return Promise.resolve(
+            failRefresh && puts === 2
+              ? jsonResponse({ error: { message: "再取得エラー" } }, 500)
+              : jsonResponse({ periods: [targetPeriod, successorPeriod] }),
+          );
+        return Promise.resolve(jsonResponse(puts === 2 ? saved : selected));
+      }),
+    );
+    const controller = createController(revision);
+    controller.handleSelectPeriod({ periodId: successorPeriod.id });
+    await settled(executions[0]);
+    controller.range.edit(reverse.next.after);
+    controller.saveRange();
+    await settled(executions[1]);
+    expect(controller.periodUpdateProposal).toEqual(reverse);
+    if (scenario === "cancel") {
+      controller.cancelPeriodUpdateConfirmation();
+      expect(controller.periodUpdateProposal).toBeNull();
+      expect(puts).toBe(1);
+      expect(controller.summary).toEqual(selected);
+      return;
+    }
+    if (scenario.startsWith("stale")) {
+      revision.advance(
+        scenario === "stale-previous" ? targetPeriod.id : successorPeriod.id,
+      );
+      expect(controller.periodUpdateProposal).toBeNull();
+      expect(controller.confirmation.recovery?.periodId).toBe(
+        successorPeriod.id,
+      );
+      expect(puts).toBe(1);
+      expect(controller.summary).toEqual(selected);
+      return;
+    }
+    controller.confirmPeriodUpdate();
+    await settled(executions[2]);
+    expect(controller.confirmation.recovery).toEqual({
+      periodId: successorPeriod.id,
+      saved: true,
+    });
+    expect(controller.periodUpdateProposal).toBeNull();
+    failRefresh = false;
+    const beforeRetry = calls.length;
+    controller.refreshPeriodConfirmation();
+    await settled(executions[3]);
+    expect(calls.slice(beforeRetry)).toEqual([
+      "GET /api/periods",
+      `GET /api/periods/${successorPeriod.id}`,
+    ]);
+    expect(puts).toBe(2);
+    expect(controller.confirmation.result?.kind).toBe("saved");
+    expect(controller.summary).toEqual(saved);
+  },
+);

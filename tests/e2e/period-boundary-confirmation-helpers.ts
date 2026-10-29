@@ -142,7 +142,7 @@ export async function applyRange(
 ): Promise<void> {
   const endDateInput = page.getByTestId("current-period-range-end");
   if (!(await endDateInput.isVisible())) {
-    await page.getByText("期間の終了日や予算を変更する").click();
+    await page.getByText("期間の日付や予算を変更する").click();
   }
   if (values.startDate != null) {
     await page.getByTestId("current-period-range-start").fill(values.startDate);
@@ -164,13 +164,13 @@ export async function assertExactDialog(page: Page): Promise<void> {
     dialog.getByRole("heading", { name: "予算期間の境界を変更しますか？" }),
   ).toBeVisible();
   await expect(dialog).toContainText(
-    "この変更により、後続の予算期間の開始日も変更されます。",
+    "関連する2つの予算期間の境界を変更します。変更前後を確認してください。",
   );
   await expect(dialog).toContainText(
-    "変更する期間 期間ID: boundary-target 変更前2026-06-21 ～ 2026-07-20 → 変更後2026-06-21 ～ 2026-07-21",
+    "前の期間（編集中） 期間ID: boundary-target 変更前2026-06-21 ～ 2026-07-20 → 変更後2026-06-21 ～ 2026-07-21",
   );
   await expect(dialog).toContainText(
-    "直接の後続期間 期間ID: boundary-successor 変更前2026-07-21 ～ 2026-08-19 → 変更後2026-07-22 ～ 2026-08-19",
+    "後の期間 期間ID: boundary-successor 変更前2026-07-21 ～ 2026-08-19 → 変更後2026-07-22 ～ 2026-08-19",
   );
 }
 
@@ -204,4 +204,39 @@ export async function assertUpdatedPair(request: APIRequestContext): Promise<{
     budgetYen: successor.budgetYen,
   });
   return { target: targetState, successor: successorState };
+}
+
+export async function proposeNextBoundary(
+  page: Page,
+  request: APIRequestContext,
+): Promise<void> {
+  await seedBoundaryPair(request);
+  await page.goto(`${getBaseUrl()}/?periodId=${successor.periodId}`);
+  await waitForDashboardReady(page);
+  await applyRange(page, { startDate: "2026-07-20" });
+}
+
+export function countConfirmations(page: Page): () => number {
+  let count = 0;
+  page.on("request", (outgoing) => {
+    if (outgoing.method() === "PUT" && outgoing.postDataJSON().confirmation)
+      count++;
+  });
+  return () => count;
+}
+
+export async function assertSelectedBoundary(
+  page: Page,
+  request: APIRequestContext,
+  edited: string,
+  previousEnd: string,
+  nextStart: string,
+): Promise<void> {
+  await expect(page.getByTestId("period-select")).toHaveValue(edited);
+  expect((await readPeriod(request, target.periodId)).endDate).toBe(
+    previousEnd,
+  );
+  expect((await readPeriod(request, successor.periodId)).startDate).toBe(
+    nextStart,
+  );
 }

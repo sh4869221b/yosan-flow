@@ -49,6 +49,31 @@ describe("linked period boundary default D1 handler", () => {
     });
   });
 
+  it.each([
+    [
+      TARGET_ID,
+      { startDate: "2026-06-21", endDate: "2026-07-19", budgetYen: 100_000 },
+    ],
+    [
+      SUCCESSOR_ID,
+      { startDate: "2026-07-20", endDate: "2026-08-19", budgetYen: 80_000 },
+    ],
+  ])("confirms the earlier boundary from %s", async (periodId, request) => {
+    const harness = createD1BoundaryHarness();
+    const response = await harness.put(request, periodId);
+    expect(response.status).toBe(409);
+    const preview: PreviewBody = await response.json();
+    const confirm = await harness.put(
+      { ...request, confirmation: preview.proposal },
+      periodId,
+    );
+    expect(confirm.status).toBe(200);
+    expect(await confirm.json()).toMatchObject({ periodId });
+    expect(await (await harness.list()).json()).toMatchObject({
+      periods: [{ endDate: "2026-07-19" }, { startDate: "2026-07-20" }],
+    });
+  });
+
   it("rejects stale confirmation", async () => {
     // Given
     const harness = createD1BoundaryHarness();

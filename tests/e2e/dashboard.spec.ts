@@ -113,7 +113,7 @@ test("updates period start and end dates from settings inputs", async ({
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
   await waitForDashboardReady(page);
   await expect(page.getByTestId("period-id")).toContainText(periodId);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByTestId("current-period-range-start").fill(updatedStartDate);
   await page.getByTestId("current-period-range-end").fill(updatedEndDate);
   await page.getByTestId("current-period-range-apply").click();
@@ -242,7 +242,7 @@ test("shows an error when shrinking a period would exclude saved entries", async
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByTestId("current-period-range-end").fill(invalidEndDate);
   await page.getByTestId("current-period-range-apply").click();
 

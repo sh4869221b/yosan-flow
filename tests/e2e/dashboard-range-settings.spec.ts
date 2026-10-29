@@ -36,7 +36,7 @@ async function openRange(page: Page, request: APIRequestContext) {
   });
   await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   const form = page.getByRole("form", { name: "期間設定", exact: true });
   return {
     startDate,
@@ -269,7 +269,7 @@ for (const source of ["input", "elsewhere"] as const) {
       if (source === "input") await end.press("Enter");
       else await save.click();
       await barrier.arrived;
-      const disclosure = page.getByText("期間の終了日や予算を変更する", {
+      const disclosure = page.getByText("期間の日付や予算を変更する", {
         exact: true,
       });
       if (source === "elsewhere") await disclosure.focus();
@@ -292,7 +292,7 @@ test("does not steal focus after settings close", async ({ page, request }) => {
     const updated = waitForUpdate(page, 200, url);
     await save.click();
     await barrier.arrived;
-    const disclosure = page.getByText("期間の終了日や予算を変更する", {
+    const disclosure = page.getByText("期間の日付や予算を変更する", {
       exact: true,
     });
     await disclosure.click();

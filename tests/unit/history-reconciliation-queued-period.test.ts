@@ -94,14 +94,15 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
   });
   confirmationState.open({
     proposal,
-    request: { ...proposal.target.after, confirmation: proposal },
+    request: { ...proposal.previous.after, confirmation: proposal },
     ownership: {
-      targetId: "period-1",
-      successorId: "period-2",
+      editedPeriodId: "period-1",
+      previousId: "period-1",
+      nextId: "period-2",
       requestSequence: 1,
       selectedPeriodId: "period-1",
-      targetRevision: revision.get("period-1"),
-      successorRevision: revision.get("period-2"),
+      previousRevision: revision.get("period-1"),
+      nextRevision: revision.get("period-2"),
     },
   });
   const pending = confirmationState.beginConfirmation();

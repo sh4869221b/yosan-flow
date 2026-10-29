@@ -25,7 +25,7 @@ test("raw input retains invalid text, associates errors, and makes no mutation",
 
   await page.goto(`${getBaseUrl()}/?periodId=p-range-360`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
 
   let mutationCount = 0;
   page.on("request", (request) => {
@@ -110,7 +110,7 @@ test("calendar sync publishes a partial selection without retaining the old end"
 
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-sync`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const calendar = page.locator("[data-range-calendar-root]").first();
   await calendar
@@ -162,7 +162,7 @@ test("calendar starts a fresh range from invalid and reversed controlled raw val
 
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-raw`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const start = page.getByTestId("current-period-range-start");
   const end = page.getByTestId("current-period-range-end");
@@ -212,7 +212,7 @@ test("calendar synchronizes a parent period reset without retaining its old rang
 
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-reset-current`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const calendar = page.locator("[data-range-calendar-root]").first();
   await calendar
@@ -250,7 +250,7 @@ test("calendar keyboard follows the manual inputs and updates the controlled ran
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-keyboard`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const start = page.getByTestId("current-period-range-start");
   const end = page.getByTestId("current-period-range-end");
@@ -305,7 +305,7 @@ test("calendar disables its mouse and keyboard controls while a range save is he
 
   await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const periodUrl = `${getBaseUrl()}/api/periods/${periodId}`;
   const arrived = Promise.withResolvers<void>();
@@ -371,7 +371,7 @@ test("calendar keeps day controls usable on a mobile viewport", async ({
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-mobile`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const day = page
     .locator("[data-range-calendar-root]")

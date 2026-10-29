@@ -38,7 +38,7 @@ test("updates a seeded period budget", async ({ page, request }) => {
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("150000");
   const updateRequest = page.waitForRequest(
     (request) =>
@@ -69,7 +69,7 @@ test("rejects malformed period budget values before requests", async ({
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   let updateRequestCount = 0;
   await page.route(`**/api/periods/${periodId}`, async (route) => {
     updateRequestCount += 1;
@@ -115,7 +115,7 @@ test("shows save error and keeps input on failed period update", async ({
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("130000");
   await page.route(`**/api/periods/${periodId}`, async (route) => {
     if (route.request().method() !== "PUT") {
@@ -178,7 +178,7 @@ async function openBudget(page: Page, request: APIRequestContext) {
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-budget-settings`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   const region = page.getByRole("region", { name: "予算設定", exact: true });
   return {
     today,
@@ -330,7 +330,7 @@ for (const source of ["button", "input", "elsewhere"] as const) {
         "保存に失敗しました。",
       );
       await expect(input).toHaveValue("130000");
-      const outside = page.getByText("期間の終了日や予算を変更する", {
+      const outside = page.getByText("期間の日付や予算を変更する", {
         exact: true,
       });
       if (source === "elsewhere") await outside.focus();
@@ -499,7 +499,7 @@ test("discards budget focus when settings close before a delayed result", async 
     const updated = waitForUpdate(page, 200, budgetUrl);
     await save.click();
     await barrier.arrived;
-    const disclosure = page.getByText("期間の終了日や予算を変更する", {
+    const disclosure = page.getByText("期間の日付や予算を変更する", {
       exact: true,
     });
     await disclosure.click();

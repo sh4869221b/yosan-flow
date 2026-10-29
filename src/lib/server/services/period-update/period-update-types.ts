@@ -13,12 +13,12 @@ export type PeriodBoundaryAfter = PeriodUpdateValues & {
 };
 
 export type PeriodBoundaryUpdateProposal = {
-  readonly version: 1;
-  readonly target: {
+  readonly editedPeriodId: string;
+  readonly previous: {
     readonly before: PeriodSnapshot;
     readonly after: PeriodBoundaryAfter;
   };
-  readonly successor: {
+  readonly next: {
     readonly before: PeriodSnapshot;
     readonly after: PeriodBoundaryAfter;
   };
@@ -44,7 +44,7 @@ export type PeriodBoundaryUpdateDecision =
 
 export const PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR = {
   code: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
-  message: "この変更には後続期間の確認が必要です。",
+  message: "この変更には関連する期間の確認が必要です。",
 } as const;
 
 const PERIOD_MULTIPLE_SUCCESSORS_ERROR = {

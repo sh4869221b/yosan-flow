@@ -272,6 +272,9 @@
       最新の期間が変更されました。最新の期間に戻してから編集してください。
     </p>
   {/if}
+  <p class="notice">
+    関連付けられた連続する期間の境界を変更する場合は、保存前に両方の期間を確認できます。
+  </p>
   <p class="notice">変更する期間</p>
   <PeriodRangePicker
     value={range.draft}

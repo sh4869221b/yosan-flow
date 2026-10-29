@@ -227,6 +227,29 @@ describe("linked period boundary persistence", () => {
           },
         },
         {
+          name: "outer successor continuity breaks",
+          seed: {
+            periods: [
+              target,
+              successor,
+              {
+                ...successor,
+                id: "outer",
+                predecessorPeriodId: successor.id,
+                startDate: "2026-08-20",
+                endDate: "2026-09-19",
+              },
+            ],
+          },
+          input: {
+            ...command,
+            successor: {
+              ...command.successor,
+              after: { ...command.successor.after, endDate: "2026-08-18" },
+            },
+          },
+        },
+        {
           name: "post-preview daily total is displaced",
           seed: { totalDates: { [successor.id]: ["2026-07-21"] } },
         },

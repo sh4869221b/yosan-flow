@@ -28,7 +28,7 @@ const startDate = "2026-04-10";
 const endDate = addDays(startDate, 29);
 const actions = [
   {
-    title: "期間の終了日や予算を変更する",
+    title: "期間の日付や予算を変更する",
     sheetTestId: "period-settings-sheet",
     inputLabel: "期間予算 (円)",
     rangeTestId: "current-period-range-start",
