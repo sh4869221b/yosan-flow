@@ -74,6 +74,65 @@ production. Real adapter behavior is verified by the built Worker E2E suite.
 - Update relevant user-facing documentation when behavior changes.
 - Do not commit `.dev.vars`, `.env`, `.wrangler`, `.tmp-*`, `test-results`, or other local state.
 
+## Styling migration
+
+Tailwind CSS v4 uses the `tailwindcss` and `@tailwindcss/vite` development
+dependencies. Keep the existing SvelteKit configuration, Cloudflare adapter and
+proxy, version polling, and Worker output contract when changing the Vite plugin
+configuration. The root `src/routes/+layout.svelte` imports `src/app.css` once and
+renders its children without an extra DOM wrapper. The initial stylesheet is:
+
+```css
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source("./");
+```
+
+The source path is relative to `src/app.css`, so utility detection starts in
+`src`, rather than relying on examples in tests or root documentation. Use
+complete, static utility class names in scanned source. Keep the existing
+`dashboard-shell.css` imports in both `+page.svelte` and `+error.svelte`.
+
+Preflight is deliberately omitted during the initial adoption in
+[#580](https://github.com/sh4869221b/yosan-flow/issues/580). Do not replace these
+imports with the aggregate `@import "tailwindcss"`, which includes Preflight.
+[#581](https://github.com/sh4869221b/yosan-flow/issues/581) owns the final reset
+decision and semantic tokens; this initial configuration is not that decision.
+Component replacement and old-style cleanup belong to the later migration issues.
+
+Existing unlayered CSS takes precedence over normal declarations in Tailwind's
+layers. For example, `.dashboard-page` in `dashboard-shell.css` keeps its padding
+of `1.35rem`, `1rem` or `0.75rem` at the existing breakpoints even if `p-0` is
+added. Migrate one property and its responsive/state variants together: replace
+or remove its old declaration locally when a utility takes ownership. Do not add
+blanket `!important` or move all existing CSS into a layer to hide conflicts.
+
+Verify utility generation and computed styles in both Vite development and the
+built Worker. Browser-only class injection does not generate a utility: any
+temporary smoke fixture must supply static candidates inside the scanned source
+and be removed before the final rebuild and quality checks. Check the import
+graph and generated CSS for Preflight's element resets, not merely for universal
+selectors: Tailwind's `--tw-*` property initialization can use those selectors
+without Preflight.
+
+Compare desktop/mobile screenshots and key computed styles using the same seed,
+clock, viewport and loaded fonts. Include body, headings, button/input/textarea,
+native select, calendar, dialogs and mobile sheets. Check initial SSR before
+hydration, hydrated interactions, direct error-page loads, router errors and
+retry/back navigation for missing or accumulating styles. Preserve existing URL,
+focus, loading and `data-testid` contracts. Save comparison evidence separately
+before another container run clears `test-results` and `playwright-report`.
+
+Run affected specs through the existing container entry point, for example:
+
+```bash
+pnpm test:e2e tests/e2e/dashboard-shell.spec.ts tests/e2e/dashboard-hydration.spec.ts tests/e2e/framework-error-retry.spec.ts
+```
+
+These specs run against the built Worker; they do not replace the separate Vite
+development smoke check. Complete the required quality gates below as well.
+
 ## Verification
 
 Format files before opening a review:
