@@ -1,11 +1,3 @@
-details.period-action-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--elevation-card);
-  padding: var(--panel-padding-block) var(--panel-padding-inline);
-}
-
 .period-action-card > summary {
   align-items: center;
   cursor: pointer;
@@ -45,7 +37,7 @@ details.period-action-card {
 }
 
 .period-action-card > .details-body {
-  border-top: 1px solid #e2d7c4;
+  border-top: 1px solid var(--border);
   margin-top: 1rem;
   padding-top: 1rem;
 }
