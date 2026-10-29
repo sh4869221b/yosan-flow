@@ -1,10 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
-import { getBaseUrl, resetTestData } from "./dashboard-shared";
+import {
+  getBaseUrl,
+  resetTestData,
+  waitForDashboardReady,
+} from "./dashboard-shared";
 import { seedPeriod } from "./helpers/db";
 import {
   applyRange,
+  proposeNextBoundary,
   assertExactDialog,
+  assertUnchangedPair,
   gotoTarget,
   proposeBoundaryChange,
   readPeriod,
@@ -77,11 +83,6 @@ test.describe("stale confirmation, no-dialog cases, and double submit", () => {
 
   for (const scenario of [
     {
-      name: "shortening",
-      range: { startDate: target.startDate, endDate: "2026-07-19" },
-      status: 400,
-    },
-    {
       name: "start-only",
       range: { startDate: "2026-06-22", endDate: target.endDate },
       status: 200,
@@ -104,13 +105,41 @@ test.describe("stale confirmation, no-dialog cases, and double submit", () => {
     });
   }
 
+  test("shortens an unlinked adjacent period without moving its neighbor", async ({
+    page,
+    request,
+  }) => {
+    await seedPeriod(request, getBaseUrl(), target);
+    await seedPeriod(request, getBaseUrl(), {
+      periodId: successor.periodId,
+      startDate: successor.startDate,
+      endDate: successor.endDate,
+      budgetYen: successor.budgetYen,
+    });
+    await gotoTarget(page);
+    const response = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PUT" &&
+        response.url() === `${getBaseUrl()}/api/periods/${target.periodId}`,
+    );
+    await applyRange(page, { endDate: "2026-07-19" });
+    expect((await response).status()).toBe(200);
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    expect((await readPeriod(request, target.periodId)).endDate).toBe(
+      "2026-07-19",
+    );
+    expect((await readPeriod(request, successor.periodId)).startDate).toBe(
+      successor.startDate,
+    );
+  });
+
   test("keeps budget-only, non-overlap extension, and no-successor updates off the dialog", async ({
     page,
     request,
   }) => {
     await seedBoundaryPair(request);
     await gotoTarget(page);
-    await page.getByText("期間の終了日や予算を変更する").click();
+    await page.getByText("期間の日付や予算を変更する").click();
     await page.getByLabel("期間予算 (円)").fill("121000");
     await page.getByRole("button", { name: "期間を更新" }).click();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
@@ -189,4 +218,75 @@ test.describe("stale confirmation, no-dialog cases, and double submit", () => {
       });
     });
   }
+});
+
+test("cancels and escapes a next-period proposal without confirming", async ({
+  page,
+  request,
+}) => {
+  await seedBoundaryPair(request);
+  await page.goto(`${getBaseUrl()}/?periodId=${successor.periodId}`);
+  await waitForDashboardReady(page);
+  let confirmations = 0;
+  page.on("request", (outgoing) => {
+    if (outgoing.method() === "PUT" && outgoing.postDataJSON().confirmation)
+      confirmations++;
+  });
+  await applyRange(page, { startDate: "2026-07-20" });
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "キャンセル" })
+    .click();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await applyRange(page, { startDate: "2026-07-20" });
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  expect(confirmations).toBe(0);
+  await assertUnchangedPair(request);
+  await expect(page.getByTestId("period-select")).toHaveValue(
+    successor.periodId,
+  );
+});
+
+test("rejects a stale previous period while editing the next period", async ({
+  page,
+  request,
+}) => {
+  await proposeNextBoundary(page, request);
+  expect(
+    (
+      await updatePeriod(request, target.periodId, {
+        ...target,
+        budgetYen: 121000,
+      })
+    ).status,
+  ).toBe(200);
+  const response = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PUT" &&
+      response.url() === `${getBaseUrl()}/api/periods/${successor.periodId}`,
+  );
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "変更する" })
+    .click();
+  expect((await response).status()).toBe(409);
+  await expect(page.locator("#range-confirmation-feedback")).toContainText(
+    "もう一度編集してください。",
+  );
+  await expect(page.getByTestId("period-select")).toHaveValue(
+    successor.periodId,
+  );
+  await expect(page.getByTestId("current-period-range-start")).toHaveValue(
+    successor.startDate,
+  );
+  expect((await readPeriod(request, target.periodId)).endDate).toBe(
+    target.endDate,
+  );
+  expect((await readPeriod(request, successor.periodId)).startDate).toBe(
+    successor.startDate,
+  );
+  await applyRange(page, { startDate: "2026-07-20" });
+  await expect(page.getByRole("alertdialog")).toBeVisible();
 });

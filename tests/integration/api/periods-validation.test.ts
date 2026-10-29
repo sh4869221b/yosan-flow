@@ -107,18 +107,44 @@ describe("period API validation", () => {
       error: { code: "PERIOD_OVERLAP" },
     });
 
-    const continuityResponse = await fixture.updatePeriod({
-      params: { periodId: "p-a" },
-      request: new Request("http://localhost/api/periods/p-a", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          startDate: "2026-04-20",
-          endDate: "2026-05-18",
-          budgetYen: 100000,
+    const shortening = {
+      startDate: "2026-04-20",
+      endDate: "2026-05-18",
+      budgetYen: 100000,
+    };
+    const putPeriod = (periodId: string, body: object) =>
+      fixture.updatePeriod({
+        params: { periodId },
+        request: new Request(`http://localhost/api/periods/${periodId}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
         }),
-      }),
-    } as any);
+      } as any);
+    const preview = await putPeriod("p-a", shortening);
+    expect(preview.status).toBe(409);
+    const previewBody = (await preview.json()) as {
+      proposal: unknown;
+      error: { code: string };
+    };
+    expect(previewBody.error.code).toBe(
+      "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
+    );
+    const confirmed = await putPeriod("p-a", {
+      ...shortening,
+      confirmation: previewBody.proposal,
+    });
+    expect(confirmed.status).toBe(200);
+    await expect(confirmed.json()).resolves.toMatchObject({
+      periodId: "p-a",
+      endDate: "2026-05-18",
+    });
+
+    const continuityResponse = await putPeriod("p-b", {
+      startDate: "2026-05-20",
+      endDate: "2026-06-19",
+      budgetYen: 100000,
+    });
     expect(continuityResponse.status).toBe(400);
     await expect(continuityResponse.json()).resolves.toMatchObject({
       error: { code: "PERIOD_CONTINUITY_VIOLATION" },

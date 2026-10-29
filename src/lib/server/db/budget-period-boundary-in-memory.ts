@@ -169,6 +169,11 @@ export function evaluateLinkedPeriodBoundaryGate(input: GateInput): GateResult {
       command.successor.after.startDate,
     ) ||
     !predecessorMatches ||
+    periods.some(
+      (period) =>
+        period.predecessorPeriodId === command.successor.before.id &&
+        !isValidNextDate(command.successor.after.endDate, period.startDate),
+    ) ||
     thirdOverlap ||
     targetEntriesOutside ||
     successorEntriesOutside

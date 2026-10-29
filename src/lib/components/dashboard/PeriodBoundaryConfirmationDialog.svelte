@@ -40,16 +40,21 @@
           予算期間の境界を変更しますか？
         </AlertDialog.Title>
         <AlertDialog.Description>
-          この変更により、後続の予算期間の開始日も変更されます。内容を確認してください。
+          関連する2つの予算期間の境界を変更します。変更前後を確認してください。
         </AlertDialog.Description>
 
         <p class="explanation">
           2つの期間を一括で更新します。キャンセルした場合は、どちらも保存されません。
         </p>
         <dl>
-          {#each [{ label: "変更する期間", value: proposal.target }, { label: "直接の後続期間", value: proposal.successor }] as period (period.value.before.id)}
+          {#each [{ label: "前の期間", value: proposal.previous }, { label: "後の期間", value: proposal.next }] as period (period.value.before.id)}
             <div>
-              <dt>{period.label}</dt>
+              <dt>
+                {period.label}{period.value.before.id ===
+                proposal.editedPeriodId
+                  ? "（編集中）"
+                  : ""}
+              </dt>
               <dd class="period-id">期間ID: {period.value.before.id}</dd>
               <dd class="ranges">
                 <span

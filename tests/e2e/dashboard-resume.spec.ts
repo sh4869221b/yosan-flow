@@ -79,9 +79,7 @@ for (const event of resumeEvents) {
     });
     await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
     await waitForDashboardReady(page);
-    await page
-      .getByText("期間の終了日や予算を変更する", { exact: true })
-      .click();
+    await page.getByText("期間の日付や予算を変更する", { exact: true }).click();
     await page.getByLabel("期間予算 (円)").fill("130000");
     await page
       .getByTestId("current-period-range-end")

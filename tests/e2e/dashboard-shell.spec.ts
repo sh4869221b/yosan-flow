@@ -179,7 +179,7 @@ test("keeps the current draft while an exact period GET is loading", async ({
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-shell-current`);
   await waitForDashboardReady(page);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("130000");
 
   const barrier = Promise.withResolvers<void>();
@@ -228,7 +228,7 @@ test("keeps a failed additional create error visible while settings stay closed"
   await waitForDashboardReady(page);
 
   const settings = page
-    .getByText("期間の終了日や予算を変更する")
+    .getByText("期間の日付や予算を変更する")
     .locator("xpath=ancestor::details");
   await expect(settings).not.toHaveAttribute("open", "");
   const additionalCreate = page.getByTestId("create-period-panel");

@@ -1,8 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
-import { resetTestData } from "./dashboard-shared";
 import {
+  getBaseUrl,
+  resetTestData,
+  waitForDashboardReady,
+} from "./dashboard-shared";
+import {
+  applyRange,
   assertExactDialog,
+  assertSelectedBoundary,
   assertUnchangedPair,
   assertUpdatedPair,
   gotoTarget,
@@ -220,3 +226,62 @@ test.describe("stale confirmation, no-dialog cases, and double submit", () => {
     );
   });
 });
+
+for (const scenario of [
+  {
+    name: "shortens the previous period",
+    edited: target.periodId,
+    range: { endDate: "2026-07-19" },
+    previousEnd: "2026-07-19",
+    nextStart: "2026-07-20",
+    editedLabel: "前の期間（編集中）",
+  },
+  {
+    name: "advances the next period",
+    edited: "boundary-successor",
+    range: { startDate: "2026-07-20" },
+    previousEnd: "2026-07-19",
+    nextStart: "2026-07-20",
+    editedLabel: "後の期間（編集中）",
+  },
+] as const) {
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`${scenario.name} with confirmation at ${viewport.width}px`, async ({
+      page,
+      request,
+    }) => {
+      await page.setViewportSize(viewport);
+      await seedBoundaryPair(request);
+      await page.goto(`${getBaseUrl()}/?periodId=${scenario.edited}`);
+      await waitForDashboardReady(page);
+      await applyRange(page, scenario.range);
+      const dialog = page.getByRole("alertdialog");
+      await expect(dialog).toContainText(scenario.editedLabel);
+      await expect(dialog).toContainText("2026-06-21 ～ 2026-07-20");
+      await expect(dialog).toContainText("2026-06-21 ～ 2026-07-19");
+      await expect(dialog).toContainText("2026-07-21 ～ 2026-08-19");
+      await expect(dialog).toContainText("2026-07-20 ～ 2026-08-19");
+      await dialog.getByRole("button", { name: "変更する" }).click();
+      await expect(dialog).toHaveCount(0);
+      await assertSelectedBoundary(
+        page,
+        request,
+        scenario.edited,
+        scenario.previousEnd,
+        scenario.nextStart,
+      );
+      await page.reload();
+      await waitForDashboardReady(page);
+      await assertSelectedBoundary(
+        page,
+        request,
+        scenario.edited,
+        scenario.previousEnd,
+        scenario.nextStart,
+      );
+    });
+  }
+}

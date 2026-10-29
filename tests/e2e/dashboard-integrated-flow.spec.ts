@@ -36,7 +36,7 @@ for (const viewport of [
     page.on("pageerror", (error) => errors.push(error.message));
     const select = page.getByTestId("period-select");
     const range = page.getByRole("form", { name: "期間設定", exact: true });
-    const settingsTitle = "期間の終了日や予算を変更する";
+    const settingsTitle = "期間の日付や予算を変更する";
     const settingsSheet = page.getByRole("dialog", {
       name: settingsTitle,
       exact: true,

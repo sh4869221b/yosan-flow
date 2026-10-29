@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
+  proposeNextBoundary,
+  countConfirmations,
   gotoTarget,
   proposeBoundaryChange,
   readPeriod,
@@ -17,7 +19,7 @@ for (const failingGet of ["list", "summary", "saved-list"] as const) {
     const saved = failingGet === "saved-list";
     await seedBoundaryPair(request);
     await gotoTarget(page);
-    await page.getByText("期間の終了日や予算を変更する").click();
+    await page.getByText("期間の日付や予算を変更する").click();
     await page.getByLabel("期間予算 (円)").fill("123456");
     await proposeBoundaryChange(page);
     if (!saved)
@@ -29,11 +31,7 @@ for (const failingGet of ["list", "summary", "saved-list"] as const) {
           })
         ).status,
       ).toBe(200);
-    let confirmPuts = 0;
-    page.on("request", (outgoing) => {
-      if (outgoing.method() === "PUT" && outgoing.postDataJSON().confirmation)
-        confirmPuts++;
-    });
+    const confirmPuts = countConfirmations(page);
     let failures = 0;
     await page.route(
       failingGet !== "summary"
@@ -94,7 +92,7 @@ for (const failingGet of ["list", "summary", "saved-list"] as const) {
     await expect(page.locator("#range-confirmation-feedback")).toContainText(
       saved ? "期間を保存しました。" : "もう一度編集してください。",
     );
-    expect(confirmPuts).toBe(1);
+    expect(confirmPuts()).toBe(1);
     expect(await readPeriod(request, target.periodId)).toMatchObject({
       ...target,
       endDate: saved ? "2026-07-21" : target.endDate,
@@ -104,3 +102,46 @@ for (const failingGet of ["list", "summary", "saved-list"] as const) {
     );
   });
 }
+
+test("recovers a saved next-period boundary with GET-only retry", async ({
+  page,
+  request,
+}) => {
+  await proposeNextBoundary(page, request);
+  const confirmPuts = countConfirmations(page);
+  let failures = 0;
+  await page.route("**/api/periods", async (route) => {
+    if (route.request().method() === "GET" && failures++ === 0) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: { message: "最新情報を取得できませんでした。" },
+        }),
+      });
+    } else await route.continue();
+  });
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "変更する" })
+    .click();
+  await expect(page.locator("#range-confirmation-feedback")).toContainText(
+    "期間の保存は完了しています",
+  );
+  await page
+    .getByRole("button", { name: "最新情報を再取得", exact: true })
+    .click();
+  await expect(page.getByTestId("period-select")).toHaveValue(
+    successor.periodId,
+  );
+  await expect(page.getByTestId("current-period-range-start")).toHaveValue(
+    "2026-07-20",
+  );
+  expect(confirmPuts()).toBe(1);
+  expect((await readPeriod(request, target.periodId)).endDate).toBe(
+    "2026-07-19",
+  );
+  expect((await readPeriod(request, successor.periodId)).startDate).toBe(
+    "2026-07-20",
+  );
+});

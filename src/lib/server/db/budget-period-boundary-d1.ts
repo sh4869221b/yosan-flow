@@ -91,6 +91,11 @@ function buildGlobalPredicate(inputCte: SQL): SQL {
       )
     )
     and not exists (
+      select 1 from budget_periods as outer_successor
+      where outer_successor.predecessor_period_id = ${successorId}
+        and date(${successorEnd}, '+1 day') is not outer_successor.start_date
+    )
+    and not exists (
       select 1 from budget_periods as third_period
       where third_period.id not in (${targetId}, ${successorId})
         and (

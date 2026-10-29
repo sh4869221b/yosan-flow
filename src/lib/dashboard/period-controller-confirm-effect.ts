@@ -66,22 +66,35 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
         Effect.asVoid,
       );
   }
+  function publishConfirmation(
+    pending: PendingPeriodUpdateConfirmation,
+    summary: Extract<
+      PeriodUpdateApiOutcome,
+      { readonly kind: "updated" }
+    >["summary"],
+    current: boolean,
+  ): void {
+    const { editedPeriodId, previousId, nextId } = pending.ownership;
+    if (current && summary.periodId === editedPeriodId) {
+      dependencies.publishSummary(summary, {
+        operation: "range",
+        payload: pending.request,
+      });
+    } else dependencies.summaryRevision.advance(editedPeriodId);
+    dependencies.summaryRevision.advance(
+      previousId === editedPeriodId ? nextId : previousId,
+    );
+  }
   function applyOutcome(
     pending: PendingPeriodUpdateConfirmation,
     outcome: PeriodUpdateApiOutcome,
     current: boolean,
   ): Effect.Effect<void, never> {
     return Effect.gen(function* () {
-      const periodId = pending.ownership.targetId;
+      const periodId = pending.ownership.editedPeriodId;
       switch (outcome.kind) {
         case "updated":
-          if (current && outcome.summary.periodId === periodId) {
-            dependencies.publishSummary(outcome.summary, {
-              operation: "range",
-              payload: pending.request,
-            });
-          } else dependencies.summaryRevision.advance(periodId);
-          dependencies.summaryRevision.advance(pending.ownership.successorId);
+          publishConfirmation(pending, outcome.summary, current);
           if (current) {
             state.recover(periodId, true);
             yield* refresh();
@@ -115,10 +128,10 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
   ): Effect.Effect<void, never> {
     return dependencies.summaryRevision
       .withMutationSlot(
-        pending.ownership.targetId,
+        pending.ownership.editedPeriodId,
         "period",
         Effect.gen(function* () {
-          const periodId = pending.ownership.targetId;
+          const periodId = pending.ownership.editedPeriodId;
           if (!state.owns(pending)) {
             state.clearOwned(pending);
             if (dependencies.getSelectedPeriodId() === periodId) {

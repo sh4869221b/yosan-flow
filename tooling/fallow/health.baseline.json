@@ -87,11 +87,6 @@
         "count": 1
       }
     },
-    "src/lib/dashboard/period-controller-confirm-effect.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "src/lib/dashboard/period-controller-create-effect.ts": {
       "crap_moderate": {
         "count": 1
@@ -316,11 +311,6 @@
       }
     },
     "src/lib/dashboard/history-summary-reconciliation.ts\u0000<anonymous>": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/dashboard/period-controller-confirm-effect.ts\u0000<anonymous>": {
       "crap_moderate": {
         "count": 1
       }

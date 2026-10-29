@@ -22,12 +22,12 @@ export type PeriodBoundaryAfter = {
 };
 
 export type PeriodBoundaryUpdateProposal = {
-  readonly version: 1;
-  readonly target: {
+  readonly editedPeriodId: string;
+  readonly previous: {
     readonly before: PeriodSnapshot;
     readonly after: PeriodBoundaryAfter;
   };
-  readonly successor: {
+  readonly next: {
     readonly before: PeriodSnapshot;
     readonly after: PeriodBoundaryAfter;
   };
@@ -57,10 +57,7 @@ export type PeriodUpdateApiOutcome =
 
 type JsonObject = Readonly<Record<string, unknown>>;
 
-const confirmationError = {
-  code: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
-  message: "この変更には後続期間の確認が必要です。",
-} as const;
+const confirmationErrorCode = "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED";
 
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value != null && !Array.isArray(value);
@@ -131,19 +128,30 @@ function parseProposalSide(value: unknown) {
   return before == null || after == null ? null : { before, after };
 }
 
+function validProposalSides(
+  previous: NonNullable<ReturnType<typeof parseProposalSide>>,
+  next: NonNullable<ReturnType<typeof parseProposalSide>>,
+  editedPeriodId: string,
+): boolean {
+  return (
+    previous.before.id === previous.after.id &&
+    next.before.id === next.after.id &&
+    previous.before.id !== next.before.id &&
+    (editedPeriodId === previous.before.id || editedPeriodId === next.before.id)
+  );
+}
+
 function parseProposal(value: unknown): PeriodBoundaryUpdateProposal | null {
-  if (!isObject(value) || value.version !== 1) return null;
-  const target = parseProposalSide(value.target);
-  const successor = parseProposalSide(value.successor);
+  if (!isObject(value) || !isString(value.editedPeriodId)) return null;
+  const previous = parseProposalSide(value.previous);
+  const next = parseProposalSide(value.next);
   if (
-    target == null ||
-    successor == null ||
-    target.before.id !== target.after.id ||
-    successor.before.id !== successor.after.id
-  ) {
+    previous == null ||
+    next == null ||
+    !validProposalSides(previous, next, value.editedPeriodId)
+  )
     return null;
-  }
-  return { version: 1, target, successor };
+  return { editedPeriodId: value.editedPeriodId, previous, next };
 }
 
 function hasNumberFields(
@@ -229,8 +237,7 @@ function parseBody(
     response.status === 409 &&
     isObject(body) &&
     isObject(body.error) &&
-    body.error.code === confirmationError.code &&
-    body.error.message === confirmationError.message
+    body.error.code === confirmationErrorCode
   ) {
     const proposal = parseProposal(body.proposal);
     if (proposal != null) {

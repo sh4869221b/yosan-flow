@@ -50,8 +50,8 @@ describe("period boundary update decision", () => {
     expect(result).toEqual({
       kind: "confirmation-required",
       proposal: {
-        version: 1,
-        target: {
+        editedPeriodId: target.id,
+        previous: {
           before: target,
           after: {
             id: target.id,
@@ -60,7 +60,7 @@ describe("period boundary update decision", () => {
             budgetYen: 125_000,
           },
         },
-        successor: {
+        next: {
           before: successor,
           after: {
             id: successor.id,
@@ -91,14 +91,13 @@ describe("period boundary update decision", () => {
     expect(result).toMatchObject({
       kind: "confirmation-required",
       proposal: {
-        target: { after: { startDate: "2026-06-22" } },
+        previous: { after: { startDate: "2026-06-22" } },
       },
     });
   });
 
   it.each([
     ["an unchanged end", target.endDate, [successor]],
-    ["a shortened end", "2026-07-19", [successor]],
     [
       "an extension before the successor",
       "2026-07-22",
@@ -118,6 +117,89 @@ describe("period boundary update decision", () => {
 
     // Then existing update validation remains authoritative
     expect(result).toEqual({ kind: "ordinary-update" });
+  });
+
+  it("proposes the same earlier boundary from either side", () => {
+    const forward = decidePeriodBoundaryUpdate({
+      target,
+      successors: [successor],
+      requested: { ...requested, endDate: "2026-07-19" },
+    });
+    const reverse = decidePeriodBoundaryUpdate({
+      target: successor,
+      successors: [],
+      predecessor: target,
+      predecessorSuccessors: [successor],
+      requested: {
+        startDate: "2026-07-20",
+        endDate: successor.endDate,
+        budgetYen: successor.budgetYen,
+      },
+    });
+    expect(forward).toMatchObject({
+      kind: "confirmation-required",
+      proposal: {
+        previous: { after: { endDate: "2026-07-19" } },
+        next: { after: { startDate: "2026-07-20" } },
+      },
+    });
+    expect(reverse).toMatchObject({
+      kind: "confirmation-required",
+      proposal: {
+        editedPeriodId: successor.id,
+        previous: { after: { endDate: "2026-07-19" } },
+        next: { after: { startDate: "2026-07-20" } },
+      },
+    });
+  });
+
+  it("rejects broken reverse links and nonadjacent pairs", () => {
+    const input = {
+      target: successor,
+      successors: [],
+      predecessor: target,
+      predecessorSuccessors: [successor],
+      requested: {
+        startDate: "2026-07-20",
+        endDate: successor.endDate,
+        budgetYen: successor.budgetYen,
+      },
+    };
+    expect(() =>
+      decidePeriodBoundaryUpdate({ ...input, predecessor: null }),
+    ).toThrowError(
+      expect.objectContaining({ code: "PERIOD_PREDECESSOR_NOT_FOUND" }),
+    );
+    expect(() =>
+      decidePeriodBoundaryUpdate({ ...input, predecessorSuccessors: [] }),
+    ).toThrowError(
+      expect.objectContaining({ code: "PERIOD_PREDECESSOR_NOT_FOUND" }),
+    );
+    expect(() =>
+      decidePeriodBoundaryUpdate({
+        ...input,
+        predecessorSuccessors: [successor, { ...successor, id: "other" }],
+      }),
+    ).toThrowError(
+      expect.objectContaining({ code: "PERIOD_MULTIPLE_SUCCESSORS" }),
+    );
+    expect(() =>
+      decidePeriodBoundaryUpdate({
+        ...input,
+        predecessor: { ...target, endDate: "2026-07-19" },
+      }),
+    ).toThrowError(
+      expect.objectContaining({ code: "PERIOD_CONTINUITY_VIOLATION" }),
+    );
+    expect(() =>
+      decidePeriodBoundaryUpdate({
+        target,
+        successors: [{ ...successor, predecessorPeriodId: null }],
+        requested,
+      }),
+    ).toThrowError(
+      expect.objectContaining({ code: "PERIOD_CONTINUITY_VIOLATION" }),
+    );
   });
 
   it("rejects multiple or invalid successors", () => {
@@ -185,7 +267,7 @@ describe("period boundary update decision", () => {
     // When and then their machine codes and public messages are observed
     expect(PERIOD_BOUNDARY_CONFIRMATION_REQUIRED_ERROR).toEqual({
       code: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
-      message: "この変更には後続期間の確認が必要です。",
+      message: "この変更には関連する期間の確認が必要です。",
     });
     expect(multipleSuccessorsError).toMatchObject({
       code: "PERIOD_MULTIPLE_SUCCESSORS",

@@ -29,8 +29,8 @@ const UPDATE_CONFLICT = {
 
 describe("linked period boundary validation", () => {
   it.each([
-    ["missing fields", { version: 1 }],
-    ["unsupported version", { version: 2, target: {}, successor: {} }],
+    ["missing fields", { editedPeriodId: TARGET_ID }],
+    ["invalid sides", { editedPeriodId: TARGET_ID, previous: {}, next: {} }],
     ["boolean-only", true],
   ])("rejects malformed confirmation: %s", async (_label, confirmation) => {
     // Given
@@ -47,6 +47,24 @@ describe("linked period boundary validation", () => {
       { id: TARGET_ID, endDate: "2026-07-20" },
       { id: SUCCESSOR_ID, startDate: "2026-07-21" },
     ]);
+  });
+
+  it("rejects obsolete side names", async () => {
+    const fixture = createFixture(NOW);
+    await seedLinkedPeriods(fixture);
+    const preview: PreviewBody = await (
+      await put(fixture, UPDATE_REQUEST)
+    ).json();
+    const response = await put(fixture, {
+      ...UPDATE_REQUEST,
+      confirmation: {
+        editedPeriodId: TARGET_ID,
+        target: preview.proposal.previous,
+        successor: preview.proposal.next,
+      },
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual(INVALID_BODY);
   });
 
   it("rejects invalid JSON as the existing INVALID_BODY response", async () => {
@@ -79,10 +97,10 @@ describe("linked period boundary validation", () => {
       ...UPDATE_REQUEST,
       confirmation: {
         ...preview.proposal,
-        successor: {
-          ...preview.proposal.successor,
+        next: {
+          ...preview.proposal.next,
           after: {
-            ...preview.proposal.successor.after,
+            ...preview.proposal.next.after,
             startDate: "2026-07-23",
           },
         },
@@ -153,6 +171,37 @@ describe("linked period boundary validation", () => {
         message: "開始日と終了日の範囲が不正です。",
       },
     });
+  });
+
+  it.each([
+    [
+      "missing predecessor",
+      [multipleSuccessorRows[1]!],
+      "PERIOD_PREDECESSOR_NOT_FOUND",
+    ],
+    [
+      "multiple successors",
+      multipleSuccessorRows,
+      "PERIOD_MULTIPLE_SUCCESSORS",
+    ],
+    [
+      "nonadjacent predecessor",
+      [
+        { ...multipleSuccessorRows[0]!, end_date: "2026-07-19" },
+        multipleSuccessorRows[1]!,
+      ],
+      "PERIOD_CONTINUITY_VIOLATION",
+    ],
+  ])("rejects reverse edit with %s", async (_label, periods, code) => {
+    const harness = createD1BoundaryHarness({ periods });
+    const response = await harness.put(
+      { startDate: "2026-07-20", endDate: "2026-08-19", budgetYen: 80_000 },
+      SUCCESSOR_ID,
+    );
+    expect(response.status).toBe(
+      code === "PERIOD_MULTIPLE_SUCCESSORS" ? 409 : 400,
+    );
+    expect(await response.json()).toMatchObject({ error: { code } });
   });
 
   it("rejects displaced successor data before returning a proposal", async () => {
@@ -262,7 +311,11 @@ describe("linked period boundary validation", () => {
     const noSuccessor = await put(standalone, UPDATE_REQUEST);
 
     // Then
-    for (const response of [shortening, nonOverlap]) {
+    expect(shortening.status).toBe(409);
+    expect(
+      Object.keys(((await shortening.json()) as PreviewBody).proposal).sort(),
+    ).toEqual(["editedPeriodId", "next", "previous"]);
+    for (const response of [nonOverlap]) {
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toEqual({
         error: {

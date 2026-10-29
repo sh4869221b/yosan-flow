@@ -305,7 +305,7 @@ test("blocks calendar activation while a period save is in flight, then restores
     await route.continue();
   });
 
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("130000");
   await page.getByRole("button", { name: "期間を更新" }).click();
   await expect.poll(() => saveRequestCount).toBe(1);

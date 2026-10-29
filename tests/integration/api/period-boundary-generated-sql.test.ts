@@ -74,7 +74,7 @@ function quoteSql(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-function executeGeneratedSql(sql: string, payload: string) {
+function executeGeneratedSql(sql: string, payload: string, setup = "") {
   const boundSql = sql.replace("?", quoteSql(payload));
   const schema = `
     create table budget_periods (
@@ -87,6 +87,7 @@ function executeGeneratedSql(sql: string, payload: string) {
     insert into budget_periods values
       ('target','2026-06-21','2026-07-20',100000,'active',null,'2026-06-01T00:00:00.000Z','2026-06-01T00:00:00.000Z'),
       ('successor','2026-07-21','2026-08-19',120000,'closed','target','2026-06-02T00:00:00.000Z','2026-06-02T00:00:00.000Z');
+    ${setup}
     ${boundSql};
     select changes();
     select id,start_date,end_date from budget_periods order by id;
@@ -124,6 +125,54 @@ describe("linked boundary generated SQL", () => {
       await expect(readPair(repository)).resolves.toEqual(before);
     },
   );
+
+  it("executes the earlier boundary atomically and rejects displaced data in real SQLite", async () => {
+    const captures: {
+      readonly sql: string;
+      readonly args: readonly unknown[];
+    }[] = [];
+    const repository = createD1BudgetPeriodRepository({
+      db: createPeriodAwareD1Fake([], {
+        periods: [target, successor].map(toD1Row),
+        onStatementRun: (statement) => {
+          if (statement.sql.toLowerCase().includes('update "budget_periods"'))
+            captures.push(statement);
+        },
+      }),
+    });
+    const earlier: LinkedPeriodBoundaryUpdateCommand = {
+      target: { before: target, after: { ...target, endDate: "2026-07-19" } },
+      successor: {
+        before: successor,
+        after: { ...successor, startDate: "2026-07-20" },
+      },
+      nowIso: "2026-07-18T00:00:00.000Z",
+    };
+    await runApiEffect(repository.updateLinkedBoundary(earlier));
+    const captured = captures[0];
+    if (!captured || typeof captured.args[0] !== "string")
+      throw new Error("missing SQL");
+    const success = executeGeneratedSql(captured.sql, captured.args[0]);
+    expect(success.status).toBe(0);
+    expect(success.stdout.trim().split("\n")).toEqual([
+      "2",
+      "successor|2026-07-20|2026-08-19",
+      "target|2026-06-21|2026-07-19",
+    ]);
+    for (const table of ["daily_totals", "daily_operation_histories"]) {
+      const blocked = executeGeneratedSql(
+        captured.sql,
+        captured.args[0],
+        `insert into ${table} values ('target','2026-07-20');`,
+      );
+      expect(blocked.status).toBe(0);
+      expect(blocked.stdout.trim().split("\n")).toEqual([
+        "0",
+        "successor|2026-07-21|2026-08-19",
+        "target|2026-06-21|2026-07-20",
+      ]);
+    }
+  });
 
   it("rejects a noncanonical calendar date in independently executed SQL", async () => {
     // Given the actual Drizzle SQL and payload captured before fake evaluation

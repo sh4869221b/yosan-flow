@@ -127,15 +127,14 @@ function parsePeriodBoundaryUpdateProposal(
 ): PeriodBoundaryUpdateProposal {
   if (
     !isObject(value) ||
-    !hasExactKeys(value, ["version", "target", "successor"]) ||
-    value.version !== 1
+    !hasExactKeys(value, ["editedPeriodId", "previous", "next"])
   ) {
     throw invalidBody();
   }
   return {
-    version: 1,
-    target: parseProposalSide(value.target),
-    successor: parseProposalSide(value.successor),
+    editedPeriodId: parseRequiredString(value.editedPeriodId),
+    previous: parseProposalSide(value.previous),
+    next: parseProposalSide(value.next),
   };
 }
 

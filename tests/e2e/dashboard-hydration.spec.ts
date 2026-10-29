@@ -48,7 +48,7 @@ test("waits for hydration before editing server-rendered settings", async ({
       waitUntil: "domcontentloaded",
     });
     await clientRequested.promise;
-    const settings = page.getByText("期間の終了日や予算を変更する");
+    const settings = page.getByText("期間の日付や予算を変更する");
     await expect(settings).toBeVisible();
     await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
 

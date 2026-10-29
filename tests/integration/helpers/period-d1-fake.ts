@@ -65,14 +65,15 @@ export function createPeriodAwareD1Fake(
     ): Promise<D1Result<T>[]> {
       const snapshot = state.snapshot();
       try {
+        const results: D1Result<T>[] = [];
         for (const statement of statements) {
-          await statement.run();
+          results.push(await statement.run<T>());
         }
+        return results;
       } catch (error) {
         state.restore(snapshot);
         throw error;
       }
-      return [];
     },
     async exec() {
       return { count: 0, duration: 0 };

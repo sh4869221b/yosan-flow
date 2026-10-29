@@ -538,6 +538,8 @@ No health rule, threshold or function is suppressed. The classification records 
 review decision, not permission to delete code. In particular, H2/H4 stay visible
 until evidence resolves them; they are not quietly assigned to #353's fix list.
 
+The confirmation outcome helper split resolved the historical `period-controller-confirm-effect.ts` anonymous health finding shown above. Its resolved identity was removed from both baseline maps; no thresholds or exceptions changed.
+
 ## Native baseline files and review workflow
 
 `dead-code.baseline.json`, `dupes.baseline.json`, and `health.baseline.json` are the

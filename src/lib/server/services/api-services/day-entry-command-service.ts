@@ -1,5 +1,8 @@
 import { Effect } from "effect";
-import type { D1DayEntryWriter } from "#lib/server/db/day-entry-writer.ts";
+import {
+  DailyEntryPeriodRangeError,
+  type D1DayEntryWriter,
+} from "#lib/server/db/day-entry-writer.ts";
 import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
@@ -104,27 +107,35 @@ export function createD1DayEntryService(
 
       const nowIso = now().toISOString();
       const memo = normalizeMemo(command.memo);
-      yield* dayEntryWriter.writeDailyEntry({
-        total: {
-          budgetPeriodId: command.periodId,
-          date: command.date,
-          yearMonth: command.date.slice(0, 7),
-          totalUsedYen: command.inputYen,
-          nowIso,
-        },
-        history: {
-          id: createHistoryId(),
-          budgetPeriodId: command.periodId,
-          date: command.date,
-          operationType,
-          inputYen: command.inputYen,
-          beforeTotalYen: 0,
-          afterTotalYen: command.inputYen,
-          memo,
-          createdAt: nowIso,
-        },
-        mode: operationType,
-      });
+      yield* dayEntryWriter
+        .writeDailyEntry({
+          total: {
+            budgetPeriodId: command.periodId,
+            date: command.date,
+            yearMonth: command.date.slice(0, 7),
+            totalUsedYen: command.inputYen,
+            nowIso,
+          },
+          history: {
+            id: createHistoryId(),
+            budgetPeriodId: command.periodId,
+            date: command.date,
+            operationType,
+            inputYen: command.inputYen,
+            beforeTotalYen: 0,
+            afterTotalYen: command.inputYen,
+            memo,
+            createdAt: nowIso,
+          },
+          mode: operationType,
+        })
+        .pipe(
+          Effect.mapError((error) =>
+            error instanceof DailyEntryPeriodRangeError
+              ? new DateOutOfPeriodError(command.date, command.periodId)
+              : error,
+          ),
+        );
       return {};
     });
   }
