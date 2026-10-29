@@ -18,6 +18,20 @@ SvelteKit の設定は `vite.config.ts` の `sveltekit(...)` にまとめてい�
 設定変更時も型・lint・Fallow と既存のテストをすべて実行してください。
 移行仕様は [SvelteKit の公式ガイド](https://svelte.dev/docs/kit/migrating-to-sveltekit-3) を参照してください。
 
+### スタイルの初期構成
+
+Tailwind CSS v4 は開発依存の `tailwindcss` / `@tailwindcss/vite` を通じて生成します。
+ルート `src/routes/+layout.svelte` が `src/app.css` を一度だけ読み込み、追加の DOM
+ラッパーを設けず子ページを描画します。layer 順序は `theme, base, components, utilities`。
+初期段階では theme / utilities だけを読み込み、Preflight は無効です。utility の探索元は
+`src` に限定し、既存のページ・error 画面の `dashboard-shell.css` 読み込みを維持します。
+
+既存の layer 外の CSS は通常の utility 宣言より優先されます。例えば `.dashboard-page`
+の padding は `p-0` を追加するだけでは変わりません。移行時は対象の旧宣言を局所的に置換し、
+全体への `!important` 追加で競合を隠さないでください。Preflight の最終方針と共通トークンは
+[#581](https://github.com/sh4869221b/yosan-flow/issues/581) で扱います。
+表示比較・生成 CSS の確認方法は [Styling migration](CONTRIBUTING.md#styling-migration) を参照してください。
+
 ## セットアップ（ローカル）
 
 ```bash
