@@ -222,6 +222,18 @@ baselines, thresholds, exclusions and gate policy are unchanged. The migrated
 native comparison requires `matched_entries == baseline_entries == 10`, zero
 new/stale entries, and an enforced passing stale-baseline gate.
 
+### Shared dialog styles (#581, 2026-10-29)
+
+The theme/reset migration from `6c2e13d` gives the boundary confirmation and
+day-entry/settings dialogs one surface and desktop positioning owner in
+`src/lib/components/dialog-surface.css`. Their widths, stacking and mobile
+centered-dialog/bottom-sheet layouts remain separate. This resolves D08 rather
+than accepting its changed token fingerprint. Only that location entry and its
+two fingerprints were removed; nine reviewed duplication entries remain.
+Native control defaults now belong to Preflight, and the two period-settings
+forms share their action styles. No new duplication allowance, suppression,
+threshold or analyzer change is introduced.
+
 ## Discovery and exception policy
 
 - Built-in plugins discover SvelteKit `+page`, `+layout`, `+server`, hooks, matchers,

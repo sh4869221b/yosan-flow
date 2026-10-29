@@ -110,7 +110,7 @@
   }
 
   label {
-    color: #4d4036;
+    color: var(--foreground);
     display: grid;
     flex: 1 1 11rem;
     font-weight: 700;
@@ -119,30 +119,27 @@
   }
 
   span {
-    color: #796b5e;
+    color: var(--muted-foreground);
     font-size: 0.875rem;
     font-weight: 600;
   }
 
   input {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
-    box-sizing: border-box;
-    color: #2f2219;
-    font: inherit;
-    max-width: 100%;
-    min-height: 2.65rem;
+    background: var(--input-background);
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
+    color: var(--foreground);
+    min-height: var(--control-height);
     padding: 0 0.85rem;
     width: 100%;
   }
 
   input[aria-invalid="true"] {
-    border-color: #b33a3a;
+    border-color: var(--invalid-border);
   }
 
   .error {
-    color: #9e2e2e;
+    color: var(--invalid);
     font-weight: 700;
     margin: 0;
   }

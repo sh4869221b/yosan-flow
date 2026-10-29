@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
 import {
+  expectCalendarDayFitsCell,
+  expectVisibleCalendarFocus,
+} from "./helpers/calendar-appearance";
+import {
   getBaseUrl,
   resetTestData,
   waitForDashboardReady,
@@ -274,6 +278,9 @@ test("calendar keyboard follows the manual inputs and updates the controlled ran
   ).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await expect(septemberSecond).toBeFocused();
+  await expect(septemberSecond).toHaveAttribute("data-selected", "");
+  await expectVisibleCalendarFocus(septemberSecond, "rgb(36, 95, 49)");
+  await expectCalendarDayFitsCell(septemberSecond);
   await page.keyboard.press("Enter");
   await expect(start).toHaveValue("2026-09-02");
   await expect(end).toHaveValue("");
@@ -329,6 +336,8 @@ test("calendar disables its mouse and keyboard controls while a range save is he
   const day = calendar.locator(
     '[data-range-calendar-day][data-value="2026-09-10"]',
   );
+  const periodSelect = page.getByTestId("period-select");
+  const disabledControls = [periodSelect, previousMonth, nextMonth, day];
 
   try {
     await start.fill("2026-09-02");
@@ -341,6 +350,16 @@ test("calendar disables its mouse and keyboard controls while a range save is he
     await expect(previousMonth).toBeDisabled();
     await expect(nextMonth).toBeDisabled();
     await expect(day).toHaveAttribute("aria-disabled", "true");
+    await expect(periodSelect).toBeDisabled();
+    for (const control of disabledControls) {
+      await expect
+        .poll(() =>
+          control.evaluate((element) =>
+            Number.parseFloat(getComputedStyle(element).opacity),
+          ),
+        )
+        .toBeLessThan(1);
+    }
     await day.focus();
     await day.press("Enter");
     await expect(start).toHaveValue("2026-09-02");
@@ -351,6 +370,10 @@ test("calendar disables its mouse and keyboard controls while a range save is he
     await expect(end).toBeEnabled();
     await expect(previousMonth).toBeEnabled();
     await expect(nextMonth).toBeEnabled();
+    await expect(periodSelect).toBeEnabled();
+    for (const control of disabledControls) {
+      await expect(control).toHaveCSS("opacity", "1");
+    }
   } finally {
     released.resolve();
     await page.unrouteAll({ behavior: "wait" });
@@ -379,6 +402,12 @@ test("calendar keeps day controls usable on a mobile viewport", async ({
     .locator('[data-range-calendar-day][data-value="2026-09-10"]');
   const bounds = await day.boundingBox();
   expect(bounds?.height).toBeGreaterThanOrEqual(42);
+  await day.focus();
+  await day.press("ArrowRight");
+  await page.keyboard.press("ArrowLeft");
+  await expect(day).toHaveAttribute("data-selected", "");
+  await expectVisibleCalendarFocus(day, "rgb(36, 95, 49)");
+  await expectCalendarDayFitsCell(day);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

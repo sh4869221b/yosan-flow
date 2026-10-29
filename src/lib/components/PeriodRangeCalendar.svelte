@@ -142,16 +142,16 @@
   }
 
   :global([data-range-calendar-heading]) {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1.1rem;
     font-weight: 900;
     text-align: center;
   }
 
   :global([data-range-calendar-grid]) {
-    border: 1px solid #e6ded4;
+    border: 1px solid var(--border);
     border-collapse: separate;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     border-spacing: 0;
     overflow: hidden;
     table-layout: fixed;
@@ -160,11 +160,11 @@
 
   :global([data-range-calendar-head-cell]),
   :global([data-range-calendar-cell]) {
-    border-bottom: 1px solid #e6ded4;
-    border-right: 1px solid #e6ded4;
-    color: #2f2219;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    color: var(--foreground);
     font-weight: 800;
-    height: 2.65rem;
+    height: var(--control-height);
     padding: 0;
     text-align: center;
     width: 14.285%;
@@ -190,7 +190,7 @@
     display: inline-flex;
     font: inherit;
     font-weight: 800;
-    height: 2.65rem;
+    height: var(--control-height);
     justify-content: center;
     min-height: 0;
     padding: 0;
@@ -198,29 +198,35 @@
   }
 
   :global(.range-calendar-day[data-selected]) {
-    background: #dcefd7;
-    color: #245f31;
+    background: var(--accent);
+    color: var(--accent-foreground);
   }
 
   :global(.range-calendar-day[data-outside-month]) {
-    color: #b5a89b;
+    color: var(--muted-foreground);
+  }
+
+  :global(.range-calendar-day[data-disabled]) {
+    cursor: not-allowed;
+    opacity: 0.65;
   }
 
   :global(.range-calendar-nav) {
     align-items: center;
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
-    color: #2f2219;
+    background: var(--secondary);
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
+    color: var(--secondary-foreground);
     display: inline-flex;
-    height: 2.65rem;
+    height: var(--control-height);
     justify-content: center;
     padding: 0;
-    width: 2.65rem;
+    width: var(--control-height);
   }
 
   :global(.range-calendar-nav:focus-visible),
   :global(.range-calendar-day:focus-visible) {
-    outline: 3px solid #245f31;
+    outline: 3px solid var(--focus-range);
     outline-offset: -3px;
   }
 </style>

@@ -86,15 +86,15 @@
   }
 
   .today-pace {
-    border: 1px solid #e4ddd2;
-    border-radius: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
     grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr));
     margin-top: 1rem;
     overflow: hidden;
   }
 
   .pace-details {
-    border-top: 1px solid #e9e1d6;
+    border-top: 1px solid var(--border);
     grid-template-columns: repeat(4, minmax(0, 1fr));
     margin-top: 0.95rem;
     padding-top: 0.95rem;
@@ -116,23 +116,23 @@
   }
 
   .today-pace p + p {
-    border-left: 1px solid #e4ddd2;
+    border-left: 1px solid var(--border);
   }
 
   .pace-details p + p {
-    border-left: 1px solid #e4ddd2;
+    border-left: 1px solid var(--border);
   }
 
   .allowance-card {
-    background: linear-gradient(90deg, #f3faf2, #fffdf8);
+    background: linear-gradient(90deg, #f3faf2, var(--card));
     position: relative;
   }
 
   .food-icon {
     align-items: center;
-    background: #dcefd7;
+    background: var(--accent);
     border-radius: 999px;
-    color: #397d3d;
+    color: var(--icon-foreground);
     display: inline-flex;
     font-size: 0.95rem;
     font-weight: 900;
@@ -145,7 +145,7 @@
 
   .today-pace span,
   .pace-details span {
-    color: #56483d;
+    color: var(--muted-foreground);
     display: block;
     font-size: 0.86rem;
     font-weight: 800;
@@ -155,33 +155,34 @@
   .pace-details strong {
     display: block;
     font-size: 1.3rem;
+    font-weight: 700;
     letter-spacing: 0;
     margin-top: 0.2rem;
     overflow-wrap: anywhere;
   }
 
   .today-pace strong {
-    color: #3e8445;
+    color: var(--budget-positive);
     font-size: clamp(2rem, 4.2vw, 3rem);
     line-height: 1.1;
   }
 
   .today-pace p:nth-child(2) strong {
-    color: #3a2a20;
+    color: var(--budget-used);
   }
 
   .today-pace p:nth-child(3) strong,
   .pace-details p:first-child strong {
-    color: #3e8445;
+    color: var(--budget-positive);
   }
 
   .total-adjustment strong {
-    color: #b4473e;
+    color: var(--budget-negative);
   }
 
   @media (max-width: 760px) {
     .today-pace {
-      border-radius: 14px;
+      border-radius: var(--radius-xl);
       grid-template-columns: repeat(2, minmax(0, 1fr));
       margin-top: 0.7rem;
     }
@@ -198,11 +199,11 @@
 
     .today-pace p + p {
       border-left: 0;
-      border-top: 1px solid #e4ddd2;
+      border-top: 1px solid var(--border);
     }
 
     .today-pace p:nth-child(3) {
-      border-left: 1px solid #e4ddd2;
+      border-left: 1px solid var(--border);
     }
 
     .pace-details {

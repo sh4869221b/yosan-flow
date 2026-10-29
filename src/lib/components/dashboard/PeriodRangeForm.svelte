@@ -325,8 +325,9 @@
 
 <style>
   h2 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1.25rem;
+    font-weight: 700;
     margin: 1rem 0 0;
   }
   form {
@@ -345,41 +346,15 @@
     color: #4d4036;
     font-weight: 700;
   }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  button {
-    background: #2f6d3b;
-    border: 1px solid #2f6d3b;
-    border-radius: 8px;
-    box-sizing: border-box;
-    color: #fff;
-    cursor: pointer;
-    font: inherit;
-    font-weight: 800;
-    min-height: 2.65rem;
-    padding: 0 1rem;
-  }
-  .cancel {
-    background: #fffdf8;
-    border-color: #ded3c6;
-    color: #4d4036;
-  }
-  button:disabled,
-  button[aria-disabled="true"] {
-    cursor: default;
-    opacity: 0.65;
-  }
   .confirmation-error {
     display: grid;
     gap: 0.75rem;
-    color: #8b3a3a;
+    color: var(--invalid);
   }
   .confirmation-error h3 {
     margin: 0;
     font-size: 1rem;
+    font-weight: 700;
   }
   .confirmation-error button {
     justify-self: start;

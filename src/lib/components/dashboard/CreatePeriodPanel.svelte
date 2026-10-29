@@ -243,6 +243,15 @@
 {/if}
 
 <style>
+  section {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  section > button {
+    justify-self: start;
+  }
+
   form {
     display: grid;
     gap: 0.75rem;
@@ -260,16 +269,16 @@
   }
 
   .secondary {
-    background: #f5f1e9;
-    color: #2f2219;
+    background: var(--secondary);
+    color: var(--secondary-foreground);
   }
 
   input[aria-invalid="true"] {
-    border-color: #b33a3a;
+    border-color: var(--invalid-border);
   }
 
   .error {
-    color: #9e2e2e;
+    color: var(--invalid);
     font-weight: 700;
     margin: 0;
   }
@@ -279,8 +288,9 @@
   }
 
   h2 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: clamp(1.25rem, 2vw, 1.55rem);
+    font-weight: 700;
     letter-spacing: 0;
     line-height: 1.15;
     margin: 0.75rem 0 0;
@@ -297,24 +307,24 @@
   input,
   button {
     box-sizing: border-box;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     font: inherit;
     max-width: 100%;
-    min-height: 2.65rem;
+    min-height: var(--control-height);
   }
 
   input {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    color: #2f2219;
+    background: var(--input-background);
+    border: 1px solid var(--input);
+    color: var(--foreground);
     padding: 0 0.85rem;
     width: 100%;
   }
 
   button {
-    background: #2f6d3b;
+    background: var(--primary);
     border: 0;
-    color: #fff;
+    color: var(--primary-foreground);
     cursor: pointer;
     font-weight: 800;
     padding: 0 1rem;

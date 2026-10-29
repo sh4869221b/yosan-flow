@@ -2,6 +2,10 @@ import { expect, test } from "@playwright/test";
 import { configureDashboardDayEntryE2E } from "./dashboard-day-entry-helpers";
 import { seedPeriod } from "./helpers/db";
 import {
+  expectCalendarDayFitsCell,
+  expectVisibleCalendarFocus,
+} from "./helpers/calendar-appearance";
+import {
   addDays,
   getBaseUrl,
   getCurrentJstDate,
@@ -363,6 +367,13 @@ test("keeps the calendar inside every supported viewport without clipping state 
 
   for (const width of [320, 375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
+    await todayDay.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
+    await expect(todayDay).toHaveAttribute("aria-current", "date");
+    await expect(todayDay).toHaveAttribute("aria-pressed", "true");
+    await expectVisibleCalendarFocus(todayDay, "rgb(47, 118, 194)");
+    await expect(todayDay).not.toHaveCSS("box-shadow", "none");
+    await expectCalendarDayFitsCell(todayDay);
     expect(
       await page.evaluate(
         () =>
@@ -376,6 +387,11 @@ test("keeps the calendar inside every supported viewport without clipping state 
     expect(bounds?.height).toBeGreaterThanOrEqual(56.8);
     expect(bounds?.width).toBeGreaterThan(0);
     await expect(todayDay.getByTestId(`used-${today}`)).toBeVisible();
+    await expect(todayDay.getByTestId(`used-${today}`)).toHaveCSS(
+      "color",
+      "rgb(217, 105, 69)",
+    );
+    await expect(todayDay).toContainText("入力済み");
     await expect(todayDay).toContainText("選択中");
     await page.screenshot({
       path: `.omo/evidence/issue-331-calendar/calendar-${width}.png`,

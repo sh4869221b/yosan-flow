@@ -361,24 +361,38 @@
   }
 
   .primary-workspace {
-    background: #fffdf8;
-    border: 1px solid #e4ddd2;
-    border-radius: 12px;
-    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-    padding: 1.15rem 1.25rem;
+    background: var(--card);
+    color: var(--card-foreground);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--elevation-card);
+    padding: var(--panel-padding-block) var(--panel-padding-inline);
   }
 
   .empty-state,
   .workspace-shell > section[aria-labelledby="page-error-heading"] {
-    background: #fffdf8;
-    border: 1px solid #e4ddd2;
-    border-radius: 12px;
-    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-    padding: 1.15rem 1.25rem;
+    background: var(--card);
+    color: var(--card-foreground);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--elevation-card);
+    display: grid;
+    gap: 0.75rem;
+    padding: var(--panel-padding-block) var(--panel-padding-inline);
+  }
+
+  #empty-period-heading,
+  #page-error-heading {
+    font-size: clamp(1.25rem, 2vw, 1.55rem);
+    font-weight: 700;
+  }
+
+  .workspace-shell > section[aria-labelledby="page-error-heading"] > button {
+    justify-self: start;
   }
 
   .empty-state p {
-    color: #76675b;
+    color: var(--muted-foreground);
   }
 
   #period-settings-heading,
@@ -394,14 +408,12 @@
   }
 
   button {
-    background: #2f6d3b;
-    border: 0;
-    border-radius: 8px;
-    color: #fff;
+    background: var(--primary);
+    border-radius: var(--radius-md);
+    color: var(--primary-foreground);
     cursor: pointer;
-    font: inherit;
     font-weight: 800;
-    min-height: 2.65rem;
+    min-height: var(--control-height);
     padding: 0 1rem;
   }
 
@@ -421,7 +433,7 @@
     align-items: center;
     background: #e1f0dd;
     border-radius: 999px;
-    color: #397d3d;
+    color: var(--icon-foreground);
     display: inline-flex;
     flex: 0 0 auto;
     height: 2.75rem;
@@ -430,15 +442,16 @@
   }
 
   .workspace-heading h2 {
-    color: #2f2219;
+    color: var(--card-foreground);
     font-size: clamp(1.25rem, 2vw, 1.55rem);
+    font-weight: 700;
     letter-spacing: 0;
     line-height: 1.1;
     margin: 0;
   }
 
   .workspace-heading p {
-    color: #76675b;
+    color: var(--muted-foreground);
     margin: 0;
   }
 
@@ -468,8 +481,8 @@
 
   @media (max-width: 760px) {
     .primary-workspace {
-      border-radius: 18px;
-      padding: 0.95rem;
+      border-radius: var(--radius-2xl);
+      padding: var(--panel-padding-mobile);
     }
 
     .workspace-heading {
