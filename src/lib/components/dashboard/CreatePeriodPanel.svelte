@@ -4,6 +4,9 @@
   import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
   import PeriodRangePicker from "#lib/components/PeriodRangePicker.svelte";
   import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 
@@ -155,10 +158,11 @@
     {#if controller.createError}
       <p class="error" role="alert">{controller.createError}</p>
     {/if}
-    <button
+    <Button
+      class="justify-self-start"
       type="button"
       aria-disabled={controller.periodInteractionDisabled}
-      onclick={retry}>表示を再読み込み</button
+      onclick={retry}>表示を再読み込み</Button
     >
     {#if controller.createdRefreshing}
       <p role="status">表示を再取得しています...</p>
@@ -188,15 +192,16 @@
       rangeError={showRangeError}
       testIdPrefix={`${prefix}-range`}
     />
-    <button
+    <Button
+      class="justify-self-start"
       type="button"
       data-testid={`${prefix}-range-apply`}
       {disabled}
-      onclick={applyRange}>期間を反映</button
+      onclick={applyRange}>期間を反映</Button
     >
-    <label for={`${prefix}-budget`}>
-      新規予算額 (円)
-      <input
+    <div class="grid min-w-0 gap-1.5">
+      <Label for={`${prefix}-budget`}>新規予算額 (円)</Label>
+      <Input
         id={`${prefix}-budget`}
         type="text"
         inputmode="numeric"
@@ -208,13 +213,13 @@
         {disabled}
         onblur={() => (touchedBudget = true)}
       />
-    </label>
+    </div>
     <p id={`${prefix}-budget-error`} class="error field-error">
       {showBudgetError ?? ""}
     </p>
-    <label for={`${prefix}-id`}>
-      期間ID
-      <input
+    <div class="grid min-w-0 gap-1.5">
+      <Label for={`${prefix}-id`}>期間ID</Label>
+      <Input
         id={`${prefix}-id`}
         type="text"
         bind:value={controller.createPeriodId}
@@ -224,7 +229,7 @@
         {disabled}
         onblur={() => (touchedId = true)}
       />
-    </label>
+    </div>
     <p id={`${prefix}-id-error`} class="error field-error">
       {showIdError ?? ""}
     </p>
@@ -232,12 +237,12 @@
       <p role="alert" class="error">{controller.createError}</p>
     {/if}
     <div class="actions">
-      <button type="submit" aria-disabled={disabled}>
+      <Button type="submit" aria-disabled={disabled}>
         {submitLabel}
-      </button>
-      <button type="button" class="secondary" {disabled} onclick={cancel}>
+      </Button>
+      <Button type="button" variant="secondary" {disabled} onclick={cancel}>
         取り消す
-      </button>
+      </Button>
     </div>
   </form>
 {/if}
@@ -248,33 +253,16 @@
     gap: 0.75rem;
   }
 
-  section > button {
-    justify-self: start;
-  }
-
   form {
     display: grid;
     gap: 0.75rem;
     min-width: 0;
   }
 
-  form > button {
-    justify-self: start;
-  }
-
   .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
-  }
-
-  .secondary {
-    background: var(--secondary);
-    color: var(--secondary-foreground);
-  }
-
-  input[aria-invalid="true"] {
-    border-color: var(--invalid-border);
   }
 
   .error {
@@ -294,52 +282,5 @@
     letter-spacing: 0;
     line-height: 1.15;
     margin: 0.75rem 0 0;
-  }
-
-  label {
-    display: grid;
-    font-weight: 700;
-    gap: 0.35rem;
-    margin: 0.75rem 0;
-    min-width: 0;
-  }
-
-  input,
-  button {
-    box-sizing: border-box;
-    border-radius: var(--radius-md);
-    font: inherit;
-    max-width: 100%;
-    min-height: var(--control-height);
-  }
-
-  input {
-    background: var(--input-background);
-    border: 1px solid var(--input);
-    color: var(--foreground);
-    padding: 0 0.85rem;
-    width: 100%;
-  }
-
-  button {
-    background: var(--primary);
-    border: 0;
-    color: var(--primary-foreground);
-    cursor: pointer;
-    font-weight: 800;
-    padding: 0 1rem;
-  }
-
-  button:disabled,
-  button[aria-disabled="true"] {
-    cursor: wait;
-    opacity: 0.65;
-  }
-
-  @media (max-width: 760px) {
-    input,
-    button {
-      min-height: 2.45rem;
-    }
   }
 </style>

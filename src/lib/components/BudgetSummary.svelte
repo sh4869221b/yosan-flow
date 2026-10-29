@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+  import * as Card from "#lib/components/ui/card/index.ts";
   import BudgetPacePanel from "./budget/BudgetPacePanel.svelte";
   import BudgetStatsPanel from "./budget/BudgetStatsPanel.svelte";
 
@@ -21,43 +22,27 @@
 </script>
 
 <section aria-labelledby="budget-summary-heading">
-  <h2 id="budget-summary-heading">予算サマリー</h2>
-  {#if summary}
-    {#if pace}
-      <BudgetPacePanel {pace} {paceStatusLabel} />
-    {/if}
+  <Card.Root class="gap-0">
+    <Card.Header>
+      <h2 id="budget-summary-heading" class="text-lg font-bold">
+        予算サマリー
+      </h2>
+    </Card.Header>
+    <Card.Content class="block">
+      {#if summary}
+        {#if pace}
+          <BudgetPacePanel {pace} {paceStatusLabel} />
+        {/if}
 
-    <BudgetStatsPanel
-      budgetYen={summary.budgetYen}
-      remainingYen={summary.remainingYen}
-      daysRemaining={summary.daysRemaining}
-      overspentYen={summary.overspentYen}
-    />
-  {:else if loading}
-    <p>読み込み中...</p>
-  {/if}
+        <BudgetStatsPanel
+          budgetYen={summary.budgetYen}
+          remainingYen={summary.remainingYen}
+          daysRemaining={summary.daysRemaining}
+          overspentYen={summary.overspentYen}
+        />
+      {:else if loading}
+        <p class="mt-4 text-muted-foreground">読み込み中...</p>
+      {/if}
+    </Card.Content>
+  </Card.Root>
 </section>
-
-<style>
-  section {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--elevation-card);
-    color: var(--card-foreground);
-    padding: var(--panel-padding-block) var(--panel-padding-inline);
-  }
-
-  h2 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin: 0;
-  }
-
-  @media (max-width: 760px) {
-    section {
-      border-radius: var(--radius-2xl);
-      padding: var(--panel-padding-mobile);
-    }
-  }
-</style>

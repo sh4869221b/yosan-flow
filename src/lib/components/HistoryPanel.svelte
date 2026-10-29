@@ -1,5 +1,9 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
+  import { Textarea } from "#lib/components/ui/textarea/index.ts";
   import HistoryRow from "./day-entry/HistoryRow.svelte";
   import type {
     HistoryActionResult,
@@ -352,21 +356,36 @@
         編集中の履歴は削除されました
       </h3>
       <p>入力途中の内容を確認してから編集を終了してください。</p>
-      <label>
-        編集中の入力額 (円)
-        <input readonly value={editInputYen} />
-      </label>
-      <label>
-        編集中のメモ
-        <textarea readonly rows="2" value={editMemo}></textarea>
-      </label>
-      <button
-        class="retry-button"
+      <div class="missing-history-field">
+        <Label for={`missing-history-${editingHistoryId}-amount`}>
+          編集中の入力額 (円)
+        </Label>
+        <Input
+          id={`missing-history-${editingHistoryId}-amount`}
+          type="text"
+          readonly
+          value={editInputYen}
+        />
+      </div>
+      <div class="missing-history-field">
+        <Label for={`missing-history-${editingHistoryId}-memo`}>
+          編集中のメモ
+        </Label>
+        <Textarea
+          id={`missing-history-${editingHistoryId}-memo`}
+          readonly
+          rows={2}
+          value={editMemo}
+        />
+      </div>
+      <Button
+        variant="outline"
+        class="justify-self-start aria-disabled:cursor-wait"
         type="button"
         onclick={() => void finishMissingHistory(true)}
       >
         編集を終了
-      </button>
+      </Button>
     </div>
   {/if}
   {#if missingDelete}
@@ -374,13 +393,14 @@
       <h3 tabindex="-1" bind:this={missingDeleteHeading}>
         削除を確認していた履歴は削除されました
       </h3>
-      <button
-        class="retry-button"
+      <Button
+        variant="outline"
+        class="justify-self-start aria-disabled:cursor-wait"
         type="button"
         onclick={() => void finishMissingHistory(false)}
       >
         削除確認を終了
-      </button>
+      </Button>
     </div>
   {/if}
   {#if loading}
@@ -412,42 +432,23 @@
     </ul>
   {/if}
   {#if showRetry}
-    <button
-      class="retry-button"
+    <Button
+      variant="outline"
+      class="justify-self-start aria-disabled:cursor-wait"
       type="button"
       aria-disabled={loading || activeRetry != null}
       onclick={retry}
     >
       {activeRetry != null ? "再試行中..." : "履歴を再試行"}
-    </button>
+    </Button>
   {/if}
 </section>
 
 <style>
   .missing-history,
-  .missing-history label {
+  .missing-history-field {
     display: grid;
     gap: 0.5rem;
-  }
-
-  .missing-history input,
-  .missing-history textarea {
-    background: var(--input-background);
-    border: 1px solid var(--input);
-    border-radius: var(--radius-md);
-    color: var(--foreground);
-    font: inherit;
-    padding: 0.65rem 0.75rem;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .missing-history input {
-    min-height: var(--control-height);
-  }
-
-  .missing-history textarea {
-    resize: vertical;
   }
 
   .missing-history h3 {
@@ -513,24 +514,6 @@
     color: var(--destructive);
     font-weight: 800;
     padding: 0.75rem 0.85rem;
-  }
-
-  .retry-button {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--card-foreground);
-    cursor: pointer;
-    font: inherit;
-    font-weight: 900;
-    justify-self: start;
-    min-height: 2.75rem;
-    padding: 0 0.9rem;
-  }
-
-  .retry-button[aria-disabled="true"] {
-    cursor: wait;
-    opacity: 0.65;
   }
 
   ul {

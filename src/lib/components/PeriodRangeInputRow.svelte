@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { PeriodRangeField } from "./period-range-state";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
 
   type Props = {
     value: { readonly startDate: string; readonly endDate: string };
@@ -53,10 +55,10 @@
   );
 </script>
 
-<p>
-  <label for={startId}>
-    開始日
-    <input
+<div class="flex flex-wrap items-end gap-3">
+  <div class="grid min-w-0 flex-[1_1_11rem] gap-1.5">
+    <Label for={startId}>開始日</Label>
+    <Input
       id={startId}
       type="text"
       inputmode="numeric"
@@ -70,10 +72,10 @@
       onblur={() => onFieldBlur("start")}
     />
     <span id={startHelpId}>YYYY-MM-DD</span>
-  </label>
-  <label for={endId}>
-    終了日
-    <input
+  </div>
+  <div class="grid min-w-0 flex-[1_1_11rem] gap-1.5">
+    <Label for={endId}>終了日</Label>
+    <Input
       id={endId}
       type="text"
       inputmode="numeric"
@@ -87,8 +89,8 @@
       onblur={() => onFieldBlur("end")}
     />
     <span id={endHelpId}>YYYY-MM-DD</span>
-  </label>
-</p>
+  </div>
+</div>
 
 {#if startError}
   <p id={`${startId}-error`} class="error">{startError}</p>
@@ -101,41 +103,10 @@
 {/if}
 
 <style>
-  p {
-    align-items: end;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin: 0;
-  }
-
-  label {
-    color: var(--foreground);
-    display: grid;
-    flex: 1 1 11rem;
-    font-weight: 700;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-
   span {
     color: var(--muted-foreground);
     font-size: 0.875rem;
     font-weight: 600;
-  }
-
-  input {
-    background: var(--input-background);
-    border: 1px solid var(--input);
-    border-radius: var(--radius-md);
-    color: var(--foreground);
-    min-height: var(--control-height);
-    padding: 0 0.85rem;
-    width: 100%;
-  }
-
-  input[aria-invalid="true"] {
-    border-color: var(--invalid-border);
   }
 
   .error {

@@ -143,10 +143,10 @@ dimensions remain with their component owners. Tailwind's default spacing unit i
 unchanged. Add a token when it names a shared meaning, rather than converting
 every literal or rounding every dimension to the utility scale.
 
-During the later shadcn initialization, preserve this stylesheet and its token
-values instead of accepting a CLI replacement theme. Add chart, sidebar or dark
-tokens only when a component actually needs them. Basic UI, Dialog/Sheet and
-RangeCalendar replacement remain the responsibility of the later migration issues.
+Preserve this stylesheet and its token values when acquiring shadcn components.
+Add chart, sidebar or dark tokens only when a component actually needs them.
+Basic UI is adopted in #582; Dialog/Sheet and RangeCalendar replacement remain
+the responsibility of #583 and #584.
 
 ### Reset and ownership
 
@@ -230,6 +230,96 @@ also passed. Pixel equality was deliberately not used as the acceptance criterio
 the intended changes are the normalized typography, control defaults, palette and
 border-box geometry described above. The GitHub `Quality checks` aggregate remains
 a separate PR gate.
+
+### Basic UI maintenance
+
+`src/lib/components/ui/**` is project-owned source acquired from shadcn-svelte,
+not an installed component library. `components.json` selects Vega, Lucide and
+the existing `src/app.css`. Its neutral base-color setting is acquisition
+metadata, not a replacement for the application palette. The upstream MIT notice
+is retained in `tooling/shadcn/LICENSE.md`.
+
+`tooling/shadcn/source.json` records the CLI version, registry, acquisition date,
+command and SHA-256 hashes of the unmodified generated files. A pinned CLI does
+not pin the live registry. Record a new acquisition separately and review both
+upstream differences and local adaptations before updating these hashes.
+
+To acquire or update components:
+
+1. Use the repository-defined Node/pnpm versions and a disposable directory with
+   the same package imports, TypeScript/Vite configuration, `src/app.css`,
+   `components.json` and installed project dependencies. Run `pnpm exec svelte-kit
+sync` there. Do not copy `.dev.vars`, credentials or local D1 state.
+2. Use the recorded CLI version with `pnpm dlx shadcn-svelte@<cliVersion> add
+utils button input card textarea label native-select --cwd <staging>
+--no-deps-install --yes`. The flag prevents installation, but still writes
+   generated files and changes the staging package manifest. Avoid `init` and
+   preset application on the application checkout: they can replace theme CSS
+   and introduce unrelated dependencies.
+3. Compare the generated files and package changes against the previous source
+   hashes and the current implementation. Keep existing dependency ranges unless
+   the component needs an intentional update. Initial acquisition proposed a
+   Lucide update; #582 retained the application's existing version instead.
+4. Normalize local generated imports to actual `.ts` / `.svelte` paths. Keep
+   `aliases.utils` extensionless (`#lib/utils`): the CLI appends `.js`, which must
+   become `.ts`, rather than producing `.ts.js`. The CLI resolves `#lib/*` from
+   `package.json`; do not restore `svelte.config.js` or duplicate `tsconfig.paths`.
+   Check for unresolved `$LIB$` / `$UTILS$` placeholders, `IconPlaceholder` and
+   `cn-font-heading` markers. Copying raw upstream templates skips the required
+   icon/style transforms.
+5. Reapply the local changes below, retain only consumed component parts and
+   exports, format, and run all required gates. Inspect desktop/mobile states,
+   SSR/hydration, keyboard focus and the error/retry path before accepting an
+   update. Fallow continues to analyze `ui/**`; do not exclude it or baseline new
+   findings to accommodate unused generated scaffolding.
+
+Current local adaptations:
+
+- `cn` merges utility classes; Button uses `tailwind-variants/lite` for variants
+  so class merging has one owner. Both are application dependencies. Existing
+  Bits UI and Lucide dependencies are reused. These six components do not need
+  `tw-animate-css` or `shadcn-svelte/tailwind.css`.
+- Imports use `#lib` and explicit extensions. Unused Card parts, Native Select
+  OptGroup, duplicate barrel aliases and unused utility types are omitted.
+- Button renders a native button with explicit caller-provided submit/button
+  intent. Its ref is `HTMLButtonElement`; Input, Textarea and Native Select
+  expose their actual DOM elements through `bind:ref`. `WithElementRef` leaves
+  its element parameter unconstrained because this application combines DOM
+  and Worker declarations; each interactive control specifies its native type.
+- Input/textarea retain native value/event forwarding. The file and ordinary
+  Input branches share one class calculation. Utility types use `unknown`
+  rather than introducing lint suppressions.
+- The existing light theme supplies input fills, borders, control height and
+  Card shadow/spacing. Default buttons retain a 44px minimum target height.
+  Unused dark variants are removed. Native Select dims its
+  control once, instead of compounding wrapper/control opacity. Card does not
+  clip keyboard outlines. `aria-disabled` styling never adds native disabling
+  or suppresses events; guarded business handlers still decide availability.
+
+Business components keep raw text, validation, labels, Japanese wording, test
+IDs, refs and controller orchestration. In particular, `readonly` missing-history
+fields remain selectable, day-entry drafts remain editable while saving, and
+retry buttons can retain focus while `aria-disabled`. Card wrappers preserve
+native labelled sections and heading levels. The period header binds a local
+selection draft and reconciles it when loading finishes; a failed switch must
+reset the binding as well as the DOM value before later option-list refreshes.
+The money-input group owns its
+unclipped focus outline. Remove superseded primitive CSS locally, including
+responsive/state declarations, when moving a control into `ui/**`.
+
+The focused `dashboard-basic-controls.spec.ts` covers native select label and
+keyboard behavior plus amount focus bounds and forwarded values at narrow and
+desktop widths. Existing settings/create, period-operation/switch, history/race,
+range-picker and framework-error-retry specs cover the surrounding contracts.
+Dialog/AlertDialog/Sheet primitives remain owned by #583; RangeCalendar and
+budget-calendar cells/navigation remain owned by #584. Those migrations can use
+the established `class`, `variant`, native attributes, `bind:value` and `bind:ref`
+APIs without changing the shared theme or utilities.
+For wrappers around an existing primitive, `ui/button/button.svelte` also
+exports `buttonVariants`, `ButtonVariant` and `ButtonSize`; combine the returned
+classes with `cn` when accepting caller classes. Keep new wrapper-specific prop
+omissions local with TypeScript's `Omit` rather than adding unused utility types
+to the shared module solely to match an upstream barrel.
 
 ## Verification
 

@@ -16,7 +16,7 @@
   }
 </script>
 
-<div class="stats">
+<div class="stats border-t border-border">
   <p data-testid="budget-value">
     <span class="stat-label">
       <WalletCards size={17} strokeWidth={2.4} aria-hidden="true" />
@@ -41,7 +41,9 @@
 </div>
 
 {#if overspentYen > 0}
-  <p role="status">予算を {overspentYen} 円 超過しています。</p>
+  <p class="mt-2 font-bold text-budget-over" role="status">
+    予算を {overspentYen} 円 超過しています。
+  </p>
 {/if}
 
 <style>
@@ -51,7 +53,6 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     margin: 1rem 0 0;
     padding-top: 0.95rem;
-    border-top: 1px solid var(--border);
   }
 
   .stats p {
@@ -92,12 +93,6 @@
 
   .stats p:nth-child(2) strong {
     color: var(--budget-positive);
-  }
-
-  p[role="status"] {
-    color: var(--budget-over);
-    font-weight: 700;
-    margin-top: 0.5rem;
   }
 
   @media (max-width: 760px) {
