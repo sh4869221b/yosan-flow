@@ -1,11 +1,12 @@
+import { env } from "cloudflare:workers";
 import { json, type RequestHandler } from "@sveltejs/kit";
 import { count } from "drizzle-orm";
-import { createDrizzleD1Database } from "$lib/server/db/client";
+import { createDrizzleD1Database } from "#lib/server/db/client.ts";
 import {
   budget_periods,
   daily_operation_histories,
   daily_totals,
-} from "$lib/server/db/schema";
+} from "#lib/server/db/schema.ts";
 
 const RESET_HEADER = "x-yosan-flow-e2e-reset-token";
 
@@ -41,9 +42,8 @@ function getResetToken(): string | null {
   return runtimeProcess?.env?.YOSAN_FLOW_E2E_RESET_TOKEN ?? null;
 }
 
-export const POST: RequestHandler = async ({ platform, request }) => {
-  const expectedToken =
-    platform?.env?.YOSAN_FLOW_E2E_RESET_TOKEN ?? getResetToken();
+export const POST: RequestHandler = async ({ request }) => {
+  const expectedToken = env.YOSAN_FLOW_E2E_RESET_TOKEN ?? getResetToken();
   if (!expectedToken) {
     return new Response(null, { status: 404 });
   }
@@ -54,7 +54,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     );
   }
 
-  const db = platform?.env?.DB;
+  const db = env.DB;
   if (!db) {
     return json(
       { error: { code: "DB_NOT_AVAILABLE", message: "D1 DB is unavailable" } },

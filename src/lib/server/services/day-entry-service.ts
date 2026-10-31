@@ -1,24 +1,25 @@
 import { Effect } from "effect";
-import type { DatabaseClient } from "$lib/server/db/client";
+import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
+import type { DatabaseClient } from "#lib/server/db/client.ts";
 import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
+} from "#lib/server/db/budget-period-repository.ts";
 import type {
   DailyHistoryRecord,
   DailyHistoryRepository,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/daily-history-repository.ts";
 import type {
   DailyTotalRecord,
   DailyTotalRepository,
-} from "$lib/server/db/daily-total-repository";
-import { createHistoryId as createDefaultHistoryId } from "$lib/server/services/history-id";
+} from "#lib/server/db/daily-total-repository.ts";
+import { createHistoryId as createDefaultHistoryId } from "#lib/server/services/history-id.ts";
 import { persistEntryEffect } from "./day-entry/entry-persistence";
 import { replayHistoryMutationEffect } from "./day-entry/history-mutation";
 import {
   prepareEntryEffect,
-  validateHistoryDeleteEffect,
-  validateHistoryUpdateEffect,
+  validateEntryInputEffect,
   type ExecuteEntryInput,
 } from "./day-entry/preparation";
 
@@ -64,7 +65,7 @@ export type HistoryReplayResult = {
 };
 
 export class PeriodNotFoundError extends Error {
-  // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
   readonly code = "PERIOD_NOT_FOUND";
 
   constructor(periodId: string) {
@@ -74,7 +75,7 @@ export class PeriodNotFoundError extends Error {
 }
 
 export class DateOutOfPeriodError extends Error {
-  // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
   readonly code = "DATE_OUT_OF_PERIOD";
 
   constructor(date: string, periodId: string) {
@@ -84,17 +85,13 @@ export class DateOutOfPeriodError extends Error {
 }
 
 export class HistoryNotFoundError extends Error {
-  // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
   readonly code = "HISTORY_NOT_FOUND";
 
   constructor(historyId: string) {
     super(`History not found: ${historyId}`);
     this.name = "HistoryNotFoundError";
   }
-}
-
-function defaultNow(): string {
-  return new Date().toISOString();
 }
 
 export class DayEntryService {
@@ -114,7 +111,7 @@ export class DayEntryService {
     this.budgetPeriodRepository = input.budgetPeriodRepository;
     this.dailyTotalRepository = input.dailyTotalRepository;
     this.dailyHistoryRepository = input.dailyHistoryRepository;
-    this.now = input.now ?? defaultNow;
+    this.now = input.now ?? (() => new Date().toISOString());
     this.createHistoryId = input.createHistoryId ?? createDefaultHistoryId;
   }
 
@@ -139,8 +136,8 @@ export class DayEntryService {
   updateHistoryEntry(
     command: UpdateHistoryCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
-    return Effect.gen(this, function* () {
-      const memo = yield* validateHistoryUpdateEffect(command);
+    return Effect.gen({ self: this }, function* () {
+      const memo = yield* validateEntryInputEffect(command);
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
         mutateTarget: (history) => ({
@@ -155,8 +152,11 @@ export class DayEntryService {
   deleteHistoryEntry(
     command: HistoryMutationCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
-    return Effect.gen(this, function* () {
-      yield* validateHistoryDeleteEffect(command);
+    return Effect.gen({ self: this }, function* () {
+      yield* Effect.try({
+        try: () => assertValidDate(command.date),
+        catch: toEffectError,
+      });
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
         mutateTarget: () => null,
@@ -186,7 +186,7 @@ export class DayEntryService {
   private executeEntryEffect(
     input: ExecuteEntryInput,
   ): Effect.Effect<DayEntryResult, Error> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const prepared = yield* prepareEntryEffect({
         execute: input,
         budgetPeriodRepository: this.budgetPeriodRepository,

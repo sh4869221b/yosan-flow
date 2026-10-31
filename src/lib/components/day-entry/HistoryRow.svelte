@@ -1,8 +1,15 @@
 <script lang="ts">
   import { Pencil, Save, Trash2, X } from "@lucide/svelte";
   import { onDestroy, tick } from "svelte";
-  import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
+  import { Textarea } from "#lib/components/ui/textarea/index.ts";
+  import type {
+    HistoryActionResult,
+    HistoryItem,
+  } from "#lib/dashboard/types.ts";
+  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 
   const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
 
@@ -260,6 +267,117 @@
   }
 </script>
 
+{#snippet deleteConfirmation()}
+  <div class="delete-confirmation">
+    <p>
+      「{history.operationType === "add" ? "追加" : "調整"}
+      {history.inputYen} 円」を削除しますか？
+    </p>
+    <div class="delete-actions">
+      <Button
+        bind:ref={deleteCancelButton}
+        variant="outline"
+        type="button"
+        onclick={handleCancelDelete}
+        aria-disabled={isDeletePending}
+        onkeydown={handleDeleteKeydown}
+      >
+        取消
+      </Button>
+      <Button
+        variant="destructive"
+        type="button"
+        onclick={() => void handleConfirmDelete()}
+        aria-disabled={isDeletePending}
+        onkeydown={handleDeleteKeydown}
+      >
+        {isDeletePending ? "削除中..." : "削除を確定"}
+      </Button>
+    </div>
+    {#if isDeletePending}
+      <p class="edit-status" role="status">履歴を削除中です。</p>
+    {/if}
+    {#if deleteError}
+      <p class="error-message" role="alert">{deleteError}</p>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet editForm()}
+  <form class="inline-edit" onsubmit={handleSaveEdit}>
+    <div class="edit-field">
+      <Label for={`history-edit-${history.id}-amount`}>入力額 (円)</Label>
+      <Input
+        id={`history-edit-${history.id}-amount`}
+        type="text"
+        inputmode="numeric"
+        bind:ref={amountInput}
+        bind:value={editInputYen}
+        aria-invalid={inputError != null}
+        aria-describedby={inputError
+          ? `history-edit-${history.id}-amount-error`
+          : undefined}
+        disabled={isPending}
+        oninput={handleInput}
+        onfocus={(event) => captureEditFocus("amount", event.currentTarget)}
+        onkeydown={handleEditKeydown}
+      />
+    </div>
+    {#if inputError}
+      <p
+        id={`history-edit-${history.id}-amount-error`}
+        class="error-message"
+        role="alert"
+      >
+        {inputError}
+      </p>
+    {/if}
+    <div class="edit-field">
+      <Label for={`history-edit-${history.id}-memo`}>メモ</Label>
+      <Textarea
+        id={`history-edit-${history.id}-memo`}
+        rows={2}
+        bind:ref={memoInput}
+        bind:value={editMemo}
+        disabled={isPending}
+        oninput={() => (saveError = null)}
+        onfocus={(event) => captureEditFocus("memo", event.currentTarget)}
+        onkeydown={handleEditKeydown}
+      />
+    </div>
+    <div class="edit-actions">
+      <Button
+        bind:ref={saveButton}
+        type="submit"
+        disabled={isPending || mutationUnavailable}
+        onfocus={(event) => captureEditFocus("save", event.currentTarget)}
+        onkeydown={handleEditKeydown}
+      >
+        <Save size={16} strokeWidth={2.4} aria-hidden="true" />
+        {isPending ? "保存中..." : "保存"}
+      </Button>
+      <Button
+        variant="outline"
+        type="button"
+        onclick={handleCancelEdit}
+        disabled={isPending}
+        onkeydown={handleEditKeydown}
+      >
+        <X size={16} strokeWidth={2.4} aria-hidden="true" />
+        キャンセル
+      </Button>
+    </div>
+    {#if isPending}
+      <p class="edit-status" role="status">履歴を更新中です。</p>
+    {:else if mutationUnavailable}
+      <p class="edit-status" role="status">別の履歴を更新中です。</p>
+    {/if}
+    {#if saveError}
+      <p class="error-message" role="alert">{saveError}</p>
+    {/if}
+  </form>
+{/snippet}
+
 <li class:editing={isEditing}>
   <div class="history-row-header">
     <div class="history-meta">
@@ -267,9 +385,9 @@
       <time datetime={history.createdAt}>{history.createdAt}</time>
     </div>
     <div class="row-actions" aria-label="履歴操作">
-      <button
-        bind:this={editButton}
-        class="icon-button"
+      <Button
+        bind:ref={editButton}
+        variant="outline"
         type="button"
         data-history-edit-id={history.id}
         onclick={handleStartEdit}
@@ -277,125 +395,25 @@
       >
         <Pencil size={16} strokeWidth={2.4} aria-hidden="true" />
         編集
-      </button>
-      <button
-        bind:this={deleteButton}
-        class="icon-button danger"
+      </Button>
+      <Button
+        bind:ref={deleteButton}
+        variant="outline"
+        class="border-destructive-border text-destructive hover:bg-destructive-subtle hover:text-destructive"
         type="button"
         onclick={handleStartDelete}
         disabled={!canDelete || isDeleteConfirming}
       >
         <Trash2 size={16} strokeWidth={2.4} aria-hidden="true" />
         削除
-      </button>
+      </Button>
     </div>
   </div>
   {#if isDeleteConfirming}
-    <div class="delete-confirmation">
-      <p>
-        「{history.operationType === "add" ? "追加" : "調整"}
-        {history.inputYen} 円」を削除しますか？
-      </p>
-      <div class="delete-actions">
-        <button
-          bind:this={deleteCancelButton}
-          class="cancel-button"
-          type="button"
-          onclick={handleCancelDelete}
-          aria-disabled={isDeletePending}
-          onkeydown={handleDeleteKeydown}
-        >
-          取消
-        </button>
-        <button
-          class="delete-confirm-button"
-          type="button"
-          onclick={() => void handleConfirmDelete()}
-          aria-disabled={isDeletePending}
-          onkeydown={handleDeleteKeydown}
-        >
-          {isDeletePending ? "削除中..." : "削除を確定"}
-        </button>
-      </div>
-      {#if isDeletePending}
-        <p class="edit-status" role="status">履歴を削除中です。</p>
-      {/if}
-      {#if deleteError}
-        <p class="error-message" role="alert">{deleteError}</p>
-      {/if}
-    </div>
+    {@render deleteConfirmation()}
   {/if}
   {#if isEditing}
-    <form class="inline-edit" onsubmit={handleSaveEdit}>
-      <label>
-        入力額 (円)
-        <input
-          type="text"
-          inputmode="numeric"
-          bind:this={amountInput}
-          bind:value={editInputYen}
-          aria-invalid={inputError != null}
-          aria-describedby={inputError
-            ? `history-edit-${history.id}-amount-error`
-            : undefined}
-          disabled={isPending}
-          oninput={handleInput}
-          onfocus={(event) => captureEditFocus("amount", event.currentTarget)}
-          onkeydown={handleEditKeydown}
-        />
-      </label>
-      {#if inputError}
-        <p
-          id={`history-edit-${history.id}-amount-error`}
-          class="error-message"
-          role="alert"
-        >
-          {inputError}
-        </p>
-      {/if}
-      <label>
-        メモ
-        <textarea
-          rows="2"
-          bind:this={memoInput}
-          bind:value={editMemo}
-          disabled={isPending}
-          oninput={() => (saveError = null)}
-          onfocus={(event) => captureEditFocus("memo", event.currentTarget)}
-          onkeydown={handleEditKeydown}></textarea>
-      </label>
-      <div class="edit-actions">
-        <button
-          bind:this={saveButton}
-          class="save-button"
-          type="submit"
-          disabled={isPending || mutationUnavailable}
-          onfocus={(event) => captureEditFocus("save", event.currentTarget)}
-          onkeydown={handleEditKeydown}
-        >
-          <Save size={16} strokeWidth={2.4} aria-hidden="true" />
-          {isPending ? "保存中..." : "保存"}
-        </button>
-        <button
-          class="cancel-button"
-          type="button"
-          onclick={handleCancelEdit}
-          disabled={isPending}
-          onkeydown={handleEditKeydown}
-        >
-          <X size={16} strokeWidth={2.4} aria-hidden="true" />
-          キャンセル
-        </button>
-      </div>
-      {#if isPending}
-        <p class="edit-status" role="status">履歴を更新中です。</p>
-      {:else if mutationUnavailable}
-        <p class="edit-status" role="status">別の履歴を更新中です。</p>
-      {/if}
-      {#if saveError}
-        <p class="error-message" role="alert">{saveError}</p>
-      {/if}
-    </form>
+    {@render editForm()}
   {:else}
     <p class="history-input">
       <span>入力</span>
@@ -425,8 +443,8 @@
 <style>
   li {
     background: #fffaf0;
-    border: 1px solid #eadcc9;
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     display: grid;
     gap: 0.35rem;
     padding: 0.75rem;
@@ -459,7 +477,7 @@
   .history-input span,
   dt,
   .history-memo span {
-    color: #76675b;
+    color: var(--muted-foreground);
     font-size: 0.78rem;
     font-weight: 800;
   }
@@ -477,7 +495,7 @@
   }
 
   dd {
-    color: #2f2219;
+    color: var(--foreground);
     font-weight: 800;
     margin: 0;
   }
@@ -492,9 +510,9 @@
   }
 
   .delete-confirmation {
-    background: #fff1f0;
-    border: 1px solid #efc3bd;
-    border-radius: 8px;
+    background: var(--destructive-subtle);
+    border: 1px solid var(--destructive-border);
+    border-radius: var(--radius-md);
     display: grid;
     gap: 0.5rem;
     padding: 0.75rem;
@@ -510,34 +528,14 @@
     gap: 0.5rem;
   }
 
-  .delete-confirm-button {
-    background: #9b2c22;
-    border: 1px solid #9b2c22;
-    border-radius: 8px;
-    color: #fff;
-    cursor: pointer;
-    font: inherit;
-    font-weight: 900;
-    min-height: 2.75rem;
-    padding: 0 0.85rem;
-  }
-
   .error-message {
-    color: #9b2c22;
+    color: var(--destructive);
     font-weight: 800;
   }
 
   .edit-status {
-    color: #276432;
+    color: var(--success);
     font-weight: 800;
-  }
-
-  button,
-  input,
-  textarea {
-    box-sizing: border-box;
-    font: inherit;
-    max-width: 100%;
   }
 
   .row-actions,
@@ -546,64 +544,14 @@
     gap: 0.45rem;
   }
 
-  button {
-    align-items: center;
-    border-radius: 8px;
-    cursor: pointer;
-    display: inline-flex;
-    font-weight: 900;
-    gap: 0.35rem;
-    justify-content: center;
-    min-height: 2.45rem;
-    padding: 0 0.75rem;
-  }
-
-  button:disabled {
-    cursor: wait;
-    opacity: 0.65;
-  }
-
-  .icon-button,
-  .cancel-button {
-    background: #fffdf8;
-    border: 1px solid #d9cdbc;
-    color: #2f2219;
-  }
-
-  .icon-button.danger {
-    border-color: #efc3bd;
-    color: #9b2c22;
-  }
-
-  .save-button {
-    background: #2f6d3b;
-    border: 1px solid #2f6d3b;
-    color: #fff;
-  }
-
   .inline-edit {
     display: grid;
     gap: 0.7rem;
   }
 
-  .inline-edit label {
+  .edit-field {
     display: grid;
-    font-weight: 800;
     gap: 0.35rem;
-  }
-
-  input,
-  textarea {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
-    color: #2f2219;
-    padding: 0.65rem 0.75rem;
-    width: 100%;
-  }
-
-  textarea {
-    resize: vertical;
   }
 
   li.editing {
@@ -613,7 +561,7 @@
 
   p,
   time {
-    color: #76675b;
+    color: var(--muted-foreground);
     font-size: 0.84rem;
   }
 
@@ -627,15 +575,11 @@
     .history-change,
     .history-change div,
     .row-actions,
-    .edit-actions {
+    .edit-actions,
+    .delete-actions {
       align-items: stretch;
       display: grid;
       gap: 0.45rem;
-    }
-
-    button {
-      min-height: 2.75rem;
-      width: 100%;
     }
   }
 </style>

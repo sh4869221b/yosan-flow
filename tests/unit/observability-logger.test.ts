@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLogger } from "$lib/server/observability/logger";
+import { createLogger } from "#lib/server/observability/logger.ts";
 import {
   sanitizeEvent,
   type TelemetryEvent,
-} from "$lib/server/observability/schema";
+} from "#lib/server/observability/schema.ts";
 
 const event = {
   event: "operation.completed",

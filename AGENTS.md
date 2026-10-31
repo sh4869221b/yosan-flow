@@ -15,9 +15,10 @@ src/routes/              # Single dashboard page and period-first JSON API
 src/lib/dashboard/       # Client controllers, mutation ordering, DTOs, URL helpers
 src/lib/components/      # Dashboard, calendar, budget, and day-entry UI
 src/lib/server/          # Effect services, domain rules, repositories, validation, JST time
-migrations/              # D1 schema source of truth
+migrations/              # Immutable legacy SQL + Drizzle SQL/metadata
 tests/unit/              # Pure rules, controller races, architecture guards
 tests/integration/       # Handler/service/repository tests with in-memory or D1 fake
+tests/migrations/        # Schema/history/data safety on disposable SQLite/local D1
 tests/e2e/               # Playwright against local Wrangler and migrated D1
 ```
 
@@ -34,7 +35,7 @@ tests/e2e/               # Playwright against local Wrangler and migrated D1
 | Runtime service selection | `src/lib/server/services/api-services/`                                              | D1/in-memory composition and cache                       |
 | Persistence               | `src/lib/server/db/`                                                                 | Drizzle repositories plus the raw-D1 atomic writer       |
 | API validation/errors     | `src/lib/server/validation/`, `src/lib/server/effect/`                               | Parsing, stable error mapping, Effect execution          |
-| Schema                    | `migrations/*.sql`, `src/lib/server/db/schema.ts`                                    | SQL is authoritative; Drizzle schema is a mirror         |
+| Schema                    | `migrations/*.sql`, `src/lib/server/db/schema.ts`                                    | schema.ts is canonical; generate SQL with Drizzle Kit    |
 
 ## Code Map
 
@@ -46,7 +47,7 @@ Reference counts are authored-code LSP occurrences, excluding declarations and `
 | `createDashboardPageController` | facade                | `src/lib/dashboard/page-controller.svelte.ts:8`                          |       2+ | Composes period, history, and day-entry controllers   |
 | `createPeriodSummaryRevision`   | coordinator           | `src/lib/dashboard/period-summary-revision.ts:32`                        |       15 | Serializes cross-kind mutations and tracks freshness  |
 | `runApiEffect`                  | boundary              | `src/lib/server/effect/runtime.ts:7`                                     |       62 | Executes Effect values at route/page boundaries       |
-| `getApiServicesFromPlatform`    | composition           | `src/lib/server/services/api-services/cache.ts:50`                       |       18 | Selects cached D1 or in-memory services               |
+| `getApiServices`                | composition           | `src/lib/server/services/api-services/cache.ts:50`                       |       18 | Selects cached D1 or in-memory services               |
 | `InMemoryApiServices`           | service port          | `src/lib/server/services/api-services/types.ts:45`                       |       27 | Shared route contract despite the legacy type name    |
 | `buildPeriodSummary`            | domain service        | `src/lib/server/services/period-summary/period-summary-calculator.ts:61` |       10 | Builds the authoritative period summary DTO           |
 | `BudgetPeriodRepository`        | repository port       | `src/lib/server/db/budget-period-types.ts:53`                            |       23 | Owns period persistence contract                      |
@@ -65,7 +66,7 @@ Before editing, read `README.md`, `CONTRIBUTING.md`, and every deeper `AGENTS.md
 - `src/lib/dashboard/AGENTS.md`: client state ownership and mutation races.
 - `src/lib/components/AGENTS.md`: Svelte UI and selector conventions.
 - `src/lib/server/AGENTS.md`: server-wide domain, Effect, validation boundaries.
-- `src/lib/server/db/AGENTS.md`: repositories, raw D1 writer, schema mirror.
+- `src/lib/server/db/AGENTS.md`: repositories, raw D1 writer, canonical schema.
 - `src/lib/server/services/AGENTS.md`: summary/day-entry/API-service composition.
 - `tests/AGENTS.md`: test-layer selection.
 - `tests/{unit,integration,e2e}/AGENTS.md`: layer-specific fixtures and synchronization.
@@ -78,6 +79,13 @@ Before editing, read `README.md`, `CONTRIBUTING.md`, and every deeper `AGENTS.md
 - Route handlers parse, run Effect-backed services, and serialize JSON. Domain decisions stay in `src/lib/server/**`.
 - `.svelte.ts` dashboard modules own rune state; ordinary `.ts` modules own Effect flows, trackers, reconciliation, and pure helpers.
 - Code is primarily English; Japanese is used for product text and nearby user-facing documentation.
+
+## Styling and Shared UI
+
+- `src/app.css` owns semantic tokens, Tailwind aliases and the complete Preflight reset. Keep the existing light palette and use shared semantic roles before adding tokens; the inventory and addition policy are in `CONTRIBUTING.md` → Styling migration.
+- `src/lib/components/ui/**` contains project-owned shadcn-svelte components. Business components use this boundary; direct `bits-ui` imports belong only inside `ui/**`. Bits UI remains an internal dependency.
+- Shared UI owns primitive controls/surfaces. Scoped business CSS owns feature layout, input groups and budget/history state; remove superseded primitive declarations and their responsive/state variants when adopting utilities.
+- Preserve acquisition manifests in `tooling/shadcn/` and compare upstream output plus documented local adaptations in a disposable directory. Do not run shadcn `init` or overwrite the application theme, Button or dependency tree with generated files.
 
 ## Dependency and Tool Versions
 
@@ -92,7 +100,7 @@ Before editing, read `README.md`, `CONTRIBUTING.md`, and every deeper `AGENTS.md
 
 - Do not add month/day compatibility routes or infer selected state from a calendar month.
 - Do not mutate daily totals or histories by date alone; preserve `budget_period_id` scoping.
-- Do not add runtime schema bootstrap or treat Drizzle-generated migrations as authoritative.
+- Do not add runtime schema bootstrap, rewrite legacy migrations, or apply directly through Drizzle.
 - Do not bypass repositories/Drizzle except within the guarded raw-D1 day-entry writer family.
 - Do not weaken the E2E reset token/local-intent guard.
 - Do not deploy with bare `wrangler deploy`; the root D1 UUID is a placeholder.
@@ -106,6 +114,8 @@ pnpm dev
 pnpm format:check
 pnpm lint
 pnpm check
+pnpm fallow:ci
+pnpm db:verify
 pnpm test:unit
 pnpm test:integration
 pnpm build
@@ -114,7 +124,7 @@ pnpm test:coverage
 pnpm run cf:migrate:local
 ```
 
-CI runs format/lint, check, unit, integration, build, and E2E as independent jobs, then aggregates them in `Quality checks`. Coverage is visibility-only, not a required PR gate.
+CI runs format/lint, check, Fallow, migration safety, unit, integration, build, and E2E as independent jobs, then aggregates them in `Quality checks`. Coverage is visibility-only, not a required PR gate.
 
 ## Cloudflare Notes
 

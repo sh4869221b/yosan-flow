@@ -1,25 +1,25 @@
 import { Effect } from "effect";
-import type { D1DayEntryWriter } from "$lib/server/db/day-entry-writer";
+import {
+  DailyEntryPeriodRangeError,
+  type D1DayEntryWriter,
+} from "#lib/server/db/day-entry-writer.ts";
 import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
-import type {
-  D1DailyHistoryRepository,
-  DailyHistoryRecord,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/budget-period-repository.ts";
+import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-repository.ts";
 import {
   assertValidDate,
   assertValidInputYen,
   normalizeMemo,
-} from "$lib/server/domain/daily-entry";
-import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
-import { toEffectError } from "$lib/server/effect/runtime";
+} from "#lib/server/domain/daily-entry.ts";
+import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import {
   DateOutOfPeriodError,
   HistoryNotFoundError,
   PeriodNotFoundError,
-} from "$lib/server/services/day-entry-service";
+} from "#lib/server/services/day-entry-service.ts";
 import type { DayEntryServicePort } from "./types";
 
 type DayEntryCommand = {
@@ -107,34 +107,42 @@ export function createD1DayEntryService(
 
       const nowIso = now().toISOString();
       const memo = normalizeMemo(command.memo);
-      yield* dayEntryWriter.writeDailyEntry({
-        total: {
-          budgetPeriodId: command.periodId,
-          date: command.date,
-          yearMonth: command.date.slice(0, 7),
-          totalUsedYen: command.inputYen,
-          nowIso,
-        },
-        history: {
-          id: createHistoryId(),
-          budgetPeriodId: command.periodId,
-          date: command.date,
-          operationType,
-          inputYen: command.inputYen,
-          beforeTotalYen: 0,
-          afterTotalYen: command.inputYen,
-          memo,
-          createdAt: nowIso,
-        },
-        mode: operationType,
-      });
+      yield* dayEntryWriter
+        .writeDailyEntry({
+          total: {
+            budgetPeriodId: command.periodId,
+            date: command.date,
+            yearMonth: command.date.slice(0, 7),
+            totalUsedYen: command.inputYen,
+            nowIso,
+          },
+          history: {
+            id: createHistoryId(),
+            budgetPeriodId: command.periodId,
+            date: command.date,
+            operationType,
+            inputYen: command.inputYen,
+            beforeTotalYen: 0,
+            afterTotalYen: command.inputYen,
+            memo,
+            createdAt: nowIso,
+          },
+          mode: operationType,
+        })
+        .pipe(
+          Effect.mapError((error) =>
+            error instanceof DailyEntryPeriodRangeError
+              ? new DateOutOfPeriodError(command.date, command.periodId)
+              : error,
+          ),
+        );
       return {};
     });
   }
 
   function replayHistoryMutation(
     command: HistoryReplayCommand,
-    mutateTarget: (history: DailyHistoryRecord) => HistoryMutation,
+    mutation: HistoryMutation,
   ): Effect.Effect<Record<string, never>, Error> {
     return Effect.gen(function* () {
       yield* validatePeriodDate(
@@ -146,35 +154,18 @@ export function createD1DayEntryService(
         command.date,
         command.periodId,
       );
-      const target = histories.find(
-        (history) => history.id === command.historyId,
-      );
-      if (!target) {
+      if (!histories.some((history) => history.id === command.historyId)) {
         return yield* Effect.fail(new HistoryNotFoundError(command.historyId));
       }
 
-      const mutation = mutateTarget(target);
-      if (mutation.kind === "update") {
-        yield* dayEntryWriter.writeHistoryReplay({
-          kind: "update",
-          budgetPeriodId: command.periodId,
-          date: command.date,
-          yearMonth: command.date.slice(0, 7),
-          nowIso: now().toISOString(),
-          historyId: command.historyId,
-          inputYen: mutation.inputYen,
-          memo: mutation.memo,
-        });
-      } else {
-        yield* dayEntryWriter.writeHistoryReplay({
-          kind: "delete",
-          budgetPeriodId: command.periodId,
-          date: command.date,
-          yearMonth: command.date.slice(0, 7),
-          nowIso: now().toISOString(),
-          historyId: command.historyId,
-        });
-      }
+      yield* dayEntryWriter.writeHistoryReplay({
+        ...mutation,
+        budgetPeriodId: command.periodId,
+        date: command.date,
+        yearMonth: command.date.slice(0, 7),
+        nowIso: now().toISOString(),
+        historyId: command.historyId,
+      });
       return {};
     });
   }
@@ -191,13 +182,13 @@ export function createD1DayEntryService(
           },
           catch: toEffectError,
         });
-        return yield* replayHistoryMutation(command, () => ({
+        return yield* replayHistoryMutation(command, {
           kind: "update",
           inputYen: command.inputYen,
           memo,
-        }));
+        });
       }),
     deleteHistoryEntry: (command) =>
-      replayHistoryMutation(command, () => ({ kind: "delete" })),
+      replayHistoryMutation(command, { kind: "delete" }),
   };
 }

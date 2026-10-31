@@ -5,6 +5,7 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
+  waitForDashboardReady,
 } from "./dashboard-shared";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -18,6 +19,7 @@ test("creates period", async ({ page }) => {
   const endDate = addDays(today, 29);
 
   await page.goto(`${getBaseUrl()}/`);
+  await waitForDashboardReady(page);
   await expect(page.getByTestId("create-period-panel")).toBeVisible();
   await expect(page.getByLabel("期間ID")).toBeVisible();
   await expect(page.getByLabel("新規予算額 (円)")).toBeVisible();
@@ -61,6 +63,7 @@ test("preserves manually edited create ID after applying range", async ({
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   await page.goto(`${getBaseUrl()}/`);
+  await waitForDashboardReady(page);
   await page.getByLabel("期間ID").fill(periodId);
   await page.getByTestId("initial-period-range-start").fill(today);
   await page.getByTestId("initial-period-range-end").fill(endDate);
@@ -108,8 +111,9 @@ test("updates period start and end dates from settings inputs", async ({
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  await waitForDashboardReady(page);
   await expect(page.getByTestId("period-id")).toContainText(periodId);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByTestId("current-period-range-start").fill(updatedStartDate);
   await page.getByTestId("current-period-range-end").fill(updatedEndDate);
   await page.getByTestId("current-period-range-apply").click();
@@ -149,6 +153,7 @@ test("switches between current and future budget periods", async ({
   });
 
   await page.goto(`${getBaseUrl()}/`);
+  await waitForDashboardReady(page);
   await expect(page.getByTestId("period-id")).toContainText(currentPeriodId);
 
   await page.getByTestId("period-select").selectOption(futurePeriodId);
@@ -200,6 +205,7 @@ test("creates the next budget period from secondary settings", async ({
   });
 
   await page.goto(`${getBaseUrl()}/`);
+  await waitForDashboardReady(page);
   await expect(page.getByTestId("period-id")).toContainText(currentPeriodId);
   await page.getByText("次の予算期間を作成する").click();
   await page.getByLabel("期間ID").fill(nextPeriodId);
@@ -235,7 +241,8 @@ test("shows an error when shrinking a period would exclude saved entries", async
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByTestId("current-period-range-end").fill(invalidEndDate);
   await page.getByTestId("current-period-range-apply").click();
 
@@ -288,6 +295,10 @@ test("shows total negative adjustment on desktop and hides it when on track", as
   await expect(page.getByTestId("total-negative-adjustment")).toContainText(
     `-${totalAdjustmentYen.toLocaleString("ja-JP")} 円`,
   );
+  await expect(page.getByTestId("total-negative-adjustment")).toHaveCSS(
+    "color",
+    "rgb(180, 71, 62)",
+  );
 
   const onTrackPeriodId = "p-adjustment-total-on-track";
   const onTrackStartDate = addDays(today, 30);
@@ -330,4 +341,40 @@ test("shows total negative adjustment on mobile", async ({ page, request }) => {
   await expect(page.getByTestId("total-negative-adjustment")).toContainText(
     "-9,800 円",
   );
+  await expect(page.getByTestId("total-negative-adjustment")).toHaveCSS(
+    "color",
+    "rgb(180, 71, 62)",
+  );
+});
+
+test("keeps an overspent budget warning readable on desktop and mobile", async ({
+  page,
+  request,
+}) => {
+  const today = getCurrentJstDate();
+  const periodId = "p-overspent-warning";
+  await seedPeriod(request, getBaseUrl(), {
+    periodId,
+    startDate: today,
+    endDate: addDays(today, 29),
+    budgetYen: 120000,
+    dailyTotals: [{ date: today, totalUsedYen: 120500 }],
+  });
+  await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
+  await waitForDashboardReady(page);
+
+  const warning = page
+    .getByRole("region", { name: "予算サマリー" })
+    .getByRole("status");
+  for (const width of [1280, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(warning).toHaveText("予算を 500 円 超過しています。");
+    await expect(warning).toBeVisible();
+    await expect(warning).toHaveCSS("color", "rgb(139, 58, 58)");
+    expect(
+      await warning.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+  }
 });

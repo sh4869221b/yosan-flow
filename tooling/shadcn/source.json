@@ -1,0 +1,33 @@
+{
+  "project": "https://github.com/huntabyte/shadcn-svelte",
+  "cliVersion": "1.7.1",
+  "registry": "https://shadcn-svelte.com/registry",
+  "style": "vega",
+  "iconLibrary": "lucide",
+  "acquiredOn": "2026-10-29",
+  "command": "pnpm dlx shadcn-svelte@1.7.1 add utils button input card textarea label native-select --cwd <staging> --no-deps-install --yes",
+  "hashStage": "Unmodified CLI output, before import normalization, formatting and project adaptations. Includes subsequently omitted files.",
+  "sha256": {
+    "src/lib/components/ui/button/button.svelte": "5d01ba7c04e2d2bc7577a80536896010a8ddbc203f81ca01ae80213442a0b67f",
+    "src/lib/components/ui/button/index.ts": "0f6b6f040d92b4153821d3f9b4d6b9cbc567247e4fda913e64c1d0fcc4a2f386",
+    "src/lib/components/ui/card/card-action.svelte": "6c39ba7370572e79affeea180665ce1c0df82167a5b4a8fa997920de87743a4e",
+    "src/lib/components/ui/card/card-content.svelte": "1a00c94375d8e3bfc3d36d6585ad9c0bc485946641dbb30d47bfd128cdf536e5",
+    "src/lib/components/ui/card/card-description.svelte": "287848fd17d3e939337b770ff17069dd6bac0f18eee76e412b6d8b2d72f9202b",
+    "src/lib/components/ui/card/card-footer.svelte": "6ce3a573d7547a661728babf7e396aebc12ddb331058ac2d1daa1a1871b970af",
+    "src/lib/components/ui/card/card-header.svelte": "4ca467104d37c449d731336fd527233568188493ed461f13ede998f8f9471bf5",
+    "src/lib/components/ui/card/card-title.svelte": "f64f2a550e3d905f4a2a3447e2eb29268155703cb1bdae6535fdb22b86c8a6bc",
+    "src/lib/components/ui/card/card.svelte": "306b66bd8008f9f9378501edfde21485b9e8e09f71ceda62e7efe990f69f6ee5",
+    "src/lib/components/ui/card/index.ts": "41b4e0bf782f5e2bbed1863de169ad9f623b47a73f9fc57ba6776779e4be9edb",
+    "src/lib/components/ui/input/index.ts": "4e0ad69d49a27194c7f3dfd0cdd5933ee13fc40cc13a77138b547d300701d390",
+    "src/lib/components/ui/input/input.svelte": "6cd68cbb8cfe1102223abe07e2188776edfe79471c70870ceaffbbb51505d187",
+    "src/lib/components/ui/label/index.ts": "ea17621b03066fc6c0ab811ec97aac0cb2de4b504c0a1fc3f480c8fc4bef12f1",
+    "src/lib/components/ui/label/label.svelte": "d5b56cb1d4c517686f02c93183c8ce1e7bf0e14ebc7056d4b05c06bce668e1e8",
+    "src/lib/components/ui/native-select/index.ts": "5b4a2b59e247be89e9586dd8e82e3e6578698be5ca03e5332d70383646ff201a",
+    "src/lib/components/ui/native-select/native-select-opt-group.svelte": "5e80f1f6148e01f3801018d5739d96e9556f3f20b9956bd1c9275a8e7b2c8c48",
+    "src/lib/components/ui/native-select/native-select-option.svelte": "57b32237fbe376d69712ff6e04b460e88cab31a150e9b08850702742097b8b29",
+    "src/lib/components/ui/native-select/native-select.svelte": "5a81ed8a7a6adfd37e2d0a0d98b3108e1e96e568b03f03f288caa22324f6e4fd",
+    "src/lib/components/ui/textarea/index.ts": "3b5f25dfd5d1d9b5305f613f7544a7e39362cd4b0a9c3250414cd5ff02e45398",
+    "src/lib/components/ui/textarea/textarea.svelte": "2732ef444f4e7b2ff81f1ebfffbc4af649d15d79019d8d036a8f2e8f76d99fc1",
+    "src/lib/utils.ts": "d56c48595cabedfe55b5233e04383a388eec79bd43a595bdbd36081a8342fd8c"
+  }
+}

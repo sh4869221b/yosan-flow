@@ -5,6 +5,7 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
+  waitForDashboardReady,
 } from "./dashboard-shared";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -24,6 +25,7 @@ for (const failureStage of ["summary", "list"] as const) {
     let posts = 0;
     let gets = 0;
     await page.goto(getBaseUrl());
+    await waitForDashboardReady(page);
     page.on("request", (request) => {
       if (request.method() === "POST") posts += 1;
     });
@@ -97,6 +99,7 @@ for (const variant of ["initial", "additional"] as const) {
       });
     }
     await page.goto(getBaseUrl());
+    await waitForDashboardReady(page);
     if (variant === "additional") {
       await page.getByText("次の予算期間を作成する").click();
     }
@@ -156,6 +159,7 @@ test("guards duplicate creation through a held POST and list GET", async ({
   let posts = 0;
   let gets = 0;
   await page.goto(getBaseUrl());
+  await waitForDashboardReady(page);
   await page.route(`${getBaseUrl()}/api/periods`, async (route) => {
     if (route.request().method() === "POST") {
       posts += 1;
@@ -221,6 +225,7 @@ test("additional recovery does not reopen or steal focus after closing during re
   let gets = 0;
   let posts = 0;
   await page.goto(getBaseUrl());
+  await waitForDashboardReady(page);
   page.on("request", (request) => {
     if (request.method() === "POST") posts += 1;
   });
@@ -280,6 +285,7 @@ test("validates fields in form order and submits corrected drafts with Enter", a
   const today = getCurrentJstDate();
   const writes: string[] = [];
   await page.goto(getBaseUrl());
+  await waitForDashboardReady(page);
   page.on("request", (request) => {
     if (["POST", "PUT"].includes(request.method())) writes.push(request.url());
   });
@@ -326,6 +332,7 @@ test("initial cancel restores defaults and clears field errors without writing",
 }, testInfo) => {
   const today = getCurrentJstDate();
   await page.goto(getBaseUrl());
+  await waitForDashboardReady(page);
   const writes: string[] = [];
   page.on("request", (request) => {
     if (["POST", "PUT"].includes(request.method())) writes.push(request.url());
@@ -372,6 +379,7 @@ test("additional cancel closes the form and keeps drafts while clearing server f
     budgetYen: 120000,
   });
   await page.goto(getBaseUrl());
+  await waitForDashboardReady(page);
   const opener = page.getByText("次の予算期間を作成する");
   await opener.click();
   await page.getByLabel("期間ID", { exact: true }).fill("p-retained");

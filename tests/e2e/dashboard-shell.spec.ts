@@ -5,6 +5,7 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
+  waitForDashboardReady,
 } from "./dashboard-shared";
 
 test.beforeEach(async ({ request }) => {
@@ -61,6 +62,7 @@ test("shows shell regions in document order", async ({ page, request }) => {
 
 test("keeps empty and additional create bodies reachable", async ({ page }) => {
   await page.goto(getBaseUrl());
+  await waitForDashboardReady(page);
   await expect(page.locator("#empty-period-heading")).toBeVisible();
   await expect(page.getByLabel("期間ID")).toBeVisible();
   await page.getByLabel("期間ID").fill("p-shell-created");
@@ -89,6 +91,7 @@ test("keeps the selected summary while a failed selection is reported at the she
     budgetYen: 90000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-shell-current`);
+  await waitForDashboardReady(page);
   const retryBarrier = Promise.withResolvers<void>();
   let futureGetCount = 0;
   const futureUrl = `${getBaseUrl()}/api/periods/p-shell-future`;
@@ -175,7 +178,8 @@ test("keeps the current draft while an exact period GET is loading", async ({
     budgetYen: 90000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-shell-current`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("130000");
 
   const barrier = Promise.withResolvers<void>();
@@ -221,9 +225,10 @@ test("keeps a failed additional create error visible while settings stay closed"
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-shell-current`);
+  await waitForDashboardReady(page);
 
   const settings = page
-    .getByText("期間の終了日や予算を変更する")
+    .getByText("期間の日付や予算を変更する")
     .locator("xpath=ancestor::details");
   await expect(settings).not.toHaveAttribute("open", "");
   const additionalCreate = page.getByTestId("create-period-panel");

@@ -1,13 +1,13 @@
 import {
   evaluateLinkedPeriodBoundaryGate,
   type LinkedBoundaryOwnedEntryDates,
-} from "$lib/server/db/budget-period-boundary-in-memory";
+} from "#lib/server/db/budget-period-boundary-in-memory.ts";
 import {
   LinkedPeriodBoundaryConflictError,
   type BudgetPeriodRecord,
   type LinkedPeriodBoundaryAfter,
   type LinkedPeriodBoundaryUpdateCommand,
-} from "$lib/server/db/budget-period-types";
+} from "#lib/server/db/budget-period-types.ts";
 import type { PeriodAwareD1FakeState } from "./table-state";
 import type { BudgetPeriodRow } from "./types";
 

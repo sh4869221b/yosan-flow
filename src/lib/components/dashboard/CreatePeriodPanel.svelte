@@ -1,9 +1,12 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
-  import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
-  import { getPeriodRangeValidation } from "$lib/components/period-range-state";
+  import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
+  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
+  import PeriodRangePicker from "#lib/components/PeriodRangePicker.svelte";
+  import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 
@@ -63,6 +66,14 @@
   );
   const disabled = $derived(
     controller.periodInteractionDisabled || controller.createdRefreshPending,
+  );
+
+  const submitLabel = $derived(
+    controller.createSaving
+      ? "作成中..."
+      : controller.createdRefreshing
+        ? "表示を再取得中..."
+        : "期間を作成",
   );
 
   function focusField(id: string): void {
@@ -135,7 +146,7 @@
   }
 </script>
 
-{#if controller.createdRefreshPending}
+{#snippet createdRecovery()}
   <section
     aria-labelledby={`${prefix}-created-heading`}
     aria-busy={controller.createdRefreshing}
@@ -147,15 +158,20 @@
     {#if controller.createError}
       <p class="error" role="alert">{controller.createError}</p>
     {/if}
-    <button
+    <Button
+      class="justify-self-start"
       type="button"
       aria-disabled={controller.periodInteractionDisabled}
-      onclick={retry}>表示を再読み込み</button
+      onclick={retry}>表示を再読み込み</Button
     >
     {#if controller.createdRefreshing}
       <p role="status">表示を再取得しています...</p>
     {/if}
   </section>
+{/snippet}
+
+{#if controller.createdRefreshPending}
+  {@render createdRecovery()}
 {:else}
   <form onsubmit={submit} aria-busy={busy} novalidate>
     <h2>期間設定</h2>
@@ -171,15 +187,16 @@
       rangeError={showRangeError}
       testIdPrefix={`${prefix}-range`}
     />
-    <button
+    <Button
+      class="justify-self-start"
       type="button"
       data-testid={`${prefix}-range-apply`}
       {disabled}
-      onclick={applyRange}>期間を反映</button
+      onclick={applyRange}>期間を反映</Button
     >
-    <label for={`${prefix}-budget`}>
-      新規予算額 (円)
-      <input
+    <div class="grid min-w-0 gap-1.5">
+      <Label for={`${prefix}-budget`}>新規予算額 (円)</Label>
+      <Input
         id={`${prefix}-budget`}
         type="text"
         inputmode="numeric"
@@ -191,13 +208,13 @@
         {disabled}
         onblur={() => (touchedBudget = true)}
       />
-    </label>
+    </div>
     <p id={`${prefix}-budget-error`} class="error field-error">
       {showBudgetError ?? ""}
     </p>
-    <label for={`${prefix}-id`}>
-      期間ID
-      <input
+    <div class="grid min-w-0 gap-1.5">
+      <Label for={`${prefix}-id`}>期間ID</Label>
+      <Input
         id={`${prefix}-id`}
         type="text"
         bind:value={controller.createPeriodId}
@@ -207,7 +224,7 @@
         {disabled}
         onblur={() => (touchedId = true)}
       />
-    </label>
+    </div>
     <p id={`${prefix}-id-error`} class="error field-error">
       {showIdError ?? ""}
     </p>
@@ -215,29 +232,26 @@
       <p role="alert" class="error">{controller.createError}</p>
     {/if}
     <div class="actions">
-      <button type="submit" aria-disabled={disabled}>
-        {controller.createSaving
-          ? "作成中..."
-          : controller.createdRefreshing
-            ? "表示を再取得中..."
-            : "期間を作成"}
-      </button>
-      <button type="button" class="secondary" {disabled} onclick={cancel}>
+      <Button type="submit" aria-disabled={disabled}>
+        {submitLabel}
+      </Button>
+      <Button type="button" variant="secondary" {disabled} onclick={cancel}>
         取り消す
-      </button>
+      </Button>
     </div>
   </form>
 {/if}
 
 <style>
+  section {
+    display: grid;
+    gap: 0.75rem;
+  }
+
   form {
     display: grid;
     gap: 0.75rem;
     min-width: 0;
-  }
-
-  form > button {
-    justify-self: start;
   }
 
   .actions {
@@ -246,17 +260,8 @@
     gap: 0.75rem;
   }
 
-  .secondary {
-    background: #f5f1e9;
-    color: #2f2219;
-  }
-
-  input[aria-invalid="true"] {
-    border-color: #b33a3a;
-  }
-
   .error {
-    color: #9e2e2e;
+    color: var(--invalid);
     font-weight: 700;
     margin: 0;
   }
@@ -266,57 +271,11 @@
   }
 
   h2 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: clamp(1.25rem, 2vw, 1.55rem);
+    font-weight: 700;
     letter-spacing: 0;
     line-height: 1.15;
     margin: 0.75rem 0 0;
-  }
-
-  label {
-    display: grid;
-    font-weight: 700;
-    gap: 0.35rem;
-    margin: 0.75rem 0;
-    min-width: 0;
-  }
-
-  input,
-  button {
-    box-sizing: border-box;
-    border-radius: 8px;
-    font: inherit;
-    max-width: 100%;
-    min-height: 2.65rem;
-  }
-
-  input {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    color: #2f2219;
-    padding: 0 0.85rem;
-    width: 100%;
-  }
-
-  button {
-    background: #2f6d3b;
-    border: 0;
-    color: #fff;
-    cursor: pointer;
-    font-weight: 800;
-    padding: 0 1rem;
-  }
-
-  button:disabled,
-  button[aria-disabled="true"] {
-    cursor: wait;
-    opacity: 0.65;
-  }
-
-  @media (max-width: 760px) {
-    input,
-    button {
-      min-height: 2.45rem;
-    }
   }
 </style>

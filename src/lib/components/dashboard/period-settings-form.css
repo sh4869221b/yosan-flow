@@ -1,0 +1,40 @@
+.period-settings-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.period-settings-form > .context,
+.period-settings-form > .notice {
+  color: #4d4036;
+}
+
+.period-settings-form > .context {
+  overflow-wrap: anywhere;
+}
+
+.period-settings-form > .notice {
+  font-weight: 700;
+}
+
+.period-settings-form > p[role="alert"] {
+  text-wrap: balance;
+  color: var(--invalid);
+  font-weight: 700;
+}
+.period-settings-form > p[role="status"] {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.period-settings-form > .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+@media (max-width: 760px) {
+  .period-settings-form > .actions {
+    display: grid;
+  }
+}

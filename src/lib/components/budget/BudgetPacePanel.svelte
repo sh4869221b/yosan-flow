@@ -23,9 +23,15 @@
   }
 </script>
 
-<div class="today-pace" data-testid="food-pace-panel">
+<div
+  class="today-pace overflow-hidden rounded-panel border border-border max-[760px]:rounded-xl"
+  data-testid="food-pace-panel"
+>
   <p class="allowance-card">
-    <span class="food-icon" aria-hidden="true">
+    <span
+      class="food-icon rounded-full bg-accent text-icon-foreground"
+      aria-hidden="true"
+    >
       <Utensils size={30} strokeWidth={2.4} />
     </span>
     <span>今日の食費枠</span>
@@ -46,7 +52,10 @@
   </p>
 </div>
 
-<div class="pace-details" class:with-total={pace.totalAdjustmentYen > 0}>
+<div
+  class="pace-details border-t border-border"
+  class:with-total={pace.totalAdjustmentYen > 0}
+>
   <p data-testid="food-pace-status">
     <span>状態</span>
     <strong>{paceStatusLabel}</strong>
@@ -86,15 +95,11 @@
   }
 
   .today-pace {
-    border: 1px solid #e4ddd2;
-    border-radius: 12px;
     grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr));
     margin-top: 1rem;
-    overflow: hidden;
   }
 
   .pace-details {
-    border-top: 1px solid #e9e1d6;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     margin-top: 0.95rem;
     padding-top: 0.95rem;
@@ -116,23 +121,20 @@
   }
 
   .today-pace p + p {
-    border-left: 1px solid #e4ddd2;
+    border-left: 1px solid var(--border);
   }
 
   .pace-details p + p {
-    border-left: 1px solid #e4ddd2;
+    border-left: 1px solid var(--border);
   }
 
   .allowance-card {
-    background: linear-gradient(90deg, #f3faf2, #fffdf8);
+    background: linear-gradient(90deg, #f3faf2, var(--card));
     position: relative;
   }
 
   .food-icon {
     align-items: center;
-    background: #dcefd7;
-    border-radius: 999px;
-    color: #397d3d;
     display: inline-flex;
     font-size: 0.95rem;
     font-weight: 900;
@@ -143,9 +145,9 @@
     width: 3.8rem;
   }
 
-  .today-pace span,
+  .today-pace span:not(.food-icon),
   .pace-details span {
-    color: #56483d;
+    color: var(--muted-foreground);
     display: block;
     font-size: 0.86rem;
     font-weight: 800;
@@ -155,33 +157,33 @@
   .pace-details strong {
     display: block;
     font-size: 1.3rem;
+    font-weight: 700;
     letter-spacing: 0;
     margin-top: 0.2rem;
     overflow-wrap: anywhere;
   }
 
   .today-pace strong {
-    color: #3e8445;
+    color: var(--budget-positive);
     font-size: clamp(2rem, 4.2vw, 3rem);
     line-height: 1.1;
   }
 
   .today-pace p:nth-child(2) strong {
-    color: #3a2a20;
+    color: var(--budget-used);
   }
 
   .today-pace p:nth-child(3) strong,
   .pace-details p:first-child strong {
-    color: #3e8445;
+    color: var(--budget-positive);
   }
 
   .total-adjustment strong {
-    color: #b4473e;
+    color: var(--budget-negative);
   }
 
   @media (max-width: 760px) {
     .today-pace {
-      border-radius: 14px;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       margin-top: 0.7rem;
     }
@@ -198,11 +200,11 @@
 
     .today-pace p + p {
       border-left: 0;
-      border-top: 1px solid #e4ddd2;
+      border-top: 1px solid var(--border);
     }
 
     .today-pace p:nth-child(3) {
-      border-left: 1px solid #e4ddd2;
+      border-left: 1px solid var(--border);
     }
 
     .pace-details {
@@ -234,7 +236,7 @@
       width: 2.75rem;
     }
 
-    .today-pace span,
+    .today-pace span:not(.food-icon),
     .pace-details span {
       font-size: 0.78rem;
     }

@@ -2,11 +2,11 @@ import { Effect } from "effect";
 import {
   createD1BudgetPeriodRepository,
   PeriodValidationError,
-} from "$lib/server/db/budget-period-repository";
-import { createD1DailyHistoryRepository } from "$lib/server/db/daily-history-repository";
-import { createD1DailyTotalRepository } from "$lib/server/db/daily-total-repository";
-import { createD1DayEntryWriter } from "$lib/server/db/day-entry-writer";
-import type { D1Database } from "$lib/server/db/d1-types";
+} from "#lib/server/db/budget-period-repository.ts";
+import { createD1DailyHistoryRepository } from "#lib/server/db/daily-history-repository.ts";
+import { createD1DailyTotalRepository } from "#lib/server/db/daily-total-repository.ts";
+import { createD1DayEntryWriter } from "#lib/server/db/day-entry-writer.ts";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
 
 export function createD1ApiServiceRepositories(db: D1Database) {
   const budgetPeriodRepository = createD1BudgetPeriodRepository({

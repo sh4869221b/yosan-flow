@@ -1,4 +1,4 @@
-import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
+import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
 import type { PeriodSummaryDailyTotal } from "./period-summary-calculator";
 
 export function buildDailyTotalMap(
@@ -18,29 +18,4 @@ export function buildDailyTotalMap(
     map.set(row.date, (map.get(row.date) ?? 0) + row.totalUsedYen);
   }
   return map;
-}
-
-export function sumDailyTotals(dailyTotalsByDate: Map<string, number>): number {
-  return [...dailyTotalsByDate.values()].reduce(
-    (total, current) => total + current,
-    0,
-  );
-}
-
-export function sumDailyTotalsThroughDate(
-  dailyTotalsByDate: Map<string, number>,
-  endDate: string,
-): number {
-  return [...dailyTotalsByDate.entries()].reduce((total, [date, value]) => {
-    return date <= endDate ? total + value : total;
-  }, 0);
-}
-
-export function sumDailyTotalsBeforeDate(
-  dailyTotalsByDate: Map<string, number>,
-  dateBefore: string,
-): number {
-  return [...dailyTotalsByDate.entries()].reduce((total, [date, value]) => {
-    return date < dateBefore ? total + value : total;
-  }, 0);
 }

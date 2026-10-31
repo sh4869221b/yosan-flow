@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { getBaseUrl, resetTestData } from "./dashboard-shared";
+import {
+  getBaseUrl,
+  resetTestData,
+  waitForDashboardReady,
+} from "./dashboard-shared";
 import { seedPeriod } from "./helpers/db";
 import {
   applyRange,
@@ -34,6 +38,7 @@ test.describe("independent period operations", () => {
   test.beforeEach(async ({ page, request }) => {
     await seedPeriod(request, getBaseUrl(), period);
     await page.goto(`${getBaseUrl()}/?periodId=${period.periodId}`);
+    await waitForDashboardReady(page);
     await openSettings(page);
   });
 

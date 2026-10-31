@@ -1,0 +1,33 @@
+{
+  "project": "https://github.com/huntabyte/shadcn-svelte",
+  "cliVersion": "1.7.1",
+  "registry": "https://shadcn-svelte.com/registry",
+  "style": "vega",
+  "iconLibrary": "lucide",
+  "acquiredOn": "2026-10-29",
+  "command": "pnpm dlx shadcn-svelte@1.7.1 add range-calendar --cwd <staging> --no-deps-install --yes --overwrite",
+  "hashStage": "Unmodified CLI output before import normalization, formatting and project adaptations. Includes omitted caption/month/year parts and the generated Button dependency; the application Button is preserved.",
+  "sha256": {
+    "src/lib/components/ui/range-calendar/index.ts": "6aa3eac823a0e3baa6d5d03c2cc0d56ed52299049902e2094e4cab20385ace16",
+    "src/lib/components/ui/range-calendar/range-calendar-caption.svelte": "76ad6a933f1aade630a77fe33f12c397335f91e12a3fceb2bbf0488d09224803",
+    "src/lib/components/ui/range-calendar/range-calendar-cell.svelte": "ac95db0af26f63916e45834268efc0b500b382823a9079ff58c73ea93218ea33",
+    "src/lib/components/ui/range-calendar/range-calendar-day.svelte": "ed327a0697b1170b782476942596fcbeb015d2dfb5b69c0ac58a31049c46b48a",
+    "src/lib/components/ui/range-calendar/range-calendar-grid-body.svelte": "9f5056f09fe21e8d419ce2a23e47dc15a10050085cb3f8a11efac18a8f0bf341",
+    "src/lib/components/ui/range-calendar/range-calendar-grid-head.svelte": "581c6173b249f24a01c1759432578a8b6cb16acabb1acb7fbff073d7acddd58b",
+    "src/lib/components/ui/range-calendar/range-calendar-grid-row.svelte": "e65f685b09b59fddcb8d4ee6dcb55585388181db439603f9127a83800f586b3e",
+    "src/lib/components/ui/range-calendar/range-calendar-grid.svelte": "c2f4a51ab26b38ae03e3d4168ca17055e4cd18ad0252722c4d0fad6895d532fe",
+    "src/lib/components/ui/range-calendar/range-calendar-head-cell.svelte": "0b961b880b673630bb62f1c7823acf2d83f9c4e360a3d652e7dcdfbb99a28f43",
+    "src/lib/components/ui/range-calendar/range-calendar-header.svelte": "5cdd2774d72252569e88d2e4ede3bd573a5103e3b0ece0a4ebe9e9e1e2157ee1",
+    "src/lib/components/ui/range-calendar/range-calendar-heading.svelte": "90c1eca8fbdd58ccf57f097a7ad1b9d22546ce4863880e91c1c863fbec80b528",
+    "src/lib/components/ui/range-calendar/range-calendar-month-select.svelte": "6e0078941ecce2c81835fb1ce2db1e256743d6c879f8c55ea6d9789cb94978b3",
+    "src/lib/components/ui/range-calendar/range-calendar-month.svelte": "7d1d3eefb531b19e88bb7fed212e2122366d9e53b6c70a90db79fb82f7d425e3",
+    "src/lib/components/ui/range-calendar/range-calendar-months.svelte": "955c04d30b86bc9328b314e795d1285c46a4a065bcfbcdddddd123cfd1c9ddeb",
+    "src/lib/components/ui/range-calendar/range-calendar-nav.svelte": "c5b55485b766cd6202f09c26a66dbefd74dc4a0cd20c7b0ef5b8eb1a70540163",
+    "src/lib/components/ui/range-calendar/range-calendar-next-button.svelte": "cc43aa60cf250ea59a5000bab817e7f7f9216cc6a085fa94011cf5b068a1aaf5",
+    "src/lib/components/ui/range-calendar/range-calendar-prev-button.svelte": "ce6cb7cfe0da62c5e441779b23d8812bba0fb5eb50547d50e6a8ed515c251bb9",
+    "src/lib/components/ui/range-calendar/range-calendar-year-select.svelte": "1aaa0feaf6e09d54dc2b26bf0bbde18836363f76455c87560839dd2f3f1d736c",
+    "src/lib/components/ui/range-calendar/range-calendar.svelte": "9ac832dbaf68b519527040486a9b26be8af566585fd828030b08dc78cd0941fc",
+    "src/lib/components/ui/button/button.svelte": "5d01ba7c04e2d2bc7577a80536896010a8ddbc203f81ca01ae80213442a0b67f",
+    "src/lib/components/ui/button/index.ts": "0f6b6f040d92b4153821d3f9b4d6b9cbc567247e4fda913e64c1d0fcc4a2f386"
+  }
+}

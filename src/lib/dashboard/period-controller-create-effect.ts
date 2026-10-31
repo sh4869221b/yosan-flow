@@ -1,19 +1,19 @@
 import { Effect } from "effect";
-import { periodSummaryUrl, periodsUrl } from "$lib/dashboard/api-urls";
+import { periodSummaryUrl, PERIODS_URL } from "#lib/dashboard/api-urls.ts";
 import type {
   PeriodOption,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
-import { addDays } from "$lib/dashboard/date";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import type { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+} from "#lib/dashboard/controller-types.ts";
+import { addDays } from "#lib/dashboard/date.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import type { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import type {
   PeriodCreateResponse,
   PeriodListResponse,
-} from "$lib/dashboard/types";
-import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
-import type { PeriodCreateState } from "$lib/dashboard/period-create-state.svelte";
+} from "#lib/dashboard/types.ts";
+import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
+import type { PeriodCreateState } from "#lib/dashboard/period-create-state.svelte.ts";
 
 export type PeriodCreationDependencies = {
   readonly createState: PeriodCreateState;
@@ -51,17 +51,17 @@ function refreshCreatedPeriodEffect(
       return yield* refreshCreatedPeriodEffect(dependencies, periodId);
     }
     const listResult = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
-      periodsUrl(),
+      PERIODS_URL,
       undefined,
       "保存に失敗しました。",
-    ).pipe(Effect.either);
+    ).pipe(Effect.result);
     if (!dependencies.summaryRequests.owns(request)) {
       return { kind: "stale" } as const;
     }
-    if (listResult._tag === "Left") {
-      return { kind: "failed", error: listResult.left } as const;
+    if (listResult._tag === "Failure") {
+      return { kind: "failed", error: listResult.failure } as const;
     }
-    const periods = listResult.right.periods ?? [];
+    const periods = listResult.success.periods ?? [];
     dependencies.setPeriods(periods);
     if (!periods.some((period) => period.id === periodId)) {
       return {
@@ -74,20 +74,20 @@ function refreshCreatedPeriodEffect(
       periodSummaryUrl(periodId),
       undefined,
       "再取得に失敗しました。",
-    ).pipe(Effect.either);
+    ).pipe(Effect.result);
     if (!dependencies.summaryRequests.isFresh(request)) {
       return { kind: "stale" } as const;
     }
-    if (summaryResult._tag === "Left") {
-      return { kind: "failed", error: summaryResult.left } as const;
+    if (summaryResult._tag === "Failure") {
+      return { kind: "failed", error: summaryResult.failure } as const;
     }
-    if (summaryResult.right.periodId !== periodId) {
+    if (summaryResult.success.periodId !== periodId) {
       return {
         kind: "failed",
         error: "作成した期間の再取得に失敗しました。",
       } as const;
     }
-    dependencies.publishSummary(summaryResult.right);
+    dependencies.publishSummary(summaryResult.success);
     return { kind: "published" } as const;
   }).pipe(
     Effect.ensuring(
@@ -161,7 +161,7 @@ export function createPeriodCreationEffect(
   dependencies.setSummaryLoading(false);
   createState.setError(null);
   const post = fetchJsonEffect<PeriodCreateResponse>(
-    periodsUrl(),
+    PERIODS_URL,
     {
       body: JSON.stringify({
         budgetYen,
@@ -175,18 +175,18 @@ export function createPeriodCreationEffect(
     },
     "期間作成に失敗しました。",
   ).pipe(
-    Effect.either,
+    Effect.result,
     Effect.ensuring(Effect.sync(() => createState.setSaving(false))),
   );
   return Effect.gen(function* () {
     const result = yield* post;
-    if (result._tag === "Left") {
+    if (result._tag === "Failure") {
       if (dependencies.summaryRequests.owns(request)) {
-        createState.setError(result.left);
+        createState.setError(result.failure);
       }
       return;
     }
-    const periodId = result.right.id;
+    const periodId = result.success.id;
     createState.retainCreatedPeriod(periodId);
     if (!dependencies.summaryRequests.owns(request)) return;
     createState.setCreatedRefreshing(true);

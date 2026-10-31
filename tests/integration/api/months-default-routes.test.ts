@@ -1,5 +1,6 @@
+import { cloudflareRuntime } from "../../helpers/cloudflare-runtime";
 import { describe, expect, it } from "vitest";
-import type { D1Database } from "$lib/server/db/d1-types";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
 import {
   GET as periodsGetDefaultRoute,
   POST as periodsPostDefaultRoute,
@@ -9,13 +10,13 @@ import { POST as dayAddDefaultRoute } from "../../../src/routes/api/periods/[per
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 
 describe("period API default routes", () => {
-  it("uses platform.env.DB backed adapter path", async () => {
+  it("uses cloudflare:workers env.DB backed adapter path", async () => {
     const preparedSql: string[] = [];
     const fakeDb = createPeriodAwareD1Fake(preparedSql);
+    cloudflareRuntime.env = { DB: fakeDb };
 
     const response = await periodsGetDefaultRoute({
       request: new Request("http://localhost/api/periods", { method: "GET" }),
-      platform: { env: { DB: fakeDb } },
     } as any);
 
     expect(response.status).toBe(200);
@@ -31,6 +32,7 @@ describe("period API default routes", () => {
 
   it("adds daily amounts cumulatively in D1 path", async () => {
     const fakeDb = createPeriodAwareD1Fake();
+    cloudflareRuntime.env = { DB: fakeDb };
     await createPeriod(fakeDb, {
       id: "p-add",
       startDate: "2026-04-20",
@@ -49,7 +51,6 @@ describe("period API default routes", () => {
             body: JSON.stringify({ inputYen }),
           },
         ),
-        platform: { env: { DB: fakeDb } },
       } as any);
       expect(response.status).toBe(200);
     }
@@ -59,7 +60,6 @@ describe("period API default routes", () => {
       request: new Request("http://localhost/api/periods/p-add", {
         method: "GET",
       }),
-      platform: { env: { DB: fakeDb } },
     } as any);
     expect(periodResponse.status).toBe(200);
     await expect(periodResponse.json()).resolves.toMatchObject({
@@ -80,13 +80,13 @@ async function createPeriod(
   db: D1Database,
   body: CreatePeriodBody,
 ): Promise<void> {
+  cloudflareRuntime.env = { DB: db };
   const response = await periodsPostDefaultRoute({
     request: new Request("http://localhost/api/periods", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }),
-    platform: { env: { DB: db } },
   } as any);
   expect(response.status).toBe(201);
 }

@@ -3,9 +3,9 @@ import {
   captureClientEffects,
   settled,
 } from "./period-controller-effect-fixture";
-import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
-import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
+import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import { createSummary } from "./day-entry-controller-test-fixtures";
 import { jsonResponse } from "./day-entry-controller-test-fixtures";
 
@@ -129,7 +129,6 @@ it("rejects invalid create budget without changing settings state", async () => 
   expect(controller.createBudgetInput).toBe("1000abc");
   expect(controller.createError).not.toBeNull();
   expect(controller.createSaving).toBe(false);
-  expect(controller.periodError).toBe(controller.createError);
   expect(controller.budget).toMatchObject({
     saving: false,
     validationError: null,
@@ -511,7 +510,6 @@ it("guards create submission through GET and pending recovery", async () => {
   try {
     await settled(listStarted.promise);
     expect(controller.createSaving).toBe(false);
-    expect(controller.periodSaving).toBe(true);
     expect(controller.createdRefreshing).toBe(true);
     expect(controller.createdPeriodId).toBe(createdPeriod.id);
     expect(controller.createdRefreshPending).toBe(true);
@@ -568,7 +566,8 @@ it("does not retry recovery while other period management is busy", async () => 
   controller.createInitialPeriod();
   await settled(executions[0]);
   expect(controller.createdRefreshPending).toBe(true);
-  controller.handleSavePeriod({ budgetYen: 130_000 });
+  controller.budget.draft = "130000";
+  controller.saveBudget();
   try {
     await settled(updateStarted.promise);
     controller.refreshCreatedPeriod();

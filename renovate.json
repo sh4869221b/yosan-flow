@@ -54,6 +54,12 @@
       ],
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Keep the Fallow quality-gate version exact; inherit npm release-age and major-approval policies.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["fallow"],
+      "rangeStrategy": "pin"
     }
   ]
 }

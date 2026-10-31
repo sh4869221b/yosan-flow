@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyApiError } from "$lib/server/observability/error-classification";
+import { classifyApiError } from "#lib/server/observability/error-classification.ts";
 
 describe("API telemetry error classification", () => {
   it.each([

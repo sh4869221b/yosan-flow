@@ -1,10 +1,11 @@
+import { createPeriodUpdateConfirmationState } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 import { Effect, Fiber } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
-import { createHistoryMutationLifecycle } from "$lib/dashboard/history-mutation-lifecycle";
-import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
-import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
+import { createHistoryMutationLifecycle } from "#lib/dashboard/history-mutation-lifecycle.ts";
+import { createPeriodUpdateEffect } from "#lib/dashboard/period-controller-update-effect.ts";
+import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import {
   createSummary,
   jsonResponse,
@@ -127,6 +128,10 @@ it("releases a period slot before a pending reconciliation", async () => {
   const reconciliationStarted = Promise.withResolvers<void>();
   let saving = false;
   const updateEffect = createPeriodUpdateEffect({
+    confirmationState: createPeriodUpdateConfirmationState({
+      getSelectedPeriodId: () => "period-1",
+      summaryRevision: revision,
+    }),
     getSelectedPeriodId: () => "period-1",
     getSummary: () => createSummary(0),
     getSummaryLoading: () => false,
@@ -182,6 +187,10 @@ it("preserves the mutation error while falling back after reconciliation fails",
   let saving = false;
   const setError = vi.fn();
   const updateEffect = createPeriodUpdateEffect({
+    confirmationState: createPeriodUpdateConfirmationState({
+      getSelectedPeriodId: () => "period-1",
+      summaryRevision: revision,
+    }),
     getSelectedPeriodId: () => "period-1",
     getSummary: () => createSummary(0),
     getSummaryLoading: () => false,
@@ -245,6 +254,10 @@ it.each(["budget", "range"] as const)(
     };
     const publishSummary = vi.fn();
     const update = createPeriodUpdateEffect({
+      confirmationState: createPeriodUpdateConfirmationState({
+        getSelectedPeriodId: () => "period-1",
+        summaryRevision: revision,
+      }),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => createSummary(0),
       getSummaryLoading: () => false,

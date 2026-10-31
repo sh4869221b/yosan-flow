@@ -1,7 +1,14 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
+  import { Textarea } from "#lib/components/ui/textarea/index.ts";
   import HistoryRow from "./day-entry/HistoryRow.svelte";
-  import type { HistoryActionResult, HistoryItem } from "$lib/dashboard/types";
+  import type {
+    HistoryActionResult,
+    HistoryItem,
+  } from "#lib/dashboard/types.ts";
 
   type Props = {
     date?: string | null;
@@ -59,6 +66,52 @@
   let activeEdit = $state.raw<EditOperation | null>(null);
   let activeDelete = $state.raw<DeleteOperation | null>(null);
   let historyHeading = $state<HTMLHeadingElement | null>(null);
+  let missingEditHeading = $state<HTMLHeadingElement | null>(null);
+  let missingDeleteHeading = $state<HTMLHeadingElement | null>(null);
+
+  const missingEdit = $derived(
+    isOpen &&
+      editingHistoryId != null &&
+      !histories.some((history) => history.id === editingHistoryId),
+  );
+  const missingDelete = $derived(
+    isOpen &&
+      confirmingDeleteHistoryId != null &&
+      pendingDeleteHistoryId == null &&
+      activeDelete == null &&
+      !histories.some((history) => history.id === confirmingDeleteHistoryId),
+  );
+
+  const listError = $derived(
+    errorMessage &&
+      editFailureHistoryId == null &&
+      deleteFailureHistoryId == null,
+  );
+  const canDelete = $derived(
+    historyMutatingId == null &&
+      pendingSaveHistoryId == null &&
+      editingHistoryId == null &&
+      confirmingDeleteHistoryId == null,
+  );
+  const showRetry = $derived(listError || activeRetry != null);
+
+  function rowState(historyId: string) {
+    return {
+      isEditing: editingHistoryId === historyId,
+      isMutating: historyMutatingId === historyId,
+      isSaving: pendingSaveHistoryId === historyId,
+      mutationUnavailable:
+        historyMutatingId != null && historyMutatingId !== historyId,
+      canStartEdit:
+        editingHistoryId == null && pendingSaveHistoryId !== historyId,
+      canDelete,
+      isDeleteConfirming: confirmingDeleteHistoryId === historyId,
+      isDeleting: pendingDeleteHistoryId === historyId,
+      isSaveSuccessful: saveSuccessHistoryId === historyId,
+      deleteError:
+        deleteFailureHistoryId === historyId ? deleteFailureMessage : null,
+    };
+  }
 
   $effect(() => {
     if (!isOpen) {
@@ -79,6 +132,29 @@
     resetDelete();
     activeRetry = null;
   });
+
+  $effect.pre(() => {
+    if (!missingEdit && !missingDelete) return;
+    const focusedElement = document.activeElement;
+    const focusedRow = focusedElement?.closest(".history-panel li");
+    if (focusedRow == null) return;
+    void tick().then(() => {
+      if (!shouldRestoreMissingHistoryFocus(focusedElement)) return;
+      const heading = missingEdit ? missingEditHeading : missingDeleteHeading;
+      heading?.focus();
+    });
+  });
+
+  function shouldRestoreMissingHistoryFocus(element: Element | null): boolean {
+    return isOpen && element?.isConnected === false;
+  }
+
+  async function finishMissingHistory(edit: boolean): Promise<void> {
+    if (edit) cancelEdit();
+    else resetDelete();
+    await tick();
+    if (isOpen) historyHeading?.focus();
+  }
 
   function clearDeleteSuccess(): void {
     deleteSuccessMessage = null;
@@ -195,6 +271,23 @@
     focusTarget?.focus();
   }
 
+  function settleDelete(
+    operation: DeleteOperation,
+    result: HistoryActionResult,
+  ): boolean {
+    const historyId = operation.historyId;
+    if (result.kind === "failure") {
+      if (!histories.some((history) => history.id === historyId)) return true;
+      deleteFailureHistoryId = historyId;
+      deleteFailureMessage = result.message;
+    } else if (result.kind === "success") {
+      confirmingDeleteHistoryId = null;
+      deleteSuccessMessage = "履歴を削除しました。";
+      return !histories.some((history) => history.id === historyId);
+    }
+    return false;
+  }
+
   async function removeHistory(
     historyId: string,
   ): Promise<HistoryActionResult> {
@@ -226,20 +319,7 @@
     }
     pendingDeleteHistoryId = null;
     await tick();
-    if (result.kind === "failure") {
-      if (histories.some((history) => history.id === historyId)) {
-        deleteFailureHistoryId = historyId;
-        deleteFailureMessage = result.message;
-      } else {
-        await restoreDeletedFocus(operation);
-      }
-    } else if (result.kind === "success") {
-      confirmingDeleteHistoryId = null;
-      deleteSuccessMessage = "履歴を削除しました。";
-      if (!histories.some((history) => history.id === historyId)) {
-        await restoreDeletedFocus(operation);
-      }
-    }
+    if (settleDelete(operation, result)) await restoreDeletedFocus(operation);
     if (activeDelete === operation) {
       activeDelete = null;
     }
@@ -270,9 +350,62 @@
   {#if deleteSuccessMessage}
     <p class="status" role="status">{deleteSuccessMessage}</p>
   {/if}
+  {#if missingEdit}
+    <div class="missing-history">
+      <h3 tabindex="-1" bind:this={missingEditHeading}>
+        編集中の履歴は削除されました
+      </h3>
+      <p>入力途中の内容を確認してから編集を終了してください。</p>
+      <div class="missing-history-field">
+        <Label for={`missing-history-${editingHistoryId}-amount`}>
+          編集中の入力額 (円)
+        </Label>
+        <Input
+          id={`missing-history-${editingHistoryId}-amount`}
+          type="text"
+          readonly
+          value={editInputYen}
+        />
+      </div>
+      <div class="missing-history-field">
+        <Label for={`missing-history-${editingHistoryId}-memo`}>
+          編集中のメモ
+        </Label>
+        <Textarea
+          id={`missing-history-${editingHistoryId}-memo`}
+          readonly
+          rows={2}
+          value={editMemo}
+        />
+      </div>
+      <Button
+        variant="outline"
+        class="justify-self-start aria-disabled:cursor-wait"
+        type="button"
+        onclick={() => void finishMissingHistory(true)}
+      >
+        編集を終了
+      </Button>
+    </div>
+  {/if}
+  {#if missingDelete}
+    <div class="missing-history">
+      <h3 tabindex="-1" bind:this={missingDeleteHeading}>
+        削除を確認していた履歴は削除されました
+      </h3>
+      <Button
+        variant="outline"
+        class="justify-self-start aria-disabled:cursor-wait"
+        type="button"
+        onclick={() => void finishMissingHistory(false)}
+      >
+        削除確認を終了
+      </Button>
+    </div>
+  {/if}
   {#if loading}
     <p class="status" role="status">履歴を読み込み中...</p>
-  {:else if errorMessage && editFailureHistoryId == null && deleteFailureHistoryId == null}
+  {:else if listError}
     <p class="error-message" role="alert">{errorMessage}</p>
   {:else if histories.length === 0}
     <div class="empty-history">
@@ -284,23 +417,7 @@
       {#each histories as history (history.id)}
         <HistoryRow
           {history}
-          isEditing={editingHistoryId === history.id}
-          isMutating={historyMutatingId === history.id}
-          isSaving={pendingSaveHistoryId === history.id}
-          mutationUnavailable={historyMutatingId != null &&
-            historyMutatingId !== history.id}
-          canStartEdit={editingHistoryId == null &&
-            pendingSaveHistoryId !== history.id}
-          canDelete={historyMutatingId == null &&
-            pendingSaveHistoryId == null &&
-            editingHistoryId == null &&
-            confirmingDeleteHistoryId == null}
-          isDeleteConfirming={confirmingDeleteHistoryId === history.id}
-          isDeleting={pendingDeleteHistoryId === history.id}
-          isSaveSuccessful={saveSuccessHistoryId === history.id}
-          deleteError={deleteFailureHistoryId === history.id
-            ? deleteFailureMessage
-            : null}
+          {...rowState(history.id)}
           bind:editInputYen
           bind:editMemo
           onStartEdit={startEdit}
@@ -313,22 +430,34 @@
       {/each}
     </ul>
   {/if}
-  {#if (errorMessage && editFailureHistoryId == null && deleteFailureHistoryId == null) || activeRetry != null}
-    <button
-      class="retry-button"
+  {#if showRetry}
+    <Button
+      variant="outline"
+      class="justify-self-start aria-disabled:cursor-wait"
       type="button"
       aria-disabled={loading || activeRetry != null}
       onclick={retry}
     >
       {activeRetry != null ? "再試行中..." : "履歴を再試行"}
-    </button>
+    </Button>
   {/if}
 </section>
 
 <style>
+  .missing-history,
+  .missing-history-field {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .missing-history h3 {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
   .history-panel {
-    border: 1px solid #e7ddd0;
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     display: grid;
     gap: 0.9rem;
     padding: 1rem;
@@ -342,8 +471,9 @@
   }
 
   h2 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1rem;
+    font-weight: 700;
     letter-spacing: 0;
     margin: 0;
   }
@@ -354,15 +484,15 @@
 
   .history-heading p,
   .status {
-    color: #76675b;
+    color: var(--muted-foreground);
     font-size: 0.84rem;
   }
 
   .empty-history {
     align-content: center;
     background: #fffaf0;
-    border: 1px dashed #dcccb7;
-    border-radius: 10px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
     display: grid;
     gap: 0.35rem;
     min-height: 13rem;
@@ -371,35 +501,17 @@
   }
 
   .empty-history p {
-    color: #2f2219;
+    color: var(--foreground);
     font-weight: 900;
   }
 
   .error-message {
-    background: #fff1f0;
-    border: 1px solid #efc3bd;
-    border-radius: 10px;
-    color: #9b2c22;
+    background: var(--destructive-subtle);
+    border: 1px solid var(--destructive-border);
+    border-radius: var(--radius-lg);
+    color: var(--destructive);
     font-weight: 800;
     padding: 0.75rem 0.85rem;
-  }
-
-  .retry-button {
-    background: #fffdf8;
-    border: 1px solid #d9cdbc;
-    border-radius: 8px;
-    color: #2f2219;
-    cursor: pointer;
-    font: inherit;
-    font-weight: 900;
-    justify-self: start;
-    min-height: 2.75rem;
-    padding: 0 0.9rem;
-  }
-
-  .retry-button[aria-disabled="true"] {
-    cursor: wait;
-    opacity: 0.65;
   }
 
   ul {

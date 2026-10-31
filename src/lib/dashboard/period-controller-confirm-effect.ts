@@ -1,14 +1,13 @@
 import { Effect } from "effect";
-import { periodSummaryUrl } from "$lib/dashboard/api-urls";
-import { fetchPeriodUpdateEffect } from "$lib/dashboard/period-update-api";
-import type { PeriodUpdateDependencies } from "$lib/dashboard/period-controller-update-effect";
-import type {
-  PendingPeriodUpdateConfirmation,
-  PeriodUpdateConfirmationState,
-} from "$lib/dashboard/period-update-confirmation-state.svelte";
+import { periodSummaryUrl } from "#lib/dashboard/api-urls.ts";
+import {
+  fetchPeriodUpdateEffect,
+  type PeriodUpdateApiOutcome,
+} from "#lib/dashboard/period-update-api.ts";
+import type { PeriodUpdateDependencies } from "#lib/dashboard/period-controller-update-effect.ts";
+import type { PendingPeriodUpdateConfirmation } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 
 type Dependencies = PeriodUpdateDependencies & {
-  readonly confirmationState: PeriodUpdateConfirmationState;
   readonly resetRange: () => void;
 };
 
@@ -33,7 +32,7 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
         },
       )
       .pipe(
-        Effect.catchAll((message) =>
+        Effect.catch((message) =>
           Effect.sync(() => {
             error = message;
           }),
@@ -67,15 +66,72 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
         Effect.asVoid,
       );
   }
+  function publishConfirmation(
+    pending: PendingPeriodUpdateConfirmation,
+    summary: Extract<
+      PeriodUpdateApiOutcome,
+      { readonly kind: "updated" }
+    >["summary"],
+    current: boolean,
+  ): void {
+    const { editedPeriodId, previousId, nextId } = pending.ownership;
+    if (current && summary.periodId === editedPeriodId) {
+      dependencies.publishSummary(summary, {
+        operation: "range",
+        payload: pending.request,
+      });
+    } else dependencies.summaryRevision.advance(editedPeriodId);
+    dependencies.summaryRevision.advance(
+      previousId === editedPeriodId ? nextId : previousId,
+    );
+  }
+  function applyOutcome(
+    pending: PendingPeriodUpdateConfirmation,
+    outcome: PeriodUpdateApiOutcome,
+    current: boolean,
+  ): Effect.Effect<void, never> {
+    return Effect.gen(function* () {
+      const periodId = pending.ownership.editedPeriodId;
+      switch (outcome.kind) {
+        case "updated":
+          publishConfirmation(pending, outcome.summary, current);
+          if (current) {
+            state.recover(periodId, true);
+            yield* refresh();
+          }
+          return;
+        case "error":
+          if (!current) return;
+          if (outcome.code === "PERIOD_UPDATE_CONFLICT") {
+            state.recover(periodId, false);
+            yield* refresh();
+          } else
+            state.report({
+              periodId,
+              kind: "error",
+              message: outcome.message,
+            });
+          return;
+        case "confirmation-required":
+          if (current)
+            state.report({
+              periodId,
+              kind: "error",
+              message: "保存に失敗しました。",
+            });
+          return;
+      }
+    });
+  }
   function confirm(
     pending: PendingPeriodUpdateConfirmation,
   ): Effect.Effect<void, never> {
     return dependencies.summaryRevision
       .withMutationSlot(
-        pending.ownership.targetId,
+        pending.ownership.editedPeriodId,
         "period",
         Effect.gen(function* () {
-          const periodId = pending.ownership.targetId;
+          const periodId = pending.ownership.editedPeriodId;
           if (!state.owns(pending)) {
             state.clearOwned(pending);
             if (dependencies.getSelectedPeriodId() === periodId) {
@@ -109,43 +165,7 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
           const current =
             dependencies.getSelectedPeriodId() === periodId &&
             dependencies.summaryRequests.owns(request);
-          switch (outcome.kind) {
-            case "updated":
-              if (current && outcome.summary.periodId === periodId) {
-                dependencies.publishSummary(outcome.summary, {
-                  operation: "range",
-                  payload: pending.request,
-                });
-              } else dependencies.summaryRevision.advance(periodId);
-              dependencies.summaryRevision.advance(
-                pending.ownership.successorId,
-              );
-              if (current) {
-                state.recover(periodId, true);
-                yield* refresh();
-              }
-              return;
-            case "error":
-              if (!current) return;
-              if (outcome.code === "PERIOD_UPDATE_CONFLICT") {
-                state.recover(periodId, false);
-                yield* refresh();
-              } else
-                state.report({
-                  periodId,
-                  kind: "error",
-                  message: outcome.message,
-                });
-              return;
-            case "confirmation-required":
-              if (current)
-                state.report({
-                  periodId,
-                  kind: "error",
-                  message: "保存に失敗しました。",
-                });
-              return;
-          }
+          yield* applyOutcome(pending, outcome, current);
         }),
       )
       .pipe(Effect.ensuring(Effect.sync(state.finishConfirmation)));

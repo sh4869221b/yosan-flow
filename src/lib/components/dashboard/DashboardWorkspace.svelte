@@ -1,13 +1,16 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { CalendarDays } from "@lucide/svelte";
-  import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
-  import BudgetSummary from "$lib/components/BudgetSummary.svelte";
-  import PeriodCalendar from "$lib/components/PeriodCalendar.svelte";
+  import { CalendarDays, CalendarPlus } from "@lucide/svelte";
+  import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
+  import BudgetSummary from "#lib/components/BudgetSummary.svelte";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import * as Card from "#lib/components/ui/card/index.ts";
+  import PeriodCalendar from "#lib/components/PeriodCalendar.svelte";
   import CreatePeriodPanel from "./CreatePeriodPanel.svelte";
   import DashboardPeriodHeader from "./DashboardPeriodHeader.svelte";
   import PeriodSettingsPanel from "./PeriodSettingsPanel.svelte";
-  import type { DaySaveSuccess } from "$lib/dashboard/controller-types";
+  import ResponsiveActionPanel from "./ResponsiveActionPanel.svelte";
+  import type { DaySaveSuccess } from "#lib/dashboard/controller-types.ts";
 
   type Controller = ReturnType<typeof createDashboardPageController>;
 
@@ -30,7 +33,9 @@
   }: Props = $props();
   let focusIntent = $state<"selection" | "retry" | null>(null);
   let requestedPeriodId = $state<string | null>(null);
-  let additionalCreateDetails: HTMLDetailsElement | undefined = $state();
+  let additionalCreatePanel: ResponsiveActionPanel | undefined = $state();
+  let additionalCreateOpen = $state(false);
+  let focusCreatedPeriodOnClose = false;
   let initialCreateActive = $state(false);
   let createFocusIntent = $state<"initial" | "additional" | null>(null);
   let createSourceElement: HTMLElement | null = null;
@@ -52,9 +57,10 @@
 
   function closeAdditionalCreate(): void {
     createFocusIntent = null;
-    if (additionalCreateDetails) {
-      additionalCreateDetails.open = false;
-      additionalCreateDetails.querySelector("summary")?.focus();
+    if (additionalCreatePanel) {
+      additionalCreateOpen = false;
+      if (!additionalCreatePanel.isMobile())
+        additionalCreatePanel.focusTrigger();
     } else {
       document.getElementById("period-settings-heading")?.focus();
     }
@@ -133,6 +139,49 @@
     }
   });
 
+  function restoreCreatedFocus(
+    surface: "initial" | "additional",
+    periodId: string | null,
+    succeeded: boolean,
+    pending: boolean,
+    error: string | null,
+  ): void {
+    if (
+      succeeded &&
+      !controller.createdRefreshPending &&
+      controller.createdPeriodId === periodId &&
+      controller.selectedPeriodId === periodId &&
+      controller.summary?.periodId === periodId
+    ) {
+      if (surface === "additional" && additionalCreatePanel?.isMobile()) {
+        focusCreatedPeriodOnClose = true;
+        additionalCreateOpen = false;
+      } else {
+        document.getElementById("selected-period-heading")?.focus();
+      }
+    } else if (
+      pending &&
+      error &&
+      controller.createdRefreshPending &&
+      controller.createdPeriodId === periodId
+    ) {
+      document
+        .getElementById(
+          surface === "initial"
+            ? "initial-period-created-heading"
+            : "create-period-created-heading",
+        )
+        ?.focus();
+    } else if (
+      !pending &&
+      error &&
+      document.activeElement === document.body &&
+      createSourceElement?.isConnected
+    ) {
+      createSourceElement.focus();
+    }
+  }
+
   $effect(() => {
     const surface = createFocusIntent;
     if (!surface || controller.createSaving || controller.createdRefreshing)
@@ -155,61 +204,98 @@
         controller.createdRefreshing
       )
         return;
-      if (surface === "additional" && !additionalCreateDetails?.open) {
+      if (surface === "additional" && !additionalCreateOpen) {
         createFocusIntent = null;
         return;
       }
-      if (
-        succeeded &&
-        !controller.createdRefreshPending &&
-        controller.createdPeriodId === periodId &&
-        controller.selectedPeriodId === periodId &&
-        controller.summary?.periodId === periodId
-      ) {
-        document.getElementById("selected-period-heading")?.focus();
-      } else if (
-        pending &&
-        error &&
-        controller.createdRefreshPending &&
-        controller.createdPeriodId === periodId
-      ) {
-        document
-          .getElementById(
-            surface === "initial"
-              ? "initial-period-created-heading"
-              : "create-period-created-heading",
-          )
-          ?.focus();
-      } else if (
-        !pending &&
-        error &&
-        document.activeElement === document.body &&
-        createSourceElement?.isConnected
-      ) {
-        createSourceElement.focus();
-      }
+      restoreCreatedFocus(surface, periodId, succeeded, pending, error);
       createFocusIntent = null;
     });
   });
 </script>
 
+{#snippet primaryWorkspace(summary: NonNullable<Controller["summary"]>)}
+  <section aria-label="日別入力">
+    <Card.Root class="gap-4">
+      <Card.Header>
+        <div class="flex items-center gap-4 max-[760px]:items-start">
+          <span
+            class="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-icon-foreground"
+            aria-hidden="true"
+          >
+            <CalendarDays size={25} strokeWidth={2.4} />
+          </span>
+          <div class="min-w-0 flex-1">
+            <h2
+              class="text-[clamp(1.25rem,2vw,1.55rem)] leading-tight font-bold max-[760px]:text-base"
+            >
+              日別の支出
+            </h2>
+          </div>
+        </div>
+      </Card.Header>
+      <Card.Content>
+        <section aria-labelledby="period-calendar-heading">
+          <h2 id="period-calendar-heading" class="sr-only" tabindex="-1">
+            カレンダー
+          </h2>
+          {#key summary.periodId}
+            <PeriodCalendar
+              rows={summary.dailyRows}
+              startDate={summary.startDate}
+              endDate={summary.endDate}
+              {today}
+              disabled={controller.summaryLoading ||
+                controller.periodInteractionDisabled ||
+                summary.periodId !== controller.selectedPeriodId}
+              disabledReason={controller.summaryLoading
+                ? "期間を読み込み中です"
+                : "期間の操作が完了するまで入力できません"}
+              requestEdit={requestCalendarDayEntry}
+            />
+            {#if daySaveSuccess?.periodId === controller.selectedPeriodId}
+              <p data-testid="day-entry-save-status" role="status">
+                {daySaveSuccess.date} の支出を保存しました。
+              </p>
+            {/if}
+          {/key}
+        </section>
+      </Card.Content>
+    </Card.Root>
+  </section>
+{/snippet}
+
 <section class="workspace-shell">
   {#if initialCreateActive || (controller.periods.length === 0 && !controller.summaryLoading && !controller.summaryError)}
     <section
-      class="empty-state card"
       data-testid="create-period-panel"
       aria-labelledby="empty-period-heading"
     >
-      <span class="heading-icon" aria-hidden="true">
-        <CalendarDays size={25} strokeWidth={2.4} />
-      </span>
-      <h1 id="empty-period-heading" tabindex="-1">最初の予算期間を作成</h1>
-      <CreatePeriodPanel
-        variant="empty-state"
-        {controller}
-        onSubmit={() => submitCreate("initial")}
-        onRetry={() => retryCreate("initial")}
-      />
+      <Card.Root class="gap-4">
+        <Card.Header class="gap-3">
+          <span
+            class="inline-flex size-11 items-center justify-center rounded-full bg-accent text-icon-foreground"
+            aria-hidden="true"
+          >
+            <CalendarDays size={25} strokeWidth={2.4} />
+          </span>
+          <h1
+            id="empty-period-heading"
+            class="text-[clamp(1.25rem,2vw,1.55rem)] font-bold"
+            tabindex="-1"
+          >
+            最初の予算期間を作成
+          </h1>
+        </Card.Header>
+        <Card.Content>
+          <CreatePeriodPanel
+            variant="empty-state"
+            {controller}
+            onSubmit={() => submitCreate("initial")}
+            onRetry={() => retryCreate("initial")}
+          />
+        </Card.Content>
+      </Card.Root>
     </section>
   {:else}
     <DashboardPeriodHeader
@@ -227,13 +313,25 @@
         aria-labelledby="page-error-heading"
         aria-busy={controller.summaryLoading}
       >
-        <h2 id="page-error-heading" tabindex="-1">読み込みに失敗しました</h2>
-        {#if controller.summaryError}
-          <p role="alert">{controller.summaryError}</p>
-        {:else}
-          <p role="status">読み込み中...</p>
-        {/if}
-        <button type="button" onclick={retrySummary}>再読み込み</button>
+        <Card.Root class="gap-3">
+          <Card.Header>
+            <h2
+              id="page-error-heading"
+              class="text-[clamp(1.25rem,2vw,1.55rem)] font-bold"
+              tabindex="-1"
+            >
+              読み込みに失敗しました
+            </h2>
+          </Card.Header>
+          <Card.Content class="grid justify-items-start gap-3">
+            {#if controller.summaryError}
+              <p role="alert">{controller.summaryError}</p>
+            {:else}
+              <p role="status">読み込み中...</p>
+            {/if}
+            <Button type="button" onclick={retrySummary}>再読み込み</Button>
+          </Card.Content>
+        </Card.Root>
       </section>
     {/if}
 
@@ -243,70 +341,44 @@
     />
 
     {#if controller.summary}
-      <section class="primary-workspace" aria-label="日別入力">
-        <div class="workspace-heading">
-          <span class="heading-icon" aria-hidden="true">
-            <CalendarDays size={25} strokeWidth={2.4} />
-          </span>
-          <div>
-            <h2>日別の支出</h2>
-          </div>
-        </div>
-
-        <section aria-labelledby="period-calendar-heading">
-          <h2 id="period-calendar-heading" tabindex="-1">カレンダー</h2>
-          {#key controller.summary.periodId}
-            <PeriodCalendar
-              rows={controller.summary.dailyRows}
-              startDate={controller.summary.startDate}
-              endDate={controller.summary.endDate}
-              {today}
-              disabled={controller.summaryLoading ||
-                controller.periodInteractionDisabled ||
-                controller.summary.periodId !== controller.selectedPeriodId}
-              disabledReason={controller.summaryLoading
-                ? "期間を読み込み中です"
-                : "期間の操作が完了するまで入力できません"}
-              requestEdit={requestCalendarDayEntry}
-            />
-            {#if daySaveSuccess?.periodId === controller.selectedPeriodId}
-              <p data-testid="day-entry-save-status" role="status">
-                {daySaveSuccess.date} の支出を保存しました。
-              </p>
-            {/if}
-          {/key}
-        </section>
-      </section>
+      {@render primaryWorkspace(controller.summary)}
     {/if}
 
-    <section class="secondary-actions">
+    <section class="grid content-start gap-3">
       <section aria-labelledby="period-settings-heading">
-        <h2 id="period-settings-heading" tabindex="-1">期間設定</h2>
+        <h2 id="period-settings-heading" class="sr-only" tabindex="-1">
+          期間設定
+        </h2>
         <PeriodSettingsPanel {controller} />
       </section>
-      <details
-        bind:this={additionalCreateDetails}
-        class="card"
-        data-testid="create-period-panel"
-        ontoggle={() => {
-          if (
-            !additionalCreateDetails?.open &&
-            createFocusIntent === "additional"
-          )
-            createFocusIntent = null;
+      <ResponsiveActionPanel
+        bind:this={additionalCreatePanel}
+        bind:open={additionalCreateOpen}
+        title="次の予算期間を作成する"
+        testId="create-period-panel"
+        sheetTestId="create-period-sheet"
+        onClose={() => {
+          if (createFocusIntent === "additional") createFocusIntent = null;
+        }}
+        onCloseAutoFocus={(event) => {
+          if (focusCreatedPeriodOnClose) {
+            event.preventDefault();
+            focusCreatedPeriodOnClose = false;
+            document.getElementById("selected-period-heading")?.focus();
+          }
         }}
       >
-        <summary>次の予算期間を作成する</summary>
-        <div class="details-body">
-          <CreatePeriodPanel
-            variant="secondary-action"
-            {controller}
-            onSubmit={() => submitCreate("additional")}
-            onRetry={() => retryCreate("additional")}
-            onCancel={closeAdditionalCreate}
-          />
-        </div>
-      </details>
+        {#snippet icon()}
+          <CalendarPlus size={20} strokeWidth={2.4} aria-hidden="true" />
+        {/snippet}
+        <CreatePeriodPanel
+          variant="secondary-action"
+          {controller}
+          onSubmit={() => submitCreate("additional")}
+          onRetry={() => retryCreate("additional")}
+          onCancel={closeAdditionalCreate}
+        />
+      </ResponsiveActionPanel>
     </section>
   {/if}
 </section>
@@ -325,117 +397,9 @@
     grid-column: 1 / -1;
   }
 
-  .primary-workspace {
-    background: #fffdf8;
-    border: 1px solid #e4ddd2;
-    border-radius: 12px;
-    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-    padding: 1.15rem 1.25rem;
-  }
-
-  .empty-state,
-  .secondary-actions > section,
-  .workspace-shell > section[aria-labelledby="page-error-heading"] {
-    background: #fffdf8;
-    border: 1px solid #e4ddd2;
-    border-radius: 12px;
-    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-    padding: 1.15rem 1.25rem;
-  }
-
-  #period-settings-heading,
-  #period-calendar-heading {
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    padding: 0;
-    position: absolute;
-    width: 1px;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-
-  .secondary-actions summary {
-    cursor: pointer;
-    font-weight: 800;
-  }
-
-  button {
-    background: #2f6d3b;
-    border: 0;
-    border-radius: 8px;
-    color: #fff;
-    cursor: pointer;
-    font: inherit;
-    font-weight: 800;
-    min-height: 2.65rem;
-    padding: 0 1rem;
-  }
-
-  .details-body {
-    border-top: 1px solid #e2d7c4;
-    margin-top: 1rem;
-    padding-top: 1rem;
-  }
-
-  .workspace-heading {
-    align-items: center;
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 0.9rem;
-  }
-
-  .workspace-heading > div {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .heading-icon {
-    align-items: center;
-    background: #e1f0dd;
-    border-radius: 999px;
-    color: #397d3d;
-    display: inline-flex;
-    flex: 0 0 auto;
-    height: 2.75rem;
-    justify-content: center;
-    width: 2.75rem;
-  }
-
-  .workspace-heading h2 {
-    color: #2f2219;
-    font-size: clamp(1.25rem, 2vw, 1.55rem);
-    letter-spacing: 0;
-    line-height: 1.1;
-    margin: 0;
-  }
-
-  .secondary-actions {
-    display: grid;
-    gap: 0.75rem;
-    align-content: start;
-  }
-
   @media (max-width: 900px) {
     .workspace-shell {
       grid-template-columns: 1fr;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .primary-workspace {
-      border-radius: 18px;
-      padding: 0.95rem;
-    }
-
-    .workspace-heading {
-      align-items: flex-start;
-      display: flex;
-    }
-
-    .workspace-heading h2 {
-      font-size: 1.05rem;
-      line-height: 1.25;
     }
   }
 </style>

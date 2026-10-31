@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -39,9 +39,6 @@ function countPureLoc(source: string): number {
 describe("dashboard page controller structure", () => {
   it("keeps the public controller entrypoint and focused state modules reviewable", () => {
     for (const modulePath of controllerModules) {
-      expect(existsSync(resolve(repositoryRoot, modulePath)), modulePath).toBe(
-        true,
-      );
       expect(
         countPureLoc(readProjectFile(modulePath)),
         modulePath,

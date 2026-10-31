@@ -1,6 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
-import { getBaseUrl, resetTestData } from "./dashboard-shared";
+import {
+  expectCalendarDayFitsCell,
+  expectVisibleCalendarFocus,
+} from "./helpers/calendar-appearance";
+import {
+  getBaseUrl,
+  resetTestData,
+  waitForDashboardReady,
+} from "./dashboard-shared";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
 
@@ -20,7 +28,8 @@ test("raw input retains invalid text, associates errors, and makes no mutation",
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=p-range-360`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
 
   let mutationCount = 0;
   page.on("request", (request) => {
@@ -104,7 +113,8 @@ test("calendar sync publishes a partial selection without retaining the old end"
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-sync`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const calendar = page.locator("[data-range-calendar-root]").first();
   await calendar
@@ -143,6 +153,71 @@ test("calendar sync publishes a partial selection without retaining the old end"
   ).toHaveAttribute("data-selected", "");
 });
 
+for (const scenario of [
+  {
+    name: "completes the reselected start as a same-day range",
+    dates: ["2026-09-01"],
+    start: "2026-09-01",
+    end: "2026-09-01",
+  },
+  {
+    name: "keeps successive completed ranges independent",
+    dates: ["2026-09-03", "2026-09-10", "2026-09-12"],
+    start: "2026-09-10",
+    end: "2026-09-12",
+  },
+]) {
+  test(`calendar clears the old end when reselecting its start and ${scenario.name}`, async ({
+    page,
+    request,
+  }) => {
+    const periodId = "p-range-calendar-reselect";
+    await seedPeriod(request, getBaseUrl(), {
+      periodId,
+      startDate: "2026-09-01",
+      endDate: "2026-09-30",
+      budgetYen: 120000,
+    });
+    await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
+    await waitForDashboardReady(page);
+    await page.getByText("期間の日付や予算を変更する").click();
+
+    let mutations = 0;
+    page.on("request", (request) => {
+      if (
+        request.method() === "PUT" &&
+        request.url() === `${getBaseUrl()}/api/periods/${periodId}`
+      ) {
+        mutations += 1;
+      }
+    });
+    const start = page.getByTestId("current-period-range-start");
+    const end = page.getByTestId("current-period-range-end");
+    const calendar = page.locator("[data-range-calendar-root]").first();
+    const day = (date: string) =>
+      calendar.locator(`[data-range-calendar-day][data-value="${date}"]`);
+
+    await day("2026-09-01").click();
+    await expect(start).toHaveValue("2026-09-01");
+    await expect(end).toHaveValue("");
+    await page.getByTestId("current-period-range-apply").click();
+    await expect(end).toHaveAttribute("aria-invalid", "true");
+    expect(mutations).toBe(0);
+
+    // Keep successive interactions together without waiting on intermediate
+    // field assertions, so a queued old end cannot overwrite a later range.
+    for (const date of scenario.dates) await day(date).click();
+
+    await expect(start).toHaveValue(scenario.start);
+    await expect(end).toHaveValue(scenario.end);
+    await expect(end).toHaveAttribute("aria-invalid", "false");
+    await expect(day(scenario.start)).toHaveAttribute("data-selected", "");
+    await expect(day(scenario.end)).toHaveAttribute("data-selected", "");
+    await expect(day("2026-09-30")).not.toHaveAttribute("data-selected", "");
+    expect(mutations).toBe(0);
+  });
+}
+
 test("calendar starts a fresh range from invalid and reversed controlled raw values", async ({
   page,
   request,
@@ -155,7 +230,8 @@ test("calendar starts a fresh range from invalid and reversed controlled raw val
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-raw`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const start = page.getByTestId("current-period-range-start");
   const end = page.getByTestId("current-period-range-end");
@@ -204,7 +280,8 @@ test("calendar synchronizes a parent period reset without retaining its old rang
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-reset-current`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const calendar = page.locator("[data-range-calendar-root]").first();
   await calendar
@@ -241,20 +318,21 @@ test("calendar keyboard follows the manual inputs and updates the controlled ran
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-keyboard`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const start = page.getByTestId("current-period-range-start");
   const end = page.getByTestId("current-period-range-end");
   const calendar = page.locator("[data-range-calendar-root]").first();
-  const previousMonth = calendar.locator("button").first();
-  const nextMonth = calendar.locator("button").last();
+  const previousMonth = calendar.getByRole("button", { name: "前の月" });
+  const nextMonth = calendar.getByRole("button", { name: "次の月" });
   await start.focus();
   await start.press("Tab");
   await expect(end).toBeFocused();
   await end.press("Tab");
-  await expect(previousMonth).toBeFocused();
+  await expectVisibleCalendarFocus(previousMonth, "rgb(36, 95, 49)");
   await page.keyboard.press("Tab");
-  await expect(nextMonth).toBeFocused();
+  await expectVisibleCalendarFocus(nextMonth, "rgb(36, 95, 49)");
   await page.keyboard.press("Tab");
 
   const septemberSecond = calendar.locator(
@@ -265,9 +343,13 @@ test("calendar keyboard follows the manual inputs and updates the controlled ran
   ).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await expect(septemberSecond).toBeFocused();
+  await expect(septemberSecond).toHaveAttribute("data-selected", "");
+  await expectVisibleCalendarFocus(septemberSecond, "rgb(36, 95, 49)");
+  await expectCalendarDayFitsCell(septemberSecond);
   await page.keyboard.press("Enter");
   await expect(start).toHaveValue("2026-09-02");
   await expect(end).toHaveValue("");
+  await expectVisibleCalendarFocus(septemberSecond, "rgb(255, 255, 255)");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -295,7 +377,8 @@ test("calendar disables its mouse and keyboard controls while a range save is he
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const periodUrl = `${getBaseUrl()}/api/periods/${periodId}`;
   const arrived = Promise.withResolvers<void>();
@@ -314,11 +397,13 @@ test("calendar disables its mouse and keyboard controls while a range save is he
   const start = page.getByTestId("current-period-range-start");
   const end = page.getByTestId("current-period-range-end");
   const calendar = page.locator("[data-range-calendar-root]").first();
-  const previousMonth = calendar.locator("button").first();
-  const nextMonth = calendar.locator("button").last();
+  const previousMonth = calendar.getByRole("button", { name: "前の月" });
+  const nextMonth = calendar.getByRole("button", { name: "次の月" });
   const day = calendar.locator(
     '[data-range-calendar-day][data-value="2026-09-10"]',
   );
+  const periodSelect = page.getByTestId("period-select");
+  const disabledControls = [periodSelect, previousMonth, nextMonth, day];
 
   try {
     await start.fill("2026-09-02");
@@ -331,6 +416,16 @@ test("calendar disables its mouse and keyboard controls while a range save is he
     await expect(previousMonth).toBeDisabled();
     await expect(nextMonth).toBeDisabled();
     await expect(day).toHaveAttribute("aria-disabled", "true");
+    await expect(periodSelect).toBeDisabled();
+    for (const control of disabledControls) {
+      await expect
+        .poll(() =>
+          control.evaluate((element) =>
+            Number.parseFloat(getComputedStyle(element).opacity),
+          ),
+        )
+        .toBeLessThan(1);
+    }
     await day.focus();
     await day.press("Enter");
     await expect(start).toHaveValue("2026-09-02");
@@ -341,6 +436,10 @@ test("calendar disables its mouse and keyboard controls while a range save is he
     await expect(end).toBeEnabled();
     await expect(previousMonth).toBeEnabled();
     await expect(nextMonth).toBeEnabled();
+    await expect(periodSelect).toBeEnabled();
+    for (const control of disabledControls) {
+      await expect(control).toHaveCSS("opacity", "1");
+    }
   } finally {
     released.resolve();
     await page.unrouteAll({ behavior: "wait" });
@@ -360,7 +459,8 @@ test("calendar keeps day controls usable on a mobile viewport", async ({
 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto(`${getBaseUrl()}/?periodId=p-range-calendar-mobile`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
 
   const day = page
     .locator("[data-range-calendar-root]")
@@ -368,6 +468,12 @@ test("calendar keeps day controls usable on a mobile viewport", async ({
     .locator('[data-range-calendar-day][data-value="2026-09-10"]');
   const bounds = await day.boundingBox();
   expect(bounds?.height).toBeGreaterThanOrEqual(42);
+  await day.focus();
+  await day.press("ArrowRight");
+  await page.keyboard.press("ArrowLeft");
+  await expect(day).toHaveAttribute("data-selected", "");
+  await expectVisibleCalendarFocus(day, "rgb(36, 95, 49)");
+  await expectCalendarDayFitsCell(day);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -386,6 +492,7 @@ test("create apply preserves raw drafts until valid and reaches both create POST
   request,
 }) => {
   await page.goto(getBaseUrl());
+  await waitForDashboardReady(page);
   const initialId = page.getByLabel("期間ID");
   const initialStart = page.getByTestId("initial-period-range-start");
   await page.getByTestId("initial-period-range-apply").click();
@@ -427,6 +534,7 @@ test("create apply preserves raw drafts until valid and reaches both create POST
     budgetYen: 120000,
   });
   await page.goto(getBaseUrl());
+  await waitForDashboardReady(page);
   await page.getByText("次の予算期間を作成する").click();
   const additionalId = page.getByLabel("期間ID");
   await additionalId.fill("custom-additional-id");

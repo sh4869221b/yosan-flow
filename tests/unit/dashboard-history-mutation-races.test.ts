@@ -1,9 +1,9 @@
 import { Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
-import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import type { HistoryItem } from "$lib/dashboard/types";
+import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
+import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import type { HistoryItem } from "#lib/dashboard/types.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();

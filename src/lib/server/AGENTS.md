@@ -6,7 +6,7 @@
 
 ## Shape
 
-- `db/`: repositories, Drizzle mirror, in-memory transaction client, raw-D1 writer.
+- `db/`: repositories, Drizzle schema, in-memory transaction client, raw-D1 writer.
 - `services/`: route-facing facade, API-service composition, day-entry commands, period summary.
 - `domain/`: pure budget-period and daily-entry assertions.
 - `validation/`: request parsing and stable API error conversion.
@@ -30,13 +30,13 @@
 
 ## Persistence Boundary
 
-- `migrations/*.sql` is authoritative; `db/schema.ts` is a manually synchronized mirror.
-- Request-time schema creation and generated Drizzle migration ownership are not adopted.
+- `db/schema.ts` is canonical for future changes; generate SQL/snapshots with `pnpm db:generate`.
+- Apply SQL with Wrangler only. Preserve legacy 0001/0002 and the no-op Drizzle baseline; no request-time schema creation.
 - Normal queries remain behind repositories/Drizzle. Raw D1 access is restricted by architecture tests to the day-entry writer family.
 
 ## Verification
 
 - Domain/repository/service logic: focused `pnpm test:unit`.
 - Route/service/D1 behavior: `pnpm test:integration`.
-- Schema changes: update SQL and mirror, then run `pnpm run cf:migrate:local`, integration tests, and `pnpm check`.
+- Schema changes: generate/review SQL and metadata, run `pnpm db:check`, verify disposable empty/legacy databases, then local migrations, integration tests, and `pnpm check:ci`.
 - Server/API coverage is available through `pnpm test:coverage` but is not a required CI gate.

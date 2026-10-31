@@ -16,6 +16,7 @@ import {
   getBaseUrl,
   getCurrentJstDate,
   resetTestData,
+  waitForDashboardReady,
 } from "./dashboard-shared";
 
 test.describe.configure({ timeout: 120_000 });
@@ -36,7 +37,8 @@ test("updates a seeded period budget", async ({ page, request }) => {
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("150000");
   const updateRequest = page.waitForRequest(
     (request) =>
@@ -66,7 +68,8 @@ test("rejects malformed period budget values before requests", async ({
   });
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
   let updateRequestCount = 0;
   await page.route(`**/api/periods/${periodId}`, async (route) => {
     updateRequestCount += 1;
@@ -111,7 +114,8 @@ test("shows save error and keeps input on failed period update", async ({
   const { periodId } = await seedCurrentPeriod(request);
 
   await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("130000");
   await page.route(`**/api/periods/${periodId}`, async (route) => {
     if (route.request().method() !== "PUT") {
@@ -173,7 +177,8 @@ async function openBudget(page: Page, request: APIRequestContext) {
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-budget-settings`);
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await waitForDashboardReady(page);
+  await page.getByText("期間の日付や予算を変更する").click();
   const region = page.getByRole("region", { name: "予算設定", exact: true });
   return {
     today,
@@ -325,7 +330,7 @@ for (const source of ["button", "input", "elsewhere"] as const) {
         "保存に失敗しました。",
       );
       await expect(input).toHaveValue("130000");
-      const outside = page.getByText("期間の終了日や予算を変更する", {
+      const outside = page.getByText("期間の日付や予算を変更する", {
         exact: true,
       });
       if (source === "elsewhere") await outside.focus();
@@ -494,7 +499,7 @@ test("discards budget focus when settings close before a delayed result", async 
     const updated = waitForUpdate(page, 200, budgetUrl);
     await save.click();
     await barrier.arrived;
-    const disclosure = page.getByText("期間の終了日や予算を変更する", {
+    const disclosure = page.getByText("期間の日付や予算を変更する", {
       exact: true,
     });
     await disclosure.click();
@@ -521,6 +526,10 @@ for (const viewport of [
   }, testInfo) => {
     await page.setViewportSize(viewport);
     const { region, input, save } = await openBudget(page, request);
+    await expect(region.locator(".actions")).toHaveCSS(
+      "display",
+      viewport.width <= 760 ? "grid" : "flex",
+    );
     const heading = region.getByRole("heading", {
       name: "予算設定",
       exact: true,
@@ -529,6 +538,10 @@ for (const viewport of [
     await save.click();
     await expect(input).toBeFocused();
     await expect(region.getByRole("alert")).toBeVisible();
+    await expect(region.getByRole("alert")).toHaveCSS(
+      "color",
+      "rgb(139, 58, 58)",
+    );
     await region.screenshot({
       path: testInfo.outputPath(
         viewport.width === 1440

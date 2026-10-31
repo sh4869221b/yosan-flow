@@ -1,7 +1,11 @@
 <script lang="ts">
   import { Save, X } from "@lucide/svelte";
   import { tick, type Snippet } from "svelte";
-  import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
+  import { Textarea } from "#lib/components/ui/textarea/index.ts";
+  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 
   const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
 
@@ -28,7 +32,7 @@
   }: Props = $props();
 
   let inputError = $state<string | null>(null);
-  let amountInput: HTMLInputElement;
+  let amountInput = $state<HTMLInputElement | null>(null);
   let formHeading: HTMLHeadingElement;
   let saveErrorElement = $state<HTMLParagraphElement>();
   let submitFocusTarget: HTMLElement | null = null;
@@ -73,8 +77,8 @@
     if (parsed == null) {
       inputError = AMOUNT_ERROR;
       await tick();
-      amountInput.focus();
-      amountInput.scrollIntoView({ block: "nearest" });
+      amountInput?.focus();
+      amountInput?.scrollIntoView({ block: "nearest" });
       return;
     }
     inputError = null;
@@ -91,55 +95,59 @@
   <h3 id="day-entry-form-heading" tabindex="-1" bind:this={formHeading}>
     入力内容
   </h3>
-  <label for="day-entry-amount">
-    入力額 (円)
+  <div class="field">
+    <Label for="day-entry-amount">入力額 (円)</Label>
     <span class="money-input">
       <span aria-hidden="true">¥</span>
-      <input
+      <Input
+        class="h-auto min-h-[3.15rem] rounded-none border-0 px-[0.85rem] py-0 text-[1.35rem] font-extrabold shadow-none focus-visible:outline-none focus-visible:ring-0 md:text-[1.35rem]"
         id="day-entry-amount"
         type="text"
         inputmode="numeric"
-        bind:this={amountInput}
+        bind:ref={amountInput}
         bind:value={inputYen}
         aria-invalid={inputError != null}
         aria-describedby={inputError ? "day-entry-amount-error" : undefined}
         oninput={handleAmountInput}
       />
     </span>
-  </label>
+  </div>
   {#if inputError}
     <p id="day-entry-amount-error" class="error-message" role="alert">
       {inputError}
     </p>
   {/if}
 
-  <label for="day-entry-memo">
-    メモ
-    <textarea
+  <div class="field">
+    <Label for="day-entry-memo">メモ</Label>
+    <Textarea
+      class="min-h-[5.2rem]"
       id="day-entry-memo"
-      rows="3"
+      rows={3}
       bind:value={memo}
-      placeholder="例: ランチ、食材の買い物など"></textarea>
-  </label>
+      placeholder="例: ランチ、食材の買い物など"
+    />
+  </div>
 
   {#if preview}
     {@render preview()}
   {/if}
 
-  <div class="sheet-actions actions">
-    <button
-      class="secondary-button"
+  <div class="actions">
+    <Button
+      variant="outline"
+      class="h-auto min-h-12"
       type="button"
       onclick={handleClose}
       disabled={saving}
     >
       <X size={18} strokeWidth={2.4} aria-hidden="true" />
       閉じる
-    </button>
-    <button class="primary-button" type="submit" disabled={saving}>
+    </Button>
+    <Button class="h-auto min-h-12" type="submit" disabled={saving}>
       <Save size={18} strokeWidth={2.4} aria-hidden="true" />
       {saving ? "保存中..." : "保存する"}
-    </button>
+    </Button>
   </div>
 
   {#if saveError}
@@ -156,29 +164,29 @@
 
 <style>
   .entry-form {
-    border: 1px solid #e7ddd0;
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     display: grid;
     gap: 0.9rem;
     padding: 1rem;
   }
 
   h3 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1rem;
+    font-weight: 700;
     margin: 0;
   }
 
-  label {
+  .field {
     display: grid;
-    font-weight: 800;
     gap: 0.45rem;
     min-width: 0;
   }
 
   .money-input {
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
     display: grid;
     grid-template-columns: 3rem minmax(0, 1fr);
     overflow: hidden;
@@ -187,88 +195,37 @@
   .money-input > span {
     align-items: center;
     background: #fbf6ee;
-    border-right: 1px solid #ded3c6;
+    border-right: 1px solid var(--input);
     color: #5d4a3b;
     display: inline-flex;
     font-weight: 900;
     justify-content: center;
   }
 
-  input,
-  textarea,
-  button {
-    box-sizing: border-box;
-    font: inherit;
-    max-width: 100%;
-  }
-
-  input,
-  textarea {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    border-radius: 8px;
-    color: #2f2219;
-    width: 100%;
-  }
-
-  .money-input input {
-    border: 0;
-    border-radius: 0;
-    font-size: 1.35rem;
-    font-weight: 800;
-    min-height: 3.15rem;
-    padding: 0 0.85rem;
+  .money-input:focus-within {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 
   .error-message {
-    background: #fff1f0;
-    border: 1px solid #efc3bd;
-    border-radius: 10px;
-    color: #9b2c22;
+    background: var(--destructive-subtle);
+    border: 1px solid var(--destructive-border);
+    border-radius: var(--radius-lg);
+    color: var(--destructive);
     font-weight: 800;
     margin: 0;
     padding: 0.75rem 0.85rem;
   }
 
-  textarea {
-    min-height: 5.2rem;
-    padding: 0.75rem 0.85rem;
-    resize: vertical;
+  .actions {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   }
 
-  button {
-    align-items: center;
-    border-radius: 8px;
-    cursor: pointer;
-    display: inline-flex;
-    font-weight: 900;
-    gap: 0.45rem;
-    justify-content: center;
-    min-height: 3rem;
-    padding: 0 1rem;
-  }
-
-  button:disabled {
-    cursor: wait;
-    opacity: 0.65;
-  }
-
-  .primary-button {
-    background: #2f6d3b;
-    border: 1px solid #2f6d3b;
-    color: #fff;
-  }
-
-  .secondary-button {
-    background: #fffdf8;
-    border: 1px solid #d9cdbc;
-    color: #2f2219;
-  }
-
-  @media (min-width: 761px) {
+  @media (max-width: 760px) {
     .actions {
-      display: grid;
-      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      grid-template-columns: 1fr;
     }
   }
 </style>

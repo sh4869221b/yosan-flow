@@ -1,13 +1,12 @@
 <script lang="ts">
   import { ClipboardList } from "@lucide/svelte";
-  import { Dialog } from "bits-ui";
-  import "./dialog-sheet.css";
+  import * as Dialog from "#lib/components/ui/dialog/index.ts";
   import "./day-entry-modal.css";
-  import DayEntryPreview from "$lib/components/day-entry/DayEntryPreview.svelte";
-  import DayEntryForm from "$lib/components/day-entry/DayEntryForm.svelte";
-  import HistoryPanel from "$lib/components/HistoryPanel.svelte";
-  import type { DayEntryCloseReason } from "$lib/dashboard/controller-types";
-  import type { HistoryActionResult } from "$lib/dashboard/types";
+  import DayEntryPreview from "#lib/components/day-entry/DayEntryPreview.svelte";
+  import DayEntryForm from "#lib/components/day-entry/DayEntryForm.svelte";
+  import HistoryPanel from "#lib/components/HistoryPanel.svelte";
+  import type { DayEntryCloseReason } from "#lib/dashboard/controller-types.ts";
+  import type { HistoryActionResult } from "#lib/dashboard/types.ts";
 
   type HistoryItem = {
     id: string;
@@ -121,83 +120,80 @@
 
 <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
   {#if isOpen}
-    <Dialog.Portal>
-      <Dialog.Overlay class="sheet-overlay" />
-      <Dialog.Content
-        class="sheet-content day-entry-content"
-        data-testid="day-entry-modal"
-        onOpenAutoFocus={handleOpenAutoFocus}
-        onCloseAutoFocus={handleCloseAutoFocus}
-        onEscapeKeydown={handleEscapeKeydown}
-        onInteractOutside={preventOutsideDismissal}
-      >
-        <div class="entry-header">
-          <span class="entry-icon" aria-hidden="true">
-            <ClipboardList size={24} strokeWidth={2.4} />
-          </span>
-          <div>
-            <Dialog.Title
-              class="sheet-title"
-              level={2}
-              tabindex={-1}
-              bind:ref={dialogTitle}
-            >
-              日次入力
-              {#if date}
-                <span class="target-date">対象日: {date}</span>
-              {/if}
-            </Dialog.Title>
-          </div>
-        </div>
-        {#if isPlanned}
-          <p class="planned-note">予定支出として登録されます。</p>
-        {/if}
-
-        {#if saving}
-          <p class="saving-status" role="status">
-            保存中です。処理が完了するまで閉じられません。
-          </p>
-        {/if}
-
-        {#key date}
-          <DayEntryForm
-            bind:inputYen
-            bind:memo
-            {saving}
-            close={cancel}
-            {save}
-            {date}
-            saveError={errorMessage}
+    <Dialog.Content
+      class="day-entry-content"
+      data-testid="day-entry-modal"
+      onOpenAutoFocus={handleOpenAutoFocus}
+      onCloseAutoFocus={handleCloseAutoFocus}
+      onEscapeKeydown={handleEscapeKeydown}
+      onInteractOutside={preventOutsideDismissal}
+    >
+      <div class="entry-header">
+        <span class="entry-icon" aria-hidden="true">
+          <ClipboardList size={24} strokeWidth={2.4} />
+        </span>
+        <div>
+          <Dialog.Title
+            level={2}
+            tabindex={-1}
+            bind:ref={dialogTitle}
+            class="text-[1.45rem] leading-[1.1] [@media(max-width:760px)]:text-xl"
           >
-            {#snippet preview()}
-              <DayEntryPreview
-                {currentUsedYen}
-                {previewAfterYen}
-                {previewRemainingYen}
-                {previewRecommendedYen}
-              />
-            {/snippet}
-          </DayEntryForm>
-        {/key}
+            日次入力
+            {#if date}
+              <span class="target-date">対象日: {date}</span>
+            {/if}
+          </Dialog.Title>
+        </div>
+      </div>
+      {#if isPlanned}
+        <p class="planned-note">予定支出として登録されます。</p>
+      {/if}
 
-        <section
-          class="history-region"
-          aria-labelledby="day-entry-history-heading"
+      {#if saving}
+        <p class="saving-status" role="status">
+          保存中です。処理が完了するまで閉じられません。
+        </p>
+      {/if}
+
+      {#key date}
+        <DayEntryForm
+          bind:inputYen
+          bind:memo
+          {saving}
+          close={cancel}
+          {save}
+          {date}
+          saveError={errorMessage}
         >
-          <HistoryPanel
-            {isOpen}
-            {date}
-            {histories}
-            loading={historyLoading}
-            errorMessage={historyErrorMessage}
-            {historyMutatingId}
-            {retryHistory}
-            {updateHistory}
-            {deleteHistory}
-            headingId="day-entry-history-heading"
-          />
-        </section>
-      </Dialog.Content>
-    </Dialog.Portal>
+          {#snippet preview()}
+            <DayEntryPreview
+              {currentUsedYen}
+              {previewAfterYen}
+              {previewRemainingYen}
+              {previewRecommendedYen}
+            />
+          {/snippet}
+        </DayEntryForm>
+      {/key}
+
+      <section
+        class="history-region"
+        aria-labelledby="day-entry-history-heading"
+      >
+        <HistoryPanel
+          {isOpen}
+          {date}
+          {histories}
+          loading={historyLoading}
+          errorMessage={historyErrorMessage}
+          {historyMutatingId}
+          {retryHistory}
+          {updateHistory}
+          {deleteHistory}
+          headingId="day-entry-history-heading"
+        />
+      </section>
+    </Dialog.Content>
   {/if}
 </Dialog.Root>

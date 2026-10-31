@@ -12,9 +12,9 @@
 
 .day-entry-content .entry-icon {
   align-items: center;
-  background: #e1f0dd;
+  background: var(--accent);
   border-radius: 999px;
-  color: #397d3d;
+  color: var(--icon-foreground);
   display: inline-flex;
   flex: 0 0 auto;
   height: 2.75rem;
@@ -23,7 +23,7 @@
 }
 
 .day-entry-content .target-date {
-  color: #67584c;
+  color: var(--muted-foreground);
   display: block;
   font-size: 0.86rem;
   font-weight: 800;
@@ -32,22 +32,22 @@
 
 .day-entry-content .planned-note,
 .day-entry-content .saving-status {
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   font-weight: 800;
   margin: 0;
   padding: 0.75rem 0.85rem;
 }
 
 .day-entry-content .planned-note {
-  background: #fff7e8;
-  border: 1px solid #ecd6aa;
-  color: #74501b;
+  background: var(--planned-subtle);
+  border: 1px solid var(--planned-border);
+  color: var(--planned);
 }
 
 .day-entry-content .saving-status {
-  background: #edf7ea;
-  border: 1px solid #bad8b7;
-  color: #276432;
+  background: var(--success-subtle);
+  border: 1px solid var(--success-border);
+  color: var(--success);
 }
 
 .day-entry-content .history-region {

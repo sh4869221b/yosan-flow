@@ -1,14 +1,14 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { createD1BudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
+import { createD1BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
 import {
   createInMemoryBudgetPeriodRepository,
   type BudgetPeriodRecord,
   type LinkedPeriodBoundaryUpdateCommand,
   type LinkedPeriodBoundaryUpdateResult,
-} from "$lib/server/db/budget-period-repository";
+} from "#lib/server/db/budget-period-repository.ts";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 
 const target: BudgetPeriodRecord = {
   id: "target",
@@ -80,31 +80,26 @@ function createHarness(
   seed: Seed = {},
 ): Harness {
   const periods = [...(seed.periods ?? [target, successor])];
-  if (implementation === "d1") {
-    const preparedSql: string[] = [];
-    const db = createPeriodAwareD1Fake(preparedSql, {
-      periods: periods.map(toD1Row),
-      totalDates: seed.totalDates,
-      historyDates: seed.historyDates,
-      linkedBoundaryChangesOverride: seed.linkedBoundaryChangesOverride,
-    });
-    const repository = createD1BudgetPeriodRepository({ db });
-    return {
-      update: (input) => runApiEffect(repository.updateLinkedBoundary(input)),
-      readPair: async () => readPair(repository),
-    };
-  }
-
-  const repository = createInMemoryBudgetPeriodRepository(periods, {
-    listOwnedEntryDates: () => ({
-      totalDates: seed.totalDates ?? {},
-      historyDates: seed.historyDates ?? {},
-    }),
-    runSerializedEffect: (work) => work(),
-  });
+  const repository =
+    implementation === "d1"
+      ? createD1BudgetPeriodRepository({
+          db: createPeriodAwareD1Fake([], {
+            periods: periods.map(toD1Row),
+            totalDates: seed.totalDates,
+            historyDates: seed.historyDates,
+            linkedBoundaryChangesOverride: seed.linkedBoundaryChangesOverride,
+          }),
+        })
+      : createInMemoryBudgetPeriodRepository(periods, {
+          listOwnedEntryDates: () => ({
+            totalDates: seed.totalDates ?? {},
+            historyDates: seed.historyDates ?? {},
+          }),
+          runSerializedEffect: (work) => work(),
+        });
   return {
     update: (input) => runApiEffect(repository.updateLinkedBoundary(input)),
-    readPair: async () => readPair(repository),
+    readPair: () => readPair(repository),
   };
 }
 
@@ -229,6 +224,29 @@ describe("linked period boundary persistence", () => {
               successor,
               { ...target, id: "third", startDate: "2026-07-21" },
             ],
+          },
+        },
+        {
+          name: "outer successor continuity breaks",
+          seed: {
+            periods: [
+              target,
+              successor,
+              {
+                ...successor,
+                id: "outer",
+                predecessorPeriodId: successor.id,
+                startDate: "2026-08-20",
+                endDate: "2026-09-19",
+              },
+            ],
+          },
+          input: {
+            ...command,
+            successor: {
+              ...command.successor,
+              after: { ...command.successor.after, endDate: "2026-08-18" },
+            },
           },
         },
         {

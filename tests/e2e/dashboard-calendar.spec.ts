@@ -1,7 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { configureDashboardDayEntryE2E } from "./dashboard-day-entry-helpers";
 import { seedPeriod } from "./helpers/db";
-import { addDays, getBaseUrl, getCurrentJstDate } from "./dashboard-shared";
+import {
+  expectCalendarDayFitsCell,
+  expectVisibleCalendarFocus,
+} from "./helpers/calendar-appearance";
+import {
+  addDays,
+  getBaseUrl,
+  getCurrentJstDate,
+  waitForDashboardReady,
+} from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
@@ -16,6 +25,7 @@ test("moves one roving calendar focus across months with keyboard", async ({
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-keys`);
+  await waitForDashboardReady(page);
 
   const januaryEnd = page.getByTestId("calendar-day-2026-01-31");
   const februaryStart = page.getByTestId("calendar-day-2026-02-01");
@@ -77,6 +87,7 @@ test("calendar handoff opens the focused date once with Enter and retains select
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-keys`);
+  await waitForDashboardReady(page);
 
   const date = "2026-02-01";
   const day = page.getByTestId(`calendar-day-${date}`);
@@ -114,6 +125,7 @@ test("calendar handoff opens the focused date once with Space", async ({
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-keys`);
+  await waitForDashboardReady(page);
 
   const date = "2026-02-01";
   const day = page.getByTestId(`calendar-day-${date}`);
@@ -150,6 +162,7 @@ test("keyboard keeps disabled calendar dates focusable without opening history",
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-current`);
+  await waitForDashboardReady(page);
 
   const periodSummaryBarrier = Promise.withResolvers<void>();
   const nextSummaryUrl = `${getBaseUrl()}/api/periods/p-calendar-next`;
@@ -213,6 +226,7 @@ test("keeps selection separate from keyboard focus and resets it for another per
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-current`);
+  await waitForDashboardReady(page);
 
   const todayDay = page.getByTestId(`calendar-day-${today}`);
   const tomorrowDay = page.getByTestId(`calendar-day-${addDays(today, 1)}`);
@@ -257,6 +271,7 @@ test("keeps future allowance unchanged while future calendar input remains avail
     budgetYen: 90000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-future`);
+  await waitForDashboardReady(page);
 
   const futureDay = page.getByTestId(`calendar-day-${futureStart}`);
   await expect(page.getByTestId("today-food-allowance")).toContainText("0 円");
@@ -279,6 +294,7 @@ test("blocks calendar activation while a period save is in flight, then restores
     budgetYen: 120000,
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-save`);
+  await waitForDashboardReady(page);
 
   const saveBarrier = Promise.withResolvers<void>();
   const periodUrl = `${getBaseUrl()}/api/periods/p-calendar-save`;
@@ -293,7 +309,7 @@ test("blocks calendar activation while a period save is in flight, then restores
     await route.continue();
   });
 
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("130000");
   await page.getByRole("button", { name: "期間を更新" }).click();
   await expect.poll(() => saveRequestCount).toBe(1);
@@ -340,6 +356,7 @@ test("keeps the calendar inside every supported viewport without clipping state 
     ],
   });
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-responsive`);
+  await waitForDashboardReady(page);
   const todayDay = page.getByTestId(`calendar-day-${today}`);
   await todayDay.click();
   await page
@@ -350,6 +367,13 @@ test("keeps the calendar inside every supported viewport without clipping state 
 
   for (const width of [320, 375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
+    await todayDay.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
+    await expect(todayDay).toHaveAttribute("aria-current", "date");
+    await expect(todayDay).toHaveAttribute("aria-pressed", "true");
+    await expectVisibleCalendarFocus(todayDay, "rgb(47, 118, 194)");
+    await expect(todayDay).not.toHaveCSS("box-shadow", "none");
+    await expectCalendarDayFitsCell(todayDay);
     expect(
       await page.evaluate(
         () =>
@@ -363,6 +387,11 @@ test("keeps the calendar inside every supported viewport without clipping state 
     expect(bounds?.height).toBeGreaterThanOrEqual(56.8);
     expect(bounds?.width).toBeGreaterThan(0);
     await expect(todayDay.getByTestId(`used-${today}`)).toBeVisible();
+    await expect(todayDay.getByTestId(`used-${today}`)).toHaveCSS(
+      "color",
+      "rgb(217, 105, 69)",
+    );
+    await expect(todayDay).toContainText("入力済み");
     await expect(todayDay).toContainText("選択中");
     await page.screenshot({
       path: `.omo/evidence/issue-331-calendar/calendar-${width}.png`,

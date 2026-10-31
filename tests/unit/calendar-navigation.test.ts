@@ -3,7 +3,7 @@ import {
   getCalendarNavigationTarget,
   getInitialFocusDate,
   type CalendarDateRange,
-} from "$lib/components/calendar/calendar-navigation";
+} from "#lib/components/calendar/calendar-navigation.ts";
 
 const range: CalendarDateRange = {
   startDate: "2026-01-20",

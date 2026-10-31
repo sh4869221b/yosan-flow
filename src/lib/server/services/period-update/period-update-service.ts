@@ -2,24 +2,29 @@ import { Effect } from "effect";
 import {
   noopTracing,
   type TracingAdapter,
-} from "$lib/server/observability/tracing";
-import { withTracingEffect } from "$lib/server/observability/tracing-effect";
+} from "#lib/server/observability/tracing.ts";
+import { withTracingEffect } from "#lib/server/observability/tracing-effect.ts";
 import {
   LinkedPeriodBoundaryConflictError,
   type BudgetPeriodRecord,
   type BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
-import { PeriodNotFoundError } from "$lib/server/db/budget-period-types";
-import { decidePeriodBoundaryUpdate } from "$lib/server/services/period-update/period-boundary-decision";
-import { toEffectError } from "$lib/server/effect/runtime";
-import { assertValidPeriodInput } from "$lib/server/db/budget-period-validation-coordinator";
+} from "#lib/server/db/budget-period-repository.ts";
+import { PeriodNotFoundError } from "#lib/server/db/budget-period-types.ts";
+import { decidePeriodBoundaryUpdate } from "#lib/server/services/period-update/period-boundary-decision.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
+import {
+  assertPeriodHasNoOverlap,
+  assertPeriodPredecessorContinuity,
+  assertPeriodSuccessorContinuity,
+  assertValidPeriodInput,
+} from "#lib/server/db/budget-period-validation-coordinator.ts";
 import {
   PeriodUpdateConflictError,
   type PeriodBoundaryAfter,
   type PeriodBoundaryUpdateProposal,
   type PeriodSnapshot,
   type PeriodUpdateRequest,
-} from "$lib/server/services/period-update/period-update-types";
+} from "#lib/server/services/period-update/period-update-types.ts";
 
 export type PeriodUpdateServiceResult =
   | { readonly kind: "updated"; readonly period: BudgetPeriodRecord }
@@ -74,11 +79,11 @@ function proposalsMatch(
   right: PeriodBoundaryUpdateProposal,
 ): boolean {
   return (
-    left.version === right.version &&
-    snapshotsMatch(left.target.before, right.target.before) &&
-    afterValuesMatch(left.target.after, right.target.after) &&
-    snapshotsMatch(left.successor.before, right.successor.before) &&
-    afterValuesMatch(left.successor.after, right.successor.after)
+    left.editedPeriodId === right.editedPeriodId &&
+    snapshotsMatch(left.previous.before, right.previous.before) &&
+    afterValuesMatch(left.previous.after, right.previous.after) &&
+    snapshotsMatch(left.next.before, right.next.before) &&
+    afterValuesMatch(left.next.after, right.next.after)
   );
 }
 
@@ -105,6 +110,16 @@ export function createPeriodUpdateService(
           periodId,
         );
 
+      const predecessor = target.predecessorPeriodId
+        ? yield* dependencies.budgetPeriodRepository.findById(
+            target.predecessorPeriodId,
+          )
+        : null;
+      const predecessorSuccessors = target.predecessorPeriodId
+        ? yield* dependencies.budgetPeriodRepository.findSuccessorsByPredecessorId(
+            target.predecessorPeriodId,
+          )
+        : [];
       const confirmation = request.confirmation;
       if (confirmation !== undefined) {
         return yield* withTracingEffect<PeriodUpdateServiceResult>(
@@ -116,6 +131,8 @@ export function createPeriodUpdateService(
                 decidePeriodBoundaryUpdate({
                   target,
                   successors,
+                  predecessor,
+                  predecessorSuccessors,
                   requested: request,
                 }),
               catch: () => new PeriodUpdateConflictError(),
@@ -129,8 +146,8 @@ export function createPeriodUpdateService(
                 }
                 const result = yield* dependencies.budgetPeriodRepository
                   .updateLinkedBoundary({
-                    target: decision.proposal.target,
-                    successor: decision.proposal.successor,
+                    target: decision.proposal.previous,
+                    successor: decision.proposal.next,
                     nowIso: dependencies.nowIso(),
                   })
                   .pipe(
@@ -140,7 +157,13 @@ export function createPeriodUpdateService(
                       () => confirmationConflict(),
                     ),
                   );
-                return { kind: "updated", period: result.target };
+                return {
+                  kind: "updated",
+                  period:
+                    periodId === result.target.id
+                      ? result.target
+                      : result.successor,
+                };
               }
             }
           }),
@@ -161,6 +184,8 @@ export function createPeriodUpdateService(
           return decidePeriodBoundaryUpdate({
             target,
             successors,
+            predecessor,
+            predecessorSuccessors,
             requested: request,
           });
         },
@@ -181,15 +206,45 @@ export function createPeriodUpdateService(
             tracing,
             "api.budget_period.linked_boundary.propose",
             Effect.gen(function* () {
+              const periods =
+                yield* dependencies.budgetPeriodRepository.listPeriods();
+              yield* Effect.try({
+                try: () => {
+                  const { previous, next } = decision.proposal;
+                  const others = periods.filter(
+                    (period) =>
+                      period.id !== previous.before.id &&
+                      period.id !== next.before.id,
+                  );
+                  assertPeriodHasNoOverlap(others, previous.after);
+                  assertPeriodHasNoOverlap(others, next.after);
+                  const outerPrevious = periods.find(
+                    (period) =>
+                      period.id === previous.before.predecessorPeriodId,
+                  );
+                  assertPeriodPredecessorContinuity(
+                    previous.before.predecessorPeriodId,
+                    outerPrevious?.endDate ?? null,
+                    previous.after.startDate,
+                  );
+                  assertPeriodSuccessorContinuity(
+                    next.after.endDate,
+                    others.filter(
+                      (period) => period.predecessorPeriodId === next.before.id,
+                    ),
+                  );
+                },
+                catch: toEffectError,
+              });
               yield* dependencies.assertNoOutOfRangeEntries(
-                decision.proposal.target.after.id,
-                decision.proposal.target.after.startDate,
-                decision.proposal.target.after.endDate,
+                decision.proposal.previous.after.id,
+                decision.proposal.previous.after.startDate,
+                decision.proposal.previous.after.endDate,
               );
               yield* dependencies.assertNoOutOfRangeEntries(
-                decision.proposal.successor.after.id,
-                decision.proposal.successor.after.startDate,
-                decision.proposal.successor.after.endDate,
+                decision.proposal.next.after.id,
+                decision.proposal.next.after.startDate,
+                decision.proposal.next.after.endDate,
               );
               return decision;
             }),

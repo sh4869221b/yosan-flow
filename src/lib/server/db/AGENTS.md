@@ -2,7 +2,7 @@
 
 ## Overview
 
-`src/lib/server/db/**` contains repository ports/implementations, the Drizzle D1 adapter and schema mirror, an in-memory transactional client, and the atomic raw-D1 day-entry writer.
+`src/lib/server/db/**` contains repository ports/implementations, the Drizzle D1 adapter and canonical schema, an in-memory transactional client, and the atomic raw-D1 day-entry writer.
 
 ## Map
 
@@ -12,7 +12,7 @@
 - `client.ts`: typed Drizzle adapter plus snapshot/queue-based in-memory transaction client.
 - `day-entry-writer*.ts`: public Effect adapter and batch executor.
 - `day-entry-{write,replay}-sql.ts`: raw statements and replay ordering.
-- `schema.ts`: Drizzle mirror of `migrations/*.sql`.
+- `schema.ts`: canonical schema for Drizzle Kit generation.
 
 ## Repository Rules
 
@@ -31,12 +31,12 @@
 
 ## Schema Rules
 
-- Change `migrations/*.sql` first and update `schema.ts` in the same task.
-- Do not add runtime DDL or a second migration source of truth.
+- Change `schema.ts` first; run `pnpm db:generate --name ...` and commit reviewed SQL, snapshot, and journal together.
+- Keep legacy 0001/0002 and the no-op baseline immutable. Apply only with Wrangler; do not add runtime DDL or a second schema source.
 - Preserve the daily-total composite key and history period/date ordering indexes unless the migration explicitly changes the domain model.
 
 ## Verification
 
 - Repository mapping/validation: `pnpm test:unit`.
 - SQL shape, batch rollback, replay, same-timestamp order, period scoping: `pnpm test:integration`.
-- Schema changes: `pnpm run cf:migrate:local`, `pnpm test:integration`, and `pnpm check`.
+- Schema changes: `pnpm db:check`, disposable empty/legacy DB verification, `pnpm run cf:migrate:local`, `pnpm test:integration`, and `pnpm check:ci`. See CONTRIBUTING.md migration policy for history/nullability hazards.

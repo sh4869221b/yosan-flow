@@ -1,0 +1,299 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "d5af8444-aeb4-4656-b3db-3c99ff5a0533",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "budget_periods": {
+      "name": "budget_periods",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "budget_yen": {
+          "name": "budget_yen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'active'"
+        },
+        "predecessor_period_id": {
+          "name": "predecessor_period_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_budget_periods_start_end": {
+          "name": "idx_budget_periods_start_end",
+          "columns": ["start_date", "end_date"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "budget_periods_predecessor_period_id_budget_periods_id_fk": {
+          "name": "budget_periods_predecessor_period_id_budget_periods_id_fk",
+          "tableFrom": "budget_periods",
+          "tableTo": "budget_periods",
+          "columnsFrom": ["predecessor_period_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "budget_periods_budget_yen_non_negative": {
+          "name": "budget_periods_budget_yen_non_negative",
+          "value": "\"budget_periods\".\"budget_yen\" >= 0"
+        },
+        "budget_periods_status_allowed": {
+          "name": "budget_periods_status_allowed",
+          "value": "\"budget_periods\".\"status\" IN ('active', 'closed')"
+        },
+        "budget_periods_start_date_before_end_date": {
+          "name": "budget_periods_start_date_before_end_date",
+          "value": "\"budget_periods\".\"start_date\" <= \"budget_periods\".\"end_date\""
+        }
+      }
+    },
+    "daily_operation_histories": {
+      "name": "daily_operation_histories",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "budget_period_id": {
+          "name": "budget_period_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operation_type": {
+          "name": "operation_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "input_yen": {
+          "name": "input_yen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "before_total_yen": {
+          "name": "before_total_yen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "after_total_yen": {
+          "name": "after_total_yen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "memo": {
+          "name": "memo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_daily_histories_period_date_created_at": {
+          "name": "idx_daily_histories_period_date_created_at",
+          "columns": ["budget_period_id", "date", "\"created_at\" desc"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "daily_operation_histories_budget_period_id_budget_periods_id_fk": {
+          "name": "daily_operation_histories_budget_period_id_budget_periods_id_fk",
+          "tableFrom": "daily_operation_histories",
+          "tableTo": "budget_periods",
+          "columnsFrom": ["budget_period_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "daily_operation_histories_operation_type_allowed": {
+          "name": "daily_operation_histories_operation_type_allowed",
+          "value": "\"daily_operation_histories\".\"operation_type\" IN ('add', 'overwrite')"
+        },
+        "daily_operation_histories_input_yen_non_negative": {
+          "name": "daily_operation_histories_input_yen_non_negative",
+          "value": "\"daily_operation_histories\".\"input_yen\" >= 0"
+        },
+        "daily_operation_histories_before_total_yen_non_negative": {
+          "name": "daily_operation_histories_before_total_yen_non_negative",
+          "value": "\"daily_operation_histories\".\"before_total_yen\" >= 0"
+        },
+        "daily_operation_histories_after_total_yen_non_negative": {
+          "name": "daily_operation_histories_after_total_yen_non_negative",
+          "value": "\"daily_operation_histories\".\"after_total_yen\" >= 0"
+        }
+      }
+    },
+    "daily_totals": {
+      "name": "daily_totals",
+      "columns": {
+        "budget_period_id": {
+          "name": "budget_period_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "year_month": {
+          "name": "year_month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total_used_yen": {
+          "name": "total_used_yen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_daily_totals_period_date": {
+          "name": "idx_daily_totals_period_date",
+          "columns": ["budget_period_id", "date"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "daily_totals_budget_period_id_budget_periods_id_fk": {
+          "name": "daily_totals_budget_period_id_budget_periods_id_fk",
+          "tableFrom": "daily_totals",
+          "tableTo": "budget_periods",
+          "columnsFrom": ["budget_period_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "daily_totals_budget_period_id_date_pk": {
+          "columns": ["budget_period_id", "date"],
+          "name": "daily_totals_budget_period_id_date_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "daily_totals_total_used_yen_non_negative": {
+          "name": "daily_totals_total_used_yen_non_negative",
+          "value": "\"daily_totals\".\"total_used_yen\" >= 0"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "idx_daily_histories_period_date_created_at": {
+        "columns": {
+          "\"created_at\" desc": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

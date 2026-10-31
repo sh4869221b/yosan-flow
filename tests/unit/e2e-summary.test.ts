@@ -41,6 +41,33 @@ afterEach(async () => {
 });
 
 describe("E2E timing summary", () => {
+  it("reports a separate completed build without resetting the startup interval", () => {
+    const timing = {
+      buildStartedAt: 1000,
+      buildCompletedAt: 2500,
+      readyObservedAt: 6000,
+    };
+    const summary = renderSummary({ timing, jobs, jobName: "E2E tests" });
+    expect(summary).toContain("| E2E application build | 1.500 s |");
+    expect(summary).toContain(
+      "| Build start → Playwright HTTP-ready observation | 5.000 s |",
+    );
+    expect(() =>
+      renderSummary({
+        timing: { ...timing, readyObservedAt: 2000 },
+        jobs,
+        jobName: "E2E tests",
+      }),
+    ).toThrow("HTTP readiness precedes build completion");
+    expect(() =>
+      renderSummary({
+        timing: { ...timing, buildCompletedAt: 999 },
+        jobs,
+        jobName: "E2E tests",
+      }),
+    ).toThrow("Build completion precedes build start");
+  });
+
   it("ranks individual project entries across nested suites and sums retries before rounding", () => {
     const report = {
       stats: {

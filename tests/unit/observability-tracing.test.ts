@@ -1,22 +1,16 @@
+import { cloudflareRuntime } from "../helpers/cloudflare-runtime";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createTracing,
   noopTracing,
   type NativeTracing,
-} from "$lib/server/observability/tracing";
-import type { TelemetryEvent } from "$lib/server/observability/schema";
-import { CUSTOM_SPAN_NAMES } from "$lib/server/observability/span-schema";
+} from "#lib/server/observability/tracing.ts";
+import { CUSTOM_SPAN_NAMES } from "#lib/server/observability/span-schema.ts";
 
-vi.mock("cloudflare:workers", () => ({ tracing: { enterSpan: vi.fn() } }));
-
-const event = {
-  event: "operation.completed",
-  operation: "period.read",
-  route: "/api/periods/[periodId]",
-  method: "GET",
-  outcome: "success",
-  status: 200,
-} satisfies TelemetryEvent;
+const attributes = {
+  "app.operation": "summary.calculate",
+  "app.route": "/api/periods/[periodId]",
+} as const;
 
 function recordingNative(isTraced = true) {
   const spans: { name: string; attributes: Record<string, string | number> }[] =
@@ -49,7 +43,11 @@ describe.each([
     const result = { privateResult: "secret-result" };
     const callback = vi.fn(() => result);
 
-    const actual = create().withSpan("period.read", callback, event);
+    const actual = create().withSpan(
+      "summary.calculate",
+      callback,
+      () => attributes,
+    );
 
     expect(actual).toBe(result);
     expect(callback.mock.calls).toEqual([[]]);
@@ -60,7 +58,7 @@ describe.each([
     const promise = Promise.resolve(value);
     const callback = vi.fn(() => promise);
 
-    const actual = create().withSpan("period.read", callback);
+    const actual = create().withSpan("summary.calculate", callback);
 
     expect(actual).toBe(promise);
     await expect(actual).resolves.toBe(value);
@@ -76,7 +74,7 @@ describe.each([
     let caught: unknown;
 
     try {
-      create().withSpan("period.read", callback);
+      create().withSpan("summary.calculate", callback);
     } catch (failure) {
       caught = failure;
     }
@@ -92,7 +90,7 @@ describe.each([
     const callback = vi.fn(() => promise);
     const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
 
-    const actual = create().withSpan("period.read", callback);
+    const actual = create().withSpan("summary.calculate", callback);
 
     expect(actual).toBe(promise);
     await expect(actual).rejects.toBe(error);
@@ -107,7 +105,7 @@ describe.each([
     const actual = Reflect.apply(create().withSpan, undefined, [
       "/api/periods/secret-period",
       callback,
-      event,
+      () => attributes,
     ]);
 
     expect(actual).toBe(result);
@@ -123,6 +121,8 @@ describe("native span output boundary", () => {
       "app.route": "/api/periods" as const,
       amount: 1234,
       periodId: "private-period",
+      date: "2026-09-13",
+      error: new Error("private message and stack"),
       get body() {
         throw new Error("must not read private attributes");
       },
@@ -154,19 +154,6 @@ describe("native span output boundary", () => {
     );
   });
 
-  it("does not read legacy event fields when unsampled", () => {
-    const { native, spans } = recordingNative(false);
-    const read = vi.fn(() => "operation.completed" as const);
-    createTracing(native).withSpan("period.read", () => "result", {
-      ...event,
-      get event() {
-        return read();
-      },
-    });
-    expect(read).not.toHaveBeenCalled();
-    expect(spans).toEqual([{ name: "period.read", attributes: {} }]);
-  });
-
   it.each([
     [{ "app.operation": "api.history.delete" }, {}],
     [
@@ -188,45 +175,16 @@ describe("native span output boundary", () => {
     ]);
   });
 
-  it("emits a static name and only sanitized attributes", () => {
-    const { native, spans } = recordingNative();
-    const attributes = {
-      ...event,
-      amount: 1234,
-      periodId: "secret-period",
-      date: "2026-09-13",
-      error: new Error("private message and stack"),
-      get body() {
-        throw new Error("must not read extra attributes");
-      },
-    };
-
-    createTracing(native).withSpan(
-      "period.read",
-      () => "private-result",
-      attributes,
-    );
-
-    expect(spans).toEqual([{ name: "period.read", attributes: event }]);
-  });
-
-  it.each([
-    undefined,
-    { ...event, status: 600 },
-    { ...event, operation: "period.list" as const },
-  ])("omits absent, invalid or mismatched attributes: %j", (attributes) => {
+  it("supports sampled spans without optional attributes", () => {
     const { native, spans } = recordingNative();
     const callback = vi.fn(() => "result");
-
     const actual = createTracing(native).withSpan(
-      "period.read",
+      "summary.calculate",
       callback,
-      attributes,
     );
-
     expect(actual).toBe("result");
     expect(callback.mock.calls).toEqual([[]]);
-    expect(spans).toEqual([{ name: "period.read", attributes: {} }]);
+    expect(spans).toEqual([{ name: "summary.calculate", attributes: {} }]);
   });
 
   it("never sends invalid names to native enterSpan", () => {
@@ -241,26 +199,32 @@ describe("native span output boundary", () => {
   });
 
   it("smoke-imports the Workers entry with its native module mocked", async () => {
-    const { tracing } = await import("cloudflare:workers");
     const setAttribute = vi.fn();
-    vi.mocked(tracing.enterSpan).mockImplementation(
-      (_name, callback, ...args) =>
-        callback({ isTraced: true, setAttribute }, ...args),
-    );
-    const { workersTracing } =
-      await import("$lib/server/observability/tracing-workers");
+    const enterSpan = vi.fn();
+    cloudflareRuntime.tracing = {
+      enterSpan(name, callback) {
+        enterSpan(name, callback);
+        return callback({ isTraced: true, setAttribute });
+      },
+    };
+    const { getRequestTracing } =
+      await import("#lib/server/observability/tracing-workers.ts");
     const result = { privateResult: "secret-result" };
     const callback = vi.fn(() => result);
 
-    const actual = workersTracing.withSpan("period.read", callback, event);
+    const actual = getRequestTracing().withSpan(
+      "summary.calculate",
+      callback,
+      () => attributes,
+    );
 
     expect(actual).toBe(result);
     expect(callback.mock.calls).toEqual([[]]);
-    expect(tracing.enterSpan).toHaveBeenCalledExactlyOnceWith(
-      "period.read",
+    expect(enterSpan).toHaveBeenCalledExactlyOnceWith(
+      "summary.calculate",
       expect.any(Function),
     );
-    expect(Object.fromEntries(setAttribute.mock.calls)).toEqual(event);
-    expect(setAttribute).toHaveBeenCalledTimes(6);
+    expect(Object.fromEntries(setAttribute.mock.calls)).toEqual(attributes);
+    expect(setAttribute).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,19 +1,16 @@
 import { Effect } from "effect";
-import type { DatabaseClient } from "$lib/server/db/client";
-import type { BudgetPeriodRecord } from "$lib/server/db/budget-period-repository";
+import type { DatabaseClient } from "#lib/server/db/client.ts";
+import type { BudgetPeriodRecord } from "#lib/server/db/budget-period-repository.ts";
 import type {
   DailyHistoryRecord,
   DailyHistoryRepository,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/daily-history-repository.ts";
 import type {
   DailyTotalRecord,
   DailyTotalRepository,
-} from "$lib/server/db/daily-total-repository";
-import type { PreparedEntryInput } from "./commands";
-import {
-  createDayEntryResult,
-  type DayEntryResultShape,
-} from "./result-shaping";
+} from "#lib/server/db/daily-total-repository.ts";
+import type { DayEntryResult } from "#lib/server/services/day-entry-service.ts";
+import type { PreparedEntryInput } from "./preparation";
 
 type PersistEntryInput = {
   databaseClient: DatabaseClient<
@@ -29,7 +26,7 @@ type PersistEntryInput = {
 
 export function persistEntryEffect(
   input: PersistEntryInput,
-): Effect.Effect<DayEntryResultShape, Error> {
+): Effect.Effect<DayEntryResult, Error> {
   return input.databaseClient.transaction((tx) =>
     Effect.gen(function* () {
       const existingTotal = yield* input.dailyTotalRepository.findByDate(
@@ -65,7 +62,7 @@ export function persistEntryEffect(
         createdAt: input.prepared.nowIso,
       });
 
-      return createDayEntryResult({ dailyTotal, history });
+      return { dailyTotal, history };
     }),
   );
 }

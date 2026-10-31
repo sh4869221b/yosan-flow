@@ -1,17 +1,18 @@
 import { Effect } from "effect";
-import { periodSummaryUrl, periodsUrl } from "$lib/dashboard/api-urls";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
+import { periodSummaryUrl, PERIODS_URL } from "#lib/dashboard/api-urls.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import { createPeriodResumeRefreshEffect } from "#lib/dashboard/period-resume-refresh-effect.ts";
 import type {
   PeriodOption,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
+} from "#lib/dashboard/controller-types.ts";
 import type {
   PeriodRefreshError,
   PeriodRefreshCompletion,
   PeriodUpdateDependencies,
-} from "$lib/dashboard/period-controller-update-effect";
-import type { PeriodSettingsSubmission } from "$lib/dashboard/period-settings-state.svelte";
-import type { PeriodListResponse } from "$lib/dashboard/types";
+} from "#lib/dashboard/period-controller-update-effect.ts";
+import type { PeriodSettingsSubmission } from "#lib/dashboard/period-settings-state.svelte.ts";
+import type { PeriodListResponse } from "#lib/dashboard/types.ts";
 
 type Dependencies = Pick<
   PeriodUpdateDependencies,
@@ -33,10 +34,12 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
     reportError: PeriodRefreshError = true,
     submission?: PeriodSettingsSubmission,
     complete?: PeriodRefreshCompletion,
+    background = false,
   ): Effect.Effect<void, never> {
     const request = summaryRequests.start(periodId);
+    const setLoading = background ? () => undefined : dependencies.setLoading;
     return Effect.gen(function* () {
-      dependencies.setLoading(true);
+      setLoading(true);
       dependencies.setError(null);
       if (request.mutationWasActive) {
         yield* summaryRevision.awaitMutationSettlement(
@@ -49,6 +52,7 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
             reportError,
             submission,
             complete,
+            background,
           );
         else complete?.("dropped");
         return;
@@ -57,18 +61,18 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
         periodSummaryUrl(periodId),
         undefined,
         "再取得に失敗しました。",
-      ).pipe(Effect.either);
+      ).pipe(Effect.result);
       if (summaryRequests.isFresh(request)) {
-        if (result._tag === "Left") {
+        if (result._tag === "Failure") {
           complete?.("failed");
-          if (typeof reportError === "function") reportError(result.left);
-          else if (reportError) dependencies.setError(result.left);
-        } else if (result.right.periodId === periodId) {
-          publishSummary(result.right, submission);
+          if (typeof reportError === "function") reportError(result.failure);
+          else if (reportError) dependencies.setError(result.failure);
+        } else if (result.success.periodId === periodId) {
+          publishSummary(result.success, submission);
           complete?.("accepted");
         } else complete?.("dropped");
       } else complete?.("dropped");
-      if (summaryRequests.owns(request)) dependencies.setLoading(false);
+      if (summaryRequests.owns(request)) setLoading(false);
     });
   }
 
@@ -84,23 +88,23 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
     dependencies.setLoading(false);
     return Effect.gen(function* () {
       const result = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
-        periodsUrl(),
+        PERIODS_URL,
         undefined,
         "保存に失敗しました。",
-      ).pipe(Effect.either);
+      ).pipe(Effect.result);
       if (!summaryRequests.owns(request)) {
         complete?.("dropped");
         return false;
       }
-      if (result._tag === "Left") {
+      if (result._tag === "Failure") {
         complete?.("failed");
-        return yield* Effect.fail(result.left);
+        return yield* Effect.fail(result.failure);
       }
       if (complete && !summaryRequests.isFresh(request)) {
         complete("dropped");
         return false;
       }
-      const periods = result.right.periods ?? [];
+      const periods = result.success.periods ?? [];
       dependencies.setPeriods(periods);
       if (periods.length === 0) {
         complete?.("dropped");
@@ -131,5 +135,13 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
     });
   }
 
-  return { refreshSummaryEffect, refreshPeriodListEffect };
+  return {
+    refreshSummaryEffect,
+    refreshPeriodListEffect,
+    refreshOnResumeEffect: createPeriodResumeRefreshEffect({
+      ...dependencies,
+      refreshSummary: (periodId) =>
+        refreshSummaryEffect(periodId, true, undefined, undefined, true),
+    }),
+  };
 }

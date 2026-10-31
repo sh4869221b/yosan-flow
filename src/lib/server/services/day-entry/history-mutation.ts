@@ -1,24 +1,20 @@
 import { Effect } from "effect";
-import type { DatabaseClient } from "$lib/server/db/client";
+import type { DatabaseClient } from "#lib/server/db/client.ts";
 import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
+} from "#lib/server/db/budget-period-repository.ts";
 import type {
   DailyHistoryRecord,
   DailyHistoryRepository,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/daily-history-repository.ts";
 import type {
   DailyTotalRecord,
   DailyTotalRepository,
-} from "$lib/server/db/daily-total-repository";
+} from "#lib/server/db/daily-total-repository.ts";
+import type { HistoryReplayResult } from "#lib/server/services/day-entry-service.ts";
 import { replayDailyHistories } from "./replay";
 import { validatePeriodDateEffect } from "./preparation";
-import {
-  createEmptyHistoryReplayResult,
-  createHistoryReplayResult,
-  type HistoryReplayResultShape,
-} from "./result-shaping";
 
 type HistoryMutationCommandLike = {
   periodId: string;
@@ -49,7 +45,7 @@ type ReplayHistoryMutationInput = {
 
 export function replayHistoryMutationEffect(
   input: ReplayHistoryMutationInput,
-): Effect.Effect<HistoryReplayResultShape, Error> {
+): Effect.Effect<HistoryReplayResult, Error> {
   return input.databaseClient.transaction((tx) =>
     Effect.gen(function* () {
       const period = yield* input.budgetPeriodRepository.findById(
@@ -103,11 +99,16 @@ export function replayHistoryMutationEffect(
           date: input.command.date,
           budgetPeriodId: period.id,
         });
-        return createEmptyHistoryReplayResult({
-          date: input.command.date,
-          budgetPeriodId: period.id,
-          updatedAt: nowIso,
-        });
+        return {
+          dailyTotal: {
+            date: input.command.date,
+            yearMonth: input.command.date.slice(0, 7),
+            budgetPeriodId: period.id,
+            totalUsedYen: 0,
+            updatedAt: nowIso,
+          },
+          histories: [],
+        };
       }
 
       const dailyTotal = yield* input.dailyTotalRepository.setDailyTotal(tx, {
@@ -118,10 +119,10 @@ export function replayHistoryMutationEffect(
         nowIso,
       });
 
-      return createHistoryReplayResult({
+      return {
         dailyTotal,
         histories: replayed.histories,
-      });
+      };
     }),
   );
 }

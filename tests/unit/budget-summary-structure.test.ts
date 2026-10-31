@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -33,9 +33,6 @@ function countPureLoc(source: string): number {
 describe("budget summary component structure", () => {
   it("keeps the dashboard summary entrypoint and child panels reviewable", () => {
     for (const modulePath of budgetSummaryModules) {
-      expect(existsSync(resolve(repositoryRoot, modulePath)), modulePath).toBe(
-        true,
-      );
       expect(
         countPureLoc(readProjectFile(modulePath)),
         modulePath,
@@ -80,10 +77,10 @@ describe("budget summary component structure", () => {
     expect(settingsSource).toMatch(
       /bind:budgetInput=\{controller\.budget\.draft\}/,
     );
-    expect(settingsSource).toMatch(/controller\.saveBudget\(\)/);
+    expect(settingsSource).toMatch(/onsubmit=\{controller\.saveBudget\}/);
     expect(settingsSource).toMatch(/<PeriodRangeForm(?:\s|>)/);
     expect(settingsSource).toMatch(/range=\{controller\.range\}/);
-    expect(settingsSource).toMatch(/controller\.saveRange\(\)/);
+    expect(settingsSource).toMatch(/onsubmit=\{controller\.saveRange\}/);
     expect(settingsSource).toMatch(/<PeriodBoundaryConfirmationDialog(?:\s|>)/);
     expect(settingsSource).toMatch(
       /proposal=\{controller\.periodUpdateProposal\}/,

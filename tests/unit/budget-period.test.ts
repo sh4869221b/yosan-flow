@@ -3,9 +3,9 @@ import { Effect } from "effect";
 import {
   getNextPeriodStartDate,
   isDateWithinPeriod,
-} from "$lib/server/domain/budget-period";
-import { createInMemoryBudgetPeriodRepository } from "$lib/server/db/budget-period-repository";
-import { runApiEffect } from "$lib/server/effect/runtime";
+} from "#lib/server/domain/budget-period.ts";
+import { createInMemoryBudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 
 describe("budget period domain", () => {
   it("treats the next period start as the day after previous end", () => {

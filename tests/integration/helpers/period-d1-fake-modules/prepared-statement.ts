@@ -1,4 +1,4 @@
-import type { D1PreparedStatement } from "$lib/server/db/d1-types";
+import type { D1PreparedStatement } from "#lib/server/db/d1-types.ts";
 import { createD1Result } from "./d1-result";
 import {
   applySqlMutation,

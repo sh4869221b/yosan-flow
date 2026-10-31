@@ -7,6 +7,52 @@ Yosan Flow は Cloudflare Workers 上で動く、SvelteKit 製の期間単位の
 - Node.js: [.node_version](.node_version) に指定されたバージョンを使用
 - pnpm: [package.json](package.json) の `packageManager` に指定されたバージョンを使用
 - Cloudflare アカウント（D1/Workers 利用時）
+- E2E: Linux amd64 上の Docker/BuildKit（通常の開発には不要）
+
+## フレームワーク設定
+
+SvelteKit の設定は `vite.config.ts` の `sveltekit(...)` にまとめています。
+`src/lib` の共有モジュールは `package.json` の subpath imports を使い、
+`#lib/...` に `.ts` / `.svelte` などの拡張子を付けて import します。
+`tsconfig.json` は `svelte-kit sync` が生成する `$app/tsconfig` を参照します。
+設定変更時も型・lint・Fallow と既存のテストをすべて実行してください。
+移行仕様は [SvelteKit の公式ガイド](https://svelte.dev/docs/kit/migrating-to-sveltekit-3) を参照してください。
+
+### スタイルと共通テーマ
+
+Tailwind CSS v4 は開発依存の `tailwindcss` / `@tailwindcss/vite` を通じて生成します。
+ルート `src/routes/+layout.svelte` が `src/app.css` を一度だけ読み込み、追加の DOM
+ラッパーを設けず子ページを描画します。layer 順序は `theme, base, components, utilities`。
+theme / Preflight / utilities を読み込み、utility の探索元は `src` に限定します。
+`app.css` の `:root` が意味ベースの色・角丸・影・共通余白の正本で、`@theme inline static` が
+同じ値を Tailwind utility へ接続します。`static` は、対応する utility をまだ使っていない
+角丸などの alias も出力し、scoped CSS の `var()` 参照を有効に保ちます。
+背景・文字・日本語フォント・標準フォーカスは
+base が所有し、ページ・error 画面の `dashboard-shell.css` はページ配置を所有します。
+
+Preflight の標準 reset を採用し、行間・box sizing・フォームのフォントを揃えます。
+移行前とのピクセル一致は要求せず、読みやすさ、業務状態の区別、キーボード操作、
+モバイルでの収まりを維持します。見出しの強調や入力欄の表示は各部品で明示します。
+
+既存の layer 外の CSS は通常の utility 宣言より優先されます。例えば `.dashboard-page`
+の padding は `p-0` を追加するだけでは変わりません。移行時は対象の旧宣言を局所的に置換し、
+全体への `!important` 追加で競合を隠さないでください。shadcn 部品を導入するときも、この
+テーマと reset を維持します。トークン対応表、所有範囲、表示・生成 CSS の確認方法は
+[Styling migration](CONTRIBUTING.md#styling-migration) を参照してください。
+
+共通UIは `src/lib/components/ui` の shadcn-svelte 由来のプロジェクト所有コードです。
+Button / Input / Textarea / Label / Native Select / Card を使い、業務状態や API 操作は
+既存のフォームと controller が所有します。期間切替は native `<select>` のままです。
+配置先は `components.json`、取得元・CLI・生成時のハッシュは
+[`tooling/shadcn/source.json`](tooling/shadcn/source.json) に記録しています。
+更新時は [Basic UI maintenance](CONTRIBUTING.md#basic-ui-maintenance) に従い、
+生成コードとローカル変更を比較してください。
+
+Bits UI は `ui/**` 内部の依存として保持し、業務コンポーネントは共通UIを経由します。
+Dialog / AlertDialog と期間範囲カレンダーもこの境界に含みます。業務側に残る scoped CSS は
+画面配置、入力グループ、履歴や予算の状態表示を所有します。共通部品の表面や入力の基本スタイルを
+画面側から重ねて定義せず、トークン、共通部品、業務側の所有範囲を
+[Styling migration](CONTRIBUTING.md#styling-migration) に沿って変更してください。
 
 ## セットアップ（ローカル）
 
@@ -19,18 +65,43 @@ pnpm dev
 
 補足:
 
-- `.dev.vars` は主に `wrangler dev` / `wrangler d1 ... --local` 向けの設定ファイルです。
-- 現在の開発サーバー起動は `pnpm dev` (`vite dev`) なので、`.dev.vars` の値は自動では読み込まれません。
-- ローカルで Workers 相当の挙動を確認したい場合は `pnpm wrangler dev` を使い、`.dev.vars` をその実行系に渡してください。
+- `pnpm dev` (`vite dev`) は Cloudflare adapter のローカル proxy を通じて `.dev.vars` と D1 binding を利用します。実際の Worker 出力は `pnpm build` 後の `pnpm wrangler dev` で確認します。
+- API / page は `cloudflare:workers` の `env.DB` を使用します。DB がない場合はエラーにし、自動で in-memory へ切り替えません。
+- D1 を使わない UI 開発だけは `YOSAN_FLOW_FORCE_IN_MEMORY_DEV=1 pnpm dev` で明示的に in-memory を選べます。Vite の開発時だけ有効で、ビルド済み Worker ではこの flag を無視します。
+
+## モバイルでの期間設定と期間作成
+
+モバイル表示では、カレンダー下の「期間の日付や予算を変更する」「次の予算期間を作成する」を押すと、日次入力と同じシートが開きます。「閉じる」または Escape キーで閉じられ、入力途中の値は保持されます。PC 表示では、これまでどおり画面内でフォームを開閉します。
+
+日次入力とモバイルシートは `ui/dialog`、期間境界確認は `ui/alert-dialog` の
+shadcn-svelte 由来の共通部品を使います。760px 以下の日次入力・期間設定・作成・
+期間境界確認は下端シート、761px 以上の期間設定・作成は `details` です。
+日次入力の保存中制御や閉鎖後のフォーカスは
+既存の画面側が管理します。取得記録は
+[`tooling/shadcn/dialog-source.json`](tooling/shadcn/dialog-source.json)、
+更新時の注意点は [Dialog UI maintenance](CONTRIBUTING.md#dialog-ui-maintenance) を参照してください。
+
+## スマートフォンでの画面復帰
+
+画面オフや別のアプリ・タブから戻ると、予算期間の一覧と選択中の期間の最新データを再取得します。開いている日次入力の履歴と、日付が変わった場合のカレンダーの「今日」も更新します。通信が復旧したときにも更新します。表示中の画面で再取得するときは、入力途中の金額・メモ・期間設定を保持します。
 
 ## 連続する予算期間の境界を変更する
 
-前の予算期間の終了日を延長して、直後の予算期間の開始日に達する場合は、両方の期間の変更前後を確認するダイアログが表示されます。
+明示的に前後の関連付けがあり、日付が連続する予算期間では、前の期間の終了日の延長・短縮、または後の期間の開始日を前倒しすると、両方の期間の変更前後を確認するダイアログが表示されます。日付が連続するだけでは自動で関連付けられません。関連付けのない期間の短縮や重ならない変更は通常の単独編集です。
 
 - キャンセルまたは Escape キーで閉じた場合は、どちらの期間も変更されません。
-- 確定すると、対象期間の終了日と直後の期間の開始日だけが一度に更新されます。直後の期間の終了日、予算、状態は維持されます。
+- 確定すると、編集した期間と関連する期間の境界が一度に更新されます。
 - 確認中に対象データが更新されていた場合は競合として扱われます。最新の内容を確認して、もう一度操作してください。
 - さらに後の期間や支出・履歴は移動しません。変更後の日付範囲が成立しない場合は更新が拒否されます。
+
+## 期間範囲カレンダー
+
+期間設定・期間作成の日付選択は、`ui/range-calendar` の共有 UI を使用します。
+開始日を選び直すと以前の終了日を消し、終了日を選ぶまで途中状態として扱います。
+同じ日をもう一度選ぶと1日分の範囲になります。手入力中の不正な文字列は保持し、
+入力欄を離れたときや保存時に確認します。
+取得コードと期間選択の状態管理の境界は
+[Range calendar maintenance](CONTRIBUTING.md#range-calendar-maintenance) を参照してください。
 
 ## ローカル検証コマンド
 
@@ -51,18 +122,24 @@ pnpm lint
 
 ```bash
 pnpm format:check
-pnpm lint
-pnpm check
+pnpm lint:ci
+pnpm check:ci
+pnpm fallow:ci
+pnpm db:verify
 pnpm test:unit
 pnpm test:integration
 pnpm build
 pnpm test:e2e
 ```
 
+通常の開発中は `pnpm lint` / `pnpm check` を使用できます。CI と同じ警告ゼロの確認には `pnpm lint:ci` / `pnpm check:ci` を使ってください。採用ルールと例外の方針は [CONTRIBUTING.md](CONTRIBUTING.md#static-analysis-policy) を参照してください。
+
+コードベース全体の構造検査は `pnpm fallow`、CI と同じ新規 finding / 古い baseline の検証は `pnpm fallow:ci` で実行できます。Fallow 専用 job はレビュー済み baseline と比較し、dead code・重複・health の新規 finding を失敗扱いにします。固定 version、生成物・暗黙の entry、例外方針と失敗時の手順は [Fallow quality gate](tooling/fallow/README.md) を参照してください。生のレポートには既存 finding が残るため、終了コードだけで問題なしと判断しないでください。
+
 CI gate policy:
 
-- Pull request and `main` push CI runs `pnpm format:check`, `pnpm lint`, `pnpm check`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
-- CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed.
+- Pull request and `main` push CI runs `pnpm format:check`, `pnpm lint:ci`, `pnpm check:ci`, `pnpm fallow:ci`, `pnpm db:verify`, `pnpm test:unit`, `pnpm test:integration`, `pnpm build`, and `pnpm test:e2e`.
+- CI executes independent checks in parallel, then reports the aggregate `Quality checks` job after all required jobs succeed. Only complete, explicitly allowlisted docs-only PR diffs skip both E2E shards; all other gates still run, and main pushes always run E2E. Same-PR pushes cancel obsolete CI runs. See [CI runner efficiency](tooling/ci/README.md) for fail-closed classification, measurements, and rollback.
 - Renovate update branch pushes do not run CI directly. Renovate creates PRs immediately after any required Dependency Dashboard approval, and pull request CI is the authoritative validation gate.
 - The `E2E` GitHub Actions workflow is still available through `workflow_dispatch` for manual Playwright checks.
 - `pnpm test:coverage` reports server/API coverage for unit and integration tests. It is a visibility check, not a required PR gate.
@@ -79,11 +156,14 @@ Renovate is configured in `renovate.json`.
 - Core dependencies still require Dependency Dashboard approval for major updates, but their patch/minor updates create PRs automatically after the 3-day release age gate.
 - Core dependencies are the SvelteKit/Svelte/Vite stack, Cloudflare/Wrangler deployment path, Drizzle/Effect server boundary, TypeScript/check/test tooling, and primary Bits UI/date UI dependencies.
 
-E2E を確認する場合:
+E2E を確認する場合（秘密 env file を含まない checkout を使用）:
 
 ```bash
 pnpm test:e2e
 ```
+
+ローカル／CI とも [コンテナー E2E](tooling/ci/container-e2e.md) を使います。
+`.dev.vars` を使う通常開発とは別に、secret-free worktree で検証できます。
 
 Server/API coverage を確認する場合:
 
@@ -155,8 +235,6 @@ preview は専用 D1 `yosan-flow-preview` と `yosan-preview.sh4869221b.work` �
 | `status`     | HTTP response status（100〜599 の整数）                                                                                                                                                                        |
 | `error_code` | `schema.ts` の固定コード集合。未知の API error code はログ上だけ `UNKNOWN_ERROR` に置換し、成功時は省略                                                                                                        |
 
-`normalizeRoute(pathname)` は query / fragment を除去し、既知のパスの動的部分を `[periodId]` / `[date]` / `[historyId]` に置き換えます。末尾の `/` は一つまで許容し、未知のパス、完全な URL、余分なパス要素、テスト用 reset route は `unknown` にします。ID や日付自体の妥当性を検証する関数ではありません。
-
 `sanitizeEvent(input)` は六つの必須 own field を検証して新しいオブジェクトへ取り出し、任意の `error_code` も own field かつ許可リスト内の場合だけ追加します。余分なキーやネストしたデータ、未登録・継承された任意コードを捨て、必須フィールドが不正なら `undefined` を返します。`createLogger(sink?).log(input)` はこの処理を通したイベントだけを一つ出力し、不正な入力は出力しません。既定の sink は単一オブジェクトを受け取る `console.log` です。
 
 期間作成・更新、日次加算・上書き、履歴更新・削除では、共通の mutation response 処理が応答を組み立てた後に終端イベントを一度だけ出力します。書込み後の summary / histories 再取得に失敗した場合は、成功イベントを先に出さずエラーイベントだけを記録し、書込みは再実行しません。GET や通常の request log は追加しません。期間削除 API は現時点では存在せず、ログ導入の対象もありません。
@@ -167,7 +245,7 @@ linked boundary の確認要求は `period.boundary.propose` / `PERIOD_BOUNDARY_
 
 サービス初期化だけが失敗した場合は、元の例外を伝播したまま `unexpected_error` / 500 / `INTERNAL_ERROR` を一度記録します。この 500 は初期化失敗の分類であり、SvelteKit が生成した最終応答の観測値ではありません。通常のログ sink 例外は再分類せず伝播し、初期化失敗と sink 失敗が重なった場合だけ元の初期化例外を優先します。エラー応答自体を構築できない場合は既存の throw を維持し、存在しない完了応答のイベントは作りません。
 
-API / page は request ごとに `getRequestTracing(platform)` で `platform.ctx.tracing` を取得し、`createTracing(native)` に渡します。native tracing がなければ `noopTracing` を使い、request の adapter をサービスキャッシュに保存しません。Workers 専用の `tracing-workers.ts` も native module から adapter を作る入口として利用できます。
+API / page は request ごとに `tracing-workers.ts` の `getRequestTracing()` を呼び、`cloudflare:workers` の `tracing` を `createTracing(native)` に渡します。native tracing がなければ `noopTracing` を使い、request の adapter を D1 binding ごとのサービスキャッシュに保存しません。Cloudflare adapter の Vite 開発用 native tracing は no-op です。`platform.env` / `platform.ctx` には依存しません。
 
 業務 span は次の八つの固定名です。
 
@@ -182,11 +260,13 @@ API / page は request ごとに `getRequestTracing(platform)` で `platform.ctx
 | `api.history.delete`                        | 履歴削除の入力解析から summary / histories 再取得・応答構築・終端ログまで |
 | `summary.calculate`                         | 日次集計と期間の読み込みを含む summary 計算全体                           |
 
-`summary.calculate` は mutation 後の再取得では mutation span の子、期間 GET / page load では invocation 配下になります。linked 更新の初期期間・後続期間の読み込みは更新親 span 内にあり、通常更新には proposal / confirm の子 span を作りません。サービス初期化失敗は業務 span の開始前です。期間削除 API は存在しないため、`api.budget_period.delete` は導入していません。D1 のクエリごとの手動 span は追加せず、自動計装を使います。
+`summary.calculate` は mutation 後の再取得では mutation span の子、期間 GET / page load では invocation 配下になります。linked 更新の前後の期間の読み込みは更新親 span 内にあり、通常更新には proposal / confirm の子 span を作りません。サービス初期化失敗は業務 span の開始前です。期間削除 API は存在しないため、`api.budget_period.delete` は導入していません。D1 のクエリごとの手動 span は追加せず、自動計装を使います。
 
 業務 span の属性は、選んだ固定 span 名と一致する `app.operation` と、既存 route template の任意の `app.route` だけです。加算・上書きは同じ span 名でも異なる固定 route を使い、linked 子 span の route は `/api/periods/[periodId]`、summary では route を省略します。`outcome` / `error_code` は既存の終端ログに残します。属性 supplier は native span に入った後、`isTraced` が true の場合だけ評価・検証し、余分な属性は捨てます。unsampled / no-op では supplier を呼びません。
 
-共通の `TracingAdapter.withSpan` は、既存の固定 operation 名と任意の `TelemetryEvent` を受け取る形式も維持します。既存属性の検証・付与も `isTraced` が true の場合だけ行います。callback に native Span は渡さず、不正な名前では span を作らず work を一度実行し、同期 return / throw と Promise 自体の同一性を維持します。`withTracingEffect` は Effect 実行時に span を開始し、元の成功・失敗・defect を保ったまま完了を待ち、中断時は内部処理の finalizer 完了を待ちます。戻り値やエラーを span 属性やログにコピーしません。
+共通の `TracingAdapter.withSpan` は固定の業務 span 名と任意の属性 supplier を受け取ります。callback に native Span は渡さず、不正な名前では span を作らず work を一度実行し、同期 return / throw と Promise 自体の同一性を維持します。`withTracingEffect` は Effect 実行時に span を開始し、元の成功・失敗・defect を保ったまま完了を待ち、中断時は内部処理の finalizer 完了を待ちます。戻り値やエラーを span 属性やログにコピーしません。
+
+`runApiEffect` は通常の typed error を元の値のまま返却境界へ伝えます。defect または中断を含む失敗は、原因全体を `Error.cause` に保持した内部エラーとして扱い、業務エラーの 4xx に再分類しません。Effect が typed failure と finalizer defect を合成すると、typed failure も Die に昇格します。tracing bridge はこの原因構造を保持し、typed-error recovery が finalizer defect を握りつぶさないことを検証しています。原因を response body・span 属性・ログ payload にコピーしません。
 
 この契約はアプリケーションが作る payload / カスタム span に適用します。Cloudflare が付加する URL・ID・SQL などの標準メタデータは、所有者が承認した例外であり、この sanitizer の対象外です。保存される telemetry 全体の無害化は保証しません。アプリケーション側でこれらの値を payload にコピーすることも禁止します。標準属性は [Cloudflare の Spans and attributes](https://developers.cloudflare.com/workers/observability/traces/spans-and-attributes/) を参照してください。この一覧から D1 の bind 値が SQL に含まれるとは断定しません。
 
@@ -312,14 +392,26 @@ production Metrics の「リクエスト期間」には P50 / P90 / P99 / P999 �
 
 ## D1 migration 運用メモ
 
-- スキーマは `migrations/*.sql` で管理します。
-- `src/lib/server/db/schema.ts` は Drizzle 用の schema mirror です。現時点では SQL migrations が source of truth です。
-- migration 以外のアプリケーション DB query path は Drizzle 境界・repository 経由に寄せます。request path では schema を作成しないため、Workers / D1 実行前に対象環境の migration を適用してください。
-- Drizzle 生成 migration はまだ採用していません。migration drift check の運用は後続タスクで決めます。
-- Drizzle generated migration checks / drift checks are not required in CI at this stage. TypeScript import and type safety coverage through `pnpm check` is sufficient for now.
-- ローカル適用: `pnpm run cf:migrate:local`
-- preview 適用: `pnpm run cf:migrate:preview`
-- production 適用: `pnpm run cf:migrate:production`
+今後の schema の正本は `src/lib/server/db/schema.ts` です。Drizzle Kit で SQL と snapshot / journal を `migrations/` へ生成し、D1 への適用は引き続き Wrangler だけで行います。request path に runtime migrator / DDL は追加しません。
+
+```bash
+# schema.ts を変更した後、内容がわかる名前で生成する
+pnpm db:generate --name describe_schema_change
+pnpm db:check
+# SQL・snapshot・journal をレビューしてからローカルだけへ適用する
+pnpm wrangler d1 migrations list DB --local
+pnpm run cf:migrate:local
+```
+
+- 生成された SQL と `migrations/meta/` を schema の変更と同じ PR に含めます。データ移行などの手書き SQL が必要なら `pnpm db:generate:custom --name describe_data_change` を使い、生成された空の SQL を編集します。
+- `0001_initial.sql` / `0002_reset_to_budget_periods.sql` は既存履歴として変更・移動・再生成しません。`0002` は table を削除するため、既存 DB で再実行してはいけません。
+- 最初の Drizzle migration は `20261002021516_legacy_baseline.sql` です。既存 schema の snapshot を記録しますが、SQL は `SELECT 1` だけで業務 table / data を変更しません。空 DB は legacy 2本 → baseline、両 legacy 適用済み DB は baseline だけを適用します。
+- 生成名の timestamp prefix と全環境共通の flat `migrations/*.sql` により、Wrangler は legacy → baseline → 後続 migration の順で認識します。Drizzle journal は baseline から始まり、Wrangler の適用履歴 `d1_migrations` とは別物です。
+- 既存 DB は適用前に legacy 2本の記録を確認してください。業務 data があるのに `0001` / `0002` が未適用と表示される場合は中止し、履歴を調査します。履歴を削除・偽装したり `cf:reset:local` を upgrade 手順に使ったりしません。
+- `pnpm db:verify` は `db:check` に加え、生成漏れ、履歴の改変、空 DB / legacy 適用済み DB の upgrade、schema / PK / FK / CHECK / 値 / rowid の保持と実 SQL 経由の API を検証します。専用 **Migration safety** CI job が必須の `Quality checks` に含まれます。Node SQLite と Wrangler local D1 の使い捨て DB だけを使い、普段のローカル DB や remote DB は変更しません。
+- `db:check` 単独は Drizzle metadata の検査です。`db:verify` は ID・timestamp の生の git diff に頼らず snapshot の schema 内容と適用後の物理 schema を別々に比較します。既知の legacy nullable TEXT PK と無名 CHECK の違いだけを明示的に扱います。fixture は人工データであり、全ての実データに対する移行安全性を保証するものではありません。生成 SQL のレビューは引き続き必要です。
+- schema / custom SQL のレビュー観点、baseline の制約、具体的な適用前確認は [migration policy](CONTRIBUTING.md#migration-policy) を参照してください。
+- preview / production の適用は別途承認した作業として既存の `cf:migrate:preview` / `cf:migrate:production` を使います。この基盤の導入自体で remote DB へ適用しません。`drizzle-kit push` / `migrate` から D1 へ直接適用しないでください。
 
 ## Cloudflare 設定
 

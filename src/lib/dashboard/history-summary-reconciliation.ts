@@ -1,9 +1,9 @@
 import { Effect } from "effect";
-import { periodSummaryUrl } from "$lib/dashboard/api-urls";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import type { HistoryActionResult } from "$lib/dashboard/types";
+import { periodSummaryUrl } from "#lib/dashboard/api-urls.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import type { HistoryActionResult } from "#lib/dashboard/types.ts";
 
 type Dependencies = {
   readonly applySummary: (_summary: PeriodSummary) => void;
@@ -90,22 +90,22 @@ export function createHistorySummaryReconciliation(dependencies: Dependencies) {
         periodSummaryUrl(periodId),
         undefined,
         "再取得に失敗しました。",
-      ).pipe(Effect.either);
+      ).pipe(Effect.result);
       const summaryReconciliationIsCurrent =
         dependencies.getSelectedPeriodId() === periodId &&
         dependencies.summaryRevision.getMutationSequence(periodId) ===
           reconciliationMutation &&
         dependencies.summaryRevision.get(periodId) === reconciliationRevision;
       const summaryWasApplied =
-        result._tag === "Right" &&
+        result._tag === "Success" &&
         summaryReconciliationIsCurrent &&
-        result.right.periodId === periodId;
-      if (summaryWasApplied && result._tag === "Right") {
-        dependencies.applySummary(result.right);
+        result.success.periodId === periodId;
+      if (summaryWasApplied && result._tag === "Success") {
+        dependencies.applySummary(result.success);
       }
       const recoveryResult = yield* recoverHistories(
         request,
-        result._tag === "Left" ? result.left : undefined,
+        result._tag === "Failure" ? result.failure : undefined,
       );
       if (recoveryResult.kind !== "success") return recoveryResult;
       return summaryWasApplied

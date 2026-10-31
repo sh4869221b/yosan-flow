@@ -13,6 +13,8 @@
 
 ## Synchronization
 
+- Server-rendered visibility does not prove hydration. Call `waitForDashboardReady(page)` before dashboard input, keyboard/focus behavior, or client-router interaction after a full navigation or reload. Shared interaction helpers may own this wait. Preserve deliberate pre-hydration assertions and server-rendered-only checks.
+
 - Prefer route barriers (`page.route`, `route.fetch`, `route.fulfill`) and `Promise.withResolvers()` over sleeps.
 - Match API waits by HTTP method plus exact absolute URL, especially for period/date/history race tests.
 - Verify state both while a request is blocked and after it is released.

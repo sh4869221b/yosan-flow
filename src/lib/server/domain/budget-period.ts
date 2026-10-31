@@ -1,35 +1,22 @@
-function assertValidDate(value: string): void {
-  const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!matched) {
-    throw new Error(`Invalid date: ${value}`);
-  }
-
-  const year = Number(matched[1]);
-  const month = Number(matched[2]);
-  const day = Number(matched[3]);
-  const utcDate = new Date(Date.UTC(year, month - 1, day));
-
-  if (
-    utcDate.getUTCFullYear() !== year ||
-    utcDate.getUTCMonth() + 1 !== month ||
-    utcDate.getUTCDate() !== day
-  ) {
-    throw new Error(`Invalid date: ${value}`);
-  }
-}
+import { assertValidDate } from "./daily-entry";
 
 function toDateValue(date: string): number {
   assertValidDate(date);
   return Date.parse(`${date}T00:00:00.000Z`);
 }
 
-function toDateString(dateValue: number): string {
-  return new Date(dateValue).toISOString().slice(0, 10);
-}
-
 export function getNextPeriodStartDate(previousEndDate: string): string {
   const previousEndDateValue = toDateValue(previousEndDate);
-  return toDateString(previousEndDateValue + 24 * 60 * 60 * 1000);
+  return new Date(previousEndDateValue + 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+export function getPreviousPeriodEndDate(nextStartDate: string): string {
+  const nextStartDateValue = toDateValue(nextStartDate);
+  return new Date(nextStartDateValue - 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 }
 
 export function isDateWithinPeriod(

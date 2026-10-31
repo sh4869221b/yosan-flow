@@ -1,10 +1,7 @@
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import type { SavePeriodPayload } from "$lib/dashboard/types";
-import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
-import {
-  createPeriodRange,
-  getPeriodRangeSelection,
-} from "$lib/components/period-range-state";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import type { SavePeriodPayload } from "#lib/dashboard/types.ts";
+import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
+import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
 
 type RangeDraft = Readonly<{ startDate: string; endDate: string }>;
 export type PeriodSetting = "budget" | "range";
@@ -69,20 +66,56 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
   }
   function validateRange(): RangeDraft | null {
     if (dependencies.getSummary() == null) return null;
-    const selection = getPeriodRangeSelection(createPeriodRange(range.draft));
+    const validation = getPeriodRangeValidation(range.draft);
     range.validationErrors = {
-      startDate: selection.startDate
-        ? null
-        : "有効な開始日を入力してください。",
-      endDate: selection.endDate ? null : "有効な終了日を入力してください。",
-      range:
-        selection.startDate && selection.endDate && !selection.isValid
-          ? "終了日は開始日以降にしてください。"
-          : null,
+      startDate: validation.startError,
+      endDate: validation.endError,
+      range: validation.rangeError,
     };
-    return selection.isValid && !range.settingChanged
+    return validation.isValid && !range.settingChanged
       ? { ...range.draft }
       : null;
+  }
+
+  function adoptBudget(
+    previous: PeriodSummary,
+    next: PeriodSummary,
+    submission?: PeriodSettingsSubmission,
+  ): void {
+    const ownBudget =
+      submission?.operation === "budget" &&
+      !budget.settingChanged &&
+      next.budgetYen === submission.payload.budgetYen;
+    if (ownBudget) {
+      resetBudget(next);
+      budget.success = true;
+    } else if (previous.budgetYen !== next.budgetYen) {
+      if (
+        budget.settingChanged ||
+        parseNonNegativeIntegerYenInput(budget.draft) !== previous.budgetYen
+      ) {
+        budget.settingChanged = true;
+      } else resetBudget(next);
+    }
+  }
+
+  function adoptRange(
+    previous: PeriodSummary,
+    next: PeriodSummary,
+    submission?: PeriodSettingsSubmission,
+  ): void {
+    const ownRange =
+      submission?.operation === "range" &&
+      !range.settingChanged &&
+      sameRange(next, submission.payload);
+    if (ownRange) {
+      resetRange(next);
+      range.success = true;
+    } else if (!sameRange(previous, next)) {
+      if (range.settingChanged || !sameRange(range.draft, previous)) {
+        range.settingChanged = true;
+      } else resetRange(next);
+    }
   }
 
   return {
@@ -181,33 +214,8 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
         resetRange(next);
         return;
       }
-      const ownBudget =
-        submission?.operation === "budget" &&
-        !budget.settingChanged &&
-        next.budgetYen === submission.payload.budgetYen;
-      const ownRange =
-        submission?.operation === "range" &&
-        !range.settingChanged &&
-        sameRange(next, submission.payload);
-      if (ownBudget) {
-        resetBudget(next);
-        budget.success = true;
-      } else if (previous.budgetYen !== next.budgetYen) {
-        if (
-          budget.settingChanged ||
-          parseNonNegativeIntegerYenInput(budget.draft) !== previous.budgetYen
-        ) {
-          budget.settingChanged = true;
-        } else resetBudget(next);
-      }
-      if (ownRange) {
-        resetRange(next);
-        range.success = true;
-      } else if (!sameRange(previous, next)) {
-        if (range.settingChanged || !sameRange(range.draft, previous)) {
-          range.settingChanged = true;
-        } else resetRange(next);
-      }
+      adoptBudget(previous, next, submission);
+      adoptRange(previous, next, submission);
     },
   };
 }

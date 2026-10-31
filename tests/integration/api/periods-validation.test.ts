@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { runApiEffect } from "$lib/server/effect/runtime";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { createFixture } from "./periods-fixture";
-
-async function parseJson(response: Response): Promise<any> {
-  return response.json();
-}
 
 describe("period API validation", () => {
   it("returns errors for invalid or missing history mutations", async () => {
@@ -69,8 +65,9 @@ describe("period API validation", () => {
     } as any);
 
     expect(response.status).toBe(404);
-    const body = await parseJson(response);
-    expect(body.error.code).toBe("PERIOD_NOT_FOUND");
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "PERIOD_NOT_FOUND" },
+    });
   });
 
   it("returns 400 for overlap / continuity validation errors", async () => {
@@ -106,24 +103,52 @@ describe("period API validation", () => {
       }),
     } as any);
     expect(overlapResponse.status).toBe(400);
-    const overlapBody = await parseJson(overlapResponse);
-    expect(overlapBody.error.code).toBe("PERIOD_OVERLAP");
+    await expect(overlapResponse.json()).resolves.toMatchObject({
+      error: { code: "PERIOD_OVERLAP" },
+    });
 
-    const continuityResponse = await fixture.updatePeriod({
-      params: { periodId: "p-a" },
-      request: new Request("http://localhost/api/periods/p-a", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          startDate: "2026-04-20",
-          endDate: "2026-05-18",
-          budgetYen: 100000,
+    const shortening = {
+      startDate: "2026-04-20",
+      endDate: "2026-05-18",
+      budgetYen: 100000,
+    };
+    const putPeriod = (periodId: string, body: object) =>
+      fixture.updatePeriod({
+        params: { periodId },
+        request: new Request(`http://localhost/api/periods/${periodId}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
         }),
-      }),
-    } as any);
+      } as any);
+    const preview = await putPeriod("p-a", shortening);
+    expect(preview.status).toBe(409);
+    const previewBody = (await preview.json()) as {
+      proposal: unknown;
+      error: { code: string };
+    };
+    expect(previewBody.error.code).toBe(
+      "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
+    );
+    const confirmed = await putPeriod("p-a", {
+      ...shortening,
+      confirmation: previewBody.proposal,
+    });
+    expect(confirmed.status).toBe(200);
+    await expect(confirmed.json()).resolves.toMatchObject({
+      periodId: "p-a",
+      endDate: "2026-05-18",
+    });
+
+    const continuityResponse = await putPeriod("p-b", {
+      startDate: "2026-05-20",
+      endDate: "2026-06-19",
+      budgetYen: 100000,
+    });
     expect(continuityResponse.status).toBe(400);
-    const continuityBody = await parseJson(continuityResponse);
-    expect(continuityBody.error.code).toBe("PERIOD_CONTINUITY_VIOLATION");
+    await expect(continuityResponse.json()).resolves.toMatchObject({
+      error: { code: "PERIOD_CONTINUITY_VIOLATION" },
+    });
   });
 
   it("rejects shrinking a period when entries would fall outside the new range", async () => {
@@ -164,7 +189,8 @@ describe("period API validation", () => {
     } as any);
 
     expect(response.status).toBe(400);
-    const body = await parseJson(response);
-    expect(body.error.code).toBe("PERIOD_HAS_OUT_OF_RANGE_ENTRIES");
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "PERIOD_HAS_OUT_OF_RANGE_ENTRIES" },
+    });
   });
 });

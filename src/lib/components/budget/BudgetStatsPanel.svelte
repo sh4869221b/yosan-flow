@@ -16,7 +16,7 @@
   }
 </script>
 
-<div class="stats">
+<div class="stats border-t border-border">
   <p data-testid="budget-value">
     <span class="stat-label">
       <WalletCards size={17} strokeWidth={2.4} aria-hidden="true" />
@@ -41,7 +41,9 @@
 </div>
 
 {#if overspentYen > 0}
-  <p role="status">予算を {overspentYen} 円 超過しています。</p>
+  <p class="mt-2 font-bold text-budget-over" role="status">
+    予算を {overspentYen} 円 超過しています。
+  </p>
 {/if}
 
 <style>
@@ -51,7 +53,6 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     margin: 1rem 0 0;
     padding-top: 0.95rem;
-    border-top: 1px solid #e9e1d6;
   }
 
   .stats p {
@@ -60,11 +61,11 @@
   }
 
   .stats p + p {
-    border-left: 1px solid #e4ddd2;
+    border-left: 1px solid var(--border);
   }
 
   .stats span {
-    color: #56483d;
+    color: var(--muted-foreground);
     display: block;
     font-size: 0.86rem;
     font-weight: 800;
@@ -77,26 +78,21 @@
   }
 
   .stat-label :global(svg) {
-    color: #397d3d;
+    color: var(--icon-foreground);
     flex: 0 0 auto;
   }
 
   .stats strong {
     display: block;
     font-size: 1.3rem;
+    font-weight: 700;
     letter-spacing: 0;
     margin-top: 0.2rem;
     white-space: nowrap;
   }
 
   .stats p:nth-child(2) strong {
-    color: #3e8445;
-  }
-
-  p[role="status"] {
-    color: #8b3a3a;
-    font-weight: 700;
-    margin-top: 0.5rem;
+    color: var(--budget-positive);
   }
 
   @media (max-width: 760px) {

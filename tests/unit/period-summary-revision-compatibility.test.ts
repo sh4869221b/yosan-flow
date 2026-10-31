@@ -1,6 +1,6 @@
 import { Effect, Fiber } from "effect";
 import { expect, it } from "vitest";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 
 it("settles mutation observers when Promise.withResolvers is unavailable", async () => {
   const originalWithResolvers = Promise.withResolvers;

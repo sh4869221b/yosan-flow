@@ -1,7 +1,7 @@
 import { Effect, Fiber } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
-import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
-import type { HistoryItem } from "$lib/dashboard/types";
+import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
+import type { HistoryItem } from "#lib/dashboard/types.ts";
 import {
   createSummary,
   jsonResponse,

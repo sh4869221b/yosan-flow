@@ -1,16 +1,19 @@
-import { Effect, Scheduler } from "effect";
+import { createPeriodUpdateConfirmationState } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
+import { Effect } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
-import { createHistoryMutationLifecycle } from "$lib/dashboard/history-mutation-lifecycle";
-import { createPeriodUpdateEffect } from "$lib/dashboard/period-controller-update-effect";
-import { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import type { HistoryItem, HistoryResponse } from "$lib/dashboard/types";
+import { createHistoryMutationLifecycle } from "#lib/dashboard/history-mutation-lifecycle.ts";
+import { createPeriodConfirmationEffects } from "#lib/dashboard/period-controller-confirm-effect.ts";
+import { proposal } from "./period-controller-confirmation-fixture";
+import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import type { HistoryItem, HistoryResponse } from "#lib/dashboard/types.ts";
 import {
   createSummary,
   jsonResponse,
 } from "./day-entry-controller-test-fixtures";
+import { ControlledScheduler } from "./helpers/controlled-scheduler";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -49,7 +52,7 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
     },
   );
   vi.stubGlobal("fetch", fetchMock);
-  const scheduler = new Scheduler.ControlledScheduler();
+  const scheduler = new ControlledScheduler();
   const revision = createPeriodSummaryRevision();
   let summary: PeriodSummary = createSummary(0);
   let histories = [previousHistory];
@@ -77,7 +80,7 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
           }),
         ),
         Effect.as({ kind: "success" } as const),
-        Effect.catchAll((message) =>
+        Effect.catch((message) =>
           Effect.succeed({ kind: "failure", message } as const),
         ),
       ),
@@ -85,7 +88,28 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
     setError: vi.fn(),
     summaryRevision: revision,
   });
-  const updatePeriod = createPeriodUpdateEffect({
+  const confirmationState = createPeriodUpdateConfirmationState({
+    getSelectedPeriodId: () => "period-1",
+    summaryRevision: revision,
+  });
+  confirmationState.open({
+    proposal,
+    request: { ...proposal.previous.after, confirmation: proposal },
+    ownership: {
+      editedPeriodId: "period-1",
+      previousId: "period-1",
+      nextId: "period-2",
+      requestSequence: 1,
+      selectedPeriodId: "period-1",
+      previousRevision: revision.get("period-1"),
+      nextRevision: revision.get("period-2"),
+    },
+  });
+  const pending = confirmationState.beginConfirmation();
+  if (pending == null) throw new Error("Expected pending confirmation");
+  const updatePeriod = createPeriodConfirmationEffects({
+    confirmationState,
+    resetRange: vi.fn(),
     getSelectedPeriodId: () => "period-1",
     getSummary: () => summary,
     getSummaryLoading: () => false,
@@ -110,14 +134,7 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
   );
   scheduler.step();
   expect(requests).toEqual(["DELETE"]);
-  Effect.runFork(
-    updatePeriod({
-      budgetYen: 12_000,
-      startDate: "2026-07-12",
-      endDate: "2026-08-10",
-    }),
-    { scheduler },
-  );
+  Effect.runFork(updatePeriod.confirm(pending), { scheduler });
   scheduler.step();
   expect(requests).toEqual(["DELETE"]);
 

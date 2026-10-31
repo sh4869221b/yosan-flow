@@ -1,0 +1,54 @@
+.period-action-card > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 0.75rem;
+  font-weight: 800;
+  list-style: none;
+  min-height: 3.8rem;
+}
+
+.period-action-card > summary > svg {
+  color: var(--icon-foreground);
+  flex: 0 0 auto;
+}
+
+.period-action-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.period-action-card > summary::after {
+  color: var(--foreground);
+  content: "⌄";
+  flex: 0 0 auto;
+  font-size: 1.35rem;
+  line-height: 1;
+  margin-left: auto;
+}
+
+.period-action-card[open] > summary::after {
+  content: "⌃";
+}
+
+.period-action-card > summary:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--focus-summary);
+  outline-offset: 4px;
+}
+
+.period-action-card > .details-body {
+  border-top: 1px solid var(--border);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+@media (max-width: 760px) {
+  details.period-action-card {
+    border-radius: var(--radius-2xl);
+    padding: var(--panel-padding-mobile);
+  }
+
+  .period-action-card > summary {
+    min-height: 3rem;
+  }
+}

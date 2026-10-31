@@ -62,8 +62,8 @@
 
   .summary-item {
     align-items: start;
-    border: 1px solid #e7ddd0;
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     display: grid;
     gap: 0.2rem;
     grid-template-columns: auto minmax(0, 1fr);
@@ -88,17 +88,17 @@
 
   .summary-icon.green {
     background: #e3f0df;
-    color: #397d3d;
+    color: var(--icon-foreground);
   }
 
   .summary-label {
-    color: #76675b;
+    color: var(--muted-foreground);
     font-size: 0.78rem;
     font-weight: 800;
   }
 
   .summary-item strong {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1.45rem;
     line-height: 1.1;
   }
@@ -110,8 +110,8 @@
   .recommendation-strip {
     align-items: center;
     background: #fffaf0;
-    border: 1px solid #eadcc9;
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     color: #3a2a20;
     display: flex;
     gap: 0.75rem;

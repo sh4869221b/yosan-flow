@@ -3,12 +3,12 @@ import type {
   PeriodBoundaryUpdateProposal,
   PeriodSnapshot,
   PeriodUpdateRequest,
-} from "$lib/server/services/period-update/period-update-types";
-import { parseDate } from "$lib/server/validation/day";
+} from "#lib/server/services/period-update/period-update-types.ts";
+import { parseDate } from "#lib/server/validation/day.ts";
 import {
   ApiRouteError,
   parseNonNegativeIntegerYen,
-} from "$lib/server/validation/month";
+} from "#lib/server/validation/month.ts";
 
 const INVALID_BODY_MESSAGE = "リクエスト JSON が不正です。";
 
@@ -122,20 +122,19 @@ function parseProposalSide(value: unknown): {
   };
 }
 
-export function parsePeriodBoundaryUpdateProposal(
+function parsePeriodBoundaryUpdateProposal(
   value: unknown,
 ): PeriodBoundaryUpdateProposal {
   if (
     !isObject(value) ||
-    !hasExactKeys(value, ["version", "target", "successor"]) ||
-    value.version !== 1
+    !hasExactKeys(value, ["editedPeriodId", "previous", "next"])
   ) {
     throw invalidBody();
   }
   return {
-    version: 1,
-    target: parseProposalSide(value.target),
-    successor: parseProposalSide(value.successor),
+    editedPeriodId: parseRequiredString(value.editedPeriodId),
+    previous: parseProposalSide(value.previous),
+    next: parseProposalSide(value.next),
   };
 }
 

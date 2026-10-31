@@ -1,29 +1,27 @@
 import { Effect } from "effect";
-import { periodSummaryUrl } from "$lib/dashboard/api-urls";
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import type {
-  PendingPeriodUpdateConfirmation,
-  PeriodUpdateConfirmationState,
-} from "$lib/dashboard/period-update-confirmation-state.svelte";
+import { periodSummaryUrl } from "#lib/dashboard/api-urls.ts";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import type { PeriodUpdateConfirmationState } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 import {
   fetchPeriodUpdateEffect,
   type PeriodUpdateApiOutcome,
-} from "$lib/dashboard/period-update-api";
-import type { createPeriodSummaryRequestTracker } from "$lib/dashboard/period-summary-request-tracker";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import { summarySpendingMatches } from "$lib/dashboard/summary-rows";
-import type { SavePeriodPayload } from "$lib/dashboard/types";
+  type PeriodBoundaryUpdateProposal,
+} from "#lib/dashboard/period-update-api.ts";
+import type { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { summarySpendingMatches } from "#lib/dashboard/summary-rows.ts";
+import type { SavePeriodPayload } from "#lib/dashboard/types.ts";
 import type {
   PeriodSetting,
   PeriodSettingsSubmission,
-} from "$lib/dashboard/period-settings-state.svelte";
+} from "#lib/dashboard/period-settings-state.svelte.ts";
 
 export type PeriodRefreshError = boolean | ((_error: string) => void);
 export type PeriodRefreshCompletion = (
   _result: "accepted" | "failed" | "dropped",
 ) => void;
 export type PeriodUpdateDependencies = {
-  readonly confirmationState?: PeriodUpdateConfirmationState;
+  readonly confirmationState: PeriodUpdateConfirmationState;
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary: () => PeriodSummary | null;
   readonly getSummaryLoading: () => boolean;
@@ -54,21 +52,6 @@ export type PeriodUpdateDependencies = {
   readonly summaryRevision: PeriodSummaryRevision;
 };
 
-function requestEffect(
-  periodId: string,
-  payload: SavePeriodPayload | PendingPeriodUpdateConfirmation["request"],
-) {
-  return fetchPeriodUpdateEffect(
-    periodSummaryUrl(periodId),
-    {
-      body: JSON.stringify(payload),
-      headers: { "content-type": "application/json" },
-      method: "PUT",
-    },
-    "保存に失敗しました。",
-  );
-}
-
 function reconcileEffect(
   dependencies: PeriodUpdateDependencies,
   periodId: string,
@@ -81,11 +64,11 @@ function reconcileEffect(
     const report = reportError ? dependencies.setError : false;
     const listResult = yield* dependencies
       .refreshPeriodListEffect(periodId, report, submission)
-      .pipe(Effect.either);
-    if (listResult._tag === "Right" && listResult.right === false) return;
+      .pipe(Effect.result);
+    if (listResult._tag === "Success" && listResult.success === false) return;
     if (dependencies.getSelectedPeriodId() !== periodId) return;
-    if (listResult._tag === "Left") {
-      if (reportError) dependencies.setError(listResult.left);
+    if (listResult._tag === "Failure") {
+      if (reportError) dependencies.setError(listResult.failure);
       yield* submission == null
         ? dependencies.refreshSummaryEffect(periodId, false)
         : dependencies.refreshSummaryEffect(periodId, false, submission);
@@ -117,6 +100,32 @@ function publishUpdatedSummary(
   return false;
 }
 
+function openConfirmation(
+  dependencies: PeriodUpdateDependencies,
+  proposal: PeriodBoundaryUpdateProposal,
+  payload: SavePeriodPayload,
+  periodId: string,
+  request: ReturnType<PeriodUpdateDependencies["summaryRequests"]["start"]>,
+): void {
+  const previousId = proposal.previous.before.id;
+  const nextId = proposal.next.before.id;
+  const revision = (id: string) =>
+    id === periodId ? request.revision : dependencies.summaryRevision.get(id);
+  dependencies.confirmationState.open({
+    proposal,
+    request: { ...payload, confirmation: proposal },
+    ownership: {
+      editedPeriodId: periodId,
+      previousId,
+      nextId,
+      requestSequence: request.sequence,
+      selectedPeriodId: periodId,
+      previousRevision: revision(previousId),
+      nextRevision: revision(nextId),
+    },
+  });
+}
+
 export function createPeriodUpdateEffect(
   dependencies: PeriodUpdateDependencies,
 ) {
@@ -129,7 +138,7 @@ export function createPeriodUpdateEffect(
   ): Effect.Effect<void, never> => {
     const payload = { ...input };
     const submission = operation == null ? undefined : { operation, payload };
-    if (operation !== "budget") dependencies.confirmationState?.clear();
+    if (operation !== "budget") dependencies.confirmationState.clear();
     const periodId = dependencies.getSelectedPeriodId();
     if (periodId == null || dependencies.getSummaryLoading())
       return Effect.void;
@@ -150,27 +159,17 @@ export function createPeriodUpdateEffect(
     dependencies.setSaving(true, operation);
     localDependencies.setError(null);
     return Effect.gen(function* () {
-      let legacyMutation: number | null = null;
       const result = yield* dependencies.summaryRevision.withMutationSlot(
         periodId,
         "period",
-        Effect.gen(function* () {
-          if (dependencies.confirmationState == null) {
-            legacyMutation =
-              dependencies.summaryRevision.beginMutation(periodId);
-          }
-          return yield* requestEffect(periodId, payload);
-        }).pipe(
-          Effect.ensuring(
-            Effect.sync(() => {
-              if (legacyMutation != null) {
-                dependencies.summaryRevision.completeMutation(
-                  periodId,
-                  legacyMutation,
-                );
-              }
-            }),
-          ),
+        fetchPeriodUpdateEffect(
+          periodSummaryUrl(periodId),
+          {
+            body: JSON.stringify(payload),
+            headers: { "content-type": "application/json" },
+            method: "PUT",
+          },
+          "保存に失敗しました。",
         ),
       );
       if (
@@ -181,27 +180,23 @@ export function createPeriodUpdateEffect(
         return;
       }
       if (result.kind === "confirmation-required") {
-        if (operation === "budget") {
+        if (
+          operation === "budget" ||
+          result.proposal.editedPeriodId !== periodId
+        ) {
           localDependencies.setError("保存に失敗しました。");
-          return;
+        } else {
+          openConfirmation(
+            dependencies,
+            result.proposal,
+            payload,
+            periodId,
+            request,
+          );
         }
-        const successorId = result.proposal.successor.before.id;
-        dependencies.confirmationState?.open({
-          proposal: result.proposal,
-          request: { ...payload, confirmation: result.proposal },
-          ownership: {
-            targetId: periodId,
-            successorId,
-            requestSequence: request.sequence,
-            selectedPeriodId: periodId,
-            targetRevision: request.revision,
-            successorRevision: dependencies.summaryRevision.get(successorId),
-          },
-        });
         return;
       }
-      const mutation =
-        legacyMutation ?? dependencies.summaryRevision.beginMutation(periodId);
+      const mutation = dependencies.summaryRevision.beginMutation(periodId);
       const mutationIsFresh =
         dependencies.summaryRevision.isMutationFresh(periodId, mutation) &&
         dependencies.summaryRevision.get(periodId) === request.revision;
@@ -217,9 +212,7 @@ export function createPeriodUpdateEffect(
       } else {
         localDependencies.setError(result.message);
       }
-      if (legacyMutation == null) {
-        dependencies.summaryRevision.completeMutation(periodId, mutation);
-      }
+      dependencies.summaryRevision.completeMutation(periodId, mutation);
       yield* reconcileEffect(
         localDependencies,
         periodId,

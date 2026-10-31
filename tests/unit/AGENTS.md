@@ -22,7 +22,7 @@
 ## Fixtures
 
 - `day-entry-controller-test-fixtures.ts` is the shared complete `PeriodSummary`/JSON fixture used by many controller suites. Update all consumers when its contract changes.
-- `helpers/period-summary.ts` builds summary tests through an in-memory repository and Effect boundary.
+- Summary tests call the in-memory repository and Effect boundary directly.
 - Keep each test's time, IDs, and period/date values explicit when ordering matters.
 
 ## Architecture Guards

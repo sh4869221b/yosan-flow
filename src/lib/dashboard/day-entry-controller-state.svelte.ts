@@ -1,21 +1,21 @@
 import { Effect } from "effect";
-import { runClientEffect } from "$lib/dashboard/client-effect";
-import { createDayEntryMutationLifecycle } from "$lib/dashboard/day-entry-mutation-lifecycle";
-import { findSummaryRow } from "$lib/dashboard/summary-rows";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import { runClientEffect } from "#lib/dashboard/client-effect.ts";
+import { createDayEntryMutationLifecycle } from "#lib/dashboard/day-entry-mutation-lifecycle.ts";
+import { findSummaryRow } from "#lib/dashboard/summary-rows.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
   getModalPreviewAfterYen,
   getModalPreviewRecommendedYen,
   getModalPreviewRemainingYen,
   getModalRemainingRows,
-} from "$lib/dashboard/modal-preview";
-import type { SubmitDayEntryPayload } from "$lib/dashboard/types";
+} from "#lib/dashboard/modal-preview.ts";
+import type { SubmitDayEntryPayload } from "#lib/dashboard/types.ts";
 import type {
   DailyRow,
   DayEntryCloseReason,
   DaySaveSuccess,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
+} from "#lib/dashboard/controller-types.ts";
 
 type HistoryController = {
   readonly cancelHistoryLoad?: (_periodId: string, _date: string) => void;

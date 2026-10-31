@@ -9,18 +9,3 @@ export const ROUTE_TEMPLATES = [
 ] as const;
 
 export type RouteTemplate = (typeof ROUTE_TEMPLATES)[number];
-
-const routePatterns = ROUTE_TEMPLATES.filter(
-  (template) => template !== "unknown",
-).map((template) => ({
-  template,
-  pattern: new RegExp(`^${template.replace(/\[[^/]+?\]/g, "[^/]+")}/?$`),
-}));
-
-export function normalizeRoute(pathname: string): RouteTemplate {
-  const path = pathname.replace(/[?#][\s\S]*$/, "");
-  return (
-    routePatterns.find(({ pattern }) => pattern.test(path))?.template ??
-    "unknown"
-  );
-}

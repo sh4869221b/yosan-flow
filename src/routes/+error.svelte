@@ -1,9 +1,10 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { resolve } from "$app/paths";
   import { page } from "$app/state";
-  import type { PathnameWithSearchOrHash } from "$app/types";
-  import "$lib/components/dashboard/dashboard-shell.css";
+  import { resolve } from "$app/paths";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import * as Card from "#lib/components/ui/card/index.ts";
+  import "#lib/components/dashboard/dashboard-shell.css";
 
   let retrying = $state(false);
 
@@ -16,14 +17,17 @@
   async function retry(): Promise<void> {
     if (retrying) return;
     retrying = true;
+    // An unmatched URL may not be in the generated path union. Resolve it as
+    // a literal pathname after removing the base and leading slash. The dot
+    // prefix keeps even a second leading slash out of route-ID mode.
+    const prefix = resolve("/").replace(/\/$/, "");
     const retryPath =
-      `${page.url.pathname}${page.url.search}${page.url.hash}` as PathnameWithSearchOrHash;
+      `./${page.url.pathname.slice(prefix.length).replace(/^\//, "")}${page.url.search}${page.url.hash}` as "";
     try {
       await goto(resolve(retryPath), {
-        invalidateAll: true,
-        keepFocus: true,
-        noScroll: true,
-        replaceState: true,
+        refreshAll: true,
+        reset: false,
+        replace: true,
       });
       focusHeading(
         "#selected-period-heading, #empty-period-heading, #page-error-heading",
@@ -37,35 +41,19 @@
 </script>
 
 <main class="dashboard-page">
-  <section class="error-shell" aria-labelledby="page-error-heading">
-    <h1 id="page-error-heading" tabindex="-1">読み込みに失敗しました</h1>
-    <p>{page.error?.message ?? "ページを読み込めませんでした。"}</p>
-    <button type="button" aria-disabled={retrying} onclick={retry}
-      >再読み込み</button
-    >
+  <section aria-labelledby="page-error-heading">
+    <Card.Root class="gap-4">
+      <Card.Header>
+        <h1 id="page-error-heading" class="text-2xl font-bold" tabindex="-1">
+          読み込みに失敗しました
+        </h1>
+      </Card.Header>
+      <Card.Content class="grid justify-items-start gap-4">
+        <p>{page.error?.message ?? "ページを読み込めませんでした。"}</p>
+        <Button type="button" aria-disabled={retrying} onclick={retry}>
+          再読み込み
+        </Button>
+      </Card.Content>
+    </Card.Root>
   </section>
 </main>
-
-<style>
-  .error-shell {
-    background: #fffdf8;
-    border: 1px solid #e4ddd2;
-    border-radius: 14px;
-    box-shadow: 0 18px 60px rgba(51, 38, 26, 0.07);
-    padding: 1.15rem 1.25rem;
-  }
-  h1 {
-    margin-top: 0;
-  }
-  button {
-    background: #2f6d3b;
-    border: 0;
-    border-radius: 8px;
-    color: #fff;
-    cursor: pointer;
-    font: inherit;
-    font-weight: 800;
-    min-height: 2.65rem;
-    padding: 0 1rem;
-  }
-</style>

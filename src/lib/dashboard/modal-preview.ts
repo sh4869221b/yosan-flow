@@ -1,5 +1,8 @@
-import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
-import type { DailyRow, PeriodSummary } from "$lib/dashboard/controller-types";
+import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
+import type {
+  DailyRow,
+  PeriodSummary,
+} from "#lib/dashboard/controller-types.ts";
 
 export function getModalPreviewAfterYen(
   selectedRow: DailyRow | null,

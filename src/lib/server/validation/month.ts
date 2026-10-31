@@ -1,6 +1,6 @@
 import { json } from "@sveltejs/kit";
 import { Effect } from "effect";
-import { toApiErrorResponseResult } from "$lib/server/effect/result";
+import { toApiErrorResponseResult } from "#lib/server/effect/result.ts";
 
 export class ApiRouteError extends Error {
   readonly status: number;

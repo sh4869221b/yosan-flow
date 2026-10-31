@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getJstDateParts } from "$lib/server/time/jst-format";
+import { getJstDateParts } from "#lib/server/time/jst-format.ts";
 
 describe("getJstDateParts", () => {
   it("keeps the same JST date immediately before midnight", () => {

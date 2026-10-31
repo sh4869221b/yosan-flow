@@ -1,4 +1,4 @@
-import type { APIRequestContext } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4173;
@@ -8,6 +8,10 @@ const baseUrl = `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
 
 export function getBaseUrl(): string {
   return baseUrl;
+}
+
+export async function waitForDashboardReady(page: Page): Promise<void> {
+  await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "false");
 }
 
 export function getCurrentJstDate(): string {
@@ -34,6 +38,7 @@ export function addDays(date: string, days: number): string {
 export async function resetTestData(request: APIRequestContext): Promise<void> {
   const response = await request.post(`${baseUrl}/api/__test/reset`, {
     headers: {
+      "content-type": "application/json",
       "x-yosan-flow-e2e-reset-token": E2E_RESET_TOKEN,
     },
   });

@@ -1,12 +1,8 @@
 import type {
   DailyHistoryRecord,
   InsertDailyHistoryInput,
-} from "$lib/server/db/daily-history-types";
-import type { DailyOperationHistoryRow } from "$lib/server/db/schema";
-
-export function cloneHistory(row: DailyHistoryRecord): DailyHistoryRecord {
-  return { ...row };
-}
+} from "#lib/server/db/daily-history-types.ts";
+import type { DailyOperationHistoryRow } from "#lib/server/db/schema.ts";
 
 export function toDailyHistoryRecord(
   row: DailyOperationHistoryRow,

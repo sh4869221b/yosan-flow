@@ -2,11 +2,9 @@ import type { RequestHandler } from "@sveltejs/kit";
 
 type RouteEvent = Parameters<RequestHandler>[0];
 
-export type RouteEventInput = Readonly<
-  Pick<RouteEvent, "params" | "platform" | "request">
->;
+export type RouteEventInput = Readonly<Pick<RouteEvent, "params" | "request">>;
 
-function createNoopSpan(): RouteEvent["tracing"]["root"] {
+export function createRouteEvent(input: RouteEventInput): RouteEvent {
   const span = {
     spanContext: () => ({ traceId: "", spanId: "", traceFlags: 0 }),
     setAttribute() {
@@ -36,13 +34,11 @@ function createNoopSpan(): RouteEvent["tracing"]["root"] {
       return span;
     },
   } satisfies RouteEvent["tracing"]["root"];
-  return span;
-}
-
-export function createRouteEvent(input: RouteEventInput): RouteEvent {
-  const span = createNoopSpan();
   return {
     cookies: {
+      parse: () => {
+        throw new Error("Cookie parsing is not implemented by this fixture");
+      },
       get: () => undefined,
       getAll: () => [],
       set: () => {},
@@ -53,7 +49,7 @@ export function createRouteEvent(input: RouteEventInput): RouteEvent {
     getClientAddress: () => "127.0.0.1",
     locals: {},
     params: input.params,
-    platform: input.platform,
+    platform: undefined,
     request: input.request,
     route: { id: null },
     setHeaders: () => {},

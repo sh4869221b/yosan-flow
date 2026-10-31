@@ -1,11 +1,11 @@
 import { Deferred, Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
-import { createDashboardPageController } from "$lib/dashboard/page-controller.svelte";
+import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
+import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
 import type {
   PeriodOption,
   PeriodSummary,
-} from "$lib/dashboard/controller-types";
+} from "#lib/dashboard/controller-types.ts";
 import {
   createSummary,
   jsonResponse,

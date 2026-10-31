@@ -1,5 +1,5 @@
-import type { PeriodSummary } from "$lib/dashboard/controller-types";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 
 type SuccessfulSummaryCandidate = {
   readonly mutationSequence: number;

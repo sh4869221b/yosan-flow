@@ -1,13 +1,15 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import "./period-settings-form.css";
   import type {
     ConfirmationResult,
     PeriodUpdateConfirmationState,
-  } from "$lib/dashboard/period-update-confirmation-state.svelte";
-  import type { PeriodSummary } from "$lib/dashboard/controller-types";
-  import type { PeriodSettingsState } from "$lib/dashboard/period-settings-state.svelte";
-  import PeriodRangePicker from "$lib/components/PeriodRangePicker.svelte";
-  import { getPeriodRangeValidation } from "$lib/components/period-range-state";
+  } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
+  import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+  import type { PeriodSettingsState } from "#lib/dashboard/period-settings-state.svelte.ts";
+  import PeriodRangePicker from "#lib/components/PeriodRangePicker.svelte";
+  import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
+  import { Button } from "#lib/components/ui/button/index.ts";
 
   type Props = {
     range: PeriodSettingsState["range"];
@@ -52,6 +54,42 @@
       confirmation.recovery != null,
   );
 
+  const busy = $derived(range.saving || loading || confirmation.refreshing);
+  const showStartError = $derived(
+    touchedStart || submitAttempted ? validation.startError : null,
+  );
+  const showEndError = $derived(
+    touchedEnd || submitAttempted ? validation.endError : null,
+  );
+  const showRangeError = $derived(
+    touchedStart || touchedEnd || submitAttempted
+      ? validation.rangeError
+      : null,
+  );
+  const waitingForOperation = $derived(
+    interactionDisabled && !range.saving && !loading,
+  );
+  const submitUnavailable = $derived(!range.dirty || range.settingChanged);
+  const submitLabel = $derived(
+    range.saving ? "保存中..." : loading ? "読込中..." : "期間を反映",
+  );
+  const canReset = $derived(
+    range.dirty ||
+      range.serverError ||
+      range.success ||
+      range.settingChanged ||
+      touchedStart ||
+      touchedEnd ||
+      submitAttempted,
+  );
+  const showSaved = $derived(
+    range.success &&
+      !range.saving &&
+      !loading &&
+      !confirmation.result &&
+      !confirmation.refreshing,
+  );
+
   function clearValidation(): void {
     touchedStart = touchedEnd = submitAttempted = false;
   }
@@ -81,6 +119,20 @@
     focus(document.getElementById("current-period-range-start"));
   }
 
+  function submissionFocusTarget(
+    source: HTMLElement | null,
+  ): HTMLElement | null | undefined {
+    if (!validation.isValid) {
+      return document.getElementById(
+        validation.startError || validation.rangeError
+          ? "current-period-range-start"
+          : "current-period-range-end",
+      );
+    }
+    if (range.serverError || range.settingChanged) return source;
+    return range.success ? heading : null;
+  }
+
   $effect(() => {
     const intent = focusIntent;
     if (!intent) return;
@@ -90,18 +142,7 @@
     }
     if (range.saving || loading) return;
     const failed = range.serverError || range.settingChanged;
-    const invalid = !validation.isValid;
-    const target = invalid
-      ? document.getElementById(
-          validation.startError || validation.rangeError
-            ? "current-period-range-start"
-            : "current-period-range-end",
-        )
-      : failed
-        ? intent.source
-        : range.success
-          ? heading
-          : null;
+    const target = submissionFocusTarget(intent.source);
     if (!target && !failed) {
       focusIntent = null;
       return;
@@ -172,16 +213,7 @@
   }
 </script>
 
-<h2 bind:this={heading} id="range-settings-heading" tabindex="-1">期間設定</h2>
-<form
-  bind:this={form}
-  aria-labelledby="range-settings-heading"
-  aria-busy={range.saving || loading || confirmation.refreshing}
-  aria-describedby={confirmation.result
-    ? "range-confirmation-feedback"
-    : undefined}
-  onsubmit={submit}
->
+{#snippet confirmationFeedback()}
   {#if confirmation.result?.kind === "error"}
     <div
       id="range-confirmation-feedback"
@@ -194,10 +226,11 @@
           : "期間の変更を完了できませんでした"}
       </h3>
       {#if confirmation.recovery}
-        <button
+        <Button
+          class="justify-self-start"
           type="button"
           onclick={onretry}
-          disabled={confirmation.refreshing}>最新情報を再取得</button
+          disabled={confirmation.refreshing}>最新情報を再取得</Button
         >
       {/if}
       <p>{confirmation.result.message}</p>
@@ -216,6 +249,20 @@
   {#if confirmation.refreshing}<p role="status">
       最新情報を再取得しています。
     </p>{/if}
+{/snippet}
+
+<h2 bind:this={heading} id="range-settings-heading" tabindex="-1">期間設定</h2>
+<form
+  class="period-settings-form"
+  bind:this={form}
+  aria-labelledby="range-settings-heading"
+  aria-busy={busy}
+  aria-describedby={confirmation.result
+    ? "range-confirmation-feedback"
+    : undefined}
+  onsubmit={submit}
+>
+  {@render confirmationFeedback()}
   {#if summary}
     <p class="context">対象期間: {selectedPeriodId}</p>
     <p class="context">
@@ -227,6 +274,9 @@
       最新の期間が変更されました。最新の期間に戻してから編集してください。
     </p>
   {/if}
+  <p class="notice">
+    関連付けられた連続する期間の境界を変更する場合は、保存前に両方の期間を確認できます。
+  </p>
   <p class="notice">変更する期間</p>
   <PeriodRangePicker
     value={range.draft}
@@ -238,132 +288,58 @@
     {disabled}
     startId="current-period-range-start"
     endId="current-period-range-end"
-    startError={touchedStart || submitAttempted ? validation.startError : null}
-    endError={touchedEnd || submitAttempted ? validation.endError : null}
-    rangeError={touchedStart || touchedEnd || submitAttempted
-      ? validation.rangeError
-      : null}
+    startError={showStartError}
+    endError={showEndError}
+    rangeError={showRangeError}
     testIdPrefix="current-period-range"
   />
   {#if range.dirty}<p class="notice">未保存の変更があります</p>{/if}
   {#if proposalPending}
     <p class="notice">期間の変更を確認してください。</p>
-  {:else if interactionDisabled && !range.saving && !loading}
+  {:else if waitingForOperation}
     <p class="notice">ほかの操作が完了するまでお待ちください。</p>
   {/if}
   <div class="actions">
-    <button
+    <Button
       type="submit"
       data-testid="current-period-range-apply"
       {disabled}
-      aria-disabled={!range.dirty || range.settingChanged}
+      aria-disabled={submitUnavailable}
       aria-describedby={range.serverError
         ? "range-settings-server-error"
-        : undefined}
-      >{range.saving
-        ? "保存中..."
-        : loading
-          ? "読込中..."
-          : "期間を反映"}</button
+        : undefined}>{submitLabel}</Button
     >
-    <button
-      class="cancel"
+    <Button
+      variant="outline"
       type="button"
-      disabled={disabled ||
-        !(
-          range.dirty ||
-          range.serverError ||
-          range.success ||
-          range.settingChanged ||
-          touchedStart ||
-          touchedEnd ||
-          submitAttempted
-        )}
+      disabled={disabled || !canReset}
       onclick={reset}
-      >{range.settingChanged ? "最新の期間に戻す" : "キャンセル"}</button
+      >{range.settingChanged ? "最新の期間に戻す" : "キャンセル"}</Button
     >
   </div>
   {#if range.serverError}<p id="range-settings-server-error" role="alert">
       {#if range.success}期間の保存は完了していますが、最新情報の再取得に失敗しました。{/if}{range.serverError}
     </p>{/if}
-  {#if range.success && !range.saving && !loading && !confirmation.result && !confirmation.refreshing}
+  {#if showSaved}
     <p role="status" aria-live="polite">期間を保存しました。</p>
   {/if}
 </form>
 
 <style>
   h2 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1.25rem;
-    margin: 1rem 0 0;
-  }
-  form {
-    display: grid;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-  }
-  p {
-    margin: 0;
-  }
-  .context {
-    color: #4d4036;
-    overflow-wrap: anywhere;
-  }
-  .notice {
-    color: #4d4036;
     font-weight: 700;
-  }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  button {
-    background: #2f6d3b;
-    border: 1px solid #2f6d3b;
-    border-radius: 8px;
-    box-sizing: border-box;
-    color: #fff;
-    cursor: pointer;
-    font: inherit;
-    font-weight: 800;
-    min-height: 2.65rem;
-    padding: 0 1rem;
-  }
-  .cancel {
-    background: #fffdf8;
-    border-color: #ded3c6;
-    color: #4d4036;
-  }
-  button:disabled,
-  button[aria-disabled="true"] {
-    cursor: default;
-    opacity: 0.65;
+    margin: 1rem 0 0;
   }
   .confirmation-error {
     display: grid;
     gap: 0.75rem;
-    color: #8b3a3a;
+    color: var(--invalid);
   }
   .confirmation-error h3 {
     margin: 0;
     font-size: 1rem;
-  }
-  .confirmation-error button {
-    justify-self: start;
-  }
-  p[role="alert"] {
-    text-wrap: balance;
-    color: #8b3a3a;
     font-weight: 700;
-  }
-  p[role="status"] {
-    color: #2f6d3b;
-    font-weight: 700;
-  }
-  @media (max-width: 760px) {
-    .actions {
-      display: grid;
-    }
   }
 </style>

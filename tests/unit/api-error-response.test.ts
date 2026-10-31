@@ -2,7 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   ApiRouteError,
   toApiErrorResponse,
-} from "$lib/server/validation/month";
+} from "#lib/server/validation/month.ts";
+
+import {
+  PeriodNotFoundError,
+  DateOutOfPeriodError,
+  HistoryNotFoundError,
+} from "#lib/server/services/day-entry-service.ts";
+import {
+  PeriodMultipleSuccessorsError,
+  PeriodUpdateConflictError,
+} from "#lib/server/services/period-update/period-update-types.ts";
 
 async function parseJson(response: Response): Promise<unknown> {
   return response.json();
@@ -112,6 +122,25 @@ describe("API error response mapping", () => {
           message,
         },
       });
+    },
+  );
+
+  it.each([
+    [new PeriodNotFoundError("private-period"), "PERIOD_NOT_FOUND", 404],
+    [
+      new DateOutOfPeriodError("2026-04-01", "private-period"),
+      "DATE_OUT_OF_PERIOD",
+      400,
+    ],
+    [new HistoryNotFoundError("private-history"), "HISTORY_NOT_FOUND", 404],
+    [new PeriodMultipleSuccessorsError(), "PERIOD_MULTIPLE_SUCCESSORS", 409],
+    [new PeriodUpdateConflictError(), "PERIOD_UPDATE_CONFLICT", 409],
+  ] as const)(
+    "keeps the dynamic code contract of %s",
+    async (error, code, status) => {
+      const response = toApiErrorResponse(error);
+      expect(response.status).toBe(status);
+      await expect(response.json()).resolves.toMatchObject({ error: { code } });
     },
   );
 

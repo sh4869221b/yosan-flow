@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseNonNegativeIntegerYenInput } from "$lib/dashboard/yen-input";
+import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 
 describe("parseNonNegativeIntegerYenInput", () => {
   it.each([

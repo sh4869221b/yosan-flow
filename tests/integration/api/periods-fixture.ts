@@ -1,8 +1,6 @@
-import {
-  createInMemoryApiServices,
-  type InMemoryApiServices,
-} from "$lib/server/services/month-summary-service";
-import type { TracingAdapter } from "$lib/server/observability/tracing";
+import { createInMemoryApiServices } from "#lib/server/services/api-services/in-memory.ts";
+import type { InMemoryApiServices } from "#lib/server/services/month-summary-service.ts";
+import type { TracingAdapter } from "#lib/server/observability/tracing.ts";
 import {
   _createPeriodsHandler,
   _createPeriodsListHandler,

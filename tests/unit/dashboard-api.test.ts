@@ -5,10 +5,8 @@ import {
   dayHistoryUrl,
   historyItemUrl,
   periodSummaryUrl,
-  periodsUrl,
-} from "$lib/dashboard/api-urls";
-import { runClientEffect } from "$lib/dashboard/client-effect";
-import { fetchJsonEffect } from "$lib/dashboard/fetch-json";
+} from "#lib/dashboard/api-urls.ts";
+import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -21,7 +19,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-async function runFetchJsonEither<T>(
+async function runFetchJsonResult<T>(
   response: Promise<Response>,
   fallback: string,
 ) {
@@ -31,7 +29,7 @@ async function runFetchJsonEither<T>(
   );
 
   return Effect.runPromise(
-    Effect.either(fetchJsonEffect<T>("/api/example", undefined, fallback)),
+    Effect.result(fetchJsonEffect<T>("/api/example", undefined, fallback)),
   );
 }
 
@@ -43,7 +41,6 @@ describe("dashboard API URLs", () => {
     const historyId = "history/id ?";
 
     // When / Then
-    expect(periodsUrl()).toBe("/api/periods");
     expect(periodSummaryUrl(periodId)).toBe(
       "/api/periods/period%2Fwith%20space%3F",
     );
@@ -60,20 +57,41 @@ describe("dashboard API URLs", () => {
 });
 
 describe("fetchJsonEffect", () => {
+  it("bypasses cached JSON without losing supplied request options", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const init: RequestInit = {
+      method: "GET",
+      headers: { accept: "application/json" },
+      cache: "force-cache",
+    };
+
+    await Effect.runPromise(
+      fetchJsonEffect("/api/periods/p-1", init, "fallback"),
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith("/api/periods/p-1", {
+      ...init,
+      cache: "no-store",
+    });
+    expect(init.cache).toBe("force-cache");
+  });
+
   it("returns parsed JSON when the response is successful", async () => {
     // Given
     const body = { periodId: "period-1", totalUsedYen: 1200 };
 
     // When
-    const result = await runFetchJsonEither<typeof body>(
+    const result = await runFetchJsonResult<typeof body>(
       Promise.resolve(jsonResponse(body)),
       "fallback",
     );
 
     // Then
-    expect(result._tag).toBe("Right");
-    if (result._tag === "Right") {
-      expect(result.right).toEqual(body);
+    expect(result._tag).toBe("Success");
+    if (result._tag === "Success") {
+      expect(result.success).toEqual(body);
     }
   });
 
@@ -82,15 +100,15 @@ describe("fetchJsonEffect", () => {
     const body = { error: { message: "サーバー側のエラーです。" } };
 
     // When
-    const result = await runFetchJsonEither<unknown>(
+    const result = await runFetchJsonResult<unknown>(
       Promise.resolve(jsonResponse(body, 400)),
       "fallback",
     );
 
     // Then
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left).toBe("サーバー側のエラーです。");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure).toBe("サーバー側のエラーです。");
     }
   });
 
@@ -99,15 +117,15 @@ describe("fetchJsonEffect", () => {
     const response = new Response("not-json", { status: 500 });
 
     // When
-    const result = await runFetchJsonEither<unknown>(
+    const result = await runFetchJsonResult<unknown>(
       Promise.resolve(response),
       "fallback",
     );
 
     // Then
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left).toBe("fallback");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure).toBe("fallback");
     }
   });
 
@@ -116,12 +134,12 @@ describe("fetchJsonEffect", () => {
     const rejection = Promise.reject(new Error("network down"));
 
     // When
-    const result = await runFetchJsonEither<unknown>(rejection, "fallback");
+    const result = await runFetchJsonResult<unknown>(rejection, "fallback");
 
     // Then
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left).toBe("fallback");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure).toBe("fallback");
     }
   });
 
@@ -130,34 +148,15 @@ describe("fetchJsonEffect", () => {
     const response = new Response("not-json", { status: 200 });
 
     // When
-    const result = await runFetchJsonEither<unknown>(
+    const result = await runFetchJsonResult<unknown>(
       Promise.resolve(response),
       "fallback",
     );
 
     // Then
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left).toBe("fallback");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure).toBe("fallback");
     }
-  });
-});
-
-describe("runClientEffect", () => {
-  it("starts the Effect without returning its Promise", async () => {
-    // Given
-    let ran = false;
-    const effect = Effect.sync(() => {
-      ran = true;
-    });
-
-    // When
-    const result = runClientEffect(effect);
-
-    // Then
-    expect(result).toBeUndefined();
-    await vi.waitFor(() => {
-      expect(ran).toBe(true);
-    });
   });
 });

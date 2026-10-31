@@ -1,26 +1,26 @@
 import { Effect } from "effect";
-import { createInMemoryDatabaseClient } from "$lib/server/db/client";
+import { createInMemoryDatabaseClient } from "#lib/server/db/client.ts";
 import {
   createInMemoryBudgetPeriodRepository,
   PeriodValidationError,
   type BudgetPeriodRecord,
-} from "$lib/server/db/budget-period-repository";
+} from "#lib/server/db/budget-period-repository.ts";
 import {
   createDailyHistoryRepository,
   type DailyHistoryRecord,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/daily-history-repository.ts";
 import {
   createDailyTotalRepository,
   type DailyTotalRecord,
-} from "$lib/server/db/daily-total-repository";
-import { isDateWithinPeriod } from "$lib/server/domain/budget-period";
-import { toEffectError } from "$lib/server/effect/runtime";
+} from "#lib/server/db/daily-total-repository.ts";
+import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import {
   DayEntryService,
   PeriodNotFoundError,
-} from "$lib/server/services/day-entry-service";
-import { createPeriodUpdateService } from "$lib/server/services/period-update/period-update-service";
-import { getJstDateParts } from "$lib/server/time/jst-format";
+} from "#lib/server/services/day-entry-service.ts";
+import { createPeriodUpdateService } from "#lib/server/services/period-update/period-update-service.ts";
+import { getJstDateParts } from "#lib/server/time/jst-format.ts";
 import type {
   CreateInMemoryApiServicesInput,
   InMemoryApiServicesWithInternals,

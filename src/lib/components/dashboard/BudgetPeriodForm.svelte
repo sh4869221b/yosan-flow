@@ -1,6 +1,10 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import type { PeriodSummary } from "$lib/dashboard/controller-types";
+  import "./period-settings-form.css";
+  import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
 
   type Props = {
     budgetInput: string;
@@ -36,8 +40,16 @@
   }: Props = $props();
   const disabled = $derived(saving || interactionDisabled || loading);
 
+  const canReset = $derived(
+    dirty || validationError || serverError || success || settingChanged,
+  );
+  const showSaved = $derived(success && !saving && !loading);
+  const submitLabel = $derived(
+    saving ? "保存中..." : loading ? "読込中..." : "期間を更新",
+  );
+
   let form: HTMLFormElement | undefined = $state();
-  let input: HTMLInputElement | undefined = $state();
+  let input: HTMLInputElement | null = $state(null);
   let heading: HTMLHeadingElement | undefined = $state();
   let focusIntent = $state<{
     periodId: string | null;
@@ -110,6 +122,7 @@
 
 <h2 bind:this={heading} id="budget-settings-heading" tabindex="-1">予算設定</h2>
 <form
+  class="period-settings-form"
   bind:this={form}
   aria-labelledby="budget-settings-heading"
   aria-busy={saving || loading}
@@ -128,9 +141,9 @@
       最新の予算が変更されました。最新の予算に戻してから編集してください。
     </p>
   {/if}
-  <label for="budget-settings-input">期間予算 (円)</label>
-  <input
-    bind:this={input}
+  <Label for="budget-settings-input">期間予算 (円)</Label>
+  <Input
+    bind:ref={input}
     id="budget-settings-input"
     type="text"
     inputmode="numeric"
@@ -146,22 +159,20 @@
   {/if}
   {#if dirty}<p class="notice">未保存の変更があります</p>{/if}
   <div class="actions">
-    <button
+    <Button
       type="submit"
       {disabled}
       aria-disabled={!dirty || settingChanged}
       aria-describedby={serverError
         ? "budget-settings-server-error"
-        : undefined}
-      >{saving ? "保存中..." : loading ? "読込中..." : "期間を更新"}</button
+        : undefined}>{submitLabel}</Button
     >
-    <button
-      class="cancel"
+    <Button
+      variant="outline"
       type="button"
-      disabled={disabled ||
-        !(dirty || validationError || serverError || success || settingChanged)}
+      disabled={disabled || !canReset}
       onclick={reset}
-      >{settingChanged ? "最新の予算に戻す" : "キャンセル"}</button
+      >{settingChanged ? "最新の予算に戻す" : "キャンセル"}</Button
     >
   </div>
   {#if serverError}
@@ -170,84 +181,16 @@
       {/if}{serverError}
     </p>
   {/if}
-  {#if success && !saving && !loading}
+  {#if showSaved}
     <p role="status" aria-live="polite">予算を保存しました。</p>
   {/if}
 </form>
 
 <style>
   h2 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1.25rem;
+    font-weight: 700;
     margin: 0;
-  }
-  form {
-    display: grid;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-  }
-  p {
-    margin: 0;
-  }
-  .context {
-    color: #4d4036;
-    overflow-wrap: anywhere;
-  }
-  label,
-  .notice {
-    color: #4d4036;
-    font-weight: 700;
-  }
-  input,
-  button {
-    border-radius: 8px;
-    box-sizing: border-box;
-    font: inherit;
-    min-height: 2.65rem;
-  }
-  input {
-    background: #fff;
-    border: 1px solid #ded3c6;
-    color: #2f2219;
-    min-width: 0;
-    padding: 0 0.85rem;
-    width: 100%;
-  }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  button {
-    background: #2f6d3b;
-    border: 1px solid #2f6d3b;
-    color: #fff;
-    cursor: pointer;
-    font-weight: 800;
-    padding: 0 1rem;
-  }
-  .cancel {
-    background: #fffdf8;
-    border-color: #ded3c6;
-    color: #4d4036;
-  }
-  button:disabled,
-  button[aria-disabled="true"] {
-    cursor: default;
-    opacity: 0.65;
-  }
-  p[role="alert"] {
-    text-wrap: balance;
-    color: #8b3a3a;
-    font-weight: 700;
-  }
-  p[role="status"] {
-    color: #2f6d3b;
-    font-weight: 700;
-  }
-  @media (max-width: 760px) {
-    .actions {
-      display: grid;
-    }
   }
 </style>

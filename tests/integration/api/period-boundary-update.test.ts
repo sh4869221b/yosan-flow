@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runApiEffect } from "$lib/server/effect/runtime";
-import { registerPeriodBoundaryD1Scenarios } from "./period-boundary-update-d1-scenarios";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import {
   NOW,
   SUCCESSOR_ID,
@@ -11,8 +10,9 @@ import {
   seedLinkedPeriods,
   type PreviewBody,
 } from "./period-boundary-update-fixture";
-import { registerPeriodBoundaryValidationScenarios } from "./period-boundary-update-validation-scenarios";
 import { createFixture } from "./periods-fixture";
+import "./period-boundary-update-validation-scenarios";
+import "./period-boundary-update-d1-scenarios";
 
 describe("linked period boundary PUT workflow", () => {
   it("returns a proposal without writing and confirms it atomically", async () => {
@@ -29,7 +29,7 @@ describe("linked period boundary PUT workflow", () => {
     expect(previewBody).toEqual({
       error: {
         code: "PERIOD_BOUNDARY_CONFIRMATION_REQUIRED",
-        message: "この変更には後続期間の確認が必要です。",
+        message: "この変更には関連する期間の確認が必要です。",
       },
       proposal: expect.any(Object),
     });
@@ -51,6 +51,113 @@ describe("linked period boundary PUT workflow", () => {
     expect(await readPeriods(fixture)).toMatchObject([
       { id: TARGET_ID, endDate: "2026-07-21", budgetYen: 110_000 },
       { id: SUCCESSOR_ID, startDate: "2026-07-22", budgetYen: 80_000 },
+    ]);
+  });
+
+  it.each([
+    [
+      TARGET_ID,
+      { startDate: "2026-06-21", endDate: "2026-07-19", budgetYen: 100_000 },
+    ],
+    [
+      SUCCESSOR_ID,
+      { startDate: "2026-07-20", endDate: "2026-08-19", budgetYen: 80_000 },
+    ],
+  ])("confirms an earlier boundary from %s", async (periodId, request) => {
+    const fixture = createFixture(NOW);
+    await seedLinkedPeriods(fixture);
+    const response = await put(fixture, request, periodId);
+    expect(response.status).toBe(409);
+    const preview: PreviewBody = await response.json();
+    expect(Object.keys(preview.proposal).sort()).toEqual([
+      "editedPeriodId",
+      "next",
+      "previous",
+    ]);
+    expect(preview.proposal).toMatchObject({
+      editedPeriodId: periodId,
+      previous: { after: { endDate: "2026-07-19" } },
+      next: { after: { startDate: "2026-07-20" } },
+    });
+    expect(await readPeriods(fixture)).toMatchObject([
+      { endDate: "2026-07-20" },
+      { startDate: "2026-07-21" },
+    ]);
+    const confirmation = await put(
+      fixture,
+      { ...request, confirmation: preview.proposal },
+      periodId,
+    );
+    expect(confirmation.status).toBe(200);
+    expect(await confirmation.json()).toMatchObject({ periodId });
+    expect(await readPeriods(fixture)).toMatchObject([
+      { endDate: "2026-07-19" },
+      { startDate: "2026-07-20" },
+    ]);
+  });
+
+  it.each([TARGET_ID, SUCCESSOR_ID])(
+    "rejects a stale reverse proposal when %s changes",
+    async (changedId) => {
+      const fixture = createFixture(NOW);
+      await seedLinkedPeriods(fixture);
+      const request = {
+        startDate: "2026-07-20",
+        endDate: "2026-08-19",
+        budgetYen: 80_000,
+      };
+      const preview: PreviewBody = await (
+        await put(fixture, request, SUCCESSOR_ID)
+      ).json();
+      const change =
+        changedId === TARGET_ID
+          ? {
+              startDate: "2026-06-21",
+              endDate: "2026-07-20",
+              budgetYen: 100_001,
+            }
+          : {
+              startDate: "2026-07-21",
+              endDate: "2026-08-19",
+              budgetYen: 80_001,
+            };
+      expect((await put(fixture, change, changedId)).status).toBe(200);
+      const response = await put(
+        fixture,
+        { ...request, confirmation: preview.proposal },
+        SUCCESSOR_ID,
+      );
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: { code: "PERIOD_UPDATE_CONFLICT" },
+      });
+      expect(await readPeriods(fixture)).toMatchObject([
+        { endDate: "2026-07-20" },
+        { startDate: "2026-07-21" },
+      ]);
+    },
+  );
+
+  it("rejects a reverse proposal on the wrong URL", async () => {
+    const fixture = createFixture(NOW);
+    await seedLinkedPeriods(fixture);
+    const request = {
+      startDate: "2026-07-20",
+      endDate: "2026-08-19",
+      budgetYen: 80_000,
+    };
+    const preview: PreviewBody = await (
+      await put(fixture, request, SUCCESSOR_ID)
+    ).json();
+    const response = await put(
+      fixture,
+      { ...request, confirmation: preview.proposal },
+      TARGET_ID,
+    );
+    expect(response.status).toBe(409);
+    expect(await readPeriods(fixture)).toMatchObject([
+      { endDate: "2026-07-20" },
+      { startDate: "2026-07-21" },
     ]);
   });
 
@@ -92,6 +199,3 @@ describe("linked period boundary PUT workflow", () => {
     ]);
   });
 });
-
-registerPeriodBoundaryValidationScenarios();
-registerPeriodBoundaryD1Scenarios();

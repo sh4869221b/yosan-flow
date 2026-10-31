@@ -40,7 +40,7 @@ export function controls(page: Page) {
 }
 
 export async function openSettings(page: Page): Promise<void> {
-  await page.getByText("期間の終了日や予算を変更する").click();
+  await page.getByText("期間の日付や予算を変更する").click();
   await page.getByText("次の予算期間を作成する", { exact: true }).click();
   await expect(page.getByLabel("期間予算 (円)")).toHaveValue("120000");
 }

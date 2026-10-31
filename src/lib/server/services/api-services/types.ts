@@ -1,22 +1,22 @@
 import type { Effect } from "effect";
-import type { TracingAdapter } from "$lib/server/observability/tracing";
-import type { DatabaseClient } from "$lib/server/db/client";
-import type { D1Database } from "$lib/server/db/d1-types";
+import type { TracingAdapter } from "#lib/server/observability/tracing.ts";
+import type { DatabaseClient } from "#lib/server/db/client.ts";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
 import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
-} from "$lib/server/db/budget-period-repository";
+} from "#lib/server/db/budget-period-repository.ts";
 import type {
   DailyHistoryRecord,
   DailyHistoryRepository,
-} from "$lib/server/db/daily-history-repository";
+} from "#lib/server/db/daily-history-repository.ts";
 import type {
   DailyTotalRecord,
   DailyTotalRepository,
-} from "$lib/server/db/daily-total-repository";
-import type { PeriodSummaryDailyTotal } from "$lib/server/services/period-summary/period-summary-calculator";
-import type { PeriodUpdateRequest } from "$lib/server/services/period-update/period-update-types";
-import type { PeriodUpdateServiceResult } from "$lib/server/services/period-update/period-update-service";
+} from "#lib/server/db/daily-total-repository.ts";
+import type { PeriodSummaryDailyTotal } from "#lib/server/services/period-summary/period-summary-calculator.ts";
+import type { PeriodUpdateRequest } from "#lib/server/services/period-update/period-update-types.ts";
+import type { PeriodUpdateServiceResult } from "#lib/server/services/period-update/period-update-service.ts";
 
 export type DayEntryServicePort = {
   addDailyAmount(command: {

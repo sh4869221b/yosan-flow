@@ -1,6 +1,6 @@
 import { ROUTE_TEMPLATES, type RouteTemplate } from "./route";
 
-export const OPERATIONS = [
+const OPERATIONS = [
   "period.list",
   "period.create",
   "period.read",
@@ -64,7 +64,7 @@ export type TelemetryEvent = {
   readonly error_code?: TelemetryErrorCode;
 };
 
-export function isOperation(input: unknown): input is Operation {
+function isOperation(input: unknown): input is Operation {
   return OPERATIONS.some((operation) => operation === input);
 }
 

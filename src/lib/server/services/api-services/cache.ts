@@ -1,4 +1,6 @@
-import type { D1Database } from "$lib/server/db/d1-types";
+import { env } from "cloudflare:workers";
+import { dev } from "$app/env";
+import type { D1Database } from "#lib/server/db/d1-types.ts";
 import { createD1ApiServices } from "./d1";
 import { createInMemoryApiServices } from "./in-memory";
 import type { ApiServicesGlobalCache, InMemoryApiServices } from "./types";
@@ -47,22 +49,23 @@ function getD1BindingScopedApiServices(db: D1Database): InMemoryApiServices {
   return created;
 }
 
-export function getApiServicesFromPlatform(
-  platform?: App.Platform,
-): InMemoryApiServices {
+export function getApiServices(): InMemoryApiServices {
   const runtimeProcess = (
     globalThis as { process?: { env?: Record<string, string | undefined> } }
   ).process;
-  if (runtimeProcess?.env?.YOSAN_FLOW_FORCE_IN_MEMORY_DEV === "1") {
+  // Only an explicit development override may bypass the required D1 binding.
+  // Check the shell flag first so local UI work needs no functioning D1 proxy.
+  if (
+    dev &&
+    (runtimeProcess?.env?.YOSAN_FLOW_FORCE_IN_MEMORY_DEV === "1" ||
+      env.YOSAN_FLOW_FORCE_IN_MEMORY_DEV === "1")
+  ) {
     return getDefaultInMemoryApiServices();
   }
 
-  const db = platform?.env?.DB;
+  const db = env.DB;
   if (!db) {
-    if (platform) {
-      throw new Error("D1 binding DB is required");
-    }
-    return getDefaultInMemoryApiServices();
+    throw new Error("D1 binding DB is required");
   }
 
   return getD1BindingScopedApiServices(db);

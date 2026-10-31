@@ -1,16 +1,17 @@
 import type {
   PeriodBoundaryUpdateProposal,
   PeriodUpdateConfirmationRequest,
-} from "$lib/dashboard/period-update-api";
-import type { PeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
+} from "#lib/dashboard/period-update-api.ts";
+import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 
 export type PeriodUpdateConfirmationOwnership = {
-  readonly targetId: string;
-  readonly successorId: string;
+  readonly editedPeriodId: string;
+  readonly previousId: string;
+  readonly nextId: string;
   readonly requestSequence: number;
   readonly selectedPeriodId: string;
-  readonly targetRevision: number;
-  readonly successorRevision: number;
+  readonly previousRevision: number;
+  readonly nextRevision: number;
 };
 
 export type PendingPeriodUpdateConfirmation = {
@@ -25,7 +26,7 @@ export type ConfirmationResult = {
   readonly message?: string;
 };
 
-export type ConfirmationRecovery = {
+type ConfirmationRecovery = {
   readonly periodId: string;
   readonly saved: boolean;
 };
@@ -49,18 +50,20 @@ export function createPeriodUpdateConfirmationState(
     return (
       pending?.ownership.requestSequence === ownership.requestSequence &&
       dependencies.getSelectedPeriodId() === ownership.selectedPeriodId &&
-      ownership.selectedPeriodId === ownership.targetId &&
-      dependencies.summaryRevision.get(ownership.targetId) ===
-        ownership.targetRevision &&
-      dependencies.summaryRevision.get(ownership.successorId) ===
-        ownership.successorRevision
+      ownership.selectedPeriodId === ownership.editedPeriodId &&
+      dependencies.summaryRevision.get(ownership.previousId) ===
+        ownership.previousRevision &&
+      dependencies.summaryRevision.get(ownership.nextId) ===
+        ownership.nextRevision
     );
   }
 
   function getPending(): PendingPeriodUpdateConfirmation | null {
     if (pending != null && !isOwned(pending)) {
-      if (dependencies.getSelectedPeriodId() === pending.ownership.targetId) {
-        recovery = { periodId: pending.ownership.targetId, saved: false };
+      if (
+        dependencies.getSelectedPeriodId() === pending.ownership.editedPeriodId
+      ) {
+        recovery = { periodId: pending.ownership.editedPeriodId, saved: false };
         result = null;
       }
       pending = null;
@@ -115,10 +118,11 @@ export function createPeriodUpdateConfirmationState(
     },
     open(nextPending: PendingPeriodUpdateConfirmation): boolean {
       if (
-        nextPending.proposal.target.before.id !==
-          nextPending.ownership.targetId ||
-        nextPending.proposal.successor.before.id !==
-          nextPending.ownership.successorId
+        nextPending.proposal.editedPeriodId !==
+          nextPending.ownership.editedPeriodId ||
+        nextPending.proposal.previous.before.id !==
+          nextPending.ownership.previousId ||
+        nextPending.proposal.next.before.id !== nextPending.ownership.nextId
       ) {
         return false;
       }
@@ -154,9 +158,7 @@ export function createPeriodUpdateConfirmationState(
       confirmSaving = true;
       return owned;
     },
-    owns(candidate: PendingPeriodUpdateConfirmation): boolean {
-      return isOwned(candidate);
-    },
+    owns: isOwned,
     finishConfirmation(): void {
       confirmSaving = false;
     },

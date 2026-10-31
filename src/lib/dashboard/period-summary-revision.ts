@@ -100,12 +100,20 @@ export function createPeriodSummaryRevision(): PeriodSummaryRevision {
     periodId: string,
     kind: MutationKind,
   ): Effect.Effect<() => void> {
-    return Effect.async((resume) => {
+    return Effect.callback(function (resume) {
+      const dispatcher = this.makeDispatcher();
+      let registering = true;
       const waiter: MutationWaiter = {
         cancelled: false,
         granted: false,
         kind,
-        resume,
+        resume: (effect) => {
+          // A queued handoff must let the previous mutation publish its result
+          // before the next mutation captures its revision. v4 callbacks resume
+          // synchronously, so retain that boundary through the fiber scheduler.
+          if (registering) resume(effect);
+          else dispatcher.scheduleTask(() => resume(effect), 0);
+        },
       };
       const queue = mutationQueues.get(periodId);
       if (queue == null) {
@@ -122,6 +130,7 @@ export function createPeriodSummaryRevision(): PeriodSummaryRevision {
       } else {
         queue.waiting.push(waiter);
       }
+      registering = false;
       return Effect.sync(() => {
         waiter.cancelled = true;
         if (waiter.granted) {

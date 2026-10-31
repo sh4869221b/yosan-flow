@@ -1,0 +1,36 @@
+{
+  "kind": "dupes",
+  "clone_groups": [
+    "tests/integration/helpers/period-d1-fake-modules/daily-operation-history-sql.ts:37-47|tests/integration/helpers/period-d1-fake-modules/daily-total-sql.ts:28-38",
+    "src/routes/api/periods/[periodId]/days/[date]/add/+server.ts:37-63|src/routes/api/periods/[periodId]/days/[date]/overwrite/+server.ts:37-65",
+    "tests/e2e/period-boundary-confirmation-adversarial-scenarios.ts:59-70|tests/e2e/period-boundary-confirmation-helpers.ts:179-188",
+    "tests/e2e/period-boundary-confirmation-adversarial-scenarios.ts:180-187|tests/e2e/period-boundary-confirmation-adversarial-scenarios.ts:62-69",
+    "tests/integration/api/period-boundary-update-validation-scenarios.ts:115-122|tests/integration/api/period-boundary-update-validation-scenarios.ts:194-201",
+    "tests/e2e/period-boundary-confirmation-adversarial-scenarios.ts:166-173|tests/e2e/period-boundary-confirmation-adversarial-scenarios.ts:94-101",
+    "src/lib/components/dashboard/BudgetPeriodForm.svelte:90-101|src/lib/components/dashboard/PeriodRangeForm.svelte:153-169",
+    "src/routes/api/periods/[periodId]/days/[date]/add/+server.ts:30-37|src/routes/api/periods/[periodId]/days/[date]/overwrite/+server.ts:30-37",
+    "tests/integration/api/period-boundary-update-validation-scenarios.ts:199-206|tests/integration/api/period-boundary-update-validation-scenarios.ts:96-103"
+  ],
+  "clone_fingerprints": [
+    "dup:937a7025:2",
+    "dup:11a354f3:2",
+    "dup:c99e35d3:2",
+    "dup:04d44436:2",
+    "dup:ab1a7a8a:2",
+    "dup:6b550c95:2",
+    "dup:ca0897a5:2",
+    "dup:0aadebe0:2",
+    "dup:c36292d6:2"
+  ],
+  "normalized_clone_fingerprints": [
+    "dup:52944156:2",
+    "dup:85b2391e:2",
+    "dup:d351ac3d:2",
+    "dup:68fd0f2b:2",
+    "dup:57538b8b:2",
+    "dup:b983a000:2",
+    "dup:e99d0288:2",
+    "dup:583cc52c:2",
+    "dup:b4382eca:2"
+  ]
+}

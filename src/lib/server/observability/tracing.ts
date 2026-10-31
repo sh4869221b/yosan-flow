@@ -1,10 +1,4 @@
 import {
-  isOperation,
-  sanitizeEvent,
-  type Operation,
-  type TelemetryEvent,
-} from "./schema";
-import {
   isCustomSpanName,
   sanitizeSpanAttributes,
   type CustomSpanAttributes,
@@ -16,11 +10,6 @@ export interface TracingAdapter {
     name: CustomSpanName,
     callback: () => T,
     attributes?: () => CustomSpanAttributes,
-  ): T;
-  withSpan<T>(
-    operation: Operation,
-    callback: () => T,
-    attributes?: TelemetryEvent,
   ): T;
 }
 
@@ -37,22 +26,14 @@ export interface NativeTracing {
 export function createTracing(native: NativeTracing): TracingAdapter {
   return {
     withSpan(operation, callback, attributes) {
-      if (!isOperation(operation) && !isCustomSpanName(operation)) {
+      if (!isCustomSpanName(operation)) {
         return callback();
       }
 
       return native.enterSpan(operation, (span) => {
         if (span.isTraced) {
-          const event = isCustomSpanName(operation)
-            ? sanitizeSpanAttributes(
-                operation,
-                typeof attributes === "function" ? attributes() : undefined,
-              )
-            : sanitizeEvent(attributes);
-          if (
-            event !== undefined &&
-            (!("operation" in event) || event.operation === operation)
-          ) {
+          const event = sanitizeSpanAttributes(operation, attributes?.());
+          if (event !== undefined) {
             for (const [key, value] of Object.entries(event)) {
               span.setAttribute(key, value);
             }

@@ -1,11 +1,11 @@
-import { createDayEntryControllerState } from "$lib/dashboard/day-entry-controller-state.svelte";
-import { createHistoryControllerState } from "$lib/dashboard/history-controller-state.svelte";
-import { createPeriodControllerState } from "$lib/dashboard/period-controller-state.svelte";
-import { createPeriodSummaryRevision } from "$lib/dashboard/period-summary-revision";
-import type {
-  DailyRow,
-  DayEntryCloseReason,
-} from "$lib/dashboard/controller-types";
+import { Effect } from "effect";
+import { runClientEffect } from "#lib/dashboard/client-effect.ts";
+import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
+import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
+import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
+import { findSummaryRow } from "#lib/dashboard/summary-rows.ts";
+import type { DayEntryCloseReason } from "#lib/dashboard/controller-types.ts";
 import type { PageData } from "../../routes/$types";
 
 export function createDashboardPageController(getData: () => PageData) {
@@ -23,11 +23,12 @@ export function createDashboardPageController(getData: () => PageData) {
 
   const historyController = createHistoryControllerState(
     {
-      getSelectedDate,
+      getSelectedDate: () => dayEntryController.selectedDate,
       getSelectedPeriodId: () => periodController.selectedPeriodId,
       getSummary: () => periodController.summary,
-      setSelectedRow,
-      setSummary: (nextSummary) => periodController.setSummary(nextSummary),
+      getModalOpen: () => dayEntryController.modalOpen,
+      setSelectedRow: (row) => dayEntryController.setSelectedRow(row),
+      setSummary: periodController.setSummary,
     },
     summaryRevision,
   );
@@ -37,20 +38,12 @@ export function createDashboardPageController(getData: () => PageData) {
       getSelectedPeriodId: () => periodController.selectedPeriodId,
       getSummary: () => periodController.summary,
       historyController,
-      setSummary: (nextSummary) => periodController.setSummary(nextSummary),
+      setSummary: periodController.setSummary,
     },
     summaryRevision,
   );
   closeDayEntry = dayEntryController.closeDayEntry;
   invalidateDaySelection = dayEntryController.invalidateDaySelection;
-
-  function getSelectedDate(): string | null {
-    return dayEntryController.selectedDate;
-  }
-
-  function setSelectedRow(row: DailyRow | null): void {
-    dayEntryController.setSelectedRow(row);
-  }
 
   return {
     confirmation: periodController.confirmation,
@@ -72,9 +65,6 @@ export function createDashboardPageController(getData: () => PageData) {
     get summaryError() {
       return periodController.summaryError;
     },
-    get periodSaving() {
-      return periodController.periodSaving;
-    },
     get confirmSaving() {
       return periodController.confirmSaving;
     },
@@ -83,9 +73,6 @@ export function createDashboardPageController(getData: () => PageData) {
     },
     get periodInteractionDisabled() {
       return periodController.periodInteractionDisabled;
-    },
-    get periodError() {
-      return periodController.periodError;
     },
     get createSaving() {
       return periodController.createSaving;
@@ -101,12 +88,6 @@ export function createDashboardPageController(getData: () => PageData) {
     },
     get createdRefreshPending() {
       return periodController.createdRefreshPending;
-    },
-    get rangeStartDate() {
-      return periodController.rangeStartDate;
-    },
-    get rangeEndDate() {
-      return periodController.rangeEndDate;
     },
     get createStartDate() {
       return periodController.createStartDate;
@@ -182,8 +163,21 @@ export function createDashboardPageController(getData: () => PageData) {
     },
     saveBudget: periodController.saveBudget,
     saveRange: periodController.saveRange,
-    handleSavePeriod: periodController.handleSavePeriod,
-    handleRangeChange: periodController.handleRangeChange,
+    refreshOnResume(complete: () => void): void {
+      periodController.refreshOnResume(() => {
+        const summary = periodController.summary;
+        if (dayEntryController.modalOpen && summary != null) {
+          dayEntryController.setSelectedRow(
+            findSummaryRow(summary, dayEntryController.selectedDate),
+          );
+        }
+        runClientEffect(
+          historyController
+            .refreshOnResumeEffect()
+            .pipe(Effect.ensuring(Effect.sync(complete))),
+        );
+      });
+    },
     handleSelectPeriod(payload: { periodId: string }): void {
       dayEntryController.invalidateDaySelection();
       periodController.handleSelectPeriod(payload);

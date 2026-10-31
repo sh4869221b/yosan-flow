@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { AlertDialog } from "bits-ui";
-  import "$lib/components/dialog-sheet.css";
-  import type { PeriodBoundaryUpdateProposal } from "$lib/dashboard/period-update-api";
+  import * as AlertDialog from "#lib/components/ui/alert-dialog/index.ts";
+  import type { PeriodBoundaryUpdateProposal } from "#lib/dashboard/period-update-api.ts";
 
   type Props = {
     proposal: PeriodBoundaryUpdateProposal | null;
@@ -29,68 +28,72 @@
 
 <AlertDialog.Root open={proposal != null} onOpenChange={handleOpenChange}>
   {#if proposal}
-    <AlertDialog.Portal>
-      <AlertDialog.Overlay class="sheet-overlay" />
-      <AlertDialog.Content
-        class="sheet-content period-boundary-content"
-        onOpenAutoFocus={handleOpenAutoFocus}
-        onEscapeKeydown={handleEscapeKeydown}
-        onCloseAutoFocus={(event) => event.preventDefault()}
+    <AlertDialog.Content
+      onOpenAutoFocus={handleOpenAutoFocus}
+      onEscapeKeydown={handleEscapeKeydown}
+      onCloseAutoFocus={(event) => event.preventDefault()}
+    >
+      <AlertDialog.Title
+        level={2}
+        class="text-[1.45rem] leading-[1.1] [@media(max-width:760px)]:text-xl"
       >
-        <AlertDialog.Title class="sheet-title" level={2}>
-          予算期間の境界を変更しますか？
-        </AlertDialog.Title>
-        <AlertDialog.Description class="boundary-description">
-          この変更により、後続の予算期間の開始日も変更されます。内容を確認してください。
-        </AlertDialog.Description>
+        予算期間の境界を変更しますか？
+      </AlertDialog.Title>
+      <AlertDialog.Description>
+        関連する2つの予算期間の境界を変更します。変更前後を確認してください。
+      </AlertDialog.Description>
 
-        <p class="explanation">
-          2つの期間を一括で更新します。キャンセルした場合は、どちらも保存されません。
-        </p>
-        <dl>
-          {#each [{ label: "変更する期間", value: proposal.target }, { label: "直接の後続期間", value: proposal.successor }] as period (period.value.before.id)}
-            <div>
-              <dt>{period.label}</dt>
-              <dd class="period-id">期間ID: {period.value.before.id}</dd>
-              <dd class="ranges">
-                <span
-                  ><strong>変更前</strong>{period.value.before.startDate} ～ {period
-                    .value.before.endDate}</span
-                >
-                <span class="arrow" aria-hidden="true">→</span>
-                <span
-                  ><strong>変更後</strong>{period.value.after.startDate} ～ {period
-                    .value.after.endDate}</span
-                >
-              </dd>
-            </div>
-          {/each}
-        </dl>
+      <p class="explanation">
+        2つの期間を一括で更新します。キャンセルした場合は、どちらも保存されません。
+      </p>
+      <dl>
+        {#each [{ label: "前の期間", value: proposal.previous }, { label: "後の期間", value: proposal.next }] as period (period.value.before.id)}
+          <div>
+            <dt>
+              {period.label}{period.value.before.id === proposal.editedPeriodId
+                ? "（編集中）"
+                : ""}
+            </dt>
+            <dd class="period-id">期間ID: {period.value.before.id}</dd>
+            <dd class="ranges">
+              <span
+                ><strong>変更前</strong>{period.value.before.startDate} ～ {period
+                  .value.before.endDate}</span
+              >
+              <span class="arrow" aria-hidden="true">→</span>
+              <span
+                ><strong>変更後</strong>{period.value.after.startDate} ～ {period
+                  .value.after.endDate}</span
+              >
+            </dd>
+          </div>
+        {/each}
+      </dl>
 
-        <div class="sheet-actions period-boundary-actions">
-          <AlertDialog.Cancel bind:ref={cancelButton} disabled={confirmSaving}>
-            キャンセル
-          </AlertDialog.Cancel>
-          <AlertDialog.Action
-            disabled={confirmSaving}
-            aria-busy={confirmSaving}
-            onclick={confirm}
-          >
-            {confirmSaving ? "変更中..." : "変更する"}
-          </AlertDialog.Action>
-        </div>
-      </AlertDialog.Content>
-    </AlertDialog.Portal>
+      <div class="period-boundary-actions">
+        <AlertDialog.Cancel
+          type="button"
+          class="[@media(max-width:760px)]:h-auto [@media(max-width:760px)]:min-h-12"
+          bind:ref={cancelButton}
+          disabled={confirmSaving}
+        >
+          キャンセル
+        </AlertDialog.Cancel>
+        <AlertDialog.Action
+          type="button"
+          class="[@media(max-width:760px)]:h-auto [@media(max-width:760px)]:min-h-12"
+          disabled={confirmSaving}
+          aria-busy={confirmSaving}
+          onclick={confirm}
+        >
+          {confirmSaving ? "変更中..." : "変更する"}
+        </AlertDialog.Action>
+      </div>
+    </AlertDialog.Content>
   {/if}
 </AlertDialog.Root>
 
 <style>
-  :global(.boundary-description) {
-    color: #67584c;
-    line-height: 1.7;
-    margin: 0;
-  }
-
   dl {
     display: grid;
     gap: 0.75rem;
@@ -98,14 +101,14 @@
   }
 
   dl > div {
-    background: #f8f3e9;
-    border: 1px solid #e4ddd2;
-    border-radius: 10px;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     padding: 0.9rem 1rem;
   }
 
   dt {
-    color: #397d3d;
+    color: var(--icon-foreground);
     font-weight: 900;
     margin-bottom: 0.45rem;
   }
@@ -122,7 +125,7 @@
   .ranges strong {
     display: block;
     font-size: 0.875rem;
-    color: #67584c;
+    color: var(--muted-foreground);
   }
   .ranges span {
     min-width: 0;
@@ -131,45 +134,27 @@
   .period-id {
     margin: 0 0 0.65rem;
     overflow-wrap: anywhere;
-    color: #67584c;
+    color: var(--muted-foreground);
   }
   .explanation {
     margin: 0;
     line-height: 1.7;
-    color: #67584c;
+    color: var(--muted-foreground);
   }
 
   .arrow {
-    color: #78695d;
+    color: var(--muted-foreground);
     font-weight: 900;
   }
 
   .period-boundary-actions {
+    display: flex;
+    gap: 0.75rem;
     justify-content: flex-end;
   }
 
-  :global(.period-boundary-actions button) {
-    border: 1px solid #2f6d3b;
-    border-radius: 8px;
-    cursor: pointer;
-    font: inherit;
-    font-weight: 800;
-    min-height: 2.65rem;
-    padding: 0 1rem;
-  }
-
-  :global(.period-boundary-actions [data-alert-dialog-cancel]) {
-    background: #fffdf8;
-    color: #2f6d3b;
-  }
-
-  :global(.period-boundary-actions [data-alert-dialog-action]) {
-    background: #2f6d3b;
-    color: #fff;
-  }
-
   :global(.period-boundary-actions button:focus) {
-    outline: 3px solid #e1a540;
+    outline: 3px solid var(--focus-confirmation);
     outline-offset: 3px;
   }
 
@@ -187,6 +172,13 @@
     .arrow {
       transform: rotate(90deg);
       width: min-content;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .period-boundary-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>

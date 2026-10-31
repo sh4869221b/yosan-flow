@@ -49,6 +49,44 @@
   }
 </script>
 
+{#snippet calendarDay(date: string | null)}
+  {#if date}
+    {@const row = rowsByDate.get(date)}
+    {#if row}
+      {@const presentation = buildCalendarDayPresentation({
+        row,
+        today,
+        selected: selectedDate === date,
+        disabled,
+      })}
+      <button
+        type="button"
+        data-testid={`calendar-day-${date}`}
+        onclick={() => requestEdit({ date })}
+        onfocus={() => focusDate({ date })}
+        onkeydown={(event) => handleKeydown(event, date)}
+        tabindex={focusedDate === date ? 0 : -1}
+        aria-label={presentation.accessibleLabel}
+        aria-current={date === today ? "date" : undefined}
+        aria-pressed={presentation.isSelected}
+        aria-disabled={presentation.isDisabled}
+        aria-describedby={disabled ? disabledDescriptionId : undefined}
+        class:today={row.label === "today"}
+        class:spent={row.usedYen > 0}
+        class:selected={presentation.isSelected}
+      >
+        <span class="date-number">{Number(date.slice(8, 10))}</span>
+        <span class="used" data-testid={`used-${date}`}
+          >{presentation.amountLabel}</span
+        >
+        <span class="hint">{presentation.stateLabels.join("・")}</span>
+      </button>
+    {/if}
+  {:else}
+    <span class="empty-cell" aria-hidden="true">-</span>
+  {/if}
+{/snippet}
+
 <article>
   <h3>{month.label}</h3>
   <table>
@@ -68,45 +106,7 @@
         <tr>
           {#each week as date, dayIndex (date ?? `${month.key}-empty-${weekIndex}-${dayIndex}`)}
             <td>
-              {#if date}
-                {@const row = rowsByDate.get(date)}
-                {#if row}
-                  {@const presentation = buildCalendarDayPresentation({
-                    row,
-                    today,
-                    selected: selectedDate === date,
-                    disabled,
-                  })}
-                  <button
-                    type="button"
-                    data-testid={`calendar-day-${date}`}
-                    onclick={() => requestEdit({ date })}
-                    onfocus={() => focusDate({ date })}
-                    onkeydown={(event) => handleKeydown(event, date)}
-                    tabindex={focusedDate === date ? 0 : -1}
-                    aria-label={presentation.accessibleLabel}
-                    aria-current={date === today ? "date" : undefined}
-                    aria-pressed={presentation.isSelected}
-                    aria-disabled={presentation.isDisabled}
-                    aria-describedby={disabled
-                      ? disabledDescriptionId
-                      : undefined}
-                    class:today={row.label === "today"}
-                    class:spent={row.usedYen > 0}
-                    class:selected={presentation.isSelected}
-                  >
-                    <span class="date-number">{Number(date.slice(8, 10))}</span>
-                    <span class="used" data-testid={`used-${date}`}
-                      >{presentation.amountLabel}</span
-                    >
-                    <span class="hint"
-                      >{presentation.stateLabels.join("・")}</span
-                    >
-                  </button>
-                {/if}
-              {:else}
-                <span class="empty-cell" aria-hidden="true">-</span>
-              {/if}
+              {@render calendarDay(date)}
             </td>
           {/each}
         </tr>
@@ -122,7 +122,7 @@
   }
 
   h3 {
-    color: #2f2219;
+    color: var(--foreground);
     font-size: 1.25rem;
     font-weight: 900;
     margin: 0;
@@ -130,9 +130,9 @@
   }
 
   table {
-    border: 1px solid #e6ded4;
+    border: 1px solid var(--border);
     border-collapse: separate;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     border-spacing: 0;
     overflow: hidden;
     table-layout: fixed;
@@ -142,8 +142,8 @@
   th,
   td {
     border: 0;
-    border-bottom: 1px solid #e6ded4;
-    border-right: 1px solid #e6ded4;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
     padding: 0;
     vertical-align: top;
   }
@@ -158,8 +158,8 @@
   }
 
   th {
-    background: #fffdf8;
-    color: #33261c;
+    background: var(--card);
+    color: var(--card-foreground);
     font-size: 0.86rem;
     font-weight: 900;
     padding: 0.55rem 0.2rem;
@@ -175,7 +175,7 @@
 
   button {
     align-items: center;
-    background: #fffdf8;
+    background: var(--card);
     border: 2px solid transparent;
     border-radius: 0;
     cursor: pointer;
@@ -189,56 +189,56 @@
   }
 
   button:hover {
-    background: #f4fbf1;
-    border-color: #83a978;
+    background: color-mix(in oklch, var(--accent), var(--card) 50%);
+    border-color: var(--primary);
   }
 
   button:focus-visible {
-    outline: 3px solid #2f76c2;
+    outline: 3px solid var(--ring);
     outline-offset: -3px;
   }
 
   .date-number {
-    color: #2d2118;
+    color: var(--foreground);
     font-size: 1.05rem;
     font-weight: 900;
   }
 
   .used {
-    color: #8a8179;
+    color: var(--muted-foreground);
     font-size: 0.88rem;
     font-weight: 800;
   }
 
   .hint {
-    color: #74716d;
+    color: var(--muted-foreground);
     font-size: 0.8rem;
     font-weight: 800;
   }
 
   .today {
-    background: #f1f8ef;
-    border-color: #7eaa75;
-    box-shadow: inset 0 0 0 1px #7eaa75;
+    background: var(--accent);
+    border-color: var(--primary);
+    box-shadow: inset 0 0 0 1px var(--primary);
     font-weight: 700;
   }
 
   .spent .used {
-    color: #d96945;
+    color: var(--budget-spent);
   }
 
   .spent .hint,
   .today .hint {
-    color: #2f7a3f;
+    color: var(--accent-foreground);
   }
 
   .selected {
-    box-shadow: inset 0 0 0 3px #2f6d3b;
+    box-shadow: inset 0 0 0 3px var(--primary);
   }
 
   .empty-cell {
     align-items: center;
-    color: #b0aaa4;
+    color: var(--muted-foreground);
     display: flex;
     min-height: 5.15rem;
     justify-content: center;
