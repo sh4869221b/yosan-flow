@@ -8,7 +8,6 @@
 
   type Props = {
     title: string;
-    description: string;
     open?: boolean;
     testId?: string;
     sheetTestId: string;
@@ -20,7 +19,6 @@
 
   let {
     title,
-    description,
     open = $bindable(false),
     testId,
     sheetTestId,
@@ -74,7 +72,7 @@
     <div data-testid={open ? undefined : testId}>
       <Dialog.Trigger
         type="button"
-        class="action-sheet-trigger flex min-h-[4.9rem] w-full items-center gap-3 rounded-2xl border border-border bg-card p-(--panel-padding-mobile) text-left font-extrabold text-card-foreground shadow-card outline-offset-[3px] [&_svg]:shrink-0 [&_svg]:text-icon-foreground"
+        class="flex min-h-[4.9rem] w-full items-center gap-3 rounded-2xl border border-border bg-card p-(--panel-padding-mobile) text-left font-extrabold text-card-foreground shadow-card outline-offset-[3px] [&_svg]:shrink-0 [&_svg]:text-icon-foreground"
         bind:ref={trigger}
       >
         {@render label()}
@@ -82,8 +80,6 @@
     </div>
     {#if open}
       <Dialog.Content
-        class="action-sheet-content"
-        overlayClass="dashboard-dialog-overlay"
         data-testid={sheetTestId}
         onOpenAutoFocus={focusHeading}
         onCloseAutoFocus={handleCloseAutoFocus}
@@ -101,9 +97,6 @@
             )}>閉じる</Dialog.Close
           >
         </div>
-        <Dialog.Description class="action-sheet-description">
-          {description}
-        </Dialog.Description>
         <div data-testid={testId}>
           {@render children()}
         </div>
