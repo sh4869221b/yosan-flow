@@ -95,6 +95,23 @@ The source path is relative to `src/app.css`, so utility detection starts in
 complete, static utility class names in scanned source. Keep the existing
 `dashboard-shell.css` imports in both `+page.svelte` and `+error.svelte`.
 
+The shared UI boundary is `src/lib/components/ui/**`. Business components import
+these project-owned components; direct `bits-ui` imports stay inside that
+directory. Bits UI remains an implementation dependency for Label, Dialog,
+AlertDialog and RangeCalendar. Replacing its package or exposing its primitives
+directly to business components is not part of routine styling maintenance.
+ESLint enforces the import boundary, with regression coverage in
+`tests/unit/ui-import-boundary.test.ts`.
+
+| Owner                                    | Responsibility                                                                                                                                                                                  |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app.css`                            | Semantic token values and Tailwind aliases, Preflight, document font/background, shared border/focus/disabled defaults                                                                          |
+| `ui/**`                                  | Reusable control and surface presentation, native props/refs, primitive focus and responsive Dialog/sheet behavior                                                                              |
+| `dashboard-shell.css`                    | Page width, centering and gutters for the dashboard and error page                                                                                                                              |
+| Business component scoped CSS            | Feature layout, text hierarchy, input-group geometry, budget/history feedback and native budget-calendar cells                                                                                  |
+| Local shared CSS                         | `period-action-card.css` owns disclosure markers/body spacing; `period-settings-form.css` owns shared form layout/context/feedback/actions; `day-entry-modal.css` owns day-entry content/status |
+| `src/lib/dashboard/**` and form adapters | Requests, drafts, validation, saving/session guards, selection publication and focus recovery                                                                                                   |
+
 ### Semantic tokens
 
 `src/app.css` defines canonical values in `:root` within `base`, making them
@@ -143,16 +160,27 @@ dimensions remain with their component owners. Tailwind's default spacing unit i
 unchanged. Add a token when it names a shared meaning, rather than converting
 every literal or rounding every dimension to the utility scale.
 
+When adding or changing a token:
+
+1. Reuse the existing role when its meaning matches. Keep action, financial and
+   validation roles separate, even when they currently share a color.
+2. Put a shared value in `app.css`'s `:root`; add its `@theme inline static` alias
+   when utilities consume it. Keep geometry or state that belongs to one feature
+   in that component rather than adding a global token for each literal.
+3. Update this inventory and each affected consumer together, then inspect the
+   generated CSS and desktop/mobile focus, disabled and feedback states. Do not
+   keep a second hard-coded palette in an acquired component.
+
 Preserve this stylesheet and its token values when acquiring shadcn components.
 Add chart, sidebar or dark tokens only when a component actually needs them.
-Basic UI is adopted in #582; Dialog/Sheet and RangeCalendar replacement remain
-the responsibility of #583 and #584.
+Basic controls, Dialog/AlertDialog and RangeCalendar now share this theme. Their
+acquisition records and local adaptations are documented below.
 
 ### Reset and ownership
 
-[#581](https://github.com/sh4869221b/yosan-flow/issues/581) adopts the complete
-Preflight reset before component migration. This provides consistent defaults for
-existing controls and future shadcn components. Its `border-box`, inherited
+The complete Preflight reset adopted in
+[#581](https://github.com/sh4869221b/yosan-flow/issues/581) remains the final reset
+policy for both shared UI and business components. Its `border-box`, inherited
 control fonts, `1.5` default line-height and cleared browser margins are intentional;
 matching the earlier browser-default geometry is not an acceptance condition.
 Do not restore content-box or browser margins globally, or add broad `revert`
@@ -167,11 +195,12 @@ Setting border color does not create a border: components still own
 its width and style. Existing component focus rules take precedence where their
 shape or offset matters, including selected calendar cells.
 
-Component CSS owns heading weight/size, intentional content gaps, input surfaces,
-responsive layout and state treatments. Empty/error headings and missing-history
-readonly inputs need explicit presentation because Preflight clears their native
-defaults. The two calendar tables retain their deliberate separate borders and
-cell sizing; history lists and disclosure markers retain their authored rules.
+Shared UI owns input surfaces; feature CSS owns heading weight/size, intentional
+content gaps, responsive layout and business-state treatments. Empty/error headings
+and missing-history readonly inputs retain explicit presentation because Preflight
+clears their native defaults. The two calendar tables retain their deliberate
+separate borders and cell sizing; history lists and disclosure markers retain
+their authored rules.
 The page shell owns only page width, centering and token-based padding; body
 defaults and responsive page tokens are owned by `app.css`.
 
@@ -181,6 +210,14 @@ from `--page-gutter` at the existing breakpoints even if `p-0` is added. Migrate
 one property and its responsive/state variants together: replace
 or remove its old declaration locally when a utility takes ownership. Do not add
 blanket `!important` or move all existing CSS into a layer to hide conflicts.
+
+Use shared component props, variants and `cn`-merged caller classes for local
+customization. Keep scoped CSS for feature-specific structure and state; remove
+superseded control/surface declarations with all matching responsive and state
+rules. A business selector should not reach into `ui/**` internals to recreate a
+primitive's border, padding, radius or disabled treatment. Keep necessary global
+selectors narrow, such as a feature-owned action group's focus indicator, rather
+than targeting every button or every Bits UI data attribute.
 
 ### Styling verification
 
@@ -362,10 +399,10 @@ The focused `dashboard-basic-controls.spec.ts` covers native select label and
 keyboard behavior plus amount focus bounds and forwarded values at narrow and
 desktop widths. Existing settings/create, period-operation/switch, history/race,
 range-picker and framework-error-retry specs cover the surrounding contracts.
-Dialog/AlertDialog/Sheet primitives remain owned by #583; RangeCalendar and
-budget-calendar cells/navigation remain owned by #584. Those migrations can use
-the established `class`, `variant`, native attributes, `bind:value` and `bind:ref`
-APIs without changing the shared theme or utilities.
+Dialog/AlertDialog and RangeCalendar use the established `class`, `variant`,
+native attributes, `bind:value` and `bind:ref` APIs. Their maintenance sections
+describe the additional contracts. Budget-calendar cells/navigation stay
+with the native budget calendar; they do not become a RangeCalendar consumer.
 For wrappers around an existing primitive, `ui/button/button.svelte` also
 exports `buttonVariants`, `ButtonVariant` and `ButtonSize`; combine the returned
 classes with `cn` when accepting caller classes. Keep new wrapper-specific prop
@@ -434,7 +471,8 @@ Its roving tabindex, selected/focused date, `aria-disabled`, month navigation an
 day-presentation rules stay with that component. Surface, hover, today, selection
 and financial colors use the existing tokens. Weekend colors and complex cell
 geometry remain local; a recorded expenditure does not introduce a new
-overspending classification. Dialog and sheet behavior is owned by #583.
+overspending classification. Dialog and sheet behavior stays in `ui/dialog/**`
+and its responsive business adapters.
 
 ## Verification
 

@@ -122,7 +122,6 @@
   {#if isOpen}
     <Dialog.Content
       class="day-entry-content"
-      overlayClass="dashboard-dialog-overlay day-entry-overlay"
       data-testid="day-entry-modal"
       onOpenAutoFocus={handleOpenAutoFocus}
       onCloseAutoFocus={handleCloseAutoFocus}

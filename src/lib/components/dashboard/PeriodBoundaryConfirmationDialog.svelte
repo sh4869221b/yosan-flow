@@ -29,8 +29,6 @@
 <AlertDialog.Root open={proposal != null} onOpenChange={handleOpenChange}>
   {#if proposal}
     <AlertDialog.Content
-      class="period-boundary-content"
-      overlayClass="period-boundary-overlay"
       onOpenAutoFocus={handleOpenAutoFocus}
       onEscapeKeydown={handleEscapeKeydown}
       onCloseAutoFocus={(event) => event.preventDefault()}

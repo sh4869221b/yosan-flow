@@ -332,22 +332,6 @@
     font-weight: 700;
     margin: 1rem 0 0;
   }
-  form {
-    display: grid;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-  }
-  p {
-    margin: 0;
-  }
-  .context {
-    color: #4d4036;
-    overflow-wrap: anywhere;
-  }
-  .notice {
-    color: #4d4036;
-    font-weight: 700;
-  }
   .confirmation-error {
     display: grid;
     gap: 0.75rem;
