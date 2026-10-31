@@ -29,15 +29,13 @@
 <AlertDialog.Root open={proposal != null} onOpenChange={handleOpenChange}>
   {#if proposal}
     <AlertDialog.Content
-      class="period-boundary-content"
-      overlayClass="period-boundary-overlay"
       onOpenAutoFocus={handleOpenAutoFocus}
       onEscapeKeydown={handleEscapeKeydown}
       onCloseAutoFocus={(event) => event.preventDefault()}
     >
       <AlertDialog.Title
         level={2}
-        class="text-[clamp(1.25rem,3vw,1.55rem)] font-black"
+        class="text-[1.45rem] leading-[1.1] [@media(max-width:760px)]:text-xl"
       >
         予算期間の境界を変更しますか？
       </AlertDialog.Title>
@@ -75,6 +73,7 @@
       <div class="period-boundary-actions">
         <AlertDialog.Cancel
           type="button"
+          class="[@media(max-width:760px)]:h-auto [@media(max-width:760px)]:min-h-12"
           bind:ref={cancelButton}
           disabled={confirmSaving}
         >
@@ -82,6 +81,7 @@
         </AlertDialog.Cancel>
         <AlertDialog.Action
           type="button"
+          class="[@media(max-width:760px)]:h-auto [@media(max-width:760px)]:min-h-12"
           disabled={confirmSaving}
           aria-busy={confirmSaving}
           onclick={confirm}
@@ -173,10 +173,12 @@
       transform: rotate(90deg);
       width: min-content;
     }
+  }
 
+  @media (max-width: 760px) {
     .period-boundary-actions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>

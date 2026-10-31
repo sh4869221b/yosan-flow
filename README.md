@@ -40,13 +40,19 @@ Preflight の標準 reset を採用し、行間・box sizing・フォームの�
 テーマと reset を維持します。トークン対応表、所有範囲、表示・生成 CSS の確認方法は
 [Styling migration](CONTRIBUTING.md#styling-migration) を参照してください。
 
-基本UIは `src/lib/components/ui` の shadcn-svelte 由来のプロジェクト所有コードです。
+共通UIは `src/lib/components/ui` の shadcn-svelte 由来のプロジェクト所有コードです。
 Button / Input / Textarea / Label / Native Select / Card を使い、業務状態や API 操作は
 既存のフォームと controller が所有します。期間切替は native `<select>` のままです。
 配置先は `components.json`、取得元・CLI・生成時のハッシュは
 [`tooling/shadcn/source.json`](tooling/shadcn/source.json) に記録しています。
 更新時は [Basic UI maintenance](CONTRIBUTING.md#basic-ui-maintenance) に従い、
 生成コードとローカル変更を比較してください。
+
+Bits UI は `ui/**` 内部の依存として保持し、業務コンポーネントは共通UIを経由します。
+Dialog / AlertDialog と期間範囲カレンダーもこの境界に含みます。業務側に残る scoped CSS は
+画面配置、入力グループ、履歴や予算の状態表示を所有します。共通部品の表面や入力の基本スタイルを
+画面側から重ねて定義せず、トークン、共通部品、業務側の所有範囲を
+[Styling migration](CONTRIBUTING.md#styling-migration) に沿って変更してください。
 
 ## セットアップ（ローカル）
 
@@ -68,9 +74,9 @@ pnpm dev
 モバイル表示では、カレンダー下の「期間の日付や予算を変更する」「次の予算期間を作成する」を押すと、日次入力と同じシートが開きます。「閉じる」または Escape キーで閉じられ、入力途中の値は保持されます。PC 表示では、これまでどおり画面内でフォームを開閉します。
 
 日次入力とモバイルシートは `ui/dialog`、期間境界確認は `ui/alert-dialog` の
-shadcn-svelte 由来の共通部品を使います。760px 以下の日次入力・期間設定・作成は
-下端シート、761px 以上の期間設定・作成は `details` です。期間境界確認はモバイルでも
-中央に表示します。日次入力の保存中制御や閉鎖後のフォーカスは
+shadcn-svelte 由来の共通部品を使います。760px 以下の日次入力・期間設定・作成・
+期間境界確認は下端シート、761px 以上の期間設定・作成は `details` です。
+日次入力の保存中制御や閉鎖後のフォーカスは
 既存の画面側が管理します。取得記録は
 [`tooling/shadcn/dialog-source.json`](tooling/shadcn/dialog-source.json)、
 更新時の注意点は [Dialog UI maintenance](CONTRIBUTING.md#dialog-ui-maintenance) を参照してください。

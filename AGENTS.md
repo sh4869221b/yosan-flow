@@ -80,6 +80,13 @@ Before editing, read `README.md`, `CONTRIBUTING.md`, and every deeper `AGENTS.md
 - `.svelte.ts` dashboard modules own rune state; ordinary `.ts` modules own Effect flows, trackers, reconciliation, and pure helpers.
 - Code is primarily English; Japanese is used for product text and nearby user-facing documentation.
 
+## Styling and Shared UI
+
+- `src/app.css` owns semantic tokens, Tailwind aliases and the complete Preflight reset. Keep the existing light palette and use shared semantic roles before adding tokens; the inventory and addition policy are in `CONTRIBUTING.md` → Styling migration.
+- `src/lib/components/ui/**` contains project-owned shadcn-svelte components. Business components use this boundary; direct `bits-ui` imports belong only inside `ui/**`. Bits UI remains an internal dependency.
+- Shared UI owns primitive controls/surfaces. Scoped business CSS owns feature layout, input groups and budget/history state; remove superseded primitive declarations and their responsive/state variants when adopting utilities.
+- Preserve acquisition manifests in `tooling/shadcn/` and compare upstream output plus documented local adaptations in a disposable directory. Do not run shadcn `init` or overwrite the application theme, Button or dependency tree with generated files.
+
 ## Dependency and Tool Versions
 
 - Read version definitions from the current checkout before installing dependencies or running checks; do not copy version numbers into AGENTS.md or setup documentation, since Renovate updates the definitions.

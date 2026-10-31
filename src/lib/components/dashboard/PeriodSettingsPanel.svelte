@@ -23,7 +23,6 @@
 
 <ResponsiveActionPanel
   title="期間の日付や予算を変更する"
-  description="現在の期間の予算と日付を変更できます。"
   sheetTestId="period-settings-sheet"
   bind:open={budgetVisible}
 >

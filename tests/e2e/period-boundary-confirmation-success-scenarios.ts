@@ -18,6 +18,93 @@ import {
   target,
 } from "./period-boundary-confirmation-helpers";
 
+test("fits and scrolls the boundary sheet across viewport sizes", async ({
+  page,
+  request,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await seedBoundaryPair(request);
+  await gotoTarget(page);
+  await proposeBoundaryChange(page);
+  const dialog = page.getByRole("alertdialog");
+  const cancel = dialog.getByRole("button", { name: "キャンセル" });
+  const confirm = dialog.getByRole("button", { name: "変更する" });
+  await expect(cancel).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath("boundary-390.png") });
+
+  for (const width of [375, 760, 761, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    const bounds = await dialog.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (!bounds) throw new Error("Missing boundary sheet");
+    if (width <= 760) {
+      expect(bounds.x).toBeCloseTo(0, 0);
+      expect(bounds.width).toBeCloseTo(width, 0);
+      expect(bounds.y + bounds.height).toBeCloseTo(844, 0);
+    } else {
+      expect(bounds.x + bounds.width / 2).toBeCloseTo(width / 2, 0);
+      expect(bounds.y + bounds.height / 2).toBeCloseTo(422, 0);
+    }
+  }
+
+  await page.setViewportSize({ width: 320, height: 568 });
+  expect(
+    await dialog.evaluate(
+      (element) => element.scrollHeight > element.clientHeight,
+    ),
+  ).toBe(true);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <= innerWidth &&
+        document.body.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  expect(
+    await dialog.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  const title = dialog.getByRole("heading", {
+    name: "予算期間の境界を変更しますか？",
+  });
+  const changes = dialog.getByText("前の期間（編集中）", { exact: true });
+  for (const element of [cancel, title, changes, confirm]) {
+    await element.scrollIntoViewIfNeeded();
+    const within = await element.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      const sheet = node
+        .closest('[role="alertdialog"]')!
+        .getBoundingClientRect();
+      return (
+        rect.top >= sheet.top &&
+        rect.bottom <= sheet.bottom &&
+        rect.left >= 0 &&
+        rect.right <= innerWidth
+      );
+    });
+    expect(within).toBe(true);
+  }
+  const buttons = await Promise.all([
+    cancel.boundingBox(),
+    confirm.boundingBox(),
+  ]);
+  expect(buttons[0]!.width).toBeCloseTo(buttons[1]!.width, 0);
+  expect(buttons[0]!.height).toBeGreaterThanOrEqual(48);
+  expect(buttons[1]!.height).toBeGreaterThanOrEqual(48);
+  expect(buttons[0]!.y).toBeLessThan(buttons[1]!.y);
+  await page.screenshot({
+    path: testInfo.outputPath("boundary-320-bottom.png"),
+  });
+  await cancel.click();
+  await expect(dialog).toHaveCount(0);
+  await assertUnchangedPair(request);
+  await proposeBoundaryChange(page);
+  await confirm.click();
+  await expect(dialog).toHaveCount(0);
+  await assertUpdatedPair(request);
+});
+
 test("shows an accessible boundary confirmation and cancels without writing", async ({
   page,
   request,

@@ -122,7 +122,6 @@
   {#if isOpen}
     <Dialog.Content
       class="day-entry-content"
-      overlayClass="dashboard-dialog-overlay day-entry-overlay"
       data-testid="day-entry-modal"
       onOpenAutoFocus={handleOpenAutoFocus}
       onCloseAutoFocus={handleCloseAutoFocus}
@@ -134,7 +133,6 @@
           <ClipboardList size={24} strokeWidth={2.4} />
         </span>
         <div>
-          <p class="eyebrow">Step 2</p>
           <Dialog.Title
             level={2}
             tabindex={-1}
@@ -148,10 +146,6 @@
           </Dialog.Title>
         </div>
       </div>
-      <Dialog.Description>
-        入力額とメモを入力して保存します。
-      </Dialog.Description>
-
       {#if isPlanned}
         <p class="planned-note">予定支出として登録されます。</p>
       {/if}
