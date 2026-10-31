@@ -294,8 +294,9 @@ Current local changes and contracts:
   with the application's `MediaQuery` at the boundary.
 - The surface class constant is shared locally by Dialog and AlertDialog.
   Overlay/content layers are 50/51 and 60/61 respectively, so a boundary alert
-  remains above an open settings sheet. AlertDialog stays centered on mobile.
-- Title/Description styles use existing tokens. Action/Cancel use the existing
+  remains above an open settings sheet. Both use the same mobile bottom sheet
+  layout.
+- Title and AlertDialog Description styles use existing tokens. Action/Cancel use the existing
   `buttonVariants` from `ui/button/button.svelte`, merged through `cn`; Action
   does not close before the controlled confirmation finishes. Cancel receives
   initial focus, and caller-owned close autofocus remains authoritative.

@@ -8,7 +8,6 @@
 
   type Props = {
     title: string;
-    description: string;
     open?: boolean;
     testId?: string;
     sheetTestId: string;
@@ -20,7 +19,6 @@
 
   let {
     title,
-    description,
     open = $bindable(false),
     testId,
     sheetTestId,
@@ -99,9 +97,6 @@
             )}>閉じる</Dialog.Close
           >
         </div>
-        <Dialog.Description>
-          {description}
-        </Dialog.Description>
         <div data-testid={testId}>
           {@render children()}
         </div>
