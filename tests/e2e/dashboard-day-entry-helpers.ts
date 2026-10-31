@@ -103,9 +103,7 @@ export async function openDayEntryAndWaitForHistory({
     `Initial day-entry history request failed with HTTP ${response.status()}: ${response.url()}`,
   ).toBe(true);
   await expect(modal.getByText("履歴を読み込み中...")).toBeHidden();
-  await expect(
-    modal.getByText("入力を保存すると履歴が表示されます。"),
-  ).toBeVisible();
+  await expect(modal.getByText("履歴はまだありません。")).toBeVisible();
   return modal;
 }
 

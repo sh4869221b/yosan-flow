@@ -193,7 +193,5 @@ test("keeps a new period history load after an old period edit settles", async (
   expect((await futureHistoryDelivered).ok()).toBe(true);
   await expect(modal).toContainText(`対象日: ${futureStartDate}`);
   await expect(modal.getByText("履歴を読み込み中...")).toBeHidden();
-  await expect(
-    modal.getByText("入力を保存すると履歴が表示されます。"),
-  ).toBeVisible();
+  await expect(modal.getByText("履歴はまだありません。")).toBeVisible();
 });

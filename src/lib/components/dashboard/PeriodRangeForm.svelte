@@ -274,9 +274,6 @@
       最新の期間が変更されました。最新の期間に戻してから編集してください。
     </p>
   {/if}
-  <p class="notice">
-    関連付けられた連続する期間の境界を変更する場合は、保存前に両方の期間を確認できます。
-  </p>
   <p class="notice">変更する期間</p>
   <PeriodRangePicker
     value={range.draft}
@@ -331,22 +328,6 @@
     font-size: 1.25rem;
     font-weight: 700;
     margin: 1rem 0 0;
-  }
-  form {
-    display: grid;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-  }
-  p {
-    margin: 0;
-  }
-  .context {
-    color: #4d4036;
-    overflow-wrap: anywhere;
-  }
-  .notice {
-    color: #4d4036;
-    font-weight: 700;
   }
   .confirmation-error {
     display: grid;
