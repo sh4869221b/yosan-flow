@@ -410,7 +410,6 @@
   {:else if histories.length === 0}
     <div class="empty-history">
       <p>履歴はまだありません。</p>
-      <small>入力を保存すると履歴が表示されます。</small>
     </div>
   {/if}
   {#if histories.length > 0}
@@ -484,8 +483,7 @@
   }
 
   .history-heading p,
-  .status,
-  small {
+  .status {
     color: var(--muted-foreground);
     font-size: 0.84rem;
   }

@@ -226,15 +226,11 @@
             <CalendarDays size={25} strokeWidth={2.4} />
           </span>
           <div class="min-w-0 flex-1">
-            <p class="text-xs font-extrabold text-primary uppercase">Step 1</p>
             <h2
               class="text-[clamp(1.25rem,2vw,1.55rem)] leading-tight font-bold max-[760px]:text-base"
             >
-              カレンダーの日付を選んで入力
+              日別の支出
             </h2>
-            <p class="mt-1.5 text-muted-foreground max-[760px]:hidden">
-              日付を押すと、その日の入力と履歴をまとめて確認できます。
-            </p>
           </div>
         </div>
       </Card.Header>
@@ -283,7 +279,6 @@
           >
             <CalendarDays size={25} strokeWidth={2.4} />
           </span>
-          <p class="text-xs font-extrabold text-primary uppercase">Step 1</p>
           <h1
             id="empty-period-heading"
             class="text-[clamp(1.25rem,2vw,1.55rem)] font-bold"
@@ -291,9 +286,6 @@
           >
             最初の予算期間を作成
           </h1>
-          <p class="text-muted-foreground">
-            まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。
-          </p>
         </Card.Header>
         <Card.Content>
           <CreatePeriodPanel
@@ -363,7 +355,6 @@
         bind:this={additionalCreatePanel}
         bind:open={additionalCreateOpen}
         title="次の予算期間を作成する"
-        description="今の期間が終わった後の期間を追加します。"
         testId="create-period-panel"
         sheetTestId="create-period-sheet"
         onClose={() => {

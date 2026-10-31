@@ -53,6 +53,54 @@ export default defineConfig(
     },
   },
   {
+    files: ["src/**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,svelte}"],
+    ignores: ["src/lib/components/ui/**"],
+    rules: {
+      // Acquired UI owns Bits UI primitives; feature code uses those adapters.
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^bits-ui(?:/|$)",
+              caseSensitive: true,
+              message:
+                "Use the shared components in #lib/components/ui instead.",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            ":matches(ImportExpression, TSImportType)[source.value=/^bits-ui($|\\x2f)/]",
+          message: "Bits UI imports belong only in src/lib/components/ui/**.",
+        },
+        {
+          selector:
+            "ImportExpression > TemplateLiteral.source[expressions.length=0] > TemplateElement[value.cooked=/^bits-ui($|\\x2f)/]",
+          message: "Bits UI imports belong only in src/lib/components/ui/**.",
+        },
+        {
+          selector:
+            "CallExpression[callee.name='require'] > Literal.arguments[value=/^bits-ui($|\\x2f)/]",
+          message: "Bits UI imports belong only in src/lib/components/ui/**.",
+        },
+        {
+          selector:
+            "CallExpression[callee.name='require'] > TemplateLiteral.arguments[expressions.length=0] > TemplateElement[value.cooked=/^bits-ui($|\\x2f)/]",
+          message: "Bits UI imports belong only in src/lib/components/ui/**.",
+        },
+        {
+          selector:
+            ":matches(ImportExpression > TemplateLiteral.source, CallExpression[callee.name='require'] > TemplateLiteral.arguments)[expressions.length>0] > TemplateElement:first-child[value.cooked=/^bits-ui\\x2f/]",
+          message: "Bits UI imports belong only in src/lib/components/ui/**.",
+        },
+      ],
+    },
+  },
+  {
     files: [
       "eslint.config.js",
       "vite.config.ts",
