@@ -158,11 +158,6 @@
   </section>
 {:else}
   <form onsubmit={submit} aria-busy={busy} novalidate>
-    {#if variant === "secondary-action"}
-      <p>
-        今の期間が終わった後の期間を追加します。開始日は前期間の翌日が基本です。
-      </p>
-    {/if}
     <h2>期間設定</h2>
     <PeriodRangePicker
       value={range}

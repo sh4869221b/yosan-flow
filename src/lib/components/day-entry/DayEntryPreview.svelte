@@ -27,7 +27,6 @@
     </span>
     <span class="summary-label">変更前</span>
     <strong>{formatYen(currentUsedYen)} 円</strong>
-    <small>入力済みの金額</small>
   </div>
   <div class="summary-item">
     <span class="summary-icon green" aria-hidden="true">
@@ -35,7 +34,6 @@
     </span>
     <span class="summary-label">変更後</span>
     <strong>{formatYen(previewAfterYen)} 円</strong>
-    <small>この操作後の金額</small>
   </div>
   {#if previewRemainingYen != null}
     <div class="summary-item">
@@ -44,7 +42,6 @@
       </span>
       <span class="summary-label">期間残額</span>
       <strong>{formatYen(previewRemainingYen)} 円</strong>
-      <small>操作後の残り予算</small>
     </div>
   {/if}
 </div>
@@ -78,7 +75,7 @@
     border-radius: 999px;
     display: inline-flex;
     flex: 0 0 auto;
-    grid-row: 1 / 4;
+    grid-row: 1 / 3;
     height: 2.3rem;
     justify-content: center;
     width: 2.3rem;
@@ -94,8 +91,7 @@
     color: #397d3d;
   }
 
-  .summary-label,
-  small {
+  .summary-label {
     color: #76675b;
     font-size: 0.78rem;
     font-weight: 800;

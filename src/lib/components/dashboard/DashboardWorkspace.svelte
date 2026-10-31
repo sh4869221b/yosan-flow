@@ -203,11 +203,7 @@
       <span class="heading-icon" aria-hidden="true">
         <CalendarDays size={25} strokeWidth={2.4} />
       </span>
-      <p class="eyebrow">Step 1</p>
       <h1 id="empty-period-heading" tabindex="-1">最初の予算期間を作成</h1>
-      <p>
-        まずは使う期間と総予算を決めます。作成後はカレンダーの日付を押して支出を入力できます。
-      </p>
       <CreatePeriodPanel
         variant="empty-state"
         {controller}
@@ -253,9 +249,7 @@
             <CalendarDays size={25} strokeWidth={2.4} />
           </span>
           <div>
-            <p class="eyebrow">Step 1</p>
-            <h2>カレンダーの日付を選んで入力</h2>
-            <p>日付を押すと、その日の入力と履歴をまとめて確認できます。</p>
+            <h2>日別の支出</h2>
           </div>
         </div>
 
@@ -349,10 +343,6 @@
     padding: 1.15rem 1.25rem;
   }
 
-  .empty-state p {
-    color: #76675b;
-  }
-
   #period-settings-heading,
   #period-calendar-heading {
     height: 1px;
@@ -420,23 +410,6 @@
     margin: 0;
   }
 
-  .workspace-heading p {
-    color: #76675b;
-    margin: 0;
-  }
-
-  .workspace-heading div > p:not(.eyebrow) {
-    margin-top: 0.35rem;
-  }
-
-  .eyebrow {
-    color: #357b3d;
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0;
-    text-transform: uppercase;
-  }
-
   .secondary-actions {
     display: grid;
     gap: 0.75rem;
@@ -463,10 +436,6 @@
     .workspace-heading h2 {
       font-size: 1.05rem;
       line-height: 1.25;
-    }
-
-    .workspace-heading div > p:not(.eyebrow) {
-      display: none;
     }
   }
 </style>

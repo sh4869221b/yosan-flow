@@ -1,5 +1,6 @@
 <script lang="ts">
   import { AlertDialog } from "bits-ui";
+  import "$lib/components/dialog-sheet.css";
   import type { PeriodBoundaryUpdateProposal } from "$lib/dashboard/period-update-api";
 
   type Props = {
@@ -29,17 +30,17 @@
 <AlertDialog.Root open={proposal != null} onOpenChange={handleOpenChange}>
   {#if proposal}
     <AlertDialog.Portal>
-      <AlertDialog.Overlay class="period-boundary-overlay" />
+      <AlertDialog.Overlay class="sheet-overlay" />
       <AlertDialog.Content
-        class="period-boundary-content"
+        class="sheet-content period-boundary-content"
         onOpenAutoFocus={handleOpenAutoFocus}
         onEscapeKeydown={handleEscapeKeydown}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
-        <AlertDialog.Title level={2}>
+        <AlertDialog.Title class="sheet-title" level={2}>
           予算期間の境界を変更しますか？
         </AlertDialog.Title>
-        <AlertDialog.Description>
+        <AlertDialog.Description class="boundary-description">
           この変更により、後続の予算期間の開始日も変更されます。内容を確認してください。
         </AlertDialog.Description>
 
@@ -66,7 +67,7 @@
           {/each}
         </dl>
 
-        <div class="period-boundary-actions">
+        <div class="sheet-actions period-boundary-actions">
           <AlertDialog.Cancel bind:ref={cancelButton} disabled={confirmSaving}>
             キャンセル
           </AlertDialog.Cancel>
@@ -84,42 +85,7 @@
 </AlertDialog.Root>
 
 <style>
-  :global(.period-boundary-overlay) {
-    background: rgba(47, 34, 25, 0.56);
-    inset: 0;
-    position: fixed;
-    z-index: 50;
-  }
-
-  :global(.period-boundary-content) {
-    background: #fffdf8;
-    border: 1px solid #d8cdbf;
-    border-radius: 14px;
-    box-shadow: 0 24px 80px rgba(51, 38, 26, 0.24);
-    box-sizing: border-box;
-    color: #2f2219;
-    display: grid;
-    gap: 1rem;
-    left: 50%;
-    max-height: calc(100dvh - 2rem);
-    max-width: min(36rem, calc(100vw - 2rem));
-    overflow-y: auto;
-    padding: 1.5rem;
-    position: fixed;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
-    z-index: 51;
-  }
-
-  :global(.period-boundary-content [data-dialog-title]) {
-    font-size: clamp(1.25rem, 3vw, 1.55rem);
-    font-weight: 900;
-    line-height: 1.3;
-    margin: 0;
-  }
-
-  :global(.period-boundary-content [data-dialog-description]) {
+  :global(.boundary-description) {
     color: #67584c;
     line-height: 1.7;
     margin: 0;
@@ -179,8 +145,6 @@
   }
 
   .period-boundary-actions {
-    display: flex;
-    gap: 0.75rem;
     justify-content: flex-end;
   }
 
@@ -215,13 +179,6 @@
   }
 
   @media (max-width: 520px) {
-    :global(.period-boundary-content) {
-      border-radius: 18px;
-      max-height: calc(100dvh - 1.5rem);
-      max-width: calc(100vw - 1.5rem);
-      padding: 1.1rem;
-    }
-
     .ranges {
       align-items: start;
       grid-template-columns: 1fr;
@@ -230,11 +187,6 @@
     .arrow {
       transform: rotate(90deg);
       width: min-content;
-    }
-
-    .period-boundary-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
     }
   }
 </style>

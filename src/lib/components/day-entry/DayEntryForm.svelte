@@ -126,7 +126,7 @@
     {@render preview()}
   {/if}
 
-  <div class="actions">
+  <div class="sheet-actions actions">
     <button
       class="secondary-button"
       type="button"
@@ -236,12 +236,6 @@
     resize: vertical;
   }
 
-  .actions {
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  }
-
   button {
     align-items: center;
     border-radius: 8px;
@@ -271,9 +265,10 @@
     color: #2f2219;
   }
 
-  @media (max-width: 760px) {
+  @media (min-width: 761px) {
     .actions {
-      grid-template-columns: 1fr;
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
     }
   }
 </style>

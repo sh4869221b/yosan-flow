@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ClipboardList } from "@lucide/svelte";
   import { Dialog } from "bits-ui";
+  import "./dialog-sheet.css";
   import "./day-entry-modal.css";
   import DayEntryPreview from "$lib/components/day-entry/DayEntryPreview.svelte";
   import DayEntryForm from "$lib/components/day-entry/DayEntryForm.svelte";
@@ -121,9 +122,9 @@
 <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
   {#if isOpen}
     <Dialog.Portal>
-      <Dialog.Overlay class="day-entry-overlay" />
+      <Dialog.Overlay class="sheet-overlay" />
       <Dialog.Content
-        class="day-entry-content"
+        class="sheet-content day-entry-content"
         data-testid="day-entry-modal"
         onOpenAutoFocus={handleOpenAutoFocus}
         onCloseAutoFocus={handleCloseAutoFocus}
@@ -135,8 +136,12 @@
             <ClipboardList size={24} strokeWidth={2.4} />
           </span>
           <div>
-            <p class="eyebrow">Step 2</p>
-            <Dialog.Title level={2} tabindex={-1} bind:ref={dialogTitle}>
+            <Dialog.Title
+              class="sheet-title"
+              level={2}
+              tabindex={-1}
+              bind:ref={dialogTitle}
+            >
               日次入力
               {#if date}
                 <span class="target-date">対象日: {date}</span>
@@ -144,10 +149,6 @@
             </Dialog.Title>
           </div>
         </div>
-        <Dialog.Description>
-          入力額とメモを入力して保存します。
-        </Dialog.Description>
-
         {#if isPlanned}
           <p class="planned-note">予定支出として登録されます。</p>
         {/if}

@@ -79,9 +79,7 @@ test("preserves a newer failed modal when an older successful save finishes", as
   ]);
   await expect(modal).toContainText(`対象日: ${secondDate}`);
   await expect(modal.getByRole("button", { name: "保存する" })).toBeEnabled();
-  await expect(
-    modal.getByText("入力を保存すると履歴が表示されます。"),
-  ).toBeVisible();
+  await expect(modal.getByText("履歴はまだありません。")).toBeVisible();
   await page.route(newAddUrl, async (route) => {
     await route.fulfill({
       status: 503,
@@ -119,9 +117,7 @@ test("preserves a newer failed modal when an older successful save finishes", as
   await expect(modal.getByLabel("入力額 (円)")).toHaveValue("3100");
   await expect(modal.getByLabel("メモ")).toHaveValue("newer failed session");
   await expect(modal.getByRole("button", { name: "保存する" })).toBeEnabled();
-  await expect(
-    modal.getByText("入力を保存すると履歴が表示されます。"),
-  ).toBeVisible();
+  await expect(modal.getByText("履歴はまだありません。")).toBeVisible();
   await expect(modal.getByText("old successful session")).toHaveCount(0);
   expect(intercepted).toBe(1);
   expect(released).toBe(1);
