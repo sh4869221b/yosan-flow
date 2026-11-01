@@ -40,7 +40,7 @@
     "@sveltejs/kit": "^3.1.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^5.0.5",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.13.0",
@@ -56,11 +56,11 @@
     "typescript-eslint": "^8.72.1",
     "vite": "^8.3.5",
     "vitest": "^5.0.5",
-    "wrangler": "^4.154.0"
+    "wrangler": "^4.156.0"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.4",
-    "@lucide/svelte": "^1.62.0",
+    "@lucide/svelte": "^1.64.0",
     "bits-ui": "^2.20.2",
     "cn": "^0.5.0",
     "drizzle-orm": "^0.45.4",
