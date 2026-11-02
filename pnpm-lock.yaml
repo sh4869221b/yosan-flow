@@ -182,8 +182,8 @@ importers:
         specifier: ^0.45.4
         version: 0.45.4(@cloudflare/workers-types@5.20261026.1)
       effect:
-        specifier: ^4.1.0
-        version: 4.1.0
+        specifier: ^4.1.1
+        version: 4.1.1
       tailwind-variants:
         specifier: ^4.0.0
         version: 4.0.0
@@ -1793,8 +1793,8 @@ packages:
       sqlite3:
         optional: true
 
-  effect@4.1.0:
-    resolution: {integrity: sha512-lGx2MJJyrXA8RZb2UpQ/0Nkb5Utaimby7oD92+18noBxLPE85IFOvptdzau8dvcxAOwfwHo9iqapbKeFzqQM/Q==}
+  effect@4.1.1:
+    resolution: {integrity: sha512-XYu65BrcmNqu5i7PPvP4dqL+R5ma37zIsfuSPjcn78mog+6e5PkilNg7Xo+pBpjXJYlWEIpH4j91tMrfW05CMw==}
 
   enhanced-resolve@5.26.0:
     resolution: {integrity: sha512-9vhedylFonb2YGogzUKX6+Ja72gOJbN1QHAqdrvqLwhdl/QWbKopzoUC9EbQNVsAns/bx/4uyqalrQAoy1IByw==}
@@ -3691,7 +3691,7 @@ snapshots:
     optionalDependencies:
       '@cloudflare/workers-types': 5.20261026.1
 
-  effect@4.1.0: {}
+  effect@4.1.1: {}
 
   enhanced-resolve@5.26.0:
     dependencies:
