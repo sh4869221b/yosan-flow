@@ -112,11 +112,6 @@
         "count": 2
       }
     },
-    "src/lib/server/services/period-summary/period-summary-calculator.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "src/routes/+page.svelte": {
       "crap_high": {
         "count": 1

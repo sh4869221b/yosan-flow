@@ -1,5 +1,8 @@
 import { Effect } from "effect";
-import type { BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
+import type {
+  BudgetPeriodRecord,
+  BudgetPeriodRepository,
+} from "#lib/server/db/budget-period-repository.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
 import { getJstDateParts } from "#lib/server/time/jst-format.ts";
 import { buildDailyTotalMap } from "./daily-totals";
@@ -7,7 +10,7 @@ import { buildDateRange } from "./date-range";
 import { buildFoodPaceSummary, type FoodPaceSummary } from "./food-pace";
 import { buildFoodPaceRecommendations } from "./recommendations";
 
-class PeriodNotFoundError extends Error {
+export class PeriodNotFoundError extends Error {
   readonly code = "PERIOD_NOT_FOUND";
 
   constructor(periodId: string) {
@@ -64,83 +67,90 @@ export function buildPeriodSummary(
       return yield* Effect.fail(new PeriodNotFoundError(periodId));
     }
 
-    const jstToday = options.jstToday ?? getJstDateParts(new Date()).date;
-    const dailyTotals = options.dailyTotals ?? [];
-    const dailyTotalsByDate = buildDailyTotalMap(
-      period.id,
-      period.startDate,
-      period.endDate,
-      dailyTotals,
-    );
-    const periodDates = buildDateRange(period.startDate, period.endDate);
-    const periodLengthDays = periodDates.length;
-    let plannedTotalYen = 0;
-    let spentToDateYen = 0;
-    let spentBeforeTodayYen = 0;
-    for (const [date, totalUsedYen] of dailyTotalsByDate) {
-      plannedTotalYen += totalUsedYen;
-      if (date <= jstToday) spentToDateYen += totalUsedYen;
-      if (date < jstToday) spentBeforeTodayYen += totalUsedYen;
-    }
-    const usedTodayYen = dailyTotalsByDate.get(jstToday) ?? 0;
-    const remainingAtTodayYen = period.budgetYen - spentBeforeTodayYen;
-    const isTodayWithinPeriod = isDateWithinPeriod(
-      jstToday,
-      period.startDate,
-      period.endDate,
-    );
-    const remainingDates =
-      jstToday < period.startDate
-        ? periodDates
-        : jstToday > period.endDate
-          ? []
-          : buildDateRange(jstToday, period.endDate);
-    const paceDates = isTodayWithinPeriod ? remainingDates : [];
-
-    const remainingYen = period.budgetYen - plannedTotalYen;
-    const overspentYen = remainingYen < 0 ? Math.abs(remainingYen) : 0;
-    const foodPace = buildFoodPaceSummary({
-      budgetYen: period.budgetYen,
-      periodLengthDays,
-      spentBeforeTodayYen,
-      usedTodayYen,
-      remainingDates: paceDates,
-    });
-    const recommendations = buildFoodPaceRecommendations({
-      foodPace,
-      remainingAtTodayYen,
-      remainingDates,
-    });
-    const recommendationMap = new Map(
-      recommendations.map((row) => [row.date, row.recommendedYen]),
-    );
-    const dailyRows: PeriodDailyRow[] = periodDates.map((date) => ({
-      date,
-      label: date === jstToday ? "today" : "planned",
-      usedYen: dailyTotalsByDate.get(date) ?? 0,
-      recommendedYen: recommendationMap.get(date) ?? 0,
-    }));
-    const todayRecommendedYen = recommendationMap.get(jstToday) ?? 0;
-    const varianceFromRecommendationYen = usedTodayYen - todayRecommendedYen;
-    const remainingAfterDayYenPreview = remainingAtTodayYen - usedTodayYen;
-
-    return {
-      periodId: period.id,
-      startDate: period.startDate,
-      endDate: period.endDate,
-      budgetYen: period.budgetYen,
-      status: period.status,
-      periodLengthDays,
-      spentToDateYen,
-      plannedTotalYen,
-      remainingYen,
-      overspentYen,
-      todayRecommendedYen,
-      varianceFromRecommendationYen,
-      remainingAfterDayYenPreview,
-      daysRemaining: remainingDates.length,
-      foodPace,
-      dailyRows,
-    };
+    return calculatePeriodSummary(period, options);
   });
+}
+
+export function calculatePeriodSummary(
+  period: BudgetPeriodRecord,
+  options: BuildPeriodSummaryOptions = {},
+): PeriodSummary {
+  const jstToday = options.jstToday ?? getJstDateParts(new Date()).date;
+  const dailyTotals = options.dailyTotals ?? [];
+  const dailyTotalsByDate = buildDailyTotalMap(
+    period.id,
+    period.startDate,
+    period.endDate,
+    dailyTotals,
+  );
+  const periodDates = buildDateRange(period.startDate, period.endDate);
+  const periodLengthDays = periodDates.length;
+  let plannedTotalYen = 0;
+  let spentToDateYen = 0;
+  let spentBeforeTodayYen = 0;
+  for (const [date, totalUsedYen] of dailyTotalsByDate) {
+    plannedTotalYen += totalUsedYen;
+    if (date <= jstToday) spentToDateYen += totalUsedYen;
+    if (date < jstToday) spentBeforeTodayYen += totalUsedYen;
+  }
+  const usedTodayYen = dailyTotalsByDate.get(jstToday) ?? 0;
+  const remainingAtTodayYen = period.budgetYen - spentBeforeTodayYen;
+  const isTodayWithinPeriod = isDateWithinPeriod(
+    jstToday,
+    period.startDate,
+    period.endDate,
+  );
+  const remainingDates =
+    jstToday < period.startDate
+      ? periodDates
+      : jstToday > period.endDate
+        ? []
+        : buildDateRange(jstToday, period.endDate);
+  const paceDates = isTodayWithinPeriod ? remainingDates : [];
+
+  const remainingYen = period.budgetYen - plannedTotalYen;
+  const overspentYen = remainingYen < 0 ? Math.abs(remainingYen) : 0;
+  const foodPace = buildFoodPaceSummary({
+    budgetYen: period.budgetYen,
+    periodLengthDays,
+    spentBeforeTodayYen,
+    usedTodayYen,
+    remainingDates: paceDates,
+  });
+  const recommendations = buildFoodPaceRecommendations({
+    foodPace,
+    remainingAtTodayYen,
+    remainingDates,
+  });
+  const recommendationMap = new Map(
+    recommendations.map((row) => [row.date, row.recommendedYen]),
+  );
+  const dailyRows: PeriodDailyRow[] = periodDates.map((date) => ({
+    date,
+    label: date === jstToday ? "today" : "planned",
+    usedYen: dailyTotalsByDate.get(date) ?? 0,
+    recommendedYen: recommendationMap.get(date) ?? 0,
+  }));
+  const todayRecommendedYen = recommendationMap.get(jstToday) ?? 0;
+  const varianceFromRecommendationYen = usedTodayYen - todayRecommendedYen;
+  const remainingAfterDayYenPreview = remainingAtTodayYen - usedTodayYen;
+
+  return {
+    periodId: period.id,
+    startDate: period.startDate,
+    endDate: period.endDate,
+    budgetYen: period.budgetYen,
+    status: period.status,
+    periodLengthDays,
+    spentToDateYen,
+    plannedTotalYen,
+    remainingYen,
+    overspentYen,
+    todayRecommendedYen,
+    varianceFromRecommendationYen,
+    remainingAfterDayYenPreview,
+    daysRemaining: remainingDates.length,
+    foodPace,
+    dailyRows,
+  };
 }
