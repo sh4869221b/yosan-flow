@@ -10,7 +10,7 @@ import { seedPeriod } from "./helpers/db";
 configureDashboardDayEntryE2E();
 
 for (const failList of [false, true]) {
-  test(`releases a superseded selection's loading state on resume (list failure: ${failList})`, async ({
+  test(`settles foreground loading before a queued resume (list failure: ${failList})`, async ({
     page,
     request,
   }) => {
@@ -47,16 +47,22 @@ for (const failList of [false, true]) {
         );
       }
       await resumeDashboard(page);
+      // The page defers resume until the foreground selection settles.
+      await expect(select).toBeDisabled();
+      const resumed = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url() === `${getBaseUrl()}/api/periods`,
+      );
+      oldRead.release();
+      await oldRead.finished;
+      await (await resumed).finished();
       await expect(select).toBeEnabled();
-      await expect(select).toHaveValue(periodId);
+      await expect(select).toHaveValue(otherId);
+      await expect(page.getByTestId("period-id")).toContainText(otherId);
       await expect(
         page.getByText("読み込み中...", { exact: true }),
       ).toHaveCount(0);
-      oldRead.release();
-      await oldRead.finished;
-      await expect(select).toBeEnabled();
-      await expect(select).toHaveValue(periodId);
-      await expect(page.getByTestId("period-id")).toContainText(periodId);
     } finally {
       oldRead.release();
     }
