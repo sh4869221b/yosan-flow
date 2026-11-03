@@ -15,6 +15,7 @@ type Dependencies = Pick<
 > & {
   readonly publishSummary: (_summary: PeriodSummary | null) => void;
   readonly setError: (_value: string | null) => void;
+  readonly setLoading: (_value: boolean) => void;
   readonly setPeriods: (_value: PeriodOption[]) => void;
   readonly selectEmpty: () => void;
   readonly refreshSummary: (_periodId: string) => Effect.Effect<void, never>;
@@ -50,6 +51,9 @@ export function createPeriodResumeRefreshEffect(dependencies: Dependencies) {
       (periodId == null || dependencies.summaryRequests.isFresh(request));
 
     return Effect.gen(function* () {
+      // This background request supersedes any foreground read, including its
+      // loading indicator. The old read can no longer clear it through ownership.
+      dependencies.setLoading(false);
       dependencies.setError(null);
       if (request.mutationWasActive && periodId != null) {
         yield* dependencies.summaryRevision.awaitMutationSettlement(

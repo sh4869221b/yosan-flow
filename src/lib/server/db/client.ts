@@ -1,7 +1,6 @@
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
-import { Effect } from "effect";
+import { Effect, Semaphore } from "effect";
 import type { D1Database } from "#lib/server/db/d1-types.ts";
-import { toEffectError } from "#lib/server/effect/runtime.ts";
 import * as schema from "#lib/server/db/schema.ts";
 
 type DatabaseState<P = unknown, D = unknown, H = unknown> = {
@@ -64,38 +63,24 @@ export function createInMemoryDatabaseClient<
     dailyTotals: new Map(),
     dailyOperationHistories: [],
   };
-  let transactionQueue: Promise<void> = Promise.resolve();
+  const transactionSemaphore = Semaphore.makeUnsafe(1);
 
   return {
     transaction<T>(
       work: (tx: DatabaseTransaction<P, D, H>) => Effect.Effect<T, Error>,
     ) {
-      return Effect.gen(function* () {
-        const pending = transactionQueue;
-        let releaseQueue: (() => void) | undefined;
-        transactionQueue = new Promise<void>((resolve) => {
-          releaseQueue = resolve;
-        });
-
-        yield* Effect.tryPromise({
-          try: () => pending,
-          catch: toEffectError,
-        });
-
-        const txState = cloneState(currentState);
-        return yield* work({ state: txState }).pipe(
-          Effect.tap(() =>
-            Effect.sync(() => {
-              currentState = txState;
-            }),
-          ),
-          Effect.ensuring(
-            Effect.sync(() => {
-              releaseQueue?.();
-            }),
-          ),
-        );
-      });
+      return transactionSemaphore.withPermit(
+        Effect.suspend(() => {
+          const txState = cloneState(currentState);
+          return work({ state: txState }).pipe(
+            Effect.tap(() =>
+              Effect.sync(() => {
+                currentState = txState;
+              }),
+            ),
+          );
+        }),
+      );
     },
 
     read<T>(
