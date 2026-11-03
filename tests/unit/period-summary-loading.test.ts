@@ -5,6 +5,7 @@ import { getPeriodSummaryFromServices } from "#lib/server/services/month-summary
 import {
   buildPeriodSummary,
   PeriodNotFoundError,
+  type PeriodSummaryDailyTotal,
 } from "#lib/server/services/period-summary/period-summary-calculator.ts";
 
 async function fixture() {
@@ -51,7 +52,7 @@ describe("period summary loading", () => {
         }),
       );
       const periodRead = pending<typeof period | null>();
-      const totalsRead = pending<typeof totals>();
+      const totalsRead = pending<PeriodSummaryDailyTotal[]>();
       const find = vi
         .spyOn(services.budgetPeriodRepository, "findById")
         .mockReturnValue(periodRead.effect);
@@ -91,9 +92,9 @@ describe("period summary loading", () => {
   );
 
   it("returns a totals failure without waiting for the period read and cancels it", async () => {
-    const { services, period, totals } = await fixture();
+    const { services, period } = await fixture();
     const periodRead = pending<typeof period | null>();
-    const totalsRead = pending<typeof totals>();
+    const totalsRead = pending<PeriodSummaryDailyTotal[]>();
     services.budgetPeriodRepository.findById = () => periodRead.effect;
     services.listDailyTotalsByPeriodId = () => totalsRead.effect;
     const today = vi.spyOn(services, "jstToday");
@@ -151,9 +152,9 @@ describe("period summary loading", () => {
   });
 
   it("finalizes both reads when the summary is interrupted", async () => {
-    const { services, period, totals } = await fixture();
+    const { services, period } = await fixture();
     const periodRead = pending<typeof period | null>();
-    const totalsRead = pending<typeof totals>();
+    const totalsRead = pending<PeriodSummaryDailyTotal[]>();
     services.budgetPeriodRepository.findById = () => periodRead.effect;
     services.listDailyTotalsByPeriodId = () => totalsRead.effect;
     const fiber = Effect.runFork(
