@@ -4,7 +4,10 @@ import {
   fetchPeriodUpdateEffect,
   type PeriodUpdateApiOutcome,
 } from "#lib/dashboard/period-update-api.ts";
-import type { PeriodUpdateDependencies } from "#lib/dashboard/period-controller-update-effect.ts";
+import type {
+  PeriodRefreshCompletion,
+  PeriodUpdateDependencies,
+} from "#lib/dashboard/period-controller-update-effect.ts";
 import type { PendingPeriodUpdateConfirmation } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 
 type Dependencies = PeriodUpdateDependencies & {
@@ -16,8 +19,7 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
   function refresh(): Effect.Effect<void, never> {
     const recovery = state.beginRecovery();
     if (recovery == null) return Effect.void;
-    let accepted = false;
-    let dropped = false;
+    let outcome: Parameters<PeriodRefreshCompletion>[0] = "failed";
     let error = "最新情報の再取得に失敗しました。";
     return dependencies
       .refreshPeriodListEffect(
@@ -26,9 +28,8 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
           error = message;
         },
         undefined,
-        (outcome) => {
-          accepted = outcome === "accepted";
-          dropped = outcome === "dropped";
+        (result) => {
+          outcome = result;
         },
       )
       .pipe(
@@ -41,11 +42,11 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
           Effect.sync(() => {
             if (!state.finishRecovery(recovery)) return;
             state.finishConfirmation();
-            if (dropped) {
+            if (outcome === "dropped") {
               state.completeRecovery();
               return;
             }
-            if (accepted) {
+            if (outcome === "accepted") {
               state.completeRecovery();
               if (!recovery.saved) dependencies.resetRange();
               state.report({

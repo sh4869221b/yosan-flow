@@ -16,7 +16,7 @@
 
 - Routes should import the facade instead of reconstructing service composition.
 - `InMemoryApiServices` is the shared route port despite its legacy name; both D1 and in-memory implementations must preserve its semantics.
-- D1 mutations use the atomic `D1DayEntryWriter`. In-memory mutations use `DayEntryService` plus a serialized promise queue. Preserve this intentional implementation difference and test parity.
+- D1 mutations use the atomic `D1DayEntryWriter`. In-memory mutations use `DayEntryService` plus an Effect semaphore for serialization. Preserve this intentional implementation difference and test parity.
 - `getApiServices()` reads `cloudflare:workers` `env.DB` and caches D1 services per binding with a `WeakMap`. Missing DB fails closed; only an explicit Vite development flag selects the shared in-memory instance.
 - Keep clock and history-ID factories injectable for deterministic tests.
 

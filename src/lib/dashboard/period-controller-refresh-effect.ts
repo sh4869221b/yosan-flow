@@ -37,9 +37,8 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
     background = false,
   ): Effect.Effect<void, never> {
     const request = summaryRequests.start(periodId);
-    const setLoading = background ? () => undefined : dependencies.setLoading;
     return Effect.gen(function* () {
-      setLoading(true);
+      if (!background) dependencies.setLoading(true);
       dependencies.setError(null);
       if (request.mutationWasActive) {
         yield* summaryRevision.awaitMutationSettlement(
@@ -72,8 +71,13 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
           complete?.("accepted");
         } else complete?.("dropped");
       } else complete?.("dropped");
-      if (summaryRequests.owns(request)) setLoading(false);
-    });
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (summaryRequests.owns(request)) dependencies.setLoading(false);
+        }),
+      ),
+    );
   }
 
   function refreshPeriodListEffect(

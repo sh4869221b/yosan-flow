@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Semaphore } from "effect";
 import { createInMemoryDatabaseClient } from "#lib/server/db/client.ts";
 import {
   createInMemoryBudgetPeriodRepository,
@@ -14,7 +14,6 @@ import {
   type DailyTotalRecord,
 } from "#lib/server/db/daily-total-repository.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
-import { toEffectError } from "#lib/server/effect/runtime.ts";
 import {
   DayEntryService,
   PeriodNotFoundError,
@@ -38,30 +37,11 @@ export function createInMemoryApiServices(
   const dailyTotalRepository = createDailyTotalRepository();
   const dailyHistoryRepository = createDailyHistoryRepository();
 
-  let mutationQueue: Promise<void> = Promise.resolve();
+  const mutationSemaphore = Semaphore.makeUnsafe(1);
   function runSerializedEffect<T>(
     work: () => Effect.Effect<T, Error>,
   ): Effect.Effect<T, Error> {
-    return Effect.gen(function* () {
-      const pending = mutationQueue;
-      let releaseQueue: (() => void) | undefined;
-      mutationQueue = new Promise<void>((resolve) => {
-        releaseQueue = resolve;
-      });
-
-      yield* Effect.tryPromise({
-        try: () => pending,
-        catch: toEffectError,
-      });
-
-      return yield* work().pipe(
-        Effect.ensuring(
-          Effect.sync(() => {
-            releaseQueue?.();
-          }),
-        ),
-      );
-    });
+    return mutationSemaphore.withPermit(Effect.suspend(work));
   }
 
   const budgetPeriodRepository = createInMemoryBudgetPeriodRepository([], {
