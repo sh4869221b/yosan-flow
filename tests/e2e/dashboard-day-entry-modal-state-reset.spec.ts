@@ -47,3 +47,32 @@ test("clears history edit state when the modal is closed", async ({
     0,
   );
 });
+
+test("restores unsent amounts and memos after close and Escape", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
+  await modal.getByLabel("入力額 (円)").fill("1234");
+  await modal.getByLabel("メモ").fill("買い物の途中");
+  await modal.getByRole("button", { name: "閉じる" }).click();
+  await expect(modal).toBeHidden();
+  await page.getByTestId(`calendar-day-${todayDate}`).click();
+  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("1234");
+  await expect(modal.getByLabel("メモ")).toHaveValue("買い物の途中");
+  await page.keyboard.press("Escape");
+  await expect(modal).toBeHidden();
+  await page.getByTestId(`calendar-day-${todayDate}`).click();
+  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("1234");
+  await saveDayEntrySuccessfully({ page, modal, periodId, date: todayDate });
+  await page.getByTestId(`calendar-day-${todayDate}`).click();
+  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("");
+  await expect(modal.getByLabel("メモ")).toHaveValue("");
+});

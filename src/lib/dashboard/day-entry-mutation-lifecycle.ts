@@ -53,6 +53,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
 
   function submitEffect(
     payload: SubmitDayEntryPayload,
+    onAccepted: () => void = () => {},
   ): Effect.Effect<void, never> {
     const selectedPeriodId = dependencies.getSelectedPeriodId();
     if (selectedPeriodId == null) return Effect.void;
@@ -113,6 +114,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
                 dependencies.setError(result.failure);
               }
             } else {
+              onAccepted();
               submissionTracker.accept(
                 selectedPeriodId,
                 result.success,
