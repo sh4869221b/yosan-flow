@@ -261,12 +261,20 @@
     }
 
     .date-number {
-      font-size: 0.85rem;
+      font-size: 1rem;
     }
 
-    .used,
+    .used {
+      font-size: 0.75rem;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+      max-width: 100%;
+      line-height: 1.25;
+    }
+
     .hint {
-      font-size: 0.65rem;
+      font-size: 0.7rem;
+      line-height: 1.25;
     }
 
     .empty-cell {

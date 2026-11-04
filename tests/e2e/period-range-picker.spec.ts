@@ -1,3 +1,4 @@
+import { openCreateAdvancedSettings } from "./create-advanced-helpers";
 import { expect, test } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
 import {
@@ -498,6 +499,7 @@ test("create apply preserves raw drafts until valid and reaches both create POST
   await page.getByTestId("initial-period-range-apply").click();
   await initialStart.fill("2026-09-");
   await expect(initialStart).toHaveAttribute("aria-invalid", "false");
+  await openCreateAdvancedSettings(page);
   await initialId.fill("custom-initial-id");
   await initialStart.fill("2026-10-01");
   await page.getByTestId("initial-period-range-end").fill("2026-10-31");
@@ -537,6 +539,7 @@ test("create apply preserves raw drafts until valid and reaches both create POST
   await waitForDashboardReady(page);
   await page.getByText("次の予算期間を作成する").click();
   const additionalId = page.getByLabel("期間ID");
+  await openCreateAdvancedSettings(page);
   await additionalId.fill("custom-additional-id");
   await page.getByTestId("create-period-range-start").fill("2026-10-01");
   await page.getByTestId("create-period-range-end").fill("2026-10-31");

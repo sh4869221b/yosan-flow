@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import { Button } from "#lib/components/ui/button/index.ts";
   import {
     getCalendarNavigationTarget,
     getInitialFocusDate,
@@ -54,6 +55,22 @@
     }
   });
 
+  const hasToday = $derived(
+    today >= startDate && today <= endDate && rowsByDate.has(today),
+  );
+
+  function returnToToday(): void {
+    if (disabled || !hasToday) return;
+    focusedDate = today;
+    void tick().then(() => {
+      const target = calendarElement?.querySelector<HTMLButtonElement>(
+        `[data-testid="calendar-day-${today}"]`,
+      );
+      target?.focus();
+      target?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+  }
+
   function activateDate(payload: { readonly date: string }): void {
     if (disabled || payload.date < startDate || payload.date > endDate) return;
     selectedDate = payload.date;
@@ -88,7 +105,14 @@
   aria-busy={disabled}
   aria-describedby={disabled ? "period-calendar-status" : undefined}
 >
-  <h2>日付を選ぶ</h2>
+  <div class="calendar-heading">
+    <h2>日付を選ぶ</h2>
+    {#if hasToday}
+      <Button type="button" variant="outline" {disabled} onclick={returnToToday}
+        >今日へ戻る</Button
+      >
+    {/if}
+  </div>
   {#if disabled}
     <p id="period-calendar-status" role="status">{disabledReason}</p>
   {/if}
@@ -113,6 +137,14 @@
   section {
     display: grid;
     gap: 0.9rem;
+  }
+
+  .calendar-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
   }
 
   h2 {
