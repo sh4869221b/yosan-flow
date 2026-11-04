@@ -176,10 +176,10 @@ test.describe("independent period operations", () => {
             }),
           ).toBeDisabled();
           await expect(ui.budget).toHaveText(
-            budgetSaving ? "追加中..." : /^(期間を更新|読込中\.\.\.)$/,
+            budgetSaving ? "保存中..." : /^(期間を更新|読込中\.\.\.)$/,
           );
           await expect(ui.range).toHaveText(
-            budgetSaving ? /^(期間を反映|読込中\.\.\.)$/ : "追加中...",
+            budgetSaving ? /^(期間を反映|読込中\.\.\.)$/ : "保存中...",
           );
           await expect(ui.create).toHaveText("期間を作成");
           await expect(page.getByRole("alert")).toHaveCount(0);
