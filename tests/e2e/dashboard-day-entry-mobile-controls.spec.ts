@@ -85,7 +85,9 @@ test("fits and scrolls the entry sheet across viewport sizes", async ({
   await expect(details).not.toHaveAttribute("open", "");
   await details.locator("summary").click();
   await expect(details).toHaveAttribute("open", "");
-  await expect(details.getByText("期間残額", { exact: false })).toBeVisible();
+  await expect(
+    details.locator("p").filter({ hasText: "期間残額" }),
+  ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("entry-320-bottom.png") });
   await close.click();
   await expect(modal).toBeHidden();
