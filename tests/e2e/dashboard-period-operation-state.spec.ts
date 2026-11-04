@@ -176,10 +176,10 @@ test.describe("independent period operations", () => {
             }),
           ).toBeDisabled();
           await expect(ui.budget).toHaveText(
-            budgetSaving ? "保存中..." : /^(期間を更新|読込中\.\.\.)$/,
+            budgetSaving ? "保存中..." : /^(予算を保存|読込中\.\.\.)$/,
           );
           await expect(ui.range).toHaveText(
-            budgetSaving ? /^(期間を反映|読込中\.\.\.)$/ : "保存中...",
+            budgetSaving ? /^(日付を保存|読込中\.\.\.)$/ : "保存中...",
           );
           await expect(ui.create).toHaveText("期間を作成");
           await expect(page.getByRole("alert")).toHaveCount(0);
@@ -190,8 +190,8 @@ test.describe("independent period operations", () => {
         await page.unrouteAll({ behavior: "wait" });
         await updated;
       }
-      await expect(ui.budget).toHaveText("期間を更新");
-      await expect(ui.range).toHaveText("期間を反映");
+      await expect(ui.budget).toHaveText("予算を保存");
+      await expect(ui.range).toHaveText("日付を保存");
       await expect(ui.range).toBeEnabled({ enabled: budgetSaving });
       await expect(ui.create).toBeEnabled();
       await expect(ui.selector).toBeEnabled();
@@ -251,7 +251,7 @@ for (const confirm of [false, true]) {
         .getByRole("status", { includeHidden: true }),
     ).toHaveCount(0);
     await expectManagementDisabled(page);
-    await expect(controls(page).range).toHaveText("期間を反映");
+    await expect(controls(page).range).toHaveText("日付を保存");
     await expect(page.getByRole("alert", { includeHidden: true })).toHaveCount(
       0,
     );

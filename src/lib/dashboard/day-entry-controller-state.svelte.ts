@@ -1,3 +1,4 @@
+import { createDayEntryDraftStore } from "#lib/dashboard/day-entry-draft-store.ts";
 import { Effect } from "effect";
 import { runClientEffect } from "#lib/dashboard/client-effect.ts";
 import { createDayEntryMutationLifecycle } from "#lib/dashboard/day-entry-mutation-lifecycle.ts";
@@ -36,6 +37,8 @@ export function createDayEntryControllerState(
   dependencies: DayEntryControllerDependencies,
   summaryRevision = createPeriodSummaryRevision(),
 ) {
+  const drafts = createDayEntryDraftStore();
+  let draftPeriodId: string | null = null;
   let modalOpen = $state(false);
   let modalSaving = $state(false);
   let modalError = $state<string | null>(null);
@@ -90,6 +93,12 @@ export function createDayEntryControllerState(
     getModalPreviewRecommendedYen(modalPreviewRemainingYen, modalRemainingRows),
   );
 
+  function retainDraft(): void {
+    if (draftPeriodId && selectedDate) {
+      drafts.write(draftPeriodId, selectedDate, modalInputYen, modalMemo);
+    }
+  }
+
   function closeDayEntry(reason: DayEntryCloseReason = "cancel"): void {
     modalOpen = false;
     modalError = null;
@@ -135,6 +144,7 @@ export function createDayEntryControllerState(
     },
     set modalInputYen(value: string) {
       modalInputYen = value;
+      retainDraft();
       daySaveSuccess = null;
     },
     get modalMemo() {
@@ -142,6 +152,7 @@ export function createDayEntryControllerState(
     },
     set modalMemo(value: string) {
       modalMemo = value;
+      retainDraft();
       daySaveSuccess = null;
     },
     get modalPreviewAfterYen() {
@@ -165,15 +176,28 @@ export function createDayEntryControllerState(
       selectedRow = findSummaryRow(summary, selectedDate);
       modalError = null;
       modalOpen = true;
-      modalInputYen = "";
-      modalMemo = "";
+      draftPeriodId = dependencies.getSelectedPeriodId();
+      const draft = draftPeriodId
+        ? drafts.read(draftPeriodId, payload.date)
+        : undefined;
+      modalInputYen = draft?.inputYen ?? "";
+      modalMemo = draft?.memo ?? "";
       dependencies.historyController.resetHistories();
       dependencies.historyController.loadHistory(payload.date);
     },
     closeDayEntry,
     invalidateDaySelection,
     submitDayEntry(payload: SubmitDayEntryPayload): void {
-      runClientEffect(mutationLifecycle.submitEffect(payload));
+      const periodId = draftPeriodId;
+      const submitted = periodId
+        ? drafts.read(periodId, payload.date)
+        : undefined;
+      runClientEffect(
+        mutationLifecycle.submitEffect(payload, () => {
+          if (periodId)
+            drafts.clearSubmitted(periodId, payload.date, submitted);
+        }),
+      );
     },
   };
 }

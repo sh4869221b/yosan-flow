@@ -91,7 +91,7 @@ for (const operation of ["edit", "delete"] as const) {
       periodId,
       date: todayDate,
     });
-    const amount = modal.getByLabel("入力額 (円)");
+    const amount = modal.getByLabel("追加する支出額 (円)");
     await amount.fill("777");
     await modal.getByLabel("メモ").fill("keep this local draft");
     const added = await request.post(`${summaryUrl}/days/${todayDate}/add`, {
@@ -345,7 +345,7 @@ test("a delayed resume history cannot replace the history of a subsequent save a
   try {
     await resume(page);
     await barrier.arrived;
-    await modal.getByLabel("入力額 (円)").fill("2000");
+    await modal.getByLabel("追加する支出額 (円)").fill("2000");
     await modal.getByLabel("メモ").fill("save after resume started");
     await saveDayEntrySuccessfully({ page, modal, periodId, date: todayDate });
     const reopened = waitForResponse(page, historyUrl, "GET");
@@ -354,7 +354,7 @@ test("a delayed resume history cannot replace the history of a subsequent save a
     await expect(modal.locator("li")).toContainText(
       "save after resume started",
     );
-    const amount = modal.getByLabel("入力額 (円)");
+    const amount = modal.getByLabel("追加する支出額 (円)");
     await amount.fill("999");
     await amount.focus();
     barrier.release();
@@ -403,7 +403,7 @@ test("a delayed resume history cannot reopen or change a modal closed and reopen
     await modal.getByRole("button", { name: "閉じる", exact: true }).click();
     await expect(modal).toBeHidden();
     await openDayEntryAndWaitForHistory({ page, periodId, date: otherDate });
-    const amount = modal.getByLabel("入力額 (円)");
+    const amount = modal.getByLabel("追加する支出額 (円)");
     await amount.fill("777");
     await amount.focus();
     barrier.release();
@@ -453,7 +453,7 @@ for (const operation of ["edit", "delete confirmation"] as const) {
     });
     const dayAmount = modal
       .locator(".entry-form")
-      .getByRole("textbox", { name: "入力額 (円)", exact: true });
+      .getByRole("textbox", { name: "追加する支出額 (円)", exact: true });
     if (operation === "edit") {
       await targetRow
         .getByRole("button", { name: "編集", exact: true })

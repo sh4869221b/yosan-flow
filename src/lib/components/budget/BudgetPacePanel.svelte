@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Utensils } from "@lucide/svelte";
+  import type { Snippet } from "svelte";
 
   type FoodPace = {
     baseDailyYen: number;
@@ -14,9 +14,10 @@
   type Props = {
     pace: FoodPace;
     paceStatusLabel: string;
+    todayAction?: Snippet;
   };
 
-  let { pace, paceStatusLabel }: Props = $props();
+  let { pace, paceStatusLabel, todayAction }: Props = $props();
 
   function formatYen(value: number): string {
     return `${value.toLocaleString("ja-JP")} 円`;
@@ -27,13 +28,14 @@
   class="today-pace overflow-hidden rounded-panel border border-border max-[760px]:rounded-xl"
   data-testid="food-pace-panel"
 >
-  <p class="allowance-card">
-    <span
-      class="food-icon rounded-full bg-accent text-icon-foreground"
-      aria-hidden="true"
+  <p class="remaining-card">
+    <span>今日あと使える金額</span>
+    <strong data-testid="today-food-remaining"
+      >{formatYen(pace.todayRemainingYen)}</strong
     >
-      <Utensils size={30} strokeWidth={2.4} />
-    </span>
+    {#if todayAction}{@render todayAction()}{/if}
+  </p>
+  <p class="allowance-card">
     <span>今日の食費枠</span>
     <strong data-testid="today-food-allowance"
       >{formatYen(pace.todayAllowanceYen)}</strong
@@ -42,12 +44,6 @@
   <p>
     <span>使用済み</span>
     <strong data-testid="today-food-used">{formatYen(pace.usedTodayYen)}</strong
-    >
-  </p>
-  <p>
-    <span>残り</span>
-    <strong data-testid="today-food-remaining"
-      >{formatYen(pace.todayRemainingYen)}</strong
     >
   </p>
 </div>
@@ -128,24 +124,17 @@
     border-left: 1px solid var(--border);
   }
 
-  .allowance-card {
+  .remaining-card {
     background: linear-gradient(90deg, #f3faf2, var(--card));
     position: relative;
   }
 
-  .food-icon {
-    align-items: center;
-    display: inline-flex;
-    font-size: 0.95rem;
-    font-weight: 900;
-    height: 3.8rem;
-    justify-content: center;
-    margin-right: 0.8rem;
-    vertical-align: middle;
-    width: 3.8rem;
+  .remaining-card :global(button) {
+    margin-top: 0.75rem;
+    max-width: 100%;
   }
 
-  .today-pace span:not(.food-icon),
+  .today-pace span,
   .pace-details span {
     color: var(--muted-foreground);
     display: block;
@@ -169,11 +158,11 @@
     line-height: 1.1;
   }
 
-  .today-pace p:nth-child(2) strong {
+  .today-pace p:last-child strong {
     color: var(--budget-used);
   }
 
-  .today-pace p:nth-child(3) strong,
+  .remaining-card strong,
   .pace-details p:first-child strong {
     color: var(--budget-positive);
   }
@@ -188,7 +177,7 @@
       margin-top: 0.7rem;
     }
 
-    .allowance-card {
+    .remaining-card {
       grid-column: 1 / -1;
       text-align: center;
     }
@@ -203,7 +192,7 @@
       border-top: 1px solid var(--border);
     }
 
-    .today-pace p:nth-child(3) {
+    .today-pace p:last-child {
       border-left: 1px solid var(--border);
     }
 
@@ -231,12 +220,7 @@
       grid-column: 1 / -1;
     }
 
-    .food-icon {
-      height: 2.75rem;
-      width: 2.75rem;
-    }
-
-    .today-pace span:not(.food-icon),
+    .today-pace span,
     .pace-details span {
       font-size: 0.78rem;
     }

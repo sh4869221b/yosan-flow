@@ -119,9 +119,9 @@ test("resets range validation and requires reset after an external range change"
   ).toBe(200);
   await page.getByTestId(`calendar-day-${startDate}`).click();
   const modal = page.getByTestId("day-entry-modal");
-  await modal.getByLabel("入力額 (円)").fill("100");
+  await modal.getByLabel("追加する支出額 (円)").fill("100");
   const refreshed = waitForResponse(page, url, "GET");
-  await modal.getByRole("button", { name: "保存する", exact: true }).click();
+  await modal.getByRole("button", { name: "支出を追加", exact: true }).click();
   await refreshed;
   await expect(modal).toHaveCount(0);
   await expect(form).toContainText("最新の期間が変更されました。");

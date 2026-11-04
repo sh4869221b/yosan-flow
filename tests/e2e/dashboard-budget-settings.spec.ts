@@ -45,7 +45,7 @@ test("updates a seeded period budget", async ({ page, request }) => {
       request.method() === "PUT" &&
       request.url() === `${getBaseUrl()}/api/periods/${periodId}`,
   );
-  await page.getByRole("button", { name: "期間を更新" }).click();
+  await page.getByRole("button", { name: "予算を保存" }).click();
   expect((await updateRequest).postDataJSON()).toEqual({
     budgetYen: 150000,
     startDate: today,
@@ -78,7 +78,7 @@ test("rejects malformed period budget values before requests", async ({
 
   for (const input of ["", "1e3", "1000abc", "10.5", "-1"]) {
     await page.getByLabel("期間予算 (円)").fill(input);
-    await page.getByRole("button", { name: "期間を更新" }).click();
+    await page.getByRole("button", { name: "予算を保存" }).click();
     await expect(page.getByRole("alert")).toContainText(
       "予算は 0 以上の整数で入力してください。",
     );
@@ -144,7 +144,7 @@ test("shows save error and keeps input on failed period update", async ({
   });
 
   try {
-    await page.getByRole("button", { name: "期間を更新" }).click();
+    await page.getByRole("button", { name: "予算を保存" }).click();
 
     await expect.poll(() => reconcileGetCount).toBe(1);
 
@@ -185,7 +185,7 @@ async function openBudget(page: Page, request: APIRequestContext) {
     endDate,
     region,
     input: region.getByLabel("期間予算 (円)"),
-    save: region.getByRole("button", { name: "期間を更新", exact: true }),
+    save: region.getByRole("button", { name: "予算を保存", exact: true }),
   };
 }
 
@@ -444,9 +444,9 @@ test("requires reset after an external budget change", async ({
   const day = page.getByTestId(`calendar-day-${today}`);
   await day.click();
   const modal = page.getByTestId("day-entry-modal");
-  await modal.getByLabel("入力額 (円)").fill("100");
+  await modal.getByLabel("追加する支出額 (円)").fill("100");
   const refreshed = waitForResponse(page, budgetUrl, "GET");
-  await modal.getByRole("button", { name: "保存する", exact: true }).click();
+  await modal.getByRole("button", { name: "支出を追加", exact: true }).click();
   expect((await refreshed).status()).toBe(200);
   await expect(modal).toHaveCount(0);
   await expect(day).toBeFocused();
