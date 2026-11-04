@@ -97,7 +97,29 @@
     controller.handleSelectPeriod({ periodId });
   }
 
-  function requestCalendarDayEntry(payload: { readonly date: string }): void {
+  const todayInPeriod = $derived(
+    controller.summary != null &&
+      today >= controller.summary.startDate &&
+      today <= controller.summary.endDate,
+  );
+  const todayEntryDisabled = $derived(
+    controller.summaryLoading ||
+      controller.periodInteractionDisabled ||
+      controller.summary?.periodId !== controller.selectedPeriodId,
+  );
+
+  function requestTodayEntry(event: MouseEvent): void {
+    if (!todayInPeriod || todayEntryDisabled) return;
+    requestCalendarDayEntry(
+      { date: today },
+      event.currentTarget as HTMLElement,
+    );
+  }
+
+  function requestCalendarDayEntry(
+    payload: { readonly date: string },
+    origin?: HTMLElement,
+  ): void {
     const summary = controller.summary;
     if (
       controller.summaryLoading ||
@@ -109,9 +131,11 @@
     onDayEntryRequested({
       date: payload.date,
       periodId: summary.periodId,
-      element: document.querySelector<HTMLElement>(
-        `[data-testid="calendar-day-${payload.date}"]`,
-      ),
+      element:
+        origin ??
+        document.querySelector<HTMLElement>(
+          `[data-testid="calendar-day-${payload.date}"]`,
+        ),
     });
     controller.openDayEntry(payload);
   }
@@ -213,6 +237,16 @@
     });
   });
 </script>
+
+{#snippet todayAction()}
+  {#if todayInPeriod}
+    <Button
+      type="button"
+      disabled={todayEntryDisabled}
+      onclick={requestTodayEntry}>今日の支出を追加</Button
+    >
+  {/if}
+{/snippet}
 
 {#snippet primaryWorkspace(summary: NonNullable<Controller["summary"]>)}
   <section aria-label="日別入力">
@@ -339,6 +373,7 @@
     <BudgetSummary
       summary={controller.summary}
       loading={controller.summaryLoading}
+      {todayAction}
     />
 
     {#if controller.summary}
