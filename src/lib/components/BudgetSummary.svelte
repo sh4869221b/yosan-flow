@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
   import * as Card from "#lib/components/ui/card/index.ts";
   import BudgetPacePanel from "./budget/BudgetPacePanel.svelte";
@@ -7,9 +8,10 @@
   type Props = {
     readonly summary: PeriodSummary | null;
     readonly loading: boolean;
+    readonly todayAction?: Snippet;
   };
 
-  let { summary, loading }: Props = $props();
+  let { summary, loading, todayAction }: Props = $props();
 
   const pace = $derived(summary?.foodPace ?? null);
   const paceStatusLabel = $derived(
@@ -31,7 +33,7 @@
     <Card.Content class="block">
       {#if summary}
         {#if pace}
-          <BudgetPacePanel {pace} {paceStatusLabel} />
+          <BudgetPacePanel {pace} {paceStatusLabel} {todayAction} />
         {/if}
 
         <BudgetStatsPanel
