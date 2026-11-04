@@ -64,35 +64,11 @@ export type HistoryReplayResult = {
   histories: DailyHistoryRecord[];
 };
 
-export class PeriodNotFoundError extends Error {
-  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
-  readonly code = "PERIOD_NOT_FOUND";
-
-  constructor(periodId: string) {
-    super(`Period not found: ${periodId}`);
-    this.name = "PeriodNotFoundError";
-  }
-}
-
-export class DateOutOfPeriodError extends Error {
-  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
-  readonly code = "DATE_OUT_OF_PERIOD";
-
-  constructor(date: string, periodId: string) {
-    super(`Date ${date} is outside period ${periodId}`);
-    this.name = "DateOutOfPeriodError";
-  }
-}
-
-export class HistoryNotFoundError extends Error {
-  // fallow-ignore-next-line unused-class-member -- Read dynamically by effect/result.ts for the stable API error contract.
-  readonly code = "HISTORY_NOT_FOUND";
-
-  constructor(historyId: string) {
-    super(`History not found: ${historyId}`);
-    this.name = "HistoryNotFoundError";
-  }
-}
+export {
+  PeriodNotFoundError,
+  DateOutOfPeriodError,
+  HistoryNotFoundError,
+} from "./day-entry/errors";
 
 export class DayEntryService {
   private readonly databaseClient: DatabaseClient<
@@ -172,14 +148,6 @@ export class DayEntryService {
       dailyTotalRepository: this.dailyTotalRepository,
       dailyHistoryRepository: this.dailyHistoryRepository,
       now: this.now,
-      errors: {
-        createPeriodNotFoundError: (periodId: string) =>
-          new PeriodNotFoundError(periodId),
-        createDateOutOfPeriodError: (date: string, periodId: string) =>
-          new DateOutOfPeriodError(date, periodId),
-        createHistoryNotFoundError: (historyId: string) =>
-          new HistoryNotFoundError(historyId),
-      },
     };
   }
 
@@ -191,12 +159,6 @@ export class DayEntryService {
         execute: input,
         budgetPeriodRepository: this.budgetPeriodRepository,
         now: this.now,
-        errors: {
-          createPeriodNotFoundError: (periodId) =>
-            new PeriodNotFoundError(periodId),
-          createDateOutOfPeriodError: (date, periodId) =>
-            new DateOutOfPeriodError(date, periodId),
-        },
       });
       return yield* persistEntryEffect({
         databaseClient: this.databaseClient,
