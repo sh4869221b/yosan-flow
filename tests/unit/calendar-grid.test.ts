@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addDay,
   buildMonths,
   fromDateValue,
   toDateValue,
 } from "#lib/components/calendar/calendar-grid.ts";
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("toDateValue", () => {
   it("converts a YYYY-MM-DD string to a UTC epoch number", () => {
@@ -41,9 +43,35 @@ describe("addDay", () => {
 
 describe("buildMonths", () => {
   it.each([
+    ["9999-12-31", ["9999-12-31"]],
+    ["9999-12-30", ["9999-12-30", "9999-12-31"]],
+  ])("terminates at the last supported date from %s", (start, expected) => {
+    const parse = Date.parse;
+    let parses = 0;
+    // Stop the old string-cursor loop promptly if it is reintroduced.
+    vi.spyOn(Date, "parse").mockImplementation((value) => {
+      if (++parses > 10)
+        throw new Error("calendar date range did not terminate");
+      return parse(value);
+    });
+    const months = buildMonths(start, "9999-12-31");
+    expect(months).toHaveLength(1);
+    expect(months[0].key).toBe("9999-12");
+    expect(months[0].label).toBe("9999年12月");
+    expect(months[0].weeks.flat().filter((date) => date !== null)).toEqual(
+      expected,
+    );
+    for (const week of months[0].weeks) expect(week).toHaveLength(7);
+    expect(months[0].weeks[0].indexOf(expected[0])).toBe(
+      new Date(`${start}T00:00:00.000Z`).getUTCDay(),
+    );
+  });
+
+  it.each([
     ["empty start", "", "2026-05-31"],
     ["empty end", "2026-05-01", ""],
     ["reversed range", "2026-05-10", "2026-05-01"],
+    ["invalid range", "invalid", "invalid"],
   ])("returns no months for %s", (_case, start, end) => {
     expect(buildMonths(start, end)).toEqual([]);
   });

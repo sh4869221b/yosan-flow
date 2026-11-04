@@ -44,13 +44,14 @@ export function addDay(date: string): string {
 /**
  * Build a human-readable month label like "2026年5月".
  */
+const monthFormatter = new Intl.DateTimeFormat("ja-JP", {
+  timeZone: "Asia/Tokyo",
+  year: "numeric",
+  month: "long",
+});
+
 function buildMonthLabel(date: string): string {
-  const formatter = new Intl.DateTimeFormat("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "long",
-  });
-  return formatter.format(new Date(`${date}T00:00:00.000Z`));
+  return monthFormatter.format(new Date(`${date}T00:00:00.000Z`));
 }
 
 /**
@@ -71,16 +72,20 @@ export function buildMonths(
   }
 
   const monthMap = new Map<string, string[]>();
-  let cursor = periodStartDate;
-  while (cursor <= periodEndDate) {
-    const key = cursor.slice(0, 7);
+  const endTime = toDateValue(periodEndDate);
+  for (
+    let cursor = toDateValue(periodStartDate);
+    cursor <= endTime;
+    cursor += 24 * 60 * 60 * 1000
+  ) {
+    const date = fromDateValue(cursor);
+    const key = date.slice(0, 7);
     const dates = monthMap.get(key);
     if (dates) {
-      dates.push(cursor);
+      dates.push(date);
     } else {
-      monthMap.set(key, [cursor]);
+      monthMap.set(key, [date]);
     }
-    cursor = addDay(cursor);
   }
 
   return [...monthMap.entries()].map(([key, dates]) => {

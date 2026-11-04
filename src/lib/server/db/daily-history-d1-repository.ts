@@ -21,6 +21,27 @@ export function createD1DailyHistoryRepository(
   const database = createDrizzleD1Database(input.db);
 
   return {
+    hasHistoryById({ budgetPeriodId, date, historyId }) {
+      return Effect.tryPromise({
+        try: async () => {
+          const [row] = await database
+            .select({ id: daily_operation_histories.id })
+            .from(daily_operation_histories)
+            .where(
+              and(
+                eq(daily_operation_histories.budget_period_id, budgetPeriodId),
+                eq(daily_operation_histories.date, date),
+                eq(daily_operation_histories.id, historyId),
+              ),
+            )
+            .limit(1)
+            .all();
+          return Boolean(row);
+        },
+        catch: toEffectError,
+      });
+    },
+
     listHistoriesByDate(date, budgetPeriodId) {
       return Effect.tryPromise({
         try: async () => {

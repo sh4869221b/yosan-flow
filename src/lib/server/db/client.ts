@@ -86,8 +86,10 @@ export function createInMemoryDatabaseClient<
     read<T>(
       work: (tx: DatabaseTransaction<P, D, H>) => Effect.Effect<T, Error>,
     ) {
-      const readState = cloneState(currentState);
-      return work({ state: readState });
+      return Effect.suspend(() => {
+        const readState = cloneState(currentState);
+        return work({ state: readState });
+      });
     },
 
     dumpState() {

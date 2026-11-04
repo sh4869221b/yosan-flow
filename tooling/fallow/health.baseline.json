@@ -137,11 +137,6 @@
         "count": 1
       }
     },
-    "tests/integration/helpers/period-d1-fake-modules/daily-total-sql.ts": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "tests/unit/dashboard-history-mutation-races.test.ts": {
       "crap_moderate": {
         "count": 1
@@ -367,11 +362,6 @@
     },
     "tests/integration/helpers/period-d1-fake-modules/daily-operation-history-mutations.ts\u0000tryApplyInsert": {
       "crap_high": {
-        "count": 1
-      }
-    },
-    "tests/integration/helpers/period-d1-fake-modules/daily-total-sql.ts\u0000applyDailyTotalMutation": {
-      "complexity_moderate": {
         "count": 1
       }
     },

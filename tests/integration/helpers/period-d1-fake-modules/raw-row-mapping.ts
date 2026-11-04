@@ -58,8 +58,7 @@ export function toDailyOperationHistoryRawRow(
 ): unknown[] {
   const normalizedSql = sql.toLowerCase();
   if (
-    normalizedSql.startsWith('select "id"') &&
-    !normalizedSql.includes('"budget_period_id"')
+    normalizedSql.startsWith('select "id" from "daily_operation_histories"')
   ) {
     return [row.id];
   }

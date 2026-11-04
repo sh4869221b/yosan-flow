@@ -16,6 +16,23 @@ export function queryDailyOperationHistories(
     normalizedSql.includes(
       '"daily_operation_histories"."budget_period_id" = ?',
     ) &&
+    normalizedSql.includes('"daily_operation_histories"."date" = ?') &&
+    normalizedSql.includes('"daily_operation_histories"."id" = ?') &&
+    normalizedSql.includes("limit ?")
+  ) {
+    return rows
+      .filter(
+        (row) =>
+          row.budget_period_id === String(args[0]) &&
+          row.date === String(args[1]) &&
+          row.id === String(args[2]),
+      )
+      .slice(0, Number(args[3]));
+  }
+  if (
+    normalizedSql.includes(
+      '"daily_operation_histories"."budget_period_id" = ?',
+    ) &&
     normalizedSql.includes('"daily_operation_histories"."date" = ?')
   ) {
     const periodId = String(args[0]);

@@ -74,6 +74,7 @@ describe("fetchJsonEffect", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/periods/p-1", {
       ...init,
       cache: "no-store",
+      signal: expect.any(AbortSignal),
     });
     expect(init.cache).toBe("force-cache");
   });
