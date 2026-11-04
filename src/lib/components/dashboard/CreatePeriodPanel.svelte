@@ -219,7 +219,14 @@
       {showBudgetError ?? ""}
     </p>
     <details bind:this={advancedSettings}>
-      <summary>詳細設定（任意）</summary>
+      <summary
+        onpointerdown={(event) => {
+          // Keep blur validation from moving this target between pointer down and click.
+          if (event.button === 0) event.preventDefault();
+        }}
+        onclick={(event) => event.currentTarget.focus()}
+        >詳細設定（任意）</summary
+      >
       <p class="advanced-note">
         期間IDは自動で設定されます。通常は変更不要です。
       </p>
