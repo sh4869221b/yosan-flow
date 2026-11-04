@@ -23,6 +23,7 @@
   let touchedEnd = $state(false);
   let touchedBudget = $state(false);
   let touchedId = $state(false);
+  let advancedOpen = $state(false);
   let applyAttempted = $state(false);
   let submitAttempted = $state(false);
 
@@ -113,8 +114,13 @@
       focusRangeError();
       return;
     }
-    if (budgetError || idError) {
-      focusField(budgetError ? `${prefix}-budget` : `${prefix}-id`);
+    if (budgetError) {
+      focusField(`${prefix}-budget`);
+      return;
+    }
+    if (idError) {
+      advancedOpen = true;
+      void tick().then(() => focusField(`${prefix}-id`));
       return;
     }
     if (onSubmit) onSubmit();
@@ -212,22 +218,28 @@
     <p id={`${prefix}-budget-error`} class="error field-error">
       {showBudgetError ?? ""}
     </p>
-    <div class="grid min-w-0 gap-1.5">
-      <Label for={`${prefix}-id`}>期間ID</Label>
-      <Input
-        id={`${prefix}-id`}
-        type="text"
-        bind:value={controller.createPeriodId}
-        placeholder="p-2026-04-20"
-        aria-invalid={showIdError != null}
-        aria-describedby={showIdError ? `${prefix}-id-error` : undefined}
-        {disabled}
-        onblur={() => (touchedId = true)}
-      />
-    </div>
-    <p id={`${prefix}-id-error`} class="error field-error">
-      {showIdError ?? ""}
-    </p>
+    <details bind:open={advancedOpen}>
+      <summary>詳細設定（任意）</summary>
+      <p class="advanced-note">
+        期間IDは自動で設定されます。通常は変更不要です。
+      </p>
+      <div class="grid min-w-0 gap-1.5">
+        <Label for={`${prefix}-id`}>期間ID</Label>
+        <Input
+          id={`${prefix}-id`}
+          type="text"
+          bind:value={controller.createPeriodId}
+          placeholder="p-2026-04-20"
+          aria-invalid={showIdError != null}
+          aria-describedby={showIdError ? `${prefix}-id-error` : undefined}
+          {disabled}
+          onblur={() => (touchedId = true)}
+        />
+      </div>
+      <p id={`${prefix}-id-error`} class="error field-error">
+        {showIdError ?? ""}
+      </p>
+    </details>
     {#if controller.createError}
       <p role="alert" class="error">{controller.createError}</p>
     {/if}
@@ -264,6 +276,16 @@
     color: var(--invalid);
     font-weight: 700;
     margin: 0;
+  }
+
+  summary {
+    cursor: pointer;
+    padding-block: 0.5rem;
+  }
+
+  .advanced-note {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
   }
 
   .field-error {

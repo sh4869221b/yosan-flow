@@ -1,3 +1,4 @@
+import { openCreateAdvancedSettings } from "./create-advanced-helpers";
 import { expect, test } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
 import {
@@ -120,6 +121,7 @@ for (const variant of ["initial", "additional"] as const) {
       if (["POST", "PUT"].includes(request.method()))
         writes.push(request.url());
     });
+    await openCreateAdvancedSettings(page);
     await page.getByLabel("期間ID", { exact: true }).fill("p-current-draft");
     await page.getByTestId(`${prefix}-range-start`).fill(addDays(today, 30));
     await page.getByTestId(`${prefix}-range-end`).fill(addDays(today, 59));
@@ -242,8 +244,9 @@ test("additional recovery does not reopen or steal focus after closing during re
     await route.continue();
   });
   const details = page.getByTestId("create-period-panel");
-  const opener = details.locator("summary");
+  const opener = details.locator("summary").first();
   await opener.click();
+  await openCreateAdvancedSettings(page);
   await page.getByLabel("期間ID", { exact: true }).fill(periodId);
   await page.getByRole("button", { name: "期間を作成", exact: true }).click();
   await expect(
@@ -297,6 +300,7 @@ test("validates fields in form order and submits corrected drafts with Enter", a
   await start.fill("2026-09-");
   await end.fill("");
   await budget.fill("10.5");
+  await openCreateAdvancedSettings(page);
   await id.fill("   ");
   await submit.click();
   await expect(start).toBeFocused();
@@ -320,6 +324,7 @@ test("validates fields in form order and submits corrected drafts with Enter", a
   await submit.click();
   await expect(id).toBeFocused();
   expect(writes).toEqual([]);
+  await openCreateAdvancedSettings(page);
   await id.fill("p-enter-create");
   await expect(id).toHaveAttribute("aria-invalid", "false");
   await id.press("Enter");
@@ -339,6 +344,7 @@ test("initial cancel restores defaults and clears field errors without writing",
   });
   const start = page.getByTestId("initial-period-range-start");
   const end = page.getByTestId("initial-period-range-end");
+  await openCreateAdvancedSettings(page);
   await page.getByLabel("期間ID", { exact: true }).fill("p-custom");
   await start.fill(addDays(today, 2));
   await end.fill(addDays(today, 1));
@@ -382,6 +388,7 @@ test("additional cancel closes the form and keeps drafts while clearing server f
   await waitForDashboardReady(page);
   const opener = page.getByText("次の予算期間を作成する");
   await opener.click();
+  await openCreateAdvancedSettings(page);
   await page.getByLabel("期間ID", { exact: true }).fill("p-retained");
   await page.getByLabel("新規予算額 (円)").fill("130000");
   let writes = 0;

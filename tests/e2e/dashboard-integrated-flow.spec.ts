@@ -1,3 +1,4 @@
+import { openCreateAdvancedSettings } from "./create-advanced-helpers";
 import { expect, test } from "@playwright/test";
 import {
   configureDashboardDayEntryE2E,
@@ -68,6 +69,7 @@ for (const viewport of [
     await page.goto(`${getBaseUrl()}/`);
     await waitForDashboardReady(page);
     await expect(page.getByTestId("create-period-panel")).toBeVisible();
+    await openCreateAdvancedSettings(page);
     await page.getByLabel("期間ID", { exact: true }).fill(periodId);
     await page.getByTestId("initial-period-range-start").fill(start);
     await page.getByTestId("initial-period-range-end").fill(end);
@@ -142,6 +144,7 @@ for (const viewport of [
 
     await closeSettingsSheet();
     await page.getByText("次の予算期間を作成する", { exact: true }).click();
+    await openCreateAdvancedSettings(page);
     await page.getByLabel("期間ID", { exact: true }).fill(nextId);
     await page.getByTestId("create-period-range-start").fill(today);
     await page.getByTestId("create-period-range-end").fill(nextEnd);

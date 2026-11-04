@@ -1,3 +1,4 @@
+import { openCreateAdvancedSettings } from "./create-advanced-helpers";
 import { expect, test } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
 import {
@@ -21,9 +22,11 @@ test("creates period", async ({ page }) => {
   await page.goto(`${getBaseUrl()}/`);
   await waitForDashboardReady(page);
   await expect(page.getByTestId("create-period-panel")).toBeVisible();
-  await expect(page.getByLabel("期間ID")).toBeVisible();
+  await expect(page.getByLabel("期間ID")).toBeHidden();
   await expect(page.getByLabel("新規予算額 (円)")).toBeVisible();
   await expect(page.getByRole("button", { name: "期間を作成" })).toBeVisible();
+
+  await openCreateAdvancedSettings(page);
 
   await page.getByLabel("期間ID").fill(`p-${today}`);
   await page.getByRole("button", { name: "期間を作成" }).click();
@@ -64,6 +67,7 @@ test("preserves manually edited create ID after applying range", async ({
 
   await page.goto(`${getBaseUrl()}/`);
   await waitForDashboardReady(page);
+  await openCreateAdvancedSettings(page);
   await page.getByLabel("期間ID").fill(periodId);
   await page.getByTestId("initial-period-range-start").fill(today);
   await page.getByTestId("initial-period-range-end").fill(endDate);
@@ -208,6 +212,7 @@ test("creates the next budget period from secondary settings", async ({
   await waitForDashboardReady(page);
   await expect(page.getByTestId("period-id")).toContainText(currentPeriodId);
   await page.getByText("次の予算期間を作成する").click();
+  await openCreateAdvancedSettings(page);
   await page.getByLabel("期間ID").fill(nextPeriodId);
   await page.getByTestId("create-period-range-start").fill(nextStartDate);
   await page.getByTestId("create-period-range-end").fill(nextEndDate);

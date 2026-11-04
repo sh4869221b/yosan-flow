@@ -1,3 +1,4 @@
+import { openCreateAdvancedSettings } from "./create-advanced-helpers";
 import { expect, test } from "@playwright/test";
 import { seedPeriod } from "./helpers/db";
 import {
@@ -64,7 +65,8 @@ test("keeps empty and additional create bodies reachable", async ({ page }) => {
   await page.goto(getBaseUrl());
   await waitForDashboardReady(page);
   await expect(page.locator("#empty-period-heading")).toBeVisible();
-  await expect(page.getByLabel("期間ID")).toBeVisible();
+  await expect(page.getByLabel("期間ID")).toBeHidden();
+  await openCreateAdvancedSettings(page);
   await page.getByLabel("期間ID").fill("p-shell-created");
   await page.getByRole("button", { name: "期間を作成" }).click();
   await page.getByText("次の予算期間を作成する").click();
@@ -232,8 +234,9 @@ test("keeps a failed additional create error visible while settings stay closed"
     .locator("xpath=ancestor::details");
   await expect(settings).not.toHaveAttribute("open", "");
   const additionalCreate = page.getByTestId("create-period-panel");
-  await additionalCreate.locator("summary").click();
+  await additionalCreate.locator("summary").first().click();
   const createPeriodId = "p-shell-failed-create";
+  await openCreateAdvancedSettings(page);
   await additionalCreate.getByLabel("期間ID").fill(createPeriodId);
   let postCount = 0;
   await page.route(`${getBaseUrl()}/api/periods`, async (route) => {

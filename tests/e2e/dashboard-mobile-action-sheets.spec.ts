@@ -1,3 +1,4 @@
+import { openCreateAdvancedSettings } from "./create-advanced-helpers";
 import {
   expect,
   test,
@@ -163,6 +164,7 @@ test("additional-create cancel dismisses the mobile sheet and retains the draft"
     exact: true,
   });
   await trigger.click();
+  await openCreateAdvancedSettings(page);
   await sheet.getByLabel("期間ID", { exact: true }).fill("p-mobile-draft");
   await sheet.getByLabel("新規予算額 (円)").fill("140000");
   await sheet.getByRole("button", { name: "取り消す", exact: true }).click();
@@ -192,6 +194,7 @@ test("successful mobile additional-create closes the sheet and focuses the selec
     .getByTestId("create-period-range-start")
     .fill(addDays(endDate, 1));
   await sheet.getByTestId("create-period-range-end").fill(addDays(endDate, 30));
+  await openCreateAdvancedSettings(page);
   await sheet.getByLabel("期間ID", { exact: true }).fill(createdPeriodId);
   const created = page.waitForResponse(
     (response) =>

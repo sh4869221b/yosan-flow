@@ -69,7 +69,7 @@ for (const action of actions) {
     await page.setViewportSize({ width: 761, height: 1000 });
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(details).toHaveAttribute("open", "");
-    await expect(details.locator("summary")).toBeFocused();
+    await expect(details.locator("summary").first()).toBeFocused();
     await expect(page.getByLabel(action.inputLabel)).toHaveCount(1);
     await expect(details.getByLabel(action.inputLabel)).toHaveValue("130000");
     await expect(page.getByTestId(action.rangeEndId)).toHaveCount(1);

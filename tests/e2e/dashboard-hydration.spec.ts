@@ -1,3 +1,4 @@
+import { openCreateAdvancedSettings } from "./create-advanced-helpers";
 import { expect, test, type Page } from "@playwright/test";
 import {
   getBaseUrl,
@@ -103,6 +104,7 @@ for (const navigation of ["navigation", "reload"] as const) {
       await start.fill("2026-09-");
       await page.getByTestId("initial-period-range-end").fill("2026-09-30");
       await page.getByLabel("新規予算額 (円)").fill("130000");
+      await openCreateAdvancedSettings(page);
       await id.fill("p-hydrated-initial");
       await page
         .getByRole("button", { name: "期間を作成", exact: true })
@@ -157,7 +159,7 @@ test("waits for hydration before calendar keys and additional period creation", 
     const additional = page.getByTestId("create-period-panel");
     await expect(januaryEnd).toBeVisible();
     await expect(januaryEnd).toBeEnabled();
-    await expect(additional.locator("summary")).toBeVisible();
+    await expect(additional.locator("summary").first()).toBeVisible();
     await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
 
     const ready = waitForDashboardReady(page);
@@ -177,12 +179,13 @@ test("waits for hydration before calendar keys and additional period creation", 
     await expect(februaryStart).toBeFocused();
     await expect(februaryStart).toHaveAttribute("aria-pressed", "true");
 
-    await additional.locator("summary").click();
+    await additional.locator("summary").first().click();
     await additional
       .getByTestId("create-period-range-start")
       .fill("2026-02-11");
     await additional.getByTestId("create-period-range-end").fill("2026-03-10");
     await additional.getByLabel("新規予算額 (円)").fill("90000");
+    await openCreateAdvancedSettings(page);
     await additional
       .getByLabel("期間ID", { exact: true })
       .fill("p-hydrated-next");
