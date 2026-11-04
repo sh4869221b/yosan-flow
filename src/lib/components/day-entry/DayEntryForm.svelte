@@ -121,9 +121,9 @@
   <div class="field">
     <Label for="day-entry-memo">メモ</Label>
     <Textarea
-      class="min-h-[5.2rem]"
+      class="min-h-[3.5rem]"
       id="day-entry-memo"
-      rows={3}
+      rows={2}
       bind:value={memo}
       placeholder="例: ランチ、食材の買い物など"
     />
@@ -220,12 +220,6 @@
   .actions {
     display: grid;
     gap: 0.75rem;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  }
-
-  @media (max-width: 760px) {
-    .actions {
-      grid-template-columns: 1fr;
-    }
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 </style>

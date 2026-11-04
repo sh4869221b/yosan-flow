@@ -80,7 +80,12 @@ test("fits and scrolls the entry sheet across viewport sizes", async ({
   expect(buttons[0]!.width).toBeCloseTo(buttons[1]!.width, 0);
   expect(buttons[0]!.height).toBeGreaterThanOrEqual(48);
   expect(buttons[1]!.height).toBeGreaterThanOrEqual(48);
-  expect(buttons[0]!.y).toBeLessThan(buttons[1]!.y);
+  expect(buttons[0]!.y).toBeCloseTo(buttons[1]!.y, 0);
+  const details = modal.locator("details");
+  await expect(details).not.toHaveAttribute("open", "");
+  await details.locator("summary").click();
+  await expect(details).toHaveAttribute("open", "");
+  await expect(details.getByText("期間残額", { exact: false })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("entry-320-bottom.png") });
   await close.click();
   await expect(modal).toBeHidden();
