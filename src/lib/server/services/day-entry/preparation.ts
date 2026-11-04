@@ -11,6 +11,7 @@ import {
 } from "#lib/server/domain/daily-entry.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
 import type { PeriodDayEntryCommand } from "#lib/server/services/day-entry-service.ts";
+import { DateOutOfPeriodError, PeriodNotFoundError } from "./errors";
 
 export type ExecuteEntryInput = {
   operationType: "add" | "overwrite";
@@ -23,16 +24,10 @@ export type PreparedEntryInput = ExecuteEntryInput & {
   nowIso: string;
 };
 
-type EntryPreparationErrors = {
-  createPeriodNotFoundError: (periodId: string) => Error;
-  createDateOutOfPeriodError: (date: string, periodId: string) => Error;
-};
-
 type EntryPreparationInput = {
   execute: ExecuteEntryInput;
   budgetPeriodRepository: BudgetPeriodRepository;
   now: () => string;
-  errors: EntryPreparationErrors;
 };
 
 export function validateEntryInputEffect(
@@ -51,7 +46,6 @@ export function validateEntryInputEffect(
 export function validatePeriodDateEffect(input: {
   date: string;
   period: BudgetPeriodRecord;
-  createDateOutOfPeriodError: (date: string, periodId: string) => Error;
 }): Effect.Effect<void, Error> {
   return Effect.try({
     try: () => {
@@ -62,7 +56,7 @@ export function validatePeriodDateEffect(input: {
           input.period.endDate,
         )
       ) {
-        throw input.createDateOutOfPeriodError(input.date, input.period.id);
+        throw new DateOutOfPeriodError(input.date, input.period.id);
       }
     },
     catch: toEffectError,
@@ -81,13 +75,12 @@ export function prepareEntryEffect(
     );
     if (!period) {
       return yield* Effect.fail(
-        input.errors.createPeriodNotFoundError(input.execute.command.periodId),
+        new PeriodNotFoundError(input.execute.command.periodId),
       );
     }
     yield* validatePeriodDateEffect({
       date: input.execute.command.date,
       period,
-      createDateOutOfPeriodError: input.errors.createDateOutOfPeriodError,
     });
 
     return {

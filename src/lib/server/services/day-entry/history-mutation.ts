@@ -15,17 +15,12 @@ import type {
 import type { HistoryReplayResult } from "#lib/server/services/day-entry-service.ts";
 import { replayDailyHistories } from "./replay";
 import { validatePeriodDateEffect } from "./preparation";
+import { HistoryNotFoundError, PeriodNotFoundError } from "./errors";
 
 type HistoryMutationCommandLike = {
   periodId: string;
   date: string;
   historyId: string;
-};
-
-type HistoryMutationErrors = {
-  createPeriodNotFoundError: (periodId: string) => Error;
-  createDateOutOfPeriodError: (date: string, periodId: string) => Error;
-  createHistoryNotFoundError: (historyId: string) => Error;
 };
 
 type ReplayHistoryMutationInput = {
@@ -40,7 +35,6 @@ type ReplayHistoryMutationInput = {
   dailyHistoryRepository: DailyHistoryRepository;
   now: () => string;
   mutateTarget: (history: DailyHistoryRecord) => DailyHistoryRecord | null;
-  errors: HistoryMutationErrors;
 };
 
 export function replayHistoryMutationEffect(
@@ -53,13 +47,12 @@ export function replayHistoryMutationEffect(
       );
       if (!period) {
         return yield* Effect.fail(
-          input.errors.createPeriodNotFoundError(input.command.periodId),
+          new PeriodNotFoundError(input.command.periodId),
         );
       }
       yield* validatePeriodDateEffect({
         date: input.command.date,
         period,
-        createDateOutOfPeriodError: input.errors.createDateOutOfPeriodError,
       });
 
       const target = yield* input.dailyHistoryRepository.findHistoryById(tx, {
@@ -69,7 +62,7 @@ export function replayHistoryMutationEffect(
       });
       if (!target) {
         return yield* Effect.fail(
-          input.errors.createHistoryNotFoundError(input.command.historyId),
+          new HistoryNotFoundError(input.command.historyId),
         );
       }
 
