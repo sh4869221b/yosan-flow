@@ -161,5 +161,9 @@ test("shows history load error while keeping the day entry modal usable", async 
   await expect(page.getByRole("alert")).toContainText(
     "履歴の取得に失敗しました。",
   );
-  await expect(page.getByRole("button", { name: "支出を追加" })).toBeEnabled();
+  await expect(
+    page
+      .getByTestId("day-entry-modal")
+      .getByRole("button", { name: "支出を追加", exact: true }),
+  ).toBeEnabled();
 });
