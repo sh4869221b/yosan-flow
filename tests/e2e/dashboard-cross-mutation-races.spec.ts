@@ -32,7 +32,7 @@ test("serializes a day add after a delayed history edit", async ({
     periodId,
     date: todayDate,
   });
-  await modal.getByLabel("入力額 (円)").fill("1000");
+  await modal.getByLabel("追加する支出額 (円)").fill("1000");
   await modal.getByLabel("メモ").fill("delayed edit");
   await saveDayEntrySuccessfully({
     page,
@@ -79,7 +79,7 @@ test("serializes a day add after a delayed history edit", async ({
     periodId,
     date: secondDate,
   });
-  await modal.getByLabel("入力額 (円)").fill("2000");
+  await modal.getByLabel("追加する支出額 (円)").fill("2000");
   await modal.getByLabel("メモ").fill("newer add");
   const secondAddResponse = page.waitForResponse(
     (response) =>

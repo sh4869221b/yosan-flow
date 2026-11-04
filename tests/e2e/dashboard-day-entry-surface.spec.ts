@@ -30,15 +30,17 @@ test("opens a modal surface with one scroll owner", async ({
   await expect(title).toBeFocused();
 
   await page.keyboard.press("Tab");
-  await expect(modal.getByLabel("入力額 (円)")).toBeFocused();
+  await expect(modal.getByLabel("追加する支出額 (円)")).toBeFocused();
   await page.keyboard.press("Shift+Tab");
-  await expect(modal.getByRole("button", { name: "保存する" })).toBeFocused();
+  await expect(modal.getByRole("button", { name: "支出を追加" })).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(modal.getByLabel("入力額 (円)")).toBeFocused();
+  await expect(modal.getByLabel("追加する支出額 (円)")).toBeFocused();
 
   const flowOrder = await modal.evaluate((element) => {
     const form = element.querySelector("form.entry-form");
-    const preview = element.querySelector('[aria-label="入力前後の試算"]');
+    const preview = element.querySelector(
+      '[aria-label="追加前後の日計の試算"]',
+    );
     const actions = element.querySelector(".actions");
     const history = element.querySelector(
       "[aria-labelledby='day-entry-history-heading']",
@@ -146,18 +148,18 @@ test("blocks dismissal and resubmission while saving", async ({
   expect(addRequestCount).toBe(0);
 
   await page.getByTestId(`calendar-day-${todayDate}`).click();
-  await modal.getByLabel("入力額 (円)").fill("1200");
-  await modal.getByRole("button", { name: "保存する" }).click();
+  await modal.getByLabel("追加する支出額 (円)").fill("1200");
+  await modal.getByRole("button", { name: "支出を追加" }).click();
   await saveIntercepted.promise;
 
   await expect(modal.getByRole("status")).toContainText(
     "保存中です。処理が完了するまで閉じられません。",
   );
-  await expect(modal.getByRole("button", { name: "保存中..." })).toBeDisabled();
+  await expect(modal.getByRole("button", { name: "追加中..." })).toBeDisabled();
   await expect(modal.getByRole("button", { name: "閉じる" })).toBeDisabled();
   await page.keyboard.press("Escape");
   await page.mouse.click(4, 4);
-  await modal.getByLabel("入力額 (円)").press("Enter");
+  await modal.getByLabel("追加する支出額 (円)").press("Enter");
 
   await expect(modal).toBeVisible();
   await expect(modal).toContainText(`対象日: ${todayDate}`);
@@ -200,12 +202,12 @@ test("returns focus to the calendar origin and announces an accepted save", asyn
   await expect(modal).toBeVisible();
   expect((await initialHistoryResponse).ok()).toBe(true);
 
-  await modal.getByLabel("入力額 (円)").fill("1200");
+  await modal.getByLabel("追加する支出額 (円)").fill("1200");
   await modal.getByLabel("メモ").fill("昼食");
   const saveResponse = page.waitForResponse((response) =>
     isExactDayEntryAddResponse(response, addUrl),
   );
-  await modal.getByLabel("入力額 (円)").press("Enter");
+  await modal.getByLabel("追加する支出額 (円)").press("Enter");
   expect((await saveResponse).ok()).toBe(true);
   await expect(modal).toBeHidden();
   await expect(origin).toBeFocused();
@@ -223,7 +225,7 @@ test("returns focus to the calendar origin and announces an accepted save", asyn
   await expect(modal).toBeVisible();
   expect((await reopenedHistoryResponse).ok()).toBe(true);
   await expect(status).toHaveCount(0);
-  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("");
+  await expect(modal.getByLabel("追加する支出額 (円)")).toHaveValue("");
   await expect(modal.getByLabel("メモ")).toHaveValue("");
   await page.keyboard.press("Escape");
   await expect(modal).toBeHidden();

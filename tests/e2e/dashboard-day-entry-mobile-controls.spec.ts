@@ -59,9 +59,9 @@ test("fits and scrolls the entry sheet across viewport sizes", async ({
   const title = modal.getByRole("heading", {
     name: `日次入力 対象日: ${todayDate}`,
   });
-  const amount = modal.getByLabel("入力額 (円)");
+  const amount = modal.getByLabel("追加する支出額 (円)");
   const close = modal.getByRole("button", { name: "閉じる" });
-  const save = modal.getByRole("button", { name: "保存する" });
+  const save = modal.getByRole("button", { name: "支出を追加" });
   for (const element of [title, amount, close, save]) {
     await element.scrollIntoViewIfNeeded();
     const within = await element.evaluate((node) => {
@@ -80,7 +80,15 @@ test("fits and scrolls the entry sheet across viewport sizes", async ({
   expect(buttons[0]!.width).toBeCloseTo(buttons[1]!.width, 0);
   expect(buttons[0]!.height).toBeGreaterThanOrEqual(48);
   expect(buttons[1]!.height).toBeGreaterThanOrEqual(48);
-  expect(buttons[0]!.y).toBeLessThan(buttons[1]!.y);
+  expect(buttons[0]!.y).toBeCloseTo(buttons[1]!.y, 0);
+  await amount.fill("0");
+  const details = modal.locator("details");
+  await expect(details).not.toHaveAttribute("open", "");
+  await details.locator("summary").click();
+  await expect(details).toHaveAttribute("open", "");
+  await expect(
+    details.locator("p").filter({ hasText: "期間残額" }),
+  ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("entry-320-bottom.png") });
   await close.click();
   await expect(modal).toBeHidden();
@@ -109,7 +117,7 @@ test("shows history edit and delete controls on mobile", async ({
     periodId,
     date: todayDate,
   });
-  await modal.getByLabel("入力額 (円)").fill("1200");
+  await modal.getByLabel("追加する支出額 (円)").fill("1200");
   await saveDayEntrySuccessfully({
     page,
     modal,

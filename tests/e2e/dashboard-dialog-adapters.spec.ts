@@ -114,13 +114,13 @@ test("keeps an unsaved day entry open after an outside click", async ({
     periodId,
     date: todayDate,
   });
-  await modal.getByLabel("入力額 (円)").fill("1250");
+  await modal.getByLabel("追加する支出額 (円)").fill("1250");
   await modal.getByLabel("メモ", { exact: true }).fill("unsaved outside click");
   const bounds = await modal.boundingBox();
   expect(bounds?.x).toBeGreaterThan(4);
   await page.mouse.click(4, 4);
   await expect(modal).toBeVisible();
-  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("1250");
+  await expect(modal.getByLabel("追加する支出額 (円)")).toHaveValue("1250");
   await expect(modal.getByLabel("メモ", { exact: true })).toHaveValue(
     "unsaved outside click",
   );

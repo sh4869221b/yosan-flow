@@ -289,7 +289,7 @@ for (const width of [320, 1280]) {
       date: todayDate,
     });
     const amount = modal.getByRole("textbox", {
-      name: "入力額 (円)",
+      name: "追加する支出額 (円)",
       exact: true,
     });
     const memo = modal.getByRole("textbox", { name: "メモ", exact: true });
