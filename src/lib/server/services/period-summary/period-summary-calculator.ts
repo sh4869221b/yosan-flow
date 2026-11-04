@@ -101,11 +101,11 @@ export function calculatePeriodSummary(
     period.endDate,
   );
   const remainingDates =
-    jstToday < period.startDate
+    jstToday <= period.startDate
       ? periodDates
       : jstToday > period.endDate
         ? []
-        : buildDateRange(jstToday, period.endDate);
+        : periodDates.slice(periodDates.indexOf(jstToday));
   const paceDates = isTodayWithinPeriod ? remainingDates : [];
 
   const remainingYen = period.budgetYen - plannedTotalYen;

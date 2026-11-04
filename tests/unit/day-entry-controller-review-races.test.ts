@@ -58,6 +58,7 @@ describe("day-entry controller review races", () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(fetchMock).toHaveBeenLastCalledWith("/api/periods/period-1", {
       cache: "no-store",
+      signal: expect.any(AbortSignal),
     });
     await vi.waitFor(() => expect(summary).toEqual(combinedSummary));
     expect(summary.dailyRows).toEqual([

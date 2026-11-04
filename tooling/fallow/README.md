@@ -552,6 +552,16 @@ until evidence resolves them; they are not quietly assigned to #353's fix list.
 
 The confirmation outcome helper split resolved the historical `period-controller-confirm-effect.ts` anonymous health finding shown above. Its resolved identity was removed from both baseline maps; no thresholds or exceptions changed.
 
+The history replay cleanup also resolves the historical H4 identity
+`tests/integration/helpers/period-d1-fake-modules/daily-total-sql.ts` /
+`applyDailyTotalMutation`. The fake now selects the persisted final history total
+instead of replaying the chain again. Fallow 3.38.1 reports cyclomatic 14 and
+cognitive 15 (previously 17 / 18), within the unchanged default thresholds of
+20 / 15. The fresh whole-project raw report contains no finding for this file;
+only its `complexity_moderate` entry was removed from both baseline maps.
+Real SQLite replay, ordering, isolation and rollback tests preserve the contract;
+no new exception, suppression, threshold change or bulk refresh was introduced.
+
 ## Native baseline files and review workflow
 
 `dead-code.baseline.json`, `dupes.baseline.json`, and `health.baseline.json` are the

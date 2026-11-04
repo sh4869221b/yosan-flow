@@ -90,6 +90,11 @@ export function createInMemoryBudgetPeriodRepository(
             input.endDate,
             input.budgetYen,
           );
+          const existing = store.get(input.id);
+          if (existing) {
+            return clonePeriod(existing);
+          }
+
           assertPeriodPredecessorContinuity(
             input.predecessorPeriodId,
             input.predecessorPeriodId
@@ -97,11 +102,6 @@ export function createInMemoryBudgetPeriodRepository(
               : null,
             input.startDate,
           );
-
-          const existing = store.get(input.id);
-          if (existing) {
-            return clonePeriod(existing);
-          }
 
           const next: BudgetPeriodRecord = {
             id: input.id,

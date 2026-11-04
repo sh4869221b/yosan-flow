@@ -144,10 +144,10 @@ function buildReplayedDailyTotalUpsertStatement(
   db: D1Database,
   command: D1DayEntryReplayCommand,
 ): D1PreparedStatement {
+  // Earlier statements in this atomic batch have already persisted replay totals.
   return db
     .prepare(
       `
-      ${HISTORY_REPLAY_CTE}
       INSERT INTO daily_totals (
         budget_period_id,
         date,
@@ -161,9 +161,9 @@ function buildReplayedDailyTotalUpsertStatement(
         ?,
         after_total_yen,
         ?
-      FROM replay
-      WHERE true
-      ORDER BY rn DESC
+      FROM daily_operation_histories
+      WHERE budget_period_id = ? AND date = ?
+      ORDER BY created_at DESC, rowid DESC
       LIMIT 1
       ON CONFLICT (budget_period_id, date) DO UPDATE SET
         year_month = excluded.year_month,
@@ -174,9 +174,9 @@ function buildReplayedDailyTotalUpsertStatement(
     .bind(
       command.budgetPeriodId,
       command.date,
-      command.budgetPeriodId,
-      command.date,
       command.yearMonth,
       command.nowIso,
+      command.budgetPeriodId,
+      command.date,
     );
 }

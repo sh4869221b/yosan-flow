@@ -196,9 +196,10 @@ describe("applyDailyOperationHistoryMutation", () => {
       [200, "edited", PERIOD_ID, DATE, "history-a"],
       state,
     );
+    applySqlMutation(REPLAY_SQL, [PERIOD_ID, DATE, PERIOD_ID, DATE], state);
     applySqlMutation(
-      "WITH RECURSIVE replay AS (SELECT id FROM daily_operation_histories) INSERT INTO daily_totals SELECT * FROM replay ON CONFLICT (budget_period_id, date) DO UPDATE SET total_used_yen = excluded.total_used_yen",
-      [PERIOD_ID, DATE, PERIOD_ID, DATE, "2026-04", "2026-04-20T00:12:00.000Z"],
+      "INSERT INTO daily_totals SELECT after_total_yen FROM daily_operation_histories WHERE budget_period_id = ? AND date = ? ORDER BY created_at DESC, rowid DESC LIMIT 1 ON CONFLICT (budget_period_id, date) DO UPDATE SET total_used_yen = excluded.total_used_yen",
+      [PERIOD_ID, DATE, "2026-04", "2026-04-20T00:12:00.000Z", PERIOD_ID, DATE],
       state,
     );
 

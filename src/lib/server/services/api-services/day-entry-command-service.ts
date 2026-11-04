@@ -150,11 +150,12 @@ export function createD1DayEntryService(
         command.periodId,
         command.date,
       );
-      const histories = yield* dailyHistoryRepository.listHistoriesByDate(
-        command.date,
-        command.periodId,
-      );
-      if (!histories.some((history) => history.id === command.historyId)) {
+      const historyExists = yield* dailyHistoryRepository.hasHistoryById({
+        date: command.date,
+        budgetPeriodId: command.periodId,
+        historyId: command.historyId,
+      });
+      if (!historyExists) {
         return yield* Effect.fail(new HistoryNotFoundError(command.historyId));
       }
 

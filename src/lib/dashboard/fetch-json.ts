@@ -25,7 +25,7 @@ function parseApiErrorEffect(
   );
 }
 
-export function fetchJsonEffect<T>(
+function requestJsonEffect<T>(
   url: string,
   init: RequestInit | undefined,
   fallbackError: string,
@@ -44,5 +44,40 @@ export function fetchJsonEffect<T>(
       try: () => response.json(),
       catch: () => fallbackError,
     });
+  });
+}
+
+export function fetchJsonEffect<T>(
+  url: string,
+  init: RequestInit | undefined,
+  fallbackError: string,
+): Effect.Effect<T, string> {
+  return Effect.suspend(() => {
+    const method = init?.method?.toUpperCase() ?? "GET";
+    // Read fibers can lose a modal-session race; mutations may still commit
+    // after interruption and retain their existing caller-owned cancellation.
+    if (method !== "GET" && method !== "HEAD") {
+      return requestJsonEffect<T>(url, init, fallbackError);
+    }
+
+    const controller = new AbortController();
+    const callerSignal = init?.signal;
+    const abortFromCaller = () => controller.abort(callerSignal?.reason);
+    if (callerSignal?.aborted) abortFromCaller();
+    else
+      callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+
+    return requestJsonEffect<T>(
+      url,
+      { ...init, signal: controller.signal },
+      fallbackError,
+    ).pipe(
+      Effect.onInterrupt(() => Effect.sync(() => controller.abort())),
+      Effect.ensuring(
+        Effect.sync(() =>
+          callerSignal?.removeEventListener("abort", abortFromCaller),
+        ),
+      ),
+    );
   });
 }

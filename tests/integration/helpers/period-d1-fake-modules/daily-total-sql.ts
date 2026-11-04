@@ -1,4 +1,3 @@
-import { replayDailyHistoryRows } from "./daily-history-replay";
 import { toDailyTotalKey, type PeriodAwareD1FakeState } from "./table-state";
 import type { DailyTotalRow } from "./types";
 
@@ -73,10 +72,10 @@ export function applyDailyTotalMutation(
   }
 
   const isReplayTotal =
-    normalizedSql.includes("with recursive") &&
-    normalizedSql.includes("daily_operation_histories");
-  const periodId = String(isReplayTotal ? args[2] : args[0]);
-  const date = String(isReplayTotal ? args[3] : args[1]);
+    normalizedSql.includes("from daily_operation_histories") &&
+    normalizedSql.includes("order by created_at desc, rowid desc");
+  const periodId = String(args[0]);
+  const date = String(args[1]);
   const key = toDailyTotalKey(date, periodId);
   const existing = state.dailyTotals.get(key);
   const isAtomicAdd =
@@ -86,28 +85,33 @@ export function applyDailyTotalMutation(
     normalizedSql.includes(
       "daily_totals.total_used_yen + excluded.total_used_yen",
     );
-  const replayTotalYen = isReplayTotal
-    ? replayDailyHistoryRows(periodId, date, state.dailyOperationHistories)
-    : 0;
-  if (
-    isReplayTotal &&
-    state.dailyOperationHistories.every(
-      (row) => row.budget_period_id !== periodId || row.date !== date,
-    )
-  ) {
+  const lastHistory = isReplayTotal
+    ? state.dailyOperationHistories
+        .filter(
+          (row) =>
+            row.budget_period_id === String(args[4]) &&
+            row.date === String(args[5]),
+        )
+        .sort((left, right) =>
+          left.created_at === right.created_at
+            ? right.rowid - left.rowid
+            : right.created_at.localeCompare(left.created_at),
+        )[0]
+    : undefined;
+  if (isReplayTotal && !lastHistory) {
     return;
   }
 
   const row: DailyTotalRow = {
     budget_period_id: periodId,
     date,
-    year_month: String(isReplayTotal ? args[4] : args[2]),
+    year_month: String(args[2]),
     total_used_yen: isReplayTotal
-      ? replayTotalYen
+      ? lastHistory!.after_total_yen
       : isAtomicAdd && existing
         ? existing.total_used_yen + Number(args[3])
         : Number(args[3]),
-    updated_at: String(isReplayTotal ? args[5] : args[4]),
+    updated_at: String(isReplayTotal ? args[3] : args[4]),
   };
   state.dailyTotals.set(key, row);
 }
