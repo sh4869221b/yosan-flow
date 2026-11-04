@@ -14,25 +14,17 @@ export function createDayEntrySubmissionTracker(
   const bestSuccessfulSummaries = new Map<string, SuccessfulSummaryCandidate>();
   const summaryMutationSequences = new Map<string, number>();
 
-  function isFresh(periodId: string, sequence?: number): boolean {
-    const batchSequence = sequence ?? summaryMutationSequences.get(periodId);
-    return (
-      batchSequence != null &&
-      summaryRevision.isMutationFresh(periodId, batchSequence)
-    );
-  }
-
   return {
     start(periodId: string): number {
-      const currentSequence = summaryMutationSequences.get(periodId);
-      if (currentSequence == null || !isFresh(periodId, currentSequence)) {
-        summaryMutationSequences.set(
-          periodId,
-          summaryRevision.beginMutation(periodId),
-        );
+      let sequence = summaryMutationSequences.get(periodId);
+      if (
+        sequence == null ||
+        !summaryRevision.isMutationFresh(periodId, sequence)
+      ) {
+        sequence = summaryRevision.beginMutation(periodId);
+        summaryMutationSequences.set(periodId, sequence);
         bestSuccessfulSummaries.delete(periodId);
       }
-      const sequence = summaryMutationSequences.get(periodId) ?? 0;
       const periodGenerations = generationCounts.get(periodId) ?? new Map();
       periodGenerations.set(
         sequence,

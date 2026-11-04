@@ -160,11 +160,14 @@ it("recovers histories after a later period mutation repairs the summary", async
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
 
   await Effect.runPromise(
-    updatePeriod({
-      budgetYen: 12_000,
-      startDate: "2026-07-12",
-      endDate: "2026-08-10",
-    }),
+    updatePeriod(
+      {
+        budgetYen: 12_000,
+        startDate: "2026-07-12",
+        endDate: "2026-08-10",
+      },
+      "budget",
+    ),
   );
   expect(summary).toEqual(createSummary(700));
   reconciliationSummary.resolve(jsonResponse(createSummary(500)));

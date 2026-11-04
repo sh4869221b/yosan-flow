@@ -2,7 +2,7 @@ import { addDays } from "#lib/dashboard/date.ts";
 import type { PageData } from "../../routes/$types";
 
 export function getInitialPeriodControllerState(data: PageData) {
-  const periods = data.periods ?? [];
+  const { periods } = data;
   return {
     createStartDate:
       periods.length > 0

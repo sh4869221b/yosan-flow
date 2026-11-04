@@ -150,11 +150,14 @@ it("releases a period slot before a pending reconciliation", async () => {
   });
 
   const update = Effect.runFork(
-    updateEffect({
-      budgetYen: 12_000,
-      startDate: "2026-07-12",
-      endDate: "2026-08-10",
-    }),
+    updateEffect(
+      {
+        budgetYen: 12_000,
+        startDate: "2026-07-12",
+        endDate: "2026-08-10",
+      },
+      "budget",
+    ),
   );
   try {
     await settled(reconciliationStarted.promise);
@@ -206,11 +209,14 @@ it("preserves the mutation error while falling back after reconciliation fails",
   });
 
   await Effect.runPromise(
-    updateEffect({
-      budgetYen: 12_000,
-      startDate: "2026-07-12",
-      endDate: "2026-08-10",
-    }),
+    updateEffect(
+      {
+        budgetYen: 12_000,
+        startDate: "2026-07-12",
+        endDate: "2026-08-10",
+      },
+      "budget",
+    ),
   );
 
   expect(saving).toBe(false);
