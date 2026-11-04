@@ -67,7 +67,7 @@ test("keeps loading and empty history states exclusive", async ({
   await historyRequested.promise;
 
   const modal = page.getByTestId("day-entry-modal");
-  const amount = modal.getByLabel("入力額 (円)");
+  const amount = modal.getByLabel("追加する支出額 (円)");
   await amount.focus();
   await expect(modal.getByRole("status", { name: "" })).toContainText(
     "履歴を読み込み中...",
@@ -132,7 +132,7 @@ test("keeps retry focused through a failed history GET and moves it after succes
   await expect(modal.getByRole("alert")).toContainText(
     "履歴の取得に失敗しました。",
   );
-  await expect(modal.getByLabel("入力額 (円)")).toBeEnabled();
+  await expect(modal.getByLabel("追加する支出額 (円)")).toBeEnabled();
   await expect(modal.getByText("履歴はまだありません。")).toHaveCount(0);
 
   await retryButton.click();

@@ -26,7 +26,7 @@ test("deletes history rows and keeps recalculated values after reload", async ({
       await page.getByTestId(`calendar-day-${todayDate}`).click();
       await expect(modal).toBeVisible();
     }
-    await modal.getByLabel("入力額 (円)").fill(inputYen);
+    await modal.getByLabel("追加する支出額 (円)").fill(inputYen);
     await saveDayEntrySuccessfully({
       page,
       modal,

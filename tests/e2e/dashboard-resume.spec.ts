@@ -42,7 +42,7 @@ test.describe("history restoration without back-forward cache", () => {
       date: todayDate,
     });
     expect((await history).headers()["cache-control"]).toBe("no-store");
-    await modal.getByLabel("入力額 (円)").fill("2000");
+    await modal.getByLabel("追加する支出額 (円)").fill("2000");
     const refreshed = waitForResponse(page, summaryUrl, "GET");
     await saveDayEntrySuccessfully({ page, modal, periodId, date: todayDate });
     expect((await refreshed).headers()["cache-control"]).toBe("no-store");
@@ -89,7 +89,7 @@ for (const event of resumeEvents) {
       periodId,
       date: selectedDate,
     });
-    const amount = modal.getByLabel("入力額 (円)");
+    const amount = modal.getByLabel("追加する支出額 (円)");
     await amount.fill("777");
     await modal.getByLabel("メモ").fill("unsaved draft");
     await amount.focus();
@@ -154,7 +154,7 @@ test("a delayed resume cannot replace a later confirmed save", async ({
     await resume(page, "visibilitychange");
     await barrier.arrived;
     await expect(page.getByTestId(`used-${todayDate}`)).toHaveText("0 円");
-    await modal.getByLabel("入力額 (円)").fill("2000");
+    await modal.getByLabel("追加する支出額 (円)").fill("2000");
     await saveDayEntrySuccessfully({ page, modal, periodId, date: todayDate });
     await expect(page.getByTestId(`used-${todayDate}`)).toHaveText("2000 円");
     barrier.release();

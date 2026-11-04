@@ -96,7 +96,7 @@
     入力内容
   </h3>
   <div class="field">
-    <Label for="day-entry-amount">入力額 (円)</Label>
+    <Label for="day-entry-amount">追加する支出額 (円)</Label>
     <span class="money-input">
       <span aria-hidden="true">¥</span>
       <Input
@@ -146,7 +146,7 @@
     </Button>
     <Button class="h-auto min-h-12" type="submit" disabled={saving}>
       <Save size={18} strokeWidth={2.4} aria-hidden="true" />
-      {saving ? "保存中..." : "保存する"}
+      {saving ? "追加中..." : "支出を追加"}
     </Button>
   </div>
 
