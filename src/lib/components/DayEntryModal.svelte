@@ -168,6 +168,7 @@
         >
           {#snippet preview()}
             <DayEntryPreview
+              {inputYen}
               {currentUsedYen}
               {previewAfterYen}
               {previewRemainingYen}
