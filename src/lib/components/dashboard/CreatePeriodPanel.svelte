@@ -23,7 +23,7 @@
   let touchedEnd = $state(false);
   let touchedBudget = $state(false);
   let touchedId = $state(false);
-  let advancedOpen = $state(false);
+  let advancedSettings = $state<HTMLDetailsElement>();
   let applyAttempted = $state(false);
   let submitAttempted = $state(false);
 
@@ -119,7 +119,7 @@
       return;
     }
     if (idError) {
-      advancedOpen = true;
+      if (advancedSettings) advancedSettings.open = true;
       void tick().then(() => focusField(`${prefix}-id`));
       return;
     }
@@ -218,7 +218,7 @@
     <p id={`${prefix}-budget-error`} class="error field-error">
       {showBudgetError ?? ""}
     </p>
-    <details bind:open={advancedOpen}>
+    <details bind:this={advancedSettings}>
       <summary>詳細設定（任意）</summary>
       <p class="advanced-note">
         期間IDは自動で設定されます。通常は変更不要です。

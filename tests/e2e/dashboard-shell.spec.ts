@@ -72,6 +72,10 @@ test("keeps empty and additional create bodies reachable", async ({ page }) => {
   await page.getByText("次の予算期間を作成する").click();
   await expect(
     page.getByTestId("create-period-panel").getByLabel("期間ID"),
+  ).toBeHidden();
+  await openCreateAdvancedSettings(page);
+  await expect(
+    page.getByTestId("create-period-panel").getByLabel("期間ID"),
   ).toBeVisible();
 });
 
