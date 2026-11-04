@@ -71,7 +71,7 @@
   );
   const submitUnavailable = $derived(!range.dirty || range.settingChanged);
   const submitLabel = $derived(
-    range.saving ? "保存中..." : loading ? "読込中..." : "期間を反映",
+    range.saving ? "保存中..." : loading ? "読込中..." : "日付を保存",
   );
   const canReset = $derived(
     range.dirty ||

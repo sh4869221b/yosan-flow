@@ -119,7 +119,7 @@ export async function clickSaveAndWaitForDayEntryAddResponse({
     page.waitForResponse((candidate) =>
       isExactDayEntryAddResponse(candidate, expectedUrl),
     ),
-    modal.getByRole("button", { name: "保存する" }).click(),
+    modal.getByRole("button", { name: "支出を追加" }).click(),
   ]);
   return response;
 }

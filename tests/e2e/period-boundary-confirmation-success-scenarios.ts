@@ -141,10 +141,10 @@ test("shows an accessible boundary confirmation and cancels without writing", as
   await expect(page.getByTestId("current-period-range-end")).toBeDisabled();
   await expect(page.getByTestId("current-period-range-apply")).toBeDisabled();
   await expect(page.getByTestId("current-period-range-apply")).toHaveText(
-    "期間を反映",
+    "日付を保存",
   );
   await expect(page.getByLabel("期間予算 (円)")).toBeDisabled();
-  await expect(page.getByRole("button", { name: "期間を更新" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "予算を保存" })).toBeDisabled();
   await expect(page.getByTestId("period-select")).toBeDisabled();
 
   await page.screenshot({

@@ -26,7 +26,7 @@ export function controls(page: Page) {
   return {
     budgetRegion,
     budget: budgetRegion.getByRole("button", {
-      name: /^(期間を更新|保存中\.\.\.|読込中\.\.\.)$/,
+      name: /^(予算を保存|保存中\.\.\.|読込中\.\.\.)$/,
       includeHidden: true,
     }),
     range: page.getByTestId("current-period-range-apply"),

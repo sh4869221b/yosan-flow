@@ -96,7 +96,7 @@
     入力内容
   </h3>
   <div class="field">
-    <Label for="day-entry-amount">入力額 (円)</Label>
+    <Label for="day-entry-amount">追加する支出額 (円)</Label>
     <span class="money-input">
       <span aria-hidden="true">¥</span>
       <Input
@@ -121,9 +121,9 @@
   <div class="field">
     <Label for="day-entry-memo">メモ</Label>
     <Textarea
-      class="min-h-[5.2rem]"
+      class="min-h-[3.5rem]"
       id="day-entry-memo"
-      rows={3}
+      rows={2}
       bind:value={memo}
       placeholder="例: ランチ、食材の買い物など"
     />
@@ -146,7 +146,7 @@
     </Button>
     <Button class="h-auto min-h-12" type="submit" disabled={saving}>
       <Save size={18} strokeWidth={2.4} aria-hidden="true" />
-      {saving ? "保存中..." : "保存する"}
+      {saving ? "追加中..." : "支出を追加"}
     </Button>
   </div>
 
@@ -220,12 +220,6 @@
   .actions {
     display: grid;
     gap: 0.75rem;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  }
-
-  @media (max-width: 760px) {
-    .actions {
-      grid-template-columns: 1fr;
-    }
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 </style>

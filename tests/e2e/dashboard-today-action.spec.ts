@@ -34,7 +34,7 @@ for (const width of [320, 1280]) {
     await expect(modal).toBeHidden();
     await expect(action).toBeFocused();
     await action.press("Enter");
-    await modal.getByLabel("入力額 (円)").fill("500");
+    await modal.getByLabel("追加する支出額 (円)").fill("500");
     await saveDayEntrySuccessfully({ page, modal, periodId, date: todayDate });
     await expect(action).toBeFocused();
     await expect(page.getByTestId("today-food-used")).toHaveText("500 円");

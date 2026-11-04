@@ -40,13 +40,13 @@ test("refreshes a reopened same-day modal after the pending save completes", asy
     periodId,
     date: todayDate,
   });
-  await modal.getByLabel("入力額 (円)").fill("2000");
+  await modal.getByLabel("追加する支出額 (円)").fill("2000");
   await modal.getByLabel("メモ").fill("pending save");
-  await modal.getByRole("button", { name: "保存する" }).click();
+  await modal.getByRole("button", { name: "支出を追加" }).click();
   await saveIntercepted.promise;
 
   await expect(modal).toBeVisible();
-  await expect(modal.getByRole("button", { name: "保存中..." })).toBeDisabled();
+  await expect(modal.getByRole("button", { name: "追加中..." })).toBeDisabled();
   const addResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" && response.url() === addUrl,
@@ -70,7 +70,7 @@ test("refreshes a reopened same-day modal after the pending save completes", asy
   expect((await reopenedHistoryResponse).ok()).toBe(true);
   await expect(modal.getByText("履歴を読み込み中...")).toBeHidden();
   await expect(modal.getByText("pending save")).toBeVisible();
-  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("");
+  await expect(modal.getByLabel("追加する支出額 (円)")).toHaveValue("");
   await expect(modal.getByLabel("メモ")).toHaveValue("");
   await expect(modal).toBeVisible();
 });
@@ -103,7 +103,7 @@ test("does not start an old-day history refresh after switching days", async ({
     await route.continue();
   });
 
-  await modal.getByLabel("入力額 (円)").fill("2000");
+  await modal.getByLabel("追加する支出額 (円)").fill("2000");
   const saveResponse = await clickSaveAndWaitForDayEntryAddResponse({
     page,
     modal,
@@ -166,7 +166,7 @@ test("keeps a newer day-entry modal open when an older save finishes", async ({
 
   // When: the old save reaches its held history refresh, then the user opens a
   // newer modal session before that old refresh is allowed to complete.
-  await modal.getByLabel("入力額 (円)").fill("2000");
+  await modal.getByLabel("追加する支出額 (円)").fill("2000");
   const response = await clickSaveAndWaitForDayEntryAddResponse({
     page,
     modal,
@@ -187,8 +187,8 @@ test("keeps a newer day-entry modal open when an older save finishes", async ({
   await page.getByTestId(`calendar-day-${secondDate}`).click();
   await expect(modal).toBeVisible();
   await expect(modal).toContainText(`対象日: ${secondDate}`);
-  await expect(modal.getByRole("button", { name: "保存する" })).toBeEnabled();
-  await modal.getByLabel("入力額 (円)").fill("3000");
+  await expect(modal.getByRole("button", { name: "支出を追加" })).toBeEnabled();
+  await modal.getByLabel("追加する支出額 (円)").fill("3000");
   await modal.getByLabel("メモ").fill("newer session");
   await saveDayEntrySuccessfully({
     page,

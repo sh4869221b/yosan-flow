@@ -86,9 +86,11 @@ for (const viewport of [
     await expect(modal).toBeVisible();
     await expect(modal).toContainText(`対象日: ${day}`);
     await expect(modal.getByText("履歴を読み込み中...")).toBeHidden();
-    await modal.getByLabel("入力額 (円)").fill("2000");
+    await modal.getByLabel("追加する支出額 (円)").fill("2000");
     await modal.getByLabel("メモ").fill(memo);
-    await expect(modal.getByLabel("入力前後の試算")).toContainText("2,000 円");
+    await expect(modal.getByLabel("追加前後の日計の試算")).toContainText(
+      "2,000 円",
+    );
     await saveDayEntrySuccessfully({ page, modal, periodId, date: day });
     await expect(dayButton).toBeFocused();
     await expect(dayButton.getByTestId(`used-${day}`)).toHaveText("2000 円");
@@ -135,7 +137,7 @@ for (const viewport of [
     await expect(page.getByTestId("budget-value")).toContainText("120,000");
     await budget.getByLabel("期間予算 (円)").fill("130000");
     await budget
-      .getByRole("button", { name: "期間を更新", exact: true })
+      .getByRole("button", { name: "予算を保存", exact: true })
       .click();
     await expect(budget.getByRole("status")).toHaveText("予算を保存しました。");
     await expect(page.getByTestId("budget-value")).toContainText("130,000");
