@@ -70,10 +70,8 @@
     {#if summary}
       <p class="period-chip">
         {summary.startDate} - {summary.endDate}
-        <span class="period-state" data-testid="period-state"
-          >{periodState}</span
-        >
       </p>
+      <span class="period-state" data-testid="period-state">{periodState}</span>
     {/if}
   </div>
   <div class="period-select grid gap-1.5">
