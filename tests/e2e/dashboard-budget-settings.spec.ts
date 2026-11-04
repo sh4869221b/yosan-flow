@@ -444,9 +444,9 @@ test("requires reset after an external budget change", async ({
   const day = page.getByTestId(`calendar-day-${today}`);
   await day.click();
   const modal = page.getByTestId("day-entry-modal");
-  await modal.getByLabel("入力額 (円)").fill("100");
+  await modal.getByLabel("追加する支出額 (円)").fill("100");
   const refreshed = waitForResponse(page, budgetUrl, "GET");
-  await modal.getByRole("button", { name: "保存する", exact: true }).click();
+  await modal.getByRole("button", { name: "支出を追加", exact: true }).click();
   expect((await refreshed).status()).toBe(200);
   await expect(modal).toHaveCount(0);
   await expect(day).toBeFocused();

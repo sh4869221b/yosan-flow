@@ -54,7 +54,7 @@ test("preserves a newer failed modal when an older successful save finishes", as
     released += 1;
   });
 
-  await modal.getByLabel("入力額 (円)").fill("2000");
+  await modal.getByLabel("追加する支出額 (円)").fill("2000");
   await modal.getByLabel("メモ").fill("old successful session");
   const oldAddResponse = await clickSaveAndWaitForDayEntryAddResponse({
     page,
@@ -78,7 +78,7 @@ test("preserves a newer failed modal when an older successful save finishes", as
     page.getByTestId(`calendar-day-${secondDate}`).click(),
   ]);
   await expect(modal).toContainText(`対象日: ${secondDate}`);
-  await expect(modal.getByRole("button", { name: "保存する" })).toBeEnabled();
+  await expect(modal.getByRole("button", { name: "支出を追加" })).toBeEnabled();
   await expect(modal.getByText("履歴はまだありません。")).toBeVisible();
   await page.route(newAddUrl, async (route) => {
     await route.fulfill({
@@ -92,20 +92,20 @@ test("preserves a newer failed modal when an older successful save finishes", as
       }),
     });
   });
-  await modal.getByLabel("入力額 (円)").fill("3100");
+  await modal.getByLabel("追加する支出額 (円)").fill("3100");
   await modal.getByLabel("メモ").fill("newer failed session");
   const newAddResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" && response.url() === newAddUrl,
   );
-  await modal.getByRole("button", { name: "保存する" }).click();
+  await modal.getByRole("button", { name: "支出を追加" }).click();
   expect((await newAddResponse).status()).toBe(503);
   await expect(modal.getByRole("alert")).toContainText(
     "新しいセッションの保存に失敗しました。",
   );
-  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("3100");
+  await expect(modal.getByLabel("追加する支出額 (円)")).toHaveValue("3100");
   await expect(modal.getByLabel("メモ")).toHaveValue("newer failed session");
-  await expect(modal.getByRole("button", { name: "保存する" })).toBeEnabled();
+  await expect(modal.getByRole("button", { name: "支出を追加" })).toBeEnabled();
 
   releaseHistory?.();
   await expect.poll(() => released).toBe(1);
@@ -114,9 +114,9 @@ test("preserves a newer failed modal when an older successful save finishes", as
   await expect(modal.getByRole("alert")).toContainText(
     "新しいセッションの保存に失敗しました。",
   );
-  await expect(modal.getByLabel("入力額 (円)")).toHaveValue("3100");
+  await expect(modal.getByLabel("追加する支出額 (円)")).toHaveValue("3100");
   await expect(modal.getByLabel("メモ")).toHaveValue("newer failed session");
-  await expect(modal.getByRole("button", { name: "保存する" })).toBeEnabled();
+  await expect(modal.getByRole("button", { name: "支出を追加" })).toBeEnabled();
   await expect(modal.getByText("履歴はまだありません。")).toBeVisible();
   await expect(modal.getByText("old successful session")).toHaveCount(0);
   expect(intercepted).toBe(1);

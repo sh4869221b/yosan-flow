@@ -38,7 +38,7 @@ test("keeps history edits after stale summary and history responses", async ({
     await route.fulfill({ response });
   });
 
-  await modal.getByLabel("入力額 (円)").fill("2000");
+  await modal.getByLabel("追加する支出額 (円)").fill("2000");
   await modal.getByLabel("メモ").fill("mutation race");
   await saveDayEntrySuccessfully({
     page,
@@ -116,7 +116,7 @@ test("keeps a new period history load after an old period edit settles", async (
     periodId: currentPeriodId,
     date: todayDate,
   });
-  await modal.getByLabel("入力額 (円)").fill("2000");
+  await modal.getByLabel("追加する支出額 (円)").fill("2000");
   await modal.getByLabel("メモ").fill("period A edit");
   await saveDayEntrySuccessfully({
     page,
