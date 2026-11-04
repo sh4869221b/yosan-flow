@@ -299,6 +299,7 @@
     </section>
   {:else}
     <DashboardPeriodHeader
+      {today}
       summary={controller.summary}
       periods={controller.periods}
       selectedPeriodId={controller.selectedPeriodId}

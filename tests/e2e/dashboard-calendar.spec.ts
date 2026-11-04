@@ -311,7 +311,7 @@ test("blocks calendar activation while a period save is in flight, then restores
 
   await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("130000");
-  await page.getByRole("button", { name: "期間を更新" }).click();
+  await page.getByRole("button", { name: "予算を保存" }).click();
   await expect.poll(() => saveRequestCount).toBe(1);
 
   const day = page.getByTestId(`calendar-day-${today}`);

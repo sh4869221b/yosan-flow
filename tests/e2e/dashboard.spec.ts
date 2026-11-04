@@ -29,7 +29,7 @@ test("creates period", async ({ page }) => {
   await page.getByRole("button", { name: "期間を作成" }).click();
 
   await expect(
-    page.getByRole("heading", { name: "今の予算期間" }),
+    page.getByRole("heading", { name: "選択中の予算期間" }),
   ).toBeVisible();
   await expect(page.getByTestId("period-id")).toContainText(`p-${today}`);
   await expect(page.getByTestId("period-select")).toHaveValue(`p-${today}`);

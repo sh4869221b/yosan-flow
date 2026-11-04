@@ -45,7 +45,7 @@
   );
   const showSaved = $derived(success && !saving && !loading);
   const submitLabel = $derived(
-    saving ? "保存中..." : loading ? "読込中..." : "期間を更新",
+    saving ? "保存中..." : loading ? "読込中..." : "予算を保存",
   );
 
   let form: HTMLFormElement | undefined = $state();

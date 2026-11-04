@@ -137,7 +137,7 @@ for (const viewport of [
     await expect(page.getByTestId("budget-value")).toContainText("120,000");
     await budget.getByLabel("期間予算 (円)").fill("130000");
     await budget
-      .getByRole("button", { name: "期間を更新", exact: true })
+      .getByRole("button", { name: "予算を保存", exact: true })
       .click();
     await expect(budget.getByRole("status")).toHaveText("予算を保存しました。");
     await expect(page.getByTestId("budget-value")).toContainText("130,000");
