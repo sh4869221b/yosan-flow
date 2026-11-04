@@ -134,17 +134,16 @@ export function createPeriodUpdateEffect(
 
   return (
     input: SavePeriodPayload,
-    operation?: PeriodSetting,
+    operation: PeriodSetting,
   ): Effect.Effect<void, never> => {
     const payload = { ...input };
-    const submission = operation == null ? undefined : { operation, payload };
+    const submission = { operation, payload };
     if (operation !== "budget") dependencies.confirmationState.clear();
     const periodId = dependencies.getSelectedPeriodId();
     if (periodId == null || dependencies.getSummaryLoading())
       return Effect.void;
     const currentSaveSequence = ++saveSequence;
-    const savingOperation = operation ?? "range";
-    savingSequences[savingOperation] = currentSaveSequence;
+    savingSequences[operation] = currentSaveSequence;
     const request = dependencies.summaryRequests.start(periodId);
     const localDependencies = {
       ...dependencies,
@@ -223,7 +222,7 @@ export function createPeriodUpdateEffect(
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => {
-          if (savingSequences[savingOperation] === currentSaveSequence)
+          if (savingSequences[operation] === currentSaveSequence)
             dependencies.setSaving(false, operation);
         }),
       ),
