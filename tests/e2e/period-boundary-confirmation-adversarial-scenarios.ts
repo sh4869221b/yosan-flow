@@ -141,7 +141,7 @@ test.describe("stale confirmation, no-dialog cases, and double submit", () => {
     await gotoTarget(page);
     await page.getByText("期間の日付や予算を変更する").click();
     await page.getByLabel("期間予算 (円)").fill("121000");
-    await page.getByRole("button", { name: "期間を更新" }).click();
+    await page.getByRole("button", { name: "予算を保存" }).click();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
     await expect(page.getByTestId("budget-value")).toContainText("121,000");
 

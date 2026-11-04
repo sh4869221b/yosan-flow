@@ -17,6 +17,7 @@
   };
 
   type Props = {
+    readonly today: string;
     readonly summary: HeaderSummary | null;
     readonly periods: readonly PeriodOption[];
     readonly selectedPeriodId: string | null;
@@ -28,6 +29,7 @@
 
   let {
     summary,
+    today,
     periods,
     selectedPeriodId,
     saving,
@@ -35,6 +37,16 @@
     loading,
     selectPeriod,
   }: Props = $props();
+
+  const periodState = $derived(
+    !summary || !today
+      ? null
+      : today < summary.startDate
+        ? "開始前"
+        : today > summary.endDate
+          ? "終了済み"
+          : "利用中",
+  );
 
   let selectValue = $state(untrack(() => selectedPeriodId ?? ""));
 
@@ -54,10 +66,13 @@
 <div class="summary-header" aria-busy={loading}>
   <div class="title-row">
     <h1 class="eyebrow" id="dashboard-heading" tabindex="-1">Yosan Flow</h1>
-    <h2 id="selected-period-heading" tabindex="-1">今の予算期間</h2>
+    <h2 id="selected-period-heading" tabindex="-1">選択中の予算期間</h2>
     {#if summary}
       <p class="period-chip">
         {summary.startDate} - {summary.endDate}
+        <span class="period-state" data-testid="period-state"
+          >{periodState}</span
+        >
       </p>
     {/if}
   </div>
@@ -132,6 +147,13 @@
     font-weight: 800;
     margin: 0;
     white-space: nowrap;
+  }
+
+  .period-state {
+    display: inline-block;
+    margin-left: 0.5rem;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
   }
 
   .period-select {
