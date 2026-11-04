@@ -38,7 +38,9 @@ test("opens a modal surface with one scroll owner", async ({
 
   const flowOrder = await modal.evaluate((element) => {
     const form = element.querySelector("form.entry-form");
-    const preview = element.querySelector('[aria-label="追加前後の日計の試算"]');
+    const preview = element.querySelector(
+      '[aria-label="追加前後の日計の試算"]',
+    );
     const actions = element.querySelector(".actions");
     const history = element.querySelector(
       "[aria-labelledby='day-entry-history-heading']",
