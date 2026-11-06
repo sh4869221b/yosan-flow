@@ -218,6 +218,11 @@ preview は専用 D1 `yosan-flow-preview` と `yosan-preview.sh4869221b.work` �
 4. `pnpm run deploy:preview`
 5. preview ホストで未認証アクセスが Access に転送または拒否され、認証後にアプリへ到達できることを確認する
 
+### PRごとの公開Preview
+
+Issue #544 のPR専用Worker Preview / D1自動化は[運用手順](tooling/ci/pr-preview.md)を参照してください。
+既存の共用previewと本番とは別の公開・使い捨て環境です。利用開始には専用親WorkerとSecretsの設定が必要です。
+
 ### production
 
 1. production 用 D1 を作成して `wrangler.jsonc` の `env.production.d1_databases[0].database_id` を実 UUID に置き換える
