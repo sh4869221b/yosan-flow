@@ -52,7 +52,7 @@ function parseProposalDate(value: unknown): string {
 }
 
 function parseProposalBudget(value: unknown): number {
-  if (!Number.isInteger(value) || typeof value !== "number" || value < 0) {
+  if (!Number.isSafeInteger(value) || typeof value !== "number" || value < 0) {
     throw invalidBody();
   }
   return value;

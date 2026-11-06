@@ -76,7 +76,14 @@ test("rejects malformed period budget values before requests", async ({
     await route.continue();
   });
 
-  for (const input of ["", "1e3", "1000abc", "10.5", "-1"]) {
+  for (const input of [
+    "",
+    "1e3",
+    "1000abc",
+    "10.5",
+    "-1",
+    "9007199254740993",
+  ]) {
     await page.getByLabel("期間予算 (円)").fill(input);
     await page.getByRole("button", { name: "予算を保存" }).click();
     await expect(page.getByRole("alert")).toContainText(
