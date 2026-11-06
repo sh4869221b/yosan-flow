@@ -30,7 +30,9 @@ worktree を使ってください。未コミット変更を試す場合も env 
 CI の E2E checkout は `persist-credentials: false` にし、Git token を残しません。
 HTTP/HTTPS proxy URL を転送する場合は、host の flag の有無にかかわらず
 container 内で `NODE_USE_ENV_PROXY=1` を設定し、bootstrap の native fetch に適用します。
-host の環境や TLS/CA 設定は変更しません。
+host の環境や TLS/CA 設定は変更しません。Docker CLI は既存の
+`DOCKER_CONFIG` を保持し、proxy/registry 設定を空の設定で置き換えません。
+その設定や認証情報を build context / container へ mount しません。
 
 ```bash
 git worktree add --detach ../yosan-flow-e2e HEAD
@@ -64,23 +66,39 @@ pnpm の版・official registry archive の SHA-512 は既存定義と manager l
 再利用する `scripts/pnpm-e2e.ts` で検証し、手作業の別 version 定義を持ちません。
 依存は frozen lock、release-age/supply-chain/build policy を維持します。
 
-Noto CJK は official Ubuntu signed APT metadata と Dockerfile の exact package
-version から取得し、scoped fontconfig で Noto JP / DejaVu を選びます。
-Docker build context は Dockerfile と fonts.conf だけです。app checkout、
-node_modules、env、Git credentials、D1 state を COPY しません。read-only build
-mount で Node/fontconfig を入れ、derived filesystem を一つの layer にまとめます。
+Noto CJK は `container/font.json` の exact package version、サイズ、SHA-256
+で固定し、scoped fontconfig で Noto JP / DejaVu を選びます。pin は Ubuntu Noble
+の署名済み InRelease → Packages.xz → fonts-noto-cjk の配布情報を照合済みです。
+`e2e-font.ts` は official HTTPS archive、失敗時は official Azure mirror を使い、
+各要求を本文取得も含め60秒に制限します。image pulls と並列に取得し、検証後だけ
+cache に原子的に保存します。cache hit でも毎回サイズとSHA-256を照合し、破損時は
+失敗にします。削除・再取得する場合も pin を緩めないでください。
+
+Docker build context は Dockerfile、fonts.conf、font.json、検証済み font.deb
+だけです。app checkout、node_modules、env、Git credentials、D1 state を COPY
+しません。build 内でも hash / size / package / version を検証し、`dpkg -i` で
+同一パッケージを導入します。APT index更新・font download はbuild中に不要です。
+read-only build mount で Node/fontconfig/package を入れ、derived filesystem を
+一つの layer にまとめます。browser / Japanese font / video smoke は毎回実行します。
 
 [公式 Playwright Docker](https://playwright.dev/docs/docker) が配布元と対応
 image を説明しています。digest は content identity で、publisher signature
 の検証ではありません。以前の Nix trusted-cache signature verification と同じ
 保証ではありません。OCI publisher signature/attestation は未検証です。
-APT package version は固定しますが repository snapshot や derived image 全体の
-独立 digest は固定していません。kernel/engine/resource policy も host に依存します。
+font package の内容も固定しますが、derived image 全体の独立 digest は固定して
+いません。pin の更新時に署名済み配布情報を再確認する必要があります。各実行で
+APT metadata を再取得する方式ではありません。kernel/engine/resource policy も
+host に依存します。
 
 ## Cache と容量
 
-Actions cache は `.tmp-container-store` の pnpm store だけです。exact key は
-lock、image/font/build configuration、Node 定義、OS/architecture を含みます。
+Actions cache は `.tmp-container-store` の pnpm store と、独立した
+`.tmp-container-fonts/*.deb` です。pnpm exact key は lock、Node、install policy、
+OS/architecture を含みます。同じ Node / policy / OS / architecture なら過去の
+lock の store も再利用し、不足分だけ取得します。`pnpm install --frozen-lockfile`
+と integrity / release-age / supply-chain policy は毎回適用します。font/build
+設定の変更で依存 cache 全体を無効にしません。font cache は font.json の hash
+を key にし、約61.2MBの検証済みdebだけを保存します。依存lockの更新と独立です。
 image は各 hosted runner で official registry の digest から取得し、build します。
 Docker のその runner/local 内の layer cache は再利用しますが、image tar/gzip を
 repository cache に保存・復元しません。比較用 workflow / artifact snapshot
@@ -90,7 +108,7 @@ transport は運用に持ち込みません。過去の Nix cache をこの PR �
 元の image gzip 保存に約124秒、復元に34〜48秒、image snapshot は約1.06GB
 かかりました。この移行ではその保存/転送をなくしますが、この新しい cache 方針
 そのものを同条件の Nix より速いと主張しません。official base の不要 browser
-も含む取得サイズ、registry availability/rate limits、APT retrieval は残ります。
+も含む取得サイズ、registry availability/rate limits、初回font取得は残ります。
 
 `.tmp-container-e2e/*-timing.json` は pulls/build/bootstrap/dependencies/smoke/
 app build/test/total を記録し、manifest と image ID/cache-hit を timing artifact
@@ -104,7 +122,9 @@ Playwright の解決版が変わったら、同じ release の official MCR tag/
 review して image.json と一緒に更新します。Node 更新も対応する official Node
 digest を review し、binary/smoke/E2E を再検証します。pnpm は manager lock と
 packageManager の更新を再利用します。font/Ubuntu 変更は package pin/config を
-review。`latest` や古い browser、host executable への自動 fallback はありません。
+review。Ubuntuの公式archive keyringでInRelease署名を検証し、そこに記された
+Packages indexのhashとpackage stanzaのsize/SHA-256を順に照合してfont.jsonを更新
+してください。cache keyとlocal image keyもこのpinを含みます。`latest` や古い browser、host executable への自動 fallback はありません。
 
 Playwright update は npm の要求版・lock の解決版と official image tag/digest を
 同じ PR で更新して検証します。npm-only update は fail closed です。
@@ -113,3 +133,5 @@ Playwright update は npm の要求版・lock の解決版と official image tag
 
 CachyOS では Ubuntu userland の隔離が目的ですが、今回の検証環境は cloud Linux
 と hosted Ubuntu です。CachyOS、Podman/rootless、他 architecture は未検証です。
+
+現在の待ち時間調査・pinの検証記録・変更の計測限界は [CI latency](latency.md) を参照してください。

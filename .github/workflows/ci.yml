@@ -245,7 +245,15 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .tmp-container-store
-          key: pnpm-container-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'tooling/ci/container/**', '.node_version') }}
+          key: pnpm-container-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node_version', 'pnpm-workspace.yaml') }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-container-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node_version', 'pnpm-workspace.yaml') }}-
+
+      - name: Cache verified Japanese font package
+        uses: actions/cache@v6
+        with:
+          path: .tmp-container-fonts/*.deb
+          key: e2e-font-v1-${{ hashFiles('tooling/ci/container/font.json') }}
 
       - name: E2E tests in fixed container
         run: bash scripts/e2e-container.sh --shard=${{ env.E2E_SHARD }}/2

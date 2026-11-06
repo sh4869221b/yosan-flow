@@ -8,11 +8,12 @@ import {
   writeFileSync,
 } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 
 const fixtures: string[] = [];
-function fixture() {
+function fixture(imageCached = true) {
   const cwd = mkdtempSync(join(process.cwd(), ".tmp-container-wrapper-"));
   fixtures.push(cwd);
   mkdirSync(join(cwd, "scripts"));
@@ -20,24 +21,52 @@ function fixture() {
   for (const file of [
     "scripts/e2e-container.sh",
     "scripts/e2e-container-config.ts",
+    "scripts/e2e-font.ts",
     "tooling/ci/container/image.json",
     "tooling/ci/container/Dockerfile",
     "tooling/ci/container/fonts.conf",
+    "tooling/ci/container/font.json",
     "pnpm-lock.yaml",
     ".node_version",
   ])
     copyFileSync(file, join(cwd, file));
+  const fontBytes = Buffer.from("verified font fixture");
+  const fontHash = createHash("sha256").update(fontBytes).digest("hex");
+  const font = JSON.parse(
+    readFileSync(join(cwd, "tooling/ci/container/font.json"), "utf8"),
+  );
+  writeFileSync(
+    join(cwd, "tooling/ci/container/font.json"),
+    JSON.stringify({ ...font, size: fontBytes.length, sha256: fontHash }),
+  );
+  mkdirSync(join(cwd, ".tmp-container-fonts"));
+  const fontPath = join(cwd, `.tmp-container-fonts/${fontHash}.deb`);
+  writeFileSync(fontPath, fontBytes);
   execFileSync("git", ["init", "--quiet"], { cwd });
   const bin = join(cwd, "bin");
   mkdirSync(bin);
   const docker = join(bin, "docker");
   writeFileSync(
     docker,
-    `#!/usr/bin/env python3\nimport sys,json\nif sys.argv[1:3]==['image','inspect']:print('sha256:fixture');sys.exit(0)\nif sys.argv[1]=='run':open('docker-args.json','w').write(json.dumps(sys.argv[1:]));sys.exit(0)\nsys.exit(7)\n`,
+    `#!/usr/bin/env python3
+import sys,json,os
+if sys.argv[1:3]==['image','inspect']:
+ if os.environ['MOCK_IMAGE_CACHED']=='false' and not os.path.exists('image-built'):sys.exit(1)
+ print('sha256:fixture');sys.exit(0)
+if sys.argv[1]=='pull':sys.exit(0)
+if sys.argv[1]=='build':open('image-built','w').write(json.dumps(sys.argv[1:]));sys.exit(0)
+if sys.argv[1]=='run':
+ open('docker-args.json','w').write(json.dumps(sys.argv[1:]))
+ open('docker-config.json','w').write(json.dumps(os.environ.get('DOCKER_CONFIG')))
+ sys.exit(0)
+sys.exit(7)
+`,
   );
   chmodSync(docker, 0o755);
   return {
     cwd,
+    fontPath,
+    fontBytes,
     run: (args: string[], environment: NodeJS.ProcessEnv = {}) =>
       spawnSync("bash", ["scripts/e2e-container.sh", ...args], {
         cwd,
@@ -48,6 +77,7 @@ function fixture() {
           HTTPS_PROXY: undefined,
           NO_PROXY: undefined,
           NODE_USE_ENV_PROXY: undefined,
+          MOCK_IMAGE_CACHED: String(imageCached),
           ...environment,
           PATH: `${bin}:${process.env.PATH}`,
           CLOUDFLARE_API_TOKEN: "secret-fixture-not-forwarded",
@@ -142,4 +172,31 @@ it("rejects local env before invoking Docker without leaking its value", () => {
   expect(result.status).not.toBe(0);
   expect(result.stderr).toContain("clean worktree");
   expect(result.stderr).not.toContain("private-value-never-log");
+});
+
+it("builds a cold image from only the verified package and tool configuration", () => {
+  const f = fixture(false);
+  const result = f.run([], { DOCKER_CONFIG: "/fixture-docker-config" });
+  expect(result.status, result.stderr).toBe(0);
+  expect(
+    readFileSync(join(f.cwd, ".tmp-container-e2e/image-context/font.deb")),
+  ).toEqual(f.fontBytes);
+  expect(
+    JSON.parse(
+      readFileSync(join(f.cwd, ".tmp-container-e2e/fonts-timing.json"), "utf8"),
+    ).status,
+  ).toBe(0);
+  expect(
+    JSON.parse(readFileSync(join(f.cwd, "docker-config.json"), "utf8")),
+  ).toBe("/fixture-docker-config");
+});
+
+it("does not build or run after a corrupt cached font", () => {
+  const f = fixture(false);
+  writeFileSync(f.fontPath, Buffer.alloc(f.fontBytes.length));
+  const result = f.run([]);
+  expect(result.status).not.toBe(0);
+  expect(result.stderr).toContain("Font package integrity mismatch");
+  expect(() => readFileSync(join(f.cwd, "image-built"))).toThrow();
+  expect(() => readFileSync(join(f.cwd, "docker-args.json"))).toThrow();
 });
