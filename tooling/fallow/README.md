@@ -242,7 +242,8 @@ threshold or analyzer change is introduced.
 - `includeEntryExports: true` retains framework convention exports while reporting
   accidental extra exports. The local plugin records only three additional `default`
   export contracts: Drizzle config, Playwright config and Playwright global setup.
-  `scripts/e2e-summary.ts` is invoked by Actions, and `scripts/e2e-timing.ts` by
+  `scripts/e2e-summary.ts` and the isolated experiment's `scripts/e2e-shard-trial.ts`
+  are invoked by Actions, and `scripts/e2e-timing.ts` by
   Playwright/its server command. `scripts/e2e-container-config.ts`, `scripts/e2e-container-prepare.ts` and
   `scripts/e2e-container-smoke.ts` are invoked by the container
   preparation shell script. These are explicit support roots, not runtime roots.

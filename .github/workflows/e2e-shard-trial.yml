@@ -1,0 +1,169 @@
+name: E2E shard trial
+
+on:
+  push:
+    branches: [codex/ci-shard-trial]
+    paths:
+      - .github/workflows/e2e-shard-trial.yml
+      - scripts/e2e-shard-trial.ts
+      - tests/unit/e2e-shard-trial.test.ts
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    name: Prepare trial inventory and cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      cache-key: ${{ steps.cache.outputs.cache-primary-key }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+      - name: Cache isolated trial dependencies and verified fonts
+        id: cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            .tmp-container-store
+            .tmp-container-fonts/*.deb
+          key: shard-trial-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node_version', 'pnpm-workspace.yaml', 'pnpm-lock.yaml', 'tooling/ci/container/font.json') }}
+      - name: Record frozen source and runner
+        run: node scripts/e2e-shard-trial.ts record
+      - name: Enumerate all tests in the same fixed container
+        run: bash scripts/e2e-container.sh --list
+      - uses: actions/upload-artifact@v7
+        with:
+          name: trial-${{ github.run_id }}-${{ github.run_attempt }}-inventory
+          path: |
+            test-results/results.json
+            .tmp-container-e2e/manifest.json
+            .tmp-shard-trial/runner.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+      - name: Save prepared cache for every trial arm
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            .tmp-container-store
+            .tmp-container-fonts/*.deb
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+  trial:
+    name: Trial E2E (${{ matrix.shard }}/${{ matrix.total }})
+    needs: inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { total: 2, shard: 1 }
+          - { total: 2, shard: 2 }
+          - { total: 3, shard: 1 }
+          - { total: 3, shard: 2 }
+          - { total: 3, shard: 3 }
+          - { total: 4, shard: 1 }
+          - { total: 4, shard: 2 }
+          - { total: 4, shard: 3 }
+          - { total: 4, shard: 4 }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+      - name: Restore the same prepared cache without updating it
+        id: cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            .tmp-container-store
+            .tmp-container-fonts/*.deb
+          key: ${{ needs.inventory.outputs.cache-key }}
+          fail-on-cache-miss: true
+      - name: Require an exact cache hit
+        env:
+          CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+        run: test "$CACHE_HIT" = true
+      - name: Record frozen source and runner
+        run: node scripts/e2e-shard-trial.ts record
+      - name: Run isolated E2E shard
+        run: bash scripts/e2e-container.sh --shard=${{ matrix.shard }}/${{ matrix.total }}
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trial-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.total }}-${{ matrix.shard }}
+          path: |
+            test-results/
+            playwright-report/
+            .tmp-xdg-config/.wrangler/logs/
+            .tmp-container-e2e/japanese-font.png
+          include-hidden-files: true
+          retention-days: 7
+      - name: Upload trial evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trial-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.total }}-${{ matrix.shard }}
+          path: |
+            test-results/results.json
+            .tmp-e2e-timing.json
+            .tmp-container-e2e/*-timing.json
+            .tmp-container-e2e/manifest.json
+            .tmp-container-e2e/runner.json
+            .tmp-shard-trial/runner.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  verify:
+    name: Verify all trial partitions
+    needs: [inventory, trial]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+      - name: Require every shard to succeed
+        env:
+          INVENTORY_RESULT: ${{ needs.inventory.result }}
+          TRIAL_RESULT: ${{ needs.trial.result }}
+        run: test "$INVENTORY_RESULT" = success && test "$TRIAL_RESULT" = success
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: trial-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: .tmp-shard-trial
+      - name: Verify inventory and report measured times
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_PREFIX: trial-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" > .tmp-shard-trial/jobs.json
+          node scripts/e2e-shard-trial.ts summary .tmp-shard-trial "$ARTIFACT_PREFIX" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: trial-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .tmp-shard-trial/results.json
+            .tmp-shard-trial/jobs.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
