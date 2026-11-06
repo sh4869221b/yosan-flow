@@ -7,5 +7,5 @@ export function parseNonNegativeIntegerYenInput(input: string): number | null {
   }
 
   const value = Number(trimmedInput);
-  return Number.isInteger(value) && value >= 0 ? value : null;
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }

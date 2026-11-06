@@ -29,7 +29,7 @@ export function parseNonNegativeIntegerYen(
   value: unknown,
   fieldName: string,
 ): number {
-  if (!Number.isInteger(value) || (value as number) < 0) {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
     throw new ApiRouteError(
       400,
       "INVALID_AMOUNT",

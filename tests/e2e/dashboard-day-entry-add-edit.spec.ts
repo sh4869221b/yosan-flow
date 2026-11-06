@@ -72,7 +72,7 @@ test("supports add and history row edit in day modal, and keeps values after rel
   const editingRow = modal.locator("li.editing");
   const editAmount = editingRow.getByLabel("入力額 (円)");
   await expect(editAmount).toBeFocused();
-  for (const input of ["", "1e3", "1000abc"]) {
+  for (const input of ["", "1e3", "1000abc", "9007199254740993"]) {
     await editAmount.fill(input);
     await editingRow.getByRole("button", { name: "保存", exact: true }).click();
     await expect(
