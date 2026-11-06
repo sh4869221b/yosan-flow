@@ -587,8 +587,8 @@ The official Playwright/Node images use digest pins, Node/pnpm definitions are
 reused, and the resolved Playwright lock version must match the image. Japanese
 fonts, browser version and FFmpeg video are smoke-tested before building. Each
 shard installs, builds and tests in the same container/path. Image tar/gzip cache
-and comparison snapshot artifacts are not used; Actions caches only the pnpm
-store. See the runner guide for distribution/authentication limits and updates.
+and comparison snapshot artifacts are not used; Actions caches the pnpm
+store and integrity-verified font package. See the runner guide for distribution/authentication limits and updates.
 
 `YOSAN_FLOW_E2E_PREBUILT=1` is set only inside the CI container after a successful
 same-container build. The original SHA/run/attempt/job/cwd/Node/environment/output
