@@ -288,7 +288,11 @@
               requestEdit={requestCalendarDayEntry}
             />
             {#if daySaveSuccess?.periodId === controller.selectedPeriodId}
-              <p data-testid="day-entry-save-status" role="status">
+              <p
+                class="motion-feedback"
+                data-testid="day-entry-save-status"
+                role="status"
+              >
                 {daySaveSuccess.date} の支出を保存しました。
               </p>
             {/if}

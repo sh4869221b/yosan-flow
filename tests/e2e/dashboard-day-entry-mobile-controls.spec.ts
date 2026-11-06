@@ -5,7 +5,7 @@ import {
   saveDayEntrySuccessfully,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
-import { getBaseUrl } from "./dashboard-shared";
+import { getBaseUrl, waitForSurfaceAnimations } from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
@@ -22,9 +22,11 @@ test("fits and scrolls the entry sheet across viewport sizes", async ({
     date: todayDate,
   });
 
+  await waitForSurfaceAnimations(modal);
   await page.screenshot({ path: testInfo.outputPath("entry-390.png") });
   for (const width of [375, 760, 761, 1280]) {
     await page.setViewportSize({ width, height: 844 });
+    await waitForSurfaceAnimations(modal);
     const bounds = await modal.boundingBox();
     expect(bounds).not.toBeNull();
     if (!bounds) throw new Error("Missing entry sheet");
@@ -39,6 +41,7 @@ test("fits and scrolls the entry sheet across viewport sizes", async ({
   }
 
   await page.setViewportSize({ width: 320, height: 568 });
+  await waitForSurfaceAnimations(modal);
   expect(
     await modal.evaluate(
       (element) => element.scrollHeight > element.clientHeight,

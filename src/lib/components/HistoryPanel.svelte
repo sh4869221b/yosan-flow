@@ -348,7 +348,7 @@
     {/if}
   </div>
   {#if deleteSuccessMessage}
-    <p class="status" role="status">{deleteSuccessMessage}</p>
+    <p class="status motion-feedback" role="status">{deleteSuccessMessage}</p>
   {/if}
   {#if missingEdit}
     <div class="missing-history">

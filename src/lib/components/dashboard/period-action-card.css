@@ -52,3 +52,18 @@
     min-height: 3rem;
   }
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .period-action-card[open] > .details-body {
+    animation: period-details-in 160ms ease-out;
+  }
+
+  @keyframes period-details-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

@@ -4,6 +4,7 @@ import {
   getBaseUrl,
   resetTestData,
   waitForDashboardReady,
+  waitForSurfaceAnimations,
 } from "./dashboard-shared";
 import {
   applyRange,
@@ -30,10 +31,12 @@ test("fits and scrolls the boundary sheet across viewport sizes", async ({
   const cancel = dialog.getByRole("button", { name: "キャンセル" });
   const confirm = dialog.getByRole("button", { name: "変更する" });
   await expect(cancel).toBeFocused();
+  await waitForSurfaceAnimations(dialog);
   await page.screenshot({ path: testInfo.outputPath("boundary-390.png") });
 
   for (const width of [375, 760, 761, 1280]) {
     await page.setViewportSize({ width, height: 844 });
+    await waitForSurfaceAnimations(dialog);
     const bounds = await dialog.boundingBox();
     expect(bounds).not.toBeNull();
     if (!bounds) throw new Error("Missing boundary sheet");
@@ -48,6 +51,7 @@ test("fits and scrolls the boundary sheet across viewport sizes", async ({
   }
 
   await page.setViewportSize({ width: 320, height: 568 });
+  await waitForSurfaceAnimations(dialog);
   expect(
     await dialog.evaluate(
       (element) => element.scrollHeight > element.clientHeight,

@@ -1,4 +1,9 @@
-import { expect, type APIRequestContext, type Page } from "@playwright/test";
+import {
+  expect,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4173;
@@ -12,6 +17,18 @@ export function getBaseUrl(): string {
 
 export async function waitForDashboardReady(page: Page): Promise<void> {
   await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "false");
+}
+
+// Geometry assertions must observe the resting surface, including after a
+// resize starts a different responsive entry animation. No fixed delay is needed.
+export async function waitForSurfaceAnimations(
+  surface: Locator,
+): Promise<void> {
+  await surface.evaluate(async (element) => {
+    await Promise.all(
+      element.getAnimations().map((animation) => animation.finished),
+    );
+  });
 }
 
 export function getCurrentJstDate(): string {
