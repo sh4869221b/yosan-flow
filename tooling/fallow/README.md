@@ -9,8 +9,8 @@ source was unchanged from [`aba727b`](https://github.com/sh4869221b/yosan-flow/c
 The original snapshot was taken on 2026-10-02 with #352's tooling configuration and
 `tests/unit/fallow-config.test.ts`. Runtime/package-manager versions come from
 `.node_version` and `package.json#packageManager`; dependencies come from the lockfile.
-The original capture used **3.30.0**. Fallow is now pinned exactly to **3.33.0**
-(Node >=22), with the same three-day release-age policy and no exception.
+The original capture used **3.30.0**. Fallow's current exact pin is defined in
+`package.json`, with the same three-day release-age policy and no exception.
 Renovate can update the exact npm dependency.
 
 ```bash
@@ -70,26 +70,31 @@ installed executable for the **whole project**, not only changed files:
   Missing/corrupt baselines, malformed output, missing binaries, process failures
   and timeouts fail closed. The runner attempts all three analyses even if one fails.
 
-### Entry-aware dead-code contract (3.31.0)
+### Entry-aware dead-code contract (3.39.0)
 
-The [versioned CLI contract](https://github.com/fallow-rs/fallow/blob/v3.31.0/docs/reference/cli-internals.md)
-treats `includeEntryExports` as an analysis-scope change, whether enabled in config
-or on the command line. Our entry-aware run therefore reports `change_scoped: true`,
-`scope_reasons: ["include-entry-exports"]` and native stale-baseline
-`status: "skipped", enforced: false`. This is documented behavior. We preserve that
-verdict; it is not a successful native freshness check.
+Since [Fallow 3.39.0](https://github.com/fallow-rs/fallow/releases/tag/v3.39.0),
+the native stale-baseline gate compares the saved and current analysis modes.
+Our baseline records `scope_reasons: ["include-entry-exports"]`, matching the
+whole-project entry-aware run. The report therefore has `change_scoped: false`,
+no `scope_reasons`, and native `status: "pass", enforced: true` when every entry
+matches. A stale entry produces `status: "fail"` and a nonzero exit. A
+`--changed-since` run still reports `change_scoped: true` with
+`scope_reasons: ["changed-since"]` and skips the native freshness gate; the
+repository rejects that incomplete scope even if every saved occurrence matched.
 
-Instead, the repository separately requires **every saved dead-code occurrence to
+The repository also separately requires **every saved dead-code occurrence to
 be observed**. The baseline must use Fallow's canonical `identity: "dc1"` scheme,
 which spends at most one saved occurrence per match. The runner checks the loaded
 baseline's entry count against the report, requires `matched_entries ==
 baseline_entries`, zero unmatched entries and zero new findings, and validates
 nonnegative integer counts and their relationships. Legacy baselines are rejected:
 their repeated findings can inflate matched counts without observing every identity.
-Only the exact `include-entry-exports` scope is allowed; changed files, production,
-workspace, additional/unknown reasons, inconsistent fields, or an unrecognised
-baseline fail closed. Whole-project runs without entry-export scoping must still
-have a native enforced/passing freshness gate.
+The runner retains its older compatibility path for an exact
+`include-entry-exports` scoped report with a skipped native gate, using the same
+independent occurrence checks. Fallow before 3.39 reported this even for matching
+modes. Reports containing changed-file, production, workspace, or additional/unknown
+scope reasons still fail closed, as do inconsistent fields or an unrecognised
+baseline. A full-scope report must have a native enforced/passing freshness gate.
 
 The two previously reviewed dead-code findings were migrated to dc1 without adding
 findings or occurrences. Duplication and health baselines are unchanged. A missing
