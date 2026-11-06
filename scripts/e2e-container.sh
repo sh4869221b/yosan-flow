@@ -7,7 +7,6 @@ mkdir -p .tmp-container-e2e .tmp-container-store
 # Owned, disposable dependencies; never mount or replace host node_modules.
 rm -rf .tmp-container-modules
 mkdir -p .tmp-container-modules
-export DOCKER_CONFIG="$PWD/.tmp-container-e2e/docker-config"
 rm -f .tmp-container-e2e/*-timing.json .tmp-container-e2e/manifest.json .tmp-container-e2e/runner.json .tmp-container-e2e/japanese-font.png .tmp-e2e-timing.json .tmp-e2e-build.json
 rm -rf test-results playwright-report
 started=$(date +%s%3N)
@@ -32,8 +31,8 @@ node scripts/e2e-container-config.ts > .tmp-container-e2e/config.json
 playwright_image=$(node scripts/e2e-container-config.ts playwrightImage)
 node_image=$(node scripts/e2e-container-config.ts nodeImage)
 mkdir -p .tmp-container-e2e/image-context
-cp tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf .tmp-container-e2e/image-context/
-image_key=$(cat tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf tooling/ci/container/image.json .node_version | sha256sum | cut -d' ' -f1)
+cp tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf tooling/ci/container/font.json .tmp-container-e2e/image-context/
+image_key=$(cat tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf tooling/ci/container/font.json tooling/ci/container/image.json .node_version | sha256sum | cut -d' ' -f1)
 image="yosan-flow-e2e:$image_key"
 cache_hit=false
 if docker image inspect "$image" >/dev/null 2>&1; then
@@ -43,10 +42,21 @@ else
   playwright_pull=$!
   measure image-pull-node docker pull "$node_image" &
   node_pull=$!
+  # Download/verify only the pinned font package, in parallel with the image pulls.
+  # Preserve the host proxy/CA settings and enable Node's native proxy support.
+  if [[ -n ${HTTP_PROXY:-} || -n ${HTTPS_PROXY:-} ]]; then
+    measure fonts env NODE_USE_ENV_PROXY=1 node scripts/e2e-font.ts &
+  else
+    measure fonts node scripts/e2e-font.ts &
+  fi
+  font_download=$!
   status=0
   wait "$playwright_pull" || status=1
   wait "$node_pull" || status=1
+  wait "$font_download" || status=1
   [[ $status == 0 ]] || exit "$status"
+  font_hash=$(node -p 'JSON.parse(require("node:fs").readFileSync("tooling/ci/container/font.json")).sha256')
+  cp ".tmp-container-fonts/$font_hash.deb" .tmp-container-e2e/image-context/font.deb
   measure image-build docker build --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY --platform linux/amd64 --build-arg "PLAYWRIGHT_IMAGE=$playwright_image" --build-arg "NODE_IMAGE=$node_image" --tag "$image" .tmp-container-e2e/image-context
 fi
 image_id=$(docker image inspect "$image" --format '{{.Id}}')
