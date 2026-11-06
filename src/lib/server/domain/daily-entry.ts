@@ -22,7 +22,7 @@ export function assertValidDate(date: string): void {
 }
 
 export function assertValidInputYen(inputYen: number): void {
-  if (!Number.isInteger(inputYen) || inputYen < 0) {
+  if (!Number.isSafeInteger(inputYen) || inputYen < 0) {
     throw new Error(`Invalid inputYen: ${inputYen}`);
   }
 }

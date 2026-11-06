@@ -20,7 +20,7 @@ export function assertValidPeriodInput(
   endDate: string,
   budgetYen: number,
 ): void {
-  if (!Number.isInteger(budgetYen) || budgetYen < 0) {
+  if (!Number.isSafeInteger(budgetYen) || budgetYen < 0) {
     throw new Error(`Invalid budgetYen: ${budgetYen}`);
   }
   try {

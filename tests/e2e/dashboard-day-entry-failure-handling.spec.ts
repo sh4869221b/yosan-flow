@@ -28,7 +28,7 @@ test("rejects malformed day-entry yen values before requests", async ({
   const modal = page.getByTestId("day-entry-modal");
   await expect(modal).toBeVisible();
 
-  for (const input of ["", "1e3", "1000abc", "-1"]) {
+  for (const input of ["", "1e3", "1000abc", "-1", "9007199254740993"]) {
     await modal.getByLabel("追加する支出額 (円)").fill(input);
     await modal.getByRole("button", { name: "支出を追加" }).click();
     await expect(modal.getByRole("alert")).toContainText(
