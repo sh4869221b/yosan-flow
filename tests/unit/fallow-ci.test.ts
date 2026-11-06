@@ -161,7 +161,7 @@ afterEach(() => {
 });
 
 describe("Fallow CI gate with the installed binary", () => {
-  it("accepts reviewed identities and still writes all three reports", () => {
+  it("enforces same-mode entry-aware baselines and writes all three reports", () => {
     const directory = fixture();
     expect(runGate(directory)).toBe(0);
     expect(
@@ -170,16 +170,22 @@ describe("Fallow CI gate with the installed binary", () => {
     expect(report(directory, "dupes").stats.clone_groups).toBe(0);
     expect(report(directory, "health").findings).toEqual([]);
     expect(deadCodeBaseline(directory).identity).toBe("dc1");
+    expect(deadCodeBaseline(directory).scope_reasons).toEqual([
+      "include-entry-exports",
+    ]);
     expect(report(directory, "dead-code").baseline_staleness).toMatchObject({
-      change_scoped: true,
-      scope_reasons: ["include-entry-exports"],
+      change_scoped: false,
       stale_entries: 0,
+      gate_trips: false,
     });
+    expect(
+      report(directory, "dead-code").baseline_staleness.scope_reasons,
+    ).toBeUndefined();
     expect(
       report(directory, "dead-code").gate_outcomes["stale-baseline"],
     ).toMatchObject({
-      enforced: false,
-      status: "skipped",
+      enforced: true,
+      status: "pass",
     });
   });
 
@@ -262,10 +268,12 @@ describe("Fallow CI gate with the installed binary", () => {
     const output = JSON.parse(result.stdout);
     expect(output.total_issues).toBe(0);
     expect(output.baseline_staleness.stale_entries).toBe(0);
-    expect(output.baseline_staleness.scope_reasons).toEqual([
-      "changed-since",
-      "include-entry-exports",
-    ]);
+    expect(output.baseline_staleness.change_scoped).toBe(true);
+    expect(output.baseline_staleness.scope_reasons).toEqual(["changed-since"]);
+    expect(output.gate_outcomes["stale-baseline"]).toMatchObject({
+      enforced: false,
+      status: "skipped",
+    });
     expect(() =>
       verifyReport("dead-code", output, deadCodeBaseline(directory)),
     ).toThrow();
@@ -334,14 +342,16 @@ describe("Fallow CI gate with the installed binary", () => {
     const directory = fixture();
     rmSync(join(directory, "src/lib/retained.ts"));
     expect(runGate(directory)).toBe(1);
-    expect(
-      report(directory, "dead-code").baseline_staleness.stale_entries,
-    ).toBe(1);
+    expect(report(directory, "dead-code").baseline_staleness).toMatchObject({
+      change_scoped: false,
+      stale_entries: 1,
+      gate_trips: true,
+    });
     expect(
       report(directory, "dead-code").gate_outcomes["stale-baseline"],
     ).toMatchObject({
-      enforced: false,
-      status: "skipped",
+      enforced: true,
+      status: "fail",
     });
   });
 
