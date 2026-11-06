@@ -318,7 +318,9 @@
       {#if range.success}期間の保存は完了していますが、最新情報の再取得に失敗しました。{/if}{range.serverError}
     </p>{/if}
   {#if showSaved}
-    <p role="status" aria-live="polite">期間を保存しました。</p>
+    <p class="motion-feedback" role="status" aria-live="polite">
+      期間を保存しました。
+    </p>
   {/if}
 </form>
 

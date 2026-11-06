@@ -1,0 +1,55 @@
+/* Entry only: dismissal and focus recovery never wait for an exit animation.
+   transform composes with the surface's Tailwind translate centering. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot="dialog-overlay"][data-state="open"],
+  [data-slot="alert-dialog-overlay"][data-state="open"] {
+    animation: ui-fade-in 140ms ease-out;
+  }
+
+  [data-slot="dialog-content"][data-state="open"],
+  [data-slot="alert-dialog-content"][data-state="open"] {
+    animation: ui-surface-in 180ms ease-out;
+  }
+
+  .motion-feedback {
+    animation: ui-fade-in 160ms ease-out;
+  }
+
+  @keyframes ui-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes ui-surface-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 760px) {
+    [data-slot="dialog-content"][data-state="open"],
+    [data-slot="alert-dialog-content"][data-state="open"] {
+      animation-name: ui-sheet-in;
+    }
+
+    @keyframes ui-sheet-in {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  }
+}

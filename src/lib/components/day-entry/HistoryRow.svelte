@@ -435,7 +435,9 @@
     {#if isPending}
       <p class="edit-status" role="status">履歴を更新中です。</p>
     {:else if isSaveSuccessful}
-      <p class="edit-status" role="status">履歴を更新しました。</p>
+      <p class="edit-status motion-feedback" role="status">
+        履歴を更新しました。
+      </p>
     {/if}
   {/if}
 </li>

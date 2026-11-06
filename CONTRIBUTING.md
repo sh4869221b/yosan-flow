@@ -302,9 +302,18 @@ Current local changes and contracts:
   initial focus, and caller-owned close autofocus remains authoritative.
 - Imports have explicit `.ts` / `.svelte` extensions. Wrapper prop omissions
   use local `Omit` types. Unused Header/Footer/Media/Trigger parts, duplicate
-  barrel aliases, animation classes and extra dependencies are omitted.
+  barrel aliases and extra dependencies are omitted.
   No Sheet package or separate swipe-dismiss behavior is needed for the shared
   responsive Dialog presentation.
+
+Shared entry motion lives in `ui/motion.css`, imported by `app.css` in the
+components layer. Dialog/AlertDialog use a 140ms overlay fade and a 180ms
+surface entry (6px on desktop, 16px on mobile). Dismissal is immediate; do not
+add exit delays to caller-owned unmounting or focus recovery. Success messages
+opt in with `motion-feedback` (160ms fade); feature disclosure CSS owns its
+entry fade. All animations require `prefers-reduced-motion: no-preference`.
+Shared controls also disable transitions and button translation in reduced mode.
+Keep motion finite, without stagger, layout animation or hidden announcements.
 
 Business components still own session lifetime, saving guards and focus recovery.
 Keep day-entry's conditional mount and date key, and keep desktop

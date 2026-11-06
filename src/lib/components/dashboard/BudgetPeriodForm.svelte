@@ -182,7 +182,9 @@
     </p>
   {/if}
   {#if showSaved}
-    <p role="status" aria-live="polite">予算を保存しました。</p>
+    <p class="motion-feedback" role="status" aria-live="polite">
+      予算を保存しました。
+    </p>
   {/if}
 </form>
 
