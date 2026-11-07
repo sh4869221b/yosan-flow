@@ -38,6 +38,7 @@ function createSummary(periodId: string, usedYen: number): PeriodSummary {
         date: "2026-07-12",
         label: "today",
         usedYen,
+        isRecorded: usedYen > 0,
         recommendedYen: 10_000,
       },
     ],

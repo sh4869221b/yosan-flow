@@ -107,7 +107,8 @@ test("calendar handoff opens the focused date once with Enter and retains select
   await modal.getByRole("button", { name: "閉じる" }).click();
 
   await expect(day).toHaveAttribute("aria-pressed", "true");
-  await expect(day).toContainText("選択中");
+  await expect(day.locator('[data-status="selected"]')).toBeVisible();
+  await expect(day).toHaveAttribute("aria-label", /選択中/);
   await page.screenshot({
     path: ".omo/evidence/issue-331-calendar/selected-focused.png",
     fullPage: true,
@@ -188,6 +189,7 @@ test("keyboard keeps disabled calendar dates focusable without opening history",
   });
 
   await expect(day).toHaveAttribute("aria-disabled", "true");
+  await expect(day.locator('[data-status="disabled"]')).toBeVisible();
   await expect(page.locator("#period-calendar-status")).toContainText(
     "期間を読み込み中です",
   );
@@ -275,7 +277,9 @@ test("keeps future allowance unchanged while future calendar input remains avail
 
   const futureDay = page.getByTestId(`calendar-day-${futureStart}`);
   await expect(page.getByTestId("today-food-allowance")).toContainText("0 円");
-  await expect(futureDay).toContainText("未来");
+  await expect(futureDay.locator('[data-status="future"]')).toBeVisible();
+  await expect(futureDay.locator('[data-status="planned"]')).toBeVisible();
+  await expect(futureDay).toHaveAttribute("aria-label", /未来、予定/);
   await futureDay.click();
   await expect(page.getByTestId("day-entry-modal")).toContainText(
     `対象日: ${futureStart}`,
@@ -358,6 +362,12 @@ test("keeps the calendar inside every supported viewport without clipping state 
   await page.goto(`${getBaseUrl()}/?periodId=p-calendar-responsive`);
   await waitForDashboardReady(page);
   const todayDay = page.getByTestId(`calendar-day-${today}`);
+  const pastDay = page.getByTestId(`calendar-day-${addDays(today, -1)}`);
+  await expect(
+    page.getByRole("list", { name: "カレンダーの記号" }),
+  ).toContainText("過去今日未来予定入力済み選択中操作不可");
+  await expect(pastDay.locator('[data-status="past"]')).toBeVisible();
+  await expect(pastDay.locator('[data-status="planned"]')).toBeVisible();
   await todayDay.click();
   await page
     .getByTestId("day-entry-modal")
@@ -391,11 +401,86 @@ test("keeps the calendar inside every supported viewport without clipping state 
       "color",
       "rgb(217, 105, 69)",
     );
-    await expect(todayDay).toContainText("入力済み");
-    await expect(todayDay).toContainText("選択中");
+    await expect(todayDay.locator('[data-status="today"]')).toBeVisible();
+    await expect(todayDay.locator('[data-status="recorded"]')).toBeVisible();
+    await expect(todayDay.locator('[data-status="selected"]')).toBeVisible();
+    await expect(todayDay).toHaveAttribute("aria-label", /入力済み、選択中/);
+    await expect(todayDay).not.toContainText(/入力済み|選択中/);
     await page.screenshot({
       path: `.omo/evidence/issue-331-calendar/calendar-${width}.png`,
       fullPage: true,
     });
+  }
+});
+
+test("keeps every combined marker inside a narrow cell in forced colors", async ({
+  page,
+  request,
+}) => {
+  const today = getCurrentJstDate();
+  const past = addDays(today, -1);
+  await seedPeriod(request, getBaseUrl(), {
+    periodId: "p-calendar-markers",
+    startDate: past,
+    endDate: addDays(today, 1),
+    budgetYen: 120000,
+    dailyTotals: [{ date: past, totalUsedYen: 1200 }],
+  });
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.emulateMedia({ forcedColors: "active" });
+  await page.goto(`${getBaseUrl()}/?periodId=p-calendar-markers`);
+  await waitForDashboardReady(page);
+  const day = page.getByTestId(`calendar-day-${past}`);
+  await day.click();
+  await page
+    .getByTestId("day-entry-modal")
+    .getByRole("button", { name: "閉じる" })
+    .click();
+
+  const saveBarrier = Promise.withResolvers<void>();
+  const periodUrl = `${getBaseUrl()}/api/periods/p-calendar-markers`;
+  await page.route(periodUrl, async (route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    await saveBarrier.promise;
+    await route.continue();
+  });
+  try {
+    await page.getByText("期間の日付や予算を変更する").click();
+    await page.getByLabel("期間予算 (円)").fill("130000");
+    await page.getByRole("button", { name: "予算を保存" }).click();
+    await expect(day).toHaveAttribute("aria-disabled", "true");
+    await expect(day).toHaveAttribute(
+      "aria-label",
+      `${past}、過去、予定、1200 円、入力済み、選択中、操作不可`,
+    );
+    const icons = day.locator("svg[data-status]");
+    await expect(icons).toHaveCount(5);
+    expect(
+      await icons.evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute("data-status")),
+      ),
+    ).toEqual(["past", "planned", "recorded", "selected", "disabled"]);
+    for (const icon of await icons.all()) {
+      await expect(icon).toBeVisible();
+      const fits = await icon.evaluate((element) => {
+        const button = element.closest("button");
+        if (!button) return false;
+        const iconBounds = element.getBoundingClientRect();
+        const buttonBounds = button.getBoundingClientRect();
+        return (
+          iconBounds.left >= buttonBounds.left &&
+          iconBounds.right <= buttonBounds.right &&
+          iconBounds.top >= buttonBounds.top &&
+          iconBounds.bottom <= buttonBounds.bottom
+        );
+      });
+      expect(fits).toBe(true);
+    }
+    await expectCalendarDayFitsCell(day);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(320);
+  } finally {
+    saveBarrier.resolve();
   }
 });

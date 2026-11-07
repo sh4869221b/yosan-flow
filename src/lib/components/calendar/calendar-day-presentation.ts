@@ -1,5 +1,14 @@
 import type { DailyRow } from "./calendar-grid";
 
+export type CalendarStatus =
+  | "past"
+  | "today"
+  | "future"
+  | "planned"
+  | "recorded"
+  | "selected"
+  | "disabled";
+
 export type CalendarDayPresentationInput = {
   readonly row: DailyRow;
   readonly today: string;
@@ -14,6 +23,7 @@ export type CalendarDayPresentation = {
   readonly isDisabled: boolean;
   readonly rowLabel: "今日" | "予定";
   readonly stateLabels: readonly string[];
+  readonly statuses: readonly CalendarStatus[];
   readonly temporalLabel: "過去" | "今日" | "未来";
 };
 
@@ -36,18 +46,28 @@ export function buildCalendarDayPresentation(
   const rowLabel = rowLabelByKind[input.row.label];
   const amountLabel = `${input.row.usedYen} 円`;
   const stateLabels = [temporalLabel];
+  const statusByTemporal = {
+    過去: "past",
+    今日: "today",
+    未来: "future",
+  } as const;
+  const statuses: CalendarStatus[] = [statusByTemporal[temporalLabel]];
 
   if (rowLabel !== temporalLabel) {
     stateLabels.push(rowLabel);
+    statuses.push(rowLabel === "予定" ? "planned" : "today");
   }
-  if (input.row.usedYen > 0) {
+  if (input.row.isRecorded) {
     stateLabels.push("入力済み");
+    statuses.push("recorded");
   }
   if (input.selected) {
     stateLabels.push("選択中");
+    statuses.push("selected");
   }
   if (input.disabled) {
     stateLabels.push("操作不可");
+    statuses.push("disabled");
   }
 
   const accessibleParts = [input.row.date, temporalLabel];
@@ -68,6 +88,7 @@ export function buildCalendarDayPresentation(
     isDisabled: input.disabled,
     rowLabel,
     stateLabels,
+    statuses,
     temporalLabel,
   };
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CalendarStatusList from "./CalendarStatusList.svelte";
   import { buildCalendarDayPresentation } from "./calendar-day-presentation";
   import type { CalendarMonth, DailyRow } from "./calendar-grid";
 
@@ -79,7 +80,7 @@
         <span class="used" data-testid={`used-${date}`}
           >{presentation.amountLabel}</span
         >
-        <span class="hint">{presentation.stateLabels.join("・")}</span>
+        <CalendarStatusList statuses={presentation.statuses} />
       </button>
     {/if}
   {:else}
@@ -210,12 +211,6 @@
     font-weight: 800;
   }
 
-  .hint {
-    color: var(--muted-foreground);
-    font-size: 0.8rem;
-    font-weight: 800;
-  }
-
   .today {
     background: var(--accent);
     border-color: var(--primary);
@@ -225,11 +220,6 @@
 
   .spent .used {
     color: var(--budget-spent);
-  }
-
-  .spent .hint,
-  .today .hint {
-    color: var(--accent-foreground);
   }
 
   .selected {
@@ -269,11 +259,6 @@
       font-variant-numeric: tabular-nums;
       overflow-wrap: anywhere;
       max-width: 100%;
-      line-height: 1.25;
-    }
-
-    .hint {
-      font-size: 0.7rem;
       line-height: 1.25;
     }
 

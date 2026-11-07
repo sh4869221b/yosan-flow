@@ -54,6 +54,7 @@ function createController(onPeriodChanged = () => {}) {
       date: `2026-09-${String(index + 1).padStart(2, "0")}`,
       label: index === 0 ? ("today" as const) : ("planned" as const),
       usedYen: 0,
+      isRecorded: 0 > 0,
       recommendedYen: 4_000,
     })),
   };

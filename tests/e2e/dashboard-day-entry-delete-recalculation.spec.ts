@@ -5,7 +5,7 @@ import {
   saveDayEntrySuccessfully,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
-import { getBaseUrl } from "./dashboard-shared";
+import { getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
@@ -68,4 +68,36 @@ test("deletes history rows and keeps recalculated values after reload", async ({
       .getByTestId(`calendar-day-${todayDate}`)
       .getByTestId(`used-${todayDate}`),
   ).toHaveText("0 円");
+});
+
+test("shows a zero-yen memo as recorded until its final history is deleted", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const day = page.getByTestId(`calendar-day-${todayDate}`);
+  await expect(day.locator('[data-status="recorded"]')).toHaveCount(0);
+  const modal = await openDayEntryAndWaitForHistory({
+    page,
+    periodId,
+    date: todayDate,
+  });
+  await modal.getByLabel("追加する支出額 (円)").fill("0");
+  await modal.getByLabel("メモ").fill("メモのみ");
+  await saveDayEntrySuccessfully({ page, modal, periodId, date: todayDate });
+  await expect(day.locator('[data-status="recorded"]')).toBeVisible();
+  await expect(day).toHaveAttribute("aria-label", /0 円、入力済み/);
+  await page.reload();
+  await waitForDashboardReady(page);
+  await expect(day.locator('[data-status="recorded"]')).toBeVisible();
+  await day.click();
+  const row = modal.locator("li").filter({ hasText: "メモのみ" });
+  await row.getByRole("button", { name: "削除" }).click();
+  await row.getByRole("button", { name: "削除を確定" }).click();
+  await expect(modal.getByText("履歴はまだありません。")).toBeVisible();
+  await expect(day.locator('[data-status="recorded"]')).toHaveCount(0);
+  await page.reload();
+  await expect(day.locator('[data-status="recorded"]')).toHaveCount(0);
+  await expect(day).not.toHaveAttribute("aria-label", /入力済み/);
 });
