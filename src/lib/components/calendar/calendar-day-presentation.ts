@@ -57,7 +57,7 @@ export function buildCalendarDayPresentation(
     stateLabels.push(rowLabel);
     statuses.push(rowLabel === "予定" ? "planned" : "today");
   }
-  if (input.row.usedYen > 0) {
+  if (input.row.isRecorded) {
     stateLabels.push("入力済み");
     statuses.push("recorded");
   }

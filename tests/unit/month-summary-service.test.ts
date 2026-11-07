@@ -58,6 +58,7 @@ describe("period summary service", () => {
       date: "2026-04-20",
       label: "today",
       usedYen: 10000,
+      isRecorded: true,
       recommendedYen: expect.any(Number),
     });
     expect(result.dailyRows[result.dailyRows.length - 1].date).toBe(
@@ -108,4 +109,49 @@ describe("period summary service", () => {
       todayAllowanceYen: 30,
     });
   });
+});
+
+it("distinguishes zero totals from missing totals within the selected period", async () => {
+  const repository = createInMemoryBudgetPeriodRepository();
+  await Effect.runPromise(
+    repository.createPeriod({
+      id: "recorded-period",
+      startDate: "2026-04-20",
+      endDate: "2026-04-22",
+      budgetYen: 1000,
+      nowIso: "2026-04-01T00:00:00.000Z",
+    }),
+  );
+  const summary = await Effect.runPromise(
+    buildPeriodSummary(repository, "recorded-period", {
+      jstToday: "2026-04-20",
+      dailyTotals: [
+        {
+          date: "2026-04-20",
+          budgetPeriodId: "recorded-period",
+          totalUsedYen: 0,
+        },
+        {
+          date: "2026-04-21",
+          budgetPeriodId: "other-period",
+          totalUsedYen: 100,
+        },
+        {
+          date: "2026-04-22",
+          budgetPeriodId: "recorded-period",
+          totalUsedYen: 200,
+        },
+      ],
+    }),
+  );
+  expect(
+    summary.dailyRows.map(({ usedYen, isRecorded }) => ({
+      usedYen,
+      isRecorded,
+    })),
+  ).toEqual([
+    { usedYen: 0, isRecorded: true },
+    { usedYen: 0, isRecorded: false },
+    { usedYen: 200, isRecorded: true },
+  ]);
 });

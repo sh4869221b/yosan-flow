@@ -13,7 +13,7 @@ import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revisi
 import {
   findSummaryRow,
   summaryConfigurationMatches,
-  summaryIsMoreComplete,
+  mergeAddedSummary,
 } from "#lib/dashboard/summary-rows.ts";
 import type { SubmitDayEntryPayload } from "#lib/dashboard/types.ts";
 
@@ -50,6 +50,28 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
     submissionTracker,
     summaryRevision: dependencies.summaryRevision,
   });
+
+  function publishBestSummary(
+    periodId: string,
+    bestSummary: PeriodSummary | null,
+  ): void {
+    const currentSummary = dependencies.getSummary();
+    if (
+      dependencies.getSelectedPeriodId() !== periodId ||
+      bestSummary == null ||
+      !summaryConfigurationMatches(bestSummary, currentSummary)
+    )
+      return;
+    const mergedSummary = mergeAddedSummary(bestSummary, currentSummary);
+    if (mergedSummary === currentSummary) return;
+    dependencies.summaryRevision.publish(
+      mergedSummary,
+      dependencies.setSummary,
+    );
+    dependencies.setSelectedRow(
+      findSummaryRow(mergedSummary, dependencies.getSelectedDate()),
+    );
+  }
 
   function submitEffect(
     payload: SubmitDayEntryPayload,
@@ -131,23 +153,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
               selectedPeriodId,
               dependencies.getHistoryMutationSequence(selectedPeriodId),
             );
-            if (
-              dependencies.getSelectedPeriodId() === selectedPeriodId &&
-              bestSummary != null &&
-              summaryConfigurationMatches(
-                bestSummary,
-                dependencies.getSummary(),
-              ) &&
-              summaryIsMoreComplete(bestSummary, dependencies.getSummary())
-            ) {
-              dependencies.summaryRevision.publish(
-                bestSummary,
-                dependencies.setSummary,
-              );
-              dependencies.setSelectedRow(
-                findSummaryRow(bestSummary, dependencies.getSelectedDate()),
-              );
-            }
+            publishBestSummary(selectedPeriodId, bestSummary);
             if (remainingSubmissions === 0) {
               submissionTracker.clearBest(selectedPeriodId);
             }

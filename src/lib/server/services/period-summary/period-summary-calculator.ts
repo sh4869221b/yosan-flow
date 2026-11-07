@@ -23,6 +23,7 @@ type PeriodDailyRow = {
   date: string;
   label: "today" | "planned";
   usedYen: number;
+  isRecorded: boolean;
   recommendedYen: number;
 };
 
@@ -129,6 +130,7 @@ export function calculatePeriodSummary(
     date,
     label: date === jstToday ? "today" : "planned",
     usedYen: dailyTotalsByDate.get(date) ?? 0,
+    isRecorded: dailyTotalsByDate.has(date),
     recommendedYen: recommendationMap.get(date) ?? 0,
   }));
   const todayRecommendedYen = recommendationMap.get(jstToday) ?? 0;

@@ -11,6 +11,7 @@ const present = (
     date: "2026-09-05",
     label: "today",
     usedYen: 1_200,
+    isRecorded: 1_200 > 0,
     recommendedYen: 9_999,
   },
   today: "2026-09-05",
@@ -38,6 +39,7 @@ describe("buildCalendarDayPresentation", () => {
           date: "2026-09-06",
           label: "planned",
           usedYen: 0,
+          isRecorded: 0 > 0,
           recommendedYen: 4_200,
         },
       }),
@@ -57,6 +59,7 @@ describe("buildCalendarDayPresentation", () => {
           date: "2026-09-04",
           label: "planned",
           usedYen: 500,
+          isRecorded: 500 > 0,
           recommendedYen: 100,
         },
       }),
@@ -92,4 +95,25 @@ describe("buildCalendarDayPresentation", () => {
     expect(result.isSelected).toBe(true);
     expect(result.isDisabled).toBe(true);
   });
+});
+
+it("distinguishes a recorded zero from an unrecorded zero", () => {
+  const row = {
+    date: "2026-09-06",
+    label: "planned" as const,
+    usedYen: 0,
+    recommendedYen: 0,
+  };
+  const recorded = buildCalendarDayPresentation(
+    present({ row: { ...row, isRecorded: true } }),
+  );
+  const empty = buildCalendarDayPresentation(
+    present({ row: { ...row, isRecorded: false } }),
+  );
+  expect(recorded.statuses).toEqual(["future", "planned", "recorded"]);
+  expect(recorded.accessibleLabel).toBe(
+    "2026-09-06、未来、予定、0 円、入力済み",
+  );
+  expect(empty.statuses).toEqual(["future", "planned"]);
+  expect(empty.accessibleLabel).toBe("2026-09-06、未来、予定、0 円");
 });
