@@ -1,0 +1,102 @@
+name: PR Preview
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      number: ${{ steps.resolve.outputs.number }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      action: ${{ steps.resolve.outputs.action }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+      - name: Resolve trusted PR and successful Quality checks
+        id: resolve
+        run: node scripts/pr-preview.ts resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Explain skip
+        if: ${{ !steps.resolve.outputs.number }}
+        run: echo 'No eligible same-repository PR at the successful CI HEAD (fork, failed CI, obsolete run or reopened PR); Preview skipped.' >> "$GITHUB_STEP_SUMMARY"
+
+  preview:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.number }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Shared by deploy and close. Do not cancel remote mutations midway.
+    concurrency:
+      group: yosan-flow-pr-preview-${{ needs.resolve.outputs.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      PR_NUMBER: ${{ needs.resolve.outputs.number }}
+      PR_SHA: ${{ needs.resolve.outputs.sha }}
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      # Control code always comes from main, including cleanup after branch deletion.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: control
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.action == 'deploy' && needs.resolve.outputs.sha || github.event.repository.default_branch }}
+          path: app
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: app/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: app/.node_version
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - name: Install dependencies without deployment credentials
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+      - name: Build app without deployment credentials
+        if: ${{ needs.resolve.outputs.action == 'deploy' }}
+        working-directory: app
+        run: pnpm build
+      - name: Prepare D1, migrate and deploy / delete closed PR resources
+        id: preview
+        working-directory: app
+        run: node ../control/scripts/pr-preview.ts "$PREVIEW_ACTION"
+        env:
+          PREVIEW_ACTION: ${{ needs.resolve.outputs.action }}
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.PR_PREVIEW_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.PR_PREVIEW_CLOUDFLARE_ACCOUNT_ID }}
+          PR_PREVIEW_MAX_DATABASES: ${{ vars.PR_PREVIEW_MAX_DATABASES || '10' }}
+      - name: Update the single Preview comment
+        if: ${{ always() }}
+        working-directory: control
+        run: node scripts/pr-preview.ts report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_STATUS: ${{ job.status }}
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+          PREVIEW_FAILURE: ${{ steps.preview.outputs.failure }}
