@@ -25,6 +25,7 @@ describe("buildCalendarDayPresentation", () => {
 
     expect(result.amountLabel).toBe("1200 円");
     expect(result.stateLabels).toEqual(["今日", "入力済み"]);
+    expect(result.statuses).toEqual(["today", "recorded"]);
     expect(result.accessibleLabel).toBe("2026-09-05、今日、1200 円、入力済み");
     expect(result.isSelected).toBe(false);
     expect(result.isDisabled).toBe(false);
@@ -45,6 +46,7 @@ describe("buildCalendarDayPresentation", () => {
     expect(result.temporalLabel).toBe("未来");
     expect(result.rowLabel).toBe("予定");
     expect(result.stateLabels).toEqual(["未来", "予定"]);
+    expect(result.statuses).toEqual(["future", "planned"]);
     expect(result.accessibleLabel).toBe("2026-09-06、未来、予定、0 円");
   });
 
@@ -63,6 +65,7 @@ describe("buildCalendarDayPresentation", () => {
     expect(result.temporalLabel).toBe("過去");
     expect(result.rowLabel).toBe("予定");
     expect(result.stateLabels).toEqual(["過去", "予定", "入力済み"]);
+    expect(result.statuses).toEqual(["past", "planned", "recorded"]);
     expect(result.amountLabel).toBe("500 円");
   });
 
@@ -76,6 +79,12 @@ describe("buildCalendarDayPresentation", () => {
       "入力済み",
       "選択中",
       "操作不可",
+    ]);
+    expect(result.statuses).toEqual([
+      "today",
+      "recorded",
+      "selected",
+      "disabled",
     ]);
     expect(result.accessibleLabel).toBe(
       "2026-09-05、今日、1200 円、入力済み、選択中、操作不可",
