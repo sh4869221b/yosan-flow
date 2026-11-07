@@ -1,5 +1,5 @@
 <script lang="ts">
-  import CalendarStatusIcon from "./CalendarStatusIcon.svelte";
+  import CalendarStatusList from "./CalendarStatusList.svelte";
   import { buildCalendarDayPresentation } from "./calendar-day-presentation";
   import type { CalendarMonth, DailyRow } from "./calendar-grid";
 
@@ -80,11 +80,7 @@
         <span class="used" data-testid={`used-${date}`}
           >{presentation.amountLabel}</span
         >
-        <span class="status-icons" aria-hidden="true">
-          {#each presentation.statuses as status (status)}
-            <CalendarStatusIcon {status} />
-          {/each}
-        </span>
+        <CalendarStatusList statuses={presentation.statuses} />
       </button>
     {/if}
   {:else}
@@ -213,14 +209,6 @@
     color: var(--muted-foreground);
     font-size: 0.88rem;
     font-weight: 800;
-  }
-
-  .status-icons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.05rem;
-    justify-content: center;
-    max-width: 100%;
   }
 
   .today {
