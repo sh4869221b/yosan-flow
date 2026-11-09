@@ -42,6 +42,7 @@ function createSummary(
         date,
         label: "today",
         usedYen,
+        isRecorded: usedYen > 0,
         recommendedYen: 10_000,
       },
     ],

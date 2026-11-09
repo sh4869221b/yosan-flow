@@ -185,6 +185,7 @@ function isDailyRow(value: unknown): boolean {
     isString(value.date) &&
     (value.label === "today" || value.label === "planned") &&
     isNumber(value.usedYen) &&
+    typeof value.isRecorded === "boolean" &&
     isNumber(value.recommendedYen)
   );
 }

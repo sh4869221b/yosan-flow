@@ -11,6 +11,7 @@ const present = (
     date: "2026-09-05",
     label: "today",
     usedYen: 1_200,
+    isRecorded: 1_200 > 0,
     recommendedYen: 9_999,
   },
   today: "2026-09-05",
@@ -25,6 +26,7 @@ describe("buildCalendarDayPresentation", () => {
 
     expect(result.amountLabel).toBe("1200 円");
     expect(result.stateLabels).toEqual(["今日", "入力済み"]);
+    expect(result.statuses).toEqual(["today", "recorded"]);
     expect(result.accessibleLabel).toBe("2026-09-05、今日、1200 円、入力済み");
     expect(result.isSelected).toBe(false);
     expect(result.isDisabled).toBe(false);
@@ -37,6 +39,7 @@ describe("buildCalendarDayPresentation", () => {
           date: "2026-09-06",
           label: "planned",
           usedYen: 0,
+          isRecorded: 0 > 0,
           recommendedYen: 4_200,
         },
       }),
@@ -45,6 +48,7 @@ describe("buildCalendarDayPresentation", () => {
     expect(result.temporalLabel).toBe("未来");
     expect(result.rowLabel).toBe("予定");
     expect(result.stateLabels).toEqual(["未来", "予定"]);
+    expect(result.statuses).toEqual(["future", "planned"]);
     expect(result.accessibleLabel).toBe("2026-09-06、未来、予定、0 円");
   });
 
@@ -55,6 +59,7 @@ describe("buildCalendarDayPresentation", () => {
           date: "2026-09-04",
           label: "planned",
           usedYen: 500,
+          isRecorded: 500 > 0,
           recommendedYen: 100,
         },
       }),
@@ -63,6 +68,7 @@ describe("buildCalendarDayPresentation", () => {
     expect(result.temporalLabel).toBe("過去");
     expect(result.rowLabel).toBe("予定");
     expect(result.stateLabels).toEqual(["過去", "予定", "入力済み"]);
+    expect(result.statuses).toEqual(["past", "planned", "recorded"]);
     expect(result.amountLabel).toBe("500 円");
   });
 
@@ -77,10 +83,37 @@ describe("buildCalendarDayPresentation", () => {
       "選択中",
       "操作不可",
     ]);
+    expect(result.statuses).toEqual([
+      "today",
+      "recorded",
+      "selected",
+      "disabled",
+    ]);
     expect(result.accessibleLabel).toBe(
       "2026-09-05、今日、1200 円、入力済み、選択中、操作不可",
     );
     expect(result.isSelected).toBe(true);
     expect(result.isDisabled).toBe(true);
   });
+});
+
+it("distinguishes a recorded zero from an unrecorded zero", () => {
+  const row = {
+    date: "2026-09-06",
+    label: "planned" as const,
+    usedYen: 0,
+    recommendedYen: 0,
+  };
+  const recorded = buildCalendarDayPresentation(
+    present({ row: { ...row, isRecorded: true } }),
+  );
+  const empty = buildCalendarDayPresentation(
+    present({ row: { ...row, isRecorded: false } }),
+  );
+  expect(recorded.statuses).toEqual(["future", "planned", "recorded"]);
+  expect(recorded.accessibleLabel).toBe(
+    "2026-09-06、未来、予定、0 円、入力済み",
+  );
+  expect(empty.statuses).toEqual(["future", "planned"]);
+  expect(empty.accessibleLabel).toBe("2026-09-06、未来、予定、0 円");
 });

@@ -1,4 +1,5 @@
 import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import { mergeAddedSummary } from "#lib/dashboard/summary-rows.ts";
 import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 
 type SuccessfulSummaryCandidate = {
@@ -65,14 +66,16 @@ export function createDayEntrySubmissionTracker(
       const currentBest = bestSuccessfulSummaries.get(periodId);
       const accepted =
         summary.periodId === periodId &&
-        submittedMutationSequence === currentMutationSequence &&
-        (currentBest == null ||
-          currentBest.mutationSequence !== currentMutationSequence ||
-          summary.plannedTotalYen > currentBest.summary.plannedTotalYen);
+        submittedMutationSequence === currentMutationSequence;
       if (accepted) {
         bestSuccessfulSummaries.set(periodId, {
           mutationSequence: currentMutationSequence,
-          summary,
+          summary: mergeAddedSummary(
+            summary,
+            currentBest?.mutationSequence === currentMutationSequence
+              ? currentBest.summary
+              : null,
+          ),
         });
       }
       return accepted;

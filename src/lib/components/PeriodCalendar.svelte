@@ -8,6 +8,8 @@
   import { buildMonths } from "./calendar/calendar-grid";
   import type { DailyRow } from "./calendar/calendar-grid";
   import PeriodCalendarMonth from "./calendar/PeriodCalendarMonth.svelte";
+  import CalendarStatusIcon from "./calendar/CalendarStatusIcon.svelte";
+  import type { CalendarStatus } from "./calendar/calendar-day-presentation";
 
   type Props = {
     rows?: DailyRow[];
@@ -28,6 +30,16 @@
     disabledReason = "",
     requestEdit = () => {},
   }: Props = $props();
+
+  const legend: { status: CalendarStatus; label: string }[] = [
+    { status: "past", label: "過去" },
+    { status: "today", label: "今日" },
+    { status: "future", label: "未来" },
+    { status: "planned", label: "予定" },
+    { status: "recorded", label: "入力済み" },
+    { status: "selected", label: "選択中" },
+    { status: "disabled", label: "操作不可" },
+  ];
 
   const rowsByDate = $derived(new Map(rows.map((row) => [row.date, row])));
   const months = $derived(buildMonths(startDate, endDate));
@@ -117,6 +129,14 @@
     <p id="period-calendar-status" role="status">{disabledReason}</p>
   {/if}
 
+  <ul class="calendar-legend" aria-label="カレンダーの記号">
+    {#each legend as item (item.status)}
+      <li>
+        <CalendarStatusIcon status={item.status} /><span>{item.label}</span>
+      </li>
+    {/each}
+  </ul>
+
   {#each months as month (month.key)}
     <PeriodCalendarMonth
       {month}
@@ -137,6 +157,24 @@
   section {
     display: grid;
     gap: 0.9rem;
+  }
+
+  .calendar-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.8rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    color: var(--foreground);
+    font-size: 0.75rem;
+  }
+
+  .calendar-legend li {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.15rem;
+    white-space: nowrap;
   }
 
   .calendar-heading {

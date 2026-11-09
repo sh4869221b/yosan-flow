@@ -9,6 +9,7 @@ export type DailyRow = {
   date: string;
   label: "today" | "planned";
   usedYen: number;
+  isRecorded: boolean;
   recommendedYen: number;
 };
 

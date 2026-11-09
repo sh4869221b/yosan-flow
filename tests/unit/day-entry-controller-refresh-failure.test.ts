@@ -2,6 +2,7 @@ import { Deferred, Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
 import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
+import { createSummary as createTwoDaySummary } from "./day-entry-controller-test-fixtures";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -38,6 +39,7 @@ function createSummary(): PeriodSummary {
         date: "2026-07-12",
         label: "today",
         usedYen: 2_000,
+        isRecorded: 2_000 > 0,
         recommendedYen: 10_000,
       },
     ],
@@ -162,4 +164,38 @@ describe("day-entry controller refresh failure", () => {
     await vi.waitFor(() => expect(controller.modalSaving).toBe(false));
     expect(controller.modalOpen).toBe(false);
   });
+});
+
+it("publishes a zero-yen recording even when the follow-up refresh fails", async () => {
+  const before = createTwoDaySummary(0);
+  const saved = {
+    ...before,
+    dailyRows: before.dailyRows.map((row, index) =>
+      index === 0 ? { ...row, isRecorded: true } : row,
+    ),
+  };
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(jsonResponse(saved))
+    .mockResolvedValueOnce(jsonResponse({ error: {} }, 503));
+  vi.stubGlobal("fetch", fetchMock);
+  let current = before;
+  const controller = createDayEntryControllerState({
+    getSelectedPeriodId: () => "period-1",
+    getSummary: () => current,
+    historyController: {
+      getMutationSequence: () => 0,
+      loadHistory: vi.fn(),
+      loadHistoryEffect: () => Effect.void,
+      resetHistories: vi.fn(),
+    },
+    setSummary: (summary) => {
+      current = summary;
+    },
+  });
+  controller.openDayEntry({ date: "2026-07-12" });
+  controller.submitDayEntry({ date: "2026-07-12", inputYen: 0, memo: "zero" });
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  expect(current.dailyRows[0].isRecorded).toBe(true);
+  expect(controller.selectedRow?.isRecorded).toBe(true);
 });
