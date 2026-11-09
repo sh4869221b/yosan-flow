@@ -70,6 +70,25 @@ installed executable for the **whole project**, not only changed files:
   Missing/corrupt baselines, malformed output, missing binaries, process failures
   and timeouts fail closed. The runner attempts all three analyses even if one fails.
 
+### OS-provided binaries (3.40.0)
+
+Fallow 3.40.0 adds `unlisted-binaries`; `--fail-on-issues` also rejects these
+warning-level findings. `.fallowrc.jsonc` requires at least this version and uses
+`ignoreBinaries` for exactly `fc-match` and `sqlite3`, not patterns or a disabled
+rule. They are OS tools rather than npm dependencies:
+
+- `fc-match` comes from fontconfig in the official Playwright E2E container.
+  `scripts/e2e-container-smoke.ts` checks the installed Japanese font with it.
+- `sqlite3` must be available on PATH for the generated-SQL integration tests.
+  The Ubuntu GitHub Actions runner provides it; local developers must install
+  their OS's SQLite CLI before running those tests.
+
+This exception does not install either tool or relax its runtime checks. Unknown
+commands, including near-name variants, remain findings and fail the CI gate.
+The config fixture creates root `node_modules` so binary discovery actually runs;
+positive and negative controls use the installed analyzer without executing the
+fixture commands. No baseline entries or other rules are changed.
+
 ### Entry-aware dead-code contract (3.39.0)
 
 Since [Fallow 3.39.0](https://github.com/fallow-rs/fallow/releases/tag/v3.39.0),
