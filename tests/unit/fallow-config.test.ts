@@ -110,7 +110,7 @@ execFileSync("missing-project-tool", []);`,
     );
     const report = analyze(directory);
     expect(
-      report.unlisted_binaries.map((finding) => finding.binary_name).sort(),
+      report.unlisted_binaries?.map((finding) => finding.binary_name).sort(),
     ).toEqual(["fc-match-extra", "missing-project-tool", "sqlite3-extra"]);
   });
 
