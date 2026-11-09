@@ -63,6 +63,8 @@ function fixture(): string {
       compilerOptions: { moduleResolution: "bundler" },
     }),
   );
+  // Binary discovery requires a root node_modules directory, even without packages.
+  mkdirSync(join(directory, "node_modules"));
   return directory;
 }
 
@@ -94,6 +96,24 @@ afterEach(() => {
 });
 
 describe("Fallow project discovery", () => {
+  it("ignores only the exact OS-provided binary names", () => {
+    const directory = fixture();
+    write(
+      directory,
+      "scripts/e2e-container-smoke.ts",
+      `import { execFileSync } from "node:child_process";
+execFileSync("fc-match", []);
+execFileSync("sqlite3", []);
+execFileSync("fc-match-extra", []);
+execFileSync("sqlite3-extra", []);
+execFileSync("missing-project-tool", []);`,
+    );
+    const report = analyze(directory);
+    expect(
+      report.unlisted_binaries.map((finding) => finding.binary_name).sort(),
+    ).toEqual(["fc-match-extra", "missing-project-tool", "sqlite3-extra"]);
+  });
+
   it("retains implicit routes and tests while finding unused source and entry exports", () => {
     const directory = fixture();
     write(

@@ -189,6 +189,24 @@ describe("Fallow CI gate with the installed binary", () => {
     });
   });
 
+  it("accepts OS-provided tools but fails on a new unlisted binary", () => {
+    const directory = fixture();
+    const path = "scripts/e2e-container-smoke.ts";
+    const allowed = `import { execFileSync } from "node:child_process";
+execFileSync("fc-match", []);
+execFileSync("sqlite3", []);`;
+    write(directory, path, allowed);
+    expect(runGate(directory)).toBe(0);
+    expect(report(directory, "dead-code").unlisted_binaries).toEqual([]);
+
+    write(directory, path, `${allowed}\nexecFileSync("sqlite3-extra", []);`);
+    expect(runGate(directory)).toBe(1);
+    expect(report(directory, "dead-code").unlisted_binaries).toEqual([
+      expect.objectContaining({ binary_name: "sqlite3-extra" }),
+    ]);
+    expect(report(directory, "dead-code").total_issues).toBe(1);
+  });
+
   it("accepts native full-scope enforcement when entry export checking is off", () => {
     const directory = fixture((directory) => {
       write(
