@@ -56,11 +56,11 @@
     "typescript-eslint": "^8.72.1",
     "vite": "^8.3.6",
     "vitest": "^5.1.0",
-    "wrangler": "^4.157.0"
+    "wrangler": "^4.158.0"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.4",
-    "@lucide/svelte": "^1.69.0",
+    "@lucide/svelte": "^1.70.0",
     "bits-ui": "^2.20.6",
     "cn": "^0.5.2",
     "drizzle-orm": "^0.45.4",
