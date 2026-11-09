@@ -11,85 +11,119 @@ import { waitForResponse } from "./period-operation-state-helpers";
 
 configureDashboardDayEntryE2E();
 
-test("switches the labelled native period select with the keyboard", async ({
-  page,
-  request,
-}) => {
-  const { periodId, todayDate } = await seedCurrentPeriod(request);
-  const nextPeriodId = `${periodId}-next`;
-  await seedPeriod(request, getBaseUrl(), {
-    periodId: nextPeriodId,
-    startDate: addDays(todayDate, 30),
-    endDate: addDays(todayDate, 59),
-    budgetYen: 120_000,
-  });
-  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
-  await waitForDashboardReady(page);
-
-  const select = page.getByRole("combobox", { name: "期間を切り替え" });
-  await expect(select).toHaveValue(periodId);
-  expect(
-    await select.evaluate((element) => element instanceof HTMLSelectElement),
-  ).toBe(true);
-  await page.getByText("期間を切り替え", { exact: true }).click();
-  await expect(select).toBeFocused();
-  const key = await select.evaluate((element, targetId) => {
-    if (!(element instanceof HTMLSelectElement)) {
-      throw new Error("Period selection must use a native select");
-    }
-    const targetIndex = Array.from(element.options).findIndex(
-      (option) => option.value === targetId,
+for (const activation of ["label click", "Tab focus"] as const) {
+  test(`switches the native period select with the keyboard after ${activation}`, async ({
+    page,
+    request,
+  }) => {
+    const { periodId, todayDate } = await seedCurrentPeriod(request);
+    const nextPeriodId = `${periodId}-next`;
+    await seedPeriod(request, getBaseUrl(), {
+      periodId: nextPeriodId,
+      startDate: addDays(todayDate, 30),
+      endDate: addDays(todayDate, 59),
+      budgetYen: 120_000,
+    });
+    await page.goto(
+      `${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`,
     );
-    if (
-      targetIndex < 0 ||
-      Math.abs(targetIndex - element.selectedIndex) !== 1
-    ) {
-      throw new Error("The seeded periods must be adjacent native options");
-    }
-    return targetIndex < element.selectedIndex ? "ArrowUp" : "ArrowDown";
-  }, nextPeriodId);
+    await waitForDashboardReady(page);
 
-  const summaryUrl = new URL(
-    `/api/periods/${encodeURIComponent(nextPeriodId)}`,
-    getBaseUrl(),
-  ).href;
-  const requested = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  await page.route(summaryUrl, async (route) => {
-    if (
-      route.request().method() !== "GET" ||
-      route.request().url() !== summaryUrl
-    ) {
+    const select = page.getByRole("combobox", { name: "期間を切り替え" });
+    await expect(select).toHaveValue(periodId);
+    expect(
+      await select.evaluate((element) => element instanceof HTMLSelectElement),
+    ).toBe(true);
+    const key = await select.evaluate((element, targetId) => {
+      if (!(element instanceof HTMLSelectElement)) {
+        throw new Error("Period selection must use a native select");
+      }
+      const targetIndex = Array.from(element.options).findIndex(
+        (option) => option.value === targetId,
+      );
+      if (
+        targetIndex < 0 ||
+        Math.abs(targetIndex - element.selectedIndex) !== 1
+      ) {
+        throw new Error("The seeded periods must be adjacent native options");
+      }
+      return targetIndex < element.selectedIndex ? "ArrowUp" : "ArrowDown";
+    }, nextPeriodId);
+
+    const summaryUrl = new URL(
+      `/api/periods/${encodeURIComponent(nextPeriodId)}`,
+      getBaseUrl(),
+    ).href;
+    let summaryReads = 0;
+    const release = Promise.withResolvers<void>();
+    await page.route(summaryUrl, async (route) => {
+      if (
+        route.request().method() !== "GET" ||
+        route.request().url() !== summaryUrl
+      ) {
+        await route.continue();
+        return;
+      }
+      summaryReads += 1;
+      await release.promise;
       await route.continue();
-      return;
-    }
-    requested.resolve();
-    await release.promise;
-    await route.continue();
-  });
+    });
 
-  try {
-    await select.press(key);
-    await requested.promise;
-    await expect(select).toBeDisabled();
-    await expect(
-      page.getByText("読み込み中...", { exact: true }),
-    ).toBeVisible();
-    const response = page.waitForResponse(
-      (candidate) =>
-        candidate.request().method() === "GET" &&
-        candidate.url() === summaryUrl,
-    );
-    release.resolve();
-    expect((await response).ok()).toBe(true);
-    await expect(select).toBeEnabled();
-    await expect(select).toHaveValue(nextPeriodId);
-    await expect(page.getByTestId("period-id")).toContainText(nextPeriodId);
-    await expect(page.locator("#selected-period-heading")).toBeFocused();
-  } finally {
-    release.resolve();
-  }
-});
+    try {
+      if (activation === "label click") {
+        const label = page.getByText("期間を切り替え", { exact: true });
+        await label.click();
+        await expect(select).toBeFocused();
+        await expect(select.and(page.locator(":open"))).toHaveCount(1);
+        // Chromium opens the picker on label clicks. Arrow keys preview an
+        // option; Escape cancels it and Enter commits it.
+        await select.press(key);
+        await select.press("Escape");
+        await expect(select.and(page.locator(":open"))).toHaveCount(0);
+        await expect(select).toBeFocused();
+        await expect(select).toHaveValue(periodId);
+        await expect(page.getByTestId("period-id")).toHaveText(
+          `${periodId} / 30 日`,
+        );
+        expect(summaryReads).toBe(0);
+        await label.click();
+        await expect(select.and(page.locator(":open"))).toHaveCount(1);
+      } else {
+        await page.locator("#selected-period-heading").focus();
+        await page.keyboard.press("Tab");
+        await expect(select).toBeFocused();
+        await expect(select.and(page.locator(":open"))).toHaveCount(0);
+      }
+      await select.press(key);
+      if (activation === "label click") await select.press("Enter");
+      await expect
+        .poll(() => summaryReads, {
+          message: "Keyboard selection must request the next period summary",
+        })
+        .toBe(1);
+      await expect(select).toBeDisabled();
+      await expect(
+        page.getByText("読み込み中...", { exact: true }),
+      ).toBeVisible();
+      const response = page.waitForResponse(
+        (candidate) =>
+          candidate.request().method() === "GET" &&
+          candidate.url() === summaryUrl,
+      );
+      release.resolve();
+      expect((await response).ok()).toBe(true);
+      await expect(select).toBeEnabled();
+      await expect(select).toHaveValue(nextPeriodId);
+      await expect(page.getByTestId("period-id")).toHaveText(
+        `${nextPeriodId} / 30 日`,
+      );
+      await expect(page.locator("#selected-period-heading")).toBeFocused();
+      expect(summaryReads).toBe(1);
+    } finally {
+      release.resolve();
+    }
+  });
+}
 
 test("keeps a restored period selected when resume adds an option after a failed switch", async ({
   page,
