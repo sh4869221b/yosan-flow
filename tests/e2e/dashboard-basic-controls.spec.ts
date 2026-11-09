@@ -75,9 +75,8 @@ for (const activation of ["label click", "Tab focus"] as const) {
         await label.click();
         await expect(select).toBeFocused();
         await expect(select.and(page.locator(":open"))).toHaveCount(1);
-        // Chromium opens the picker on label clicks. Arrow keys preview an
-        // option; Escape cancels it and Enter commits it.
-        await select.press(key);
+        // Dismiss the label-opened picker without changing its option, then
+        // reopen it to commit a keyboard choice explicitly with Enter.
         await select.press("Escape");
         await expect(select.and(page.locator(":open"))).toHaveCount(0);
         await expect(select).toBeFocused();
