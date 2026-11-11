@@ -1,4 +1,4 @@
 {
   "playwrightImage": "mcr.microsoft.com/playwright:v1.65.0-noble@sha256:bc4fbb329a25287ed23e9216c97063646abdd1bf2da669a9895fa3e2078b2302",
-  "nodeDigest": "sha256:cd820d60a7f3ae057389f3e1bcf1a0ac09dd57c428fe14f191dcbc5c56ac5fe2"
+  "nodeDigest": "sha256:18a166e2d50578afe933434857ed2d9059bd1aa398a223e9c89eb4302354f079"
 }
