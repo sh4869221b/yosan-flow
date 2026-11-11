@@ -246,6 +246,42 @@ baselines, thresholds, exclusions and gate policy are unchanged. The migrated
 native comparison requires `matched_entries == baseline_entries == 10`, zero
 new/stale entries, and an enforced passing stale-baseline gate.
 
+### 3.41.0 duplication span migration (#668, 2026-11-11)
+
+Fresh 3.40.0 and 3.41.0 scans on the same source revision
+`f587c58c784922d32096391c6d5e715a1e112d15`, with the unchanged configuration,
+`--no-cache --no-fragments --format json --quiet --explain`, both analyze
+200 files, 22,426 lines and 99,414 tokens. Both find nine groups, eighteen
+instances and 523 duplicated tokens. The 3.40.0 gate matches all nine saved
+entries with no new or stale entries. With the original baseline, 3.41.0
+matches five and reports four stale entries plus four new groups.
+
+The [3.41.0 release notes](https://github.com/fallow-rs/fallow/releases/tag/v3.41.0)
+describe the correction from statement/block-wide token spans to the tokens'
+actual source spans. Each of the four changed groups maps one-to-one to the
+same two source instances and retains its token count. Every new span lies
+within its old span; the other five groups' complete raw data is unchanged.
+Reviewing the narrower source ranges preserves the existing D03, D04, D09 and
+D10 reasons below. No application or test source changed in this comparison.
+
+| Existing group | Normalized fingerprint (3.40.0 → 3.41.0) | Tokens | Reviewed span correction                                                                                                                       |
+| -------------- | ---------------------------------------- | -----: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| D03            | `85b2391e` → `322ed3bf`                  |     60 | Both add/overwrite routes end at 58:12, previously 63:2 / 65:2. Distinct handlers and telemetry remain.                                        |
+| D04            | `d351ac3d` → `e8f46f45`                  |     63 | Adversarial assertion starts at 68:14, previously 65:4; helper starts at 179:34, previously 179:2. Scenario-specific successor budgets remain. |
+| D09            | `b983a000` → `951d5d20`                  |     54 | Adversarial flows end at 102:11 / 202:11, previously 102:44 / 202:39. Each retains its wait-before-mutation ordering.                          |
+| D10            | `e99d0288` → `8db79862`                  |     54 | Budget/range focus blocks start at 93:59 / 156:24, previously 93:10 / 154:8. Their different ownership and proposal guards remain.             |
+
+Duplicated lines decrease from 196 to 179 (0.874% to 0.798%) due to the span
+correction, not a source cleanup. After reviewing all nine groups, a native
+3.41.0 baseline was saved to an ignored temporary file. Only the four changed
+groups' location, raw fingerprint and normalized fingerprint entries were
+copied into the committed baseline; the other five entries are unchanged.
+The migrated comparison must match all nine entries, with zero new/stale
+entries and both native duplication/freshness gates enforced and passing.
+Dead-code/health baselines, discovery, thresholds, suppressions and CI policy
+remain unchanged. The existing installed-binary fixture tests still require
+new clones and stale entries to fail; this is not a blanket baseline refresh.
+
 ### Shared dialog styles (#581, 2026-10-29)
 
 The theme/reset migration from `6c2e13d` gives the boundary confirmation and
