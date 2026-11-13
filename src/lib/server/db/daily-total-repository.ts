@@ -182,9 +182,9 @@ export function createD1DailyTotalRepository(
       .onConflictDoUpdate({
         target: [daily_totals.budget_period_id, daily_totals.date],
         set: {
-          year_month: sql`excluded.year_month`,
-          total_used_yen: sql`excluded.total_used_yen`,
-          updated_at: sql`excluded.updated_at`,
+          year_month: sql`excluded.${sql.identifier(daily_totals.year_month.name)}`,
+          total_used_yen: sql`excluded.${sql.identifier(daily_totals.total_used_yen.name)}`,
+          updated_at: sql`excluded.${sql.identifier(daily_totals.updated_at.name)}`,
         },
       });
 

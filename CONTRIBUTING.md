@@ -752,6 +752,9 @@ SQL and metadata with the repository-pinned Drizzle Kit; apply SQL with Wrangler
 Application queries remain behind Drizzle/repositories, with no runtime migrator
 or request-time schema bootstrap. Never use Drizzle `push` or `migrate` against D1.
 
+See [SQL ownership and review](tooling/database/sql-usage.md) for the runtime/test
+SQL inventory, atomic-writer exceptions, D1 limits and verification boundaries.
+
 #### Baseline and history ownership
 
 - Keep `migrations/0001_initial.sql` and `0002_reset_to_budget_periods.sql` byte-for-byte

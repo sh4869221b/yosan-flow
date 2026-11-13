@@ -1,6 +1,11 @@
 import { and, asc, eq, gte, lte, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { createDrizzleD1Database } from "#lib/server/db/client.ts";
+import {
+  insertD1BudgetPeriod,
+  updateD1BudgetPeriod,
+  rejectD1BudgetPeriodWrite,
+} from "#lib/server/db/budget-period-write-d1.ts";
 import { updateD1LinkedPeriodBoundary } from "#lib/server/db/budget-period-boundary-d1.ts";
 import {
   findD1BudgetPeriodById,
@@ -143,21 +148,12 @@ export function createD1BudgetPeriodRepository(
 
           await assertNoOverlap(inputRow);
 
-          await database
-            .insert(budget_periods)
-            .values({
-              id: inputRow.id,
-              start_date: inputRow.startDate,
-              end_date: inputRow.endDate,
-              budget_yen: inputRow.budgetYen,
-              status: inputRow.status ?? "active",
-              predecessor_period_id: inputRow.predecessorPeriodId ?? null,
-              created_at: inputRow.nowIso,
-              updated_at: inputRow.nowIso,
-            })
-            .run();
+          const result = await insertD1BudgetPeriod(database, inputRow);
 
           const created = await findD1BudgetPeriodById(database, inputRow.id);
+          if (!created && result.meta.changes === 0) {
+            return rejectD1BudgetPeriodWrite(database, inputRow, "create");
+          }
           if (!created) {
             throw new Error(
               `budget period not found after create: ${inputRow.id}`,
@@ -216,16 +212,10 @@ export function createD1BudgetPeriodRepository(
 
           await assertNoOverlap(inputRow, inputRow.id);
 
-          await database
-            .update(budget_periods)
-            .set({
-              start_date: inputRow.startDate,
-              end_date: inputRow.endDate,
-              budget_yen: inputRow.budgetYen,
-              updated_at: inputRow.nowIso,
-            })
-            .where(eq(budget_periods.id, inputRow.id))
-            .run();
+          const result = await updateD1BudgetPeriod(database, inputRow);
+          if (result.meta.changes === 0) {
+            return rejectD1BudgetPeriodWrite(database, inputRow, "update");
+          }
 
           const updated = await findD1BudgetPeriodById(database, inputRow.id);
           if (!updated) {

@@ -13,7 +13,7 @@ export function applyDailyOperationHistoryMutation(
   args: unknown[],
   state: PeriodAwareD1FakeState,
 ): void {
-  const normalizedSql = sql.toLowerCase();
+  const normalizedSql = sql.toLowerCase().replaceAll('"', "").trim();
   if (!normalizedSql.includes("daily_operation_histories")) {
     return;
   }
@@ -55,7 +55,10 @@ function tryApplyPartialUpdate(
   args: unknown[],
   state: PeriodAwareD1FakeState,
 ): boolean {
-  if (!normalizedSql.includes("update") || args.length < 5) {
+  if (
+    !normalizedSql.startsWith("update daily_operation_histories") ||
+    args.length < 5
+  ) {
     return false;
   }
 
@@ -78,7 +81,10 @@ function tryApplyDelete(
   args: unknown[],
   state: PeriodAwareD1FakeState,
 ): boolean {
-  if (!normalizedSql.includes("delete from") || args.length < 3) {
+  if (
+    !normalizedSql.startsWith("delete from daily_operation_histories") ||
+    args.length < 3
+  ) {
     return false;
   }
 
@@ -101,7 +107,10 @@ function tryApplyInsert(
   args: unknown[],
   state: PeriodAwareD1FakeState,
 ): boolean {
-  if (!normalizedSql.includes("insert into") || args.length < 9) {
+  if (
+    !normalizedSql.startsWith("insert into daily_operation_histories") ||
+    args.length < 9
+  ) {
     return false;
   }
 

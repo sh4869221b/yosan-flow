@@ -231,6 +231,71 @@ describe("history replay totals against SQLite", () => {
     ).toEqual({ total_used_yen: 325 });
   });
 
+  it.each([
+    ["update", ["a-last"], "m-middle", [100, 200, 225], 225],
+    ["delete", ["a-last"], "m-middle", [100, 125], 125],
+    ["update", ["m-middle", "a-last"], "z-first", [200, 70, 95], 95],
+    ["delete", ["m-middle", "a-last"], "z-first", [70, 95], 95],
+    ["update", ["z-first", "a-last"], "m-middle", [100, 200, 225], 225],
+    ["delete", ["z-first", "a-last"], "m-middle", [100, 125], 125],
+    ["update", ["z-first"], "m-middle", [100, 200, 225], 225],
+    ["delete", ["z-first"], "m-middle", [100, 125], 125],
+  ] as const)(
+    "%s %s with legacy NULL IDs replays each physical history row",
+    async (kind, nullIds, historyId, expectedTotals, expectedTotal) => {
+      seed(db, false);
+      const markLegacy = db.prepare(
+        "UPDATE daily_operation_histories SET id = NULL, before_total_yen = 1, after_total_yen = 2 WHERE id = ?",
+      );
+      for (const id of nullIds) markLegacy.run(id);
+      const beforeRows = db
+        .prepare(
+          "SELECT rowid, id FROM daily_operation_histories WHERE budget_period_id = 'target' AND date = ? ORDER BY created_at, rowid",
+        )
+        .all(date);
+      const writer = createD1DayEntryWriter({ db: createSqliteD1(db) });
+      await runApiEffect(
+        writer.writeHistoryReplay({
+          ...command,
+          historyId,
+          ...(kind === "update"
+            ? { kind, inputYen: 200, memo: null }
+            : { kind }),
+        }),
+      );
+      const rows = db
+        .prepare(
+          "SELECT rowid, id, before_total_yen, after_total_yen FROM daily_operation_histories WHERE budget_period_id = 'target' AND date = ? ORDER BY created_at, rowid",
+        )
+        .all(date);
+      expect(rows.map(({ rowid, id }) => ({ rowid, id }))).toEqual(
+        beforeRows.filter((row) => kind !== "delete" || row.id !== historyId),
+      );
+      expect(rows.map((row) => row.after_total_yen)).toEqual(expectedTotals);
+      expect(rows.map((row) => row.before_total_yen)).toEqual([
+        0,
+        ...expectedTotals.slice(0, -1),
+      ]);
+      expect(
+        db
+          .prepare(
+            "SELECT total_used_yen FROM daily_totals WHERE budget_period_id = 'target' AND date = ?",
+          )
+          .get(date),
+      ).toEqual({ total_used_yen: expectedTotal });
+      expect(
+        db
+          .prepare(
+            "SELECT id, after_total_yen FROM daily_operation_histories WHERE id IN ('other-date', 'other-period') ORDER BY id",
+          )
+          .all(),
+      ).toEqual([
+        { id: "other-date", after_total_yen: 800 },
+        { id: "other-period", after_total_yen: 900 },
+      ]);
+    },
+  );
+
   it("builds only one recursive replay and a scoped final persisted-row lookup", () => {
     const d1 = createSqliteD1(db);
     const prepare = vi.spyOn(d1, "prepare");
@@ -245,9 +310,13 @@ describe("history replay totals against SQLite", () => {
       sql.filter((query) => query.includes("WITH RECURSIVE")),
     ).toHaveLength(1);
     expect(sql[3]).not.toContain("replay");
-    expect(sql[3]).toContain("FROM daily_operation_histories");
-    expect(sql[3]).toContain("WHERE budget_period_id = ? AND date = ?");
-    expect(sql[3]).toContain("ORDER BY created_at DESC, rowid DESC");
+    expect(sql[3]).toContain('from "daily_operation_histories"');
+    expect(sql[3]).toContain(
+      'where ("daily_operation_histories"."budget_period_id" = ? and "daily_operation_histories"."date" = ?)',
+    );
+    expect(sql[3]).toContain(
+      'order by "daily_operation_histories"."created_at" desc, rowid desc',
+    );
   });
 
   it("rolls back history mutation and replay if the final total write fails", async () => {

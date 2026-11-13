@@ -62,11 +62,11 @@ export function applySqlMutation(
   state: PeriodAwareD1FakeState,
   linkedBoundaryChangesOverride?: number,
 ): number {
-  const normalized = sql.toLowerCase();
+  const normalized = sql.toLowerCase().replaceAll('"', "");
   if (
     (normalized.includes("insert into daily_operation_histories") ||
       normalized.includes("insert into daily_totals")) &&
-    normalized.includes("select 1 from budget_periods")
+    normalized.includes("from budget_periods")
   ) {
     const period = state.periods.get(
       String(
