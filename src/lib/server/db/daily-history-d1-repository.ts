@@ -56,7 +56,9 @@ export function createD1DailyHistoryRepository(
             )
             .orderBy(
               desc(daily_operation_histories.created_at),
-              sql`rowid DESC`,
+              // SQLite rowid is not a declared schema column; it is the stable
+              // insertion-order tie breaker shared with the atomic replay.
+              desc(sql`rowid`),
             )
             .all();
           return rows.map((row) => toDailyHistoryRecord(row));

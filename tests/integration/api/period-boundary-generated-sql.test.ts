@@ -4,58 +4,17 @@ import { describe, expect, it } from "vitest";
 import {
   createD1BudgetPeriodRepository,
   createInMemoryBudgetPeriodRepository,
-  type BudgetPeriodRecord,
-  type LinkedPeriodBoundaryUpdateCommand,
 } from "#lib/server/db/budget-period-repository.ts";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { createPeriodAwareD1Fake } from "../helpers/period-d1-fake";
 
-const target: BudgetPeriodRecord = {
-  id: "target",
-  startDate: "2026-06-21",
-  endDate: "2026-07-20",
-  budgetYen: 100_000,
-  status: "active",
-  predecessorPeriodId: null,
-  createdAt: "2026-06-01T00:00:00.000Z",
-  updatedAt: "2026-06-01T00:00:00.000Z",
-};
-
-const successor: BudgetPeriodRecord = {
-  id: "successor",
-  startDate: "2026-07-21",
-  endDate: "2026-08-19",
-  budgetYen: 120_000,
-  status: "closed",
-  predecessorPeriodId: target.id,
-  createdAt: "2026-06-02T00:00:00.000Z",
-  updatedAt: "2026-06-02T00:00:00.000Z",
-};
-
-const malformedCommand: LinkedPeriodBoundaryUpdateCommand = {
-  target: {
-    before: target,
-    after: { ...target, startDate: "2026-02-30", endDate: "2026-07-21" },
-  },
-  successor: {
-    before: successor,
-    after: { ...successor, startDate: "2026-07-22" },
-  },
-  nowIso: "2026-07-18T00:00:00.000Z",
-};
-
-function toD1Row(period: BudgetPeriodRecord) {
-  return {
-    id: period.id,
-    start_date: period.startDate,
-    end_date: period.endDate,
-    budget_yen: period.budgetYen,
-    status: period.status,
-    predecessor_period_id: period.predecessorPeriodId,
-    created_at: period.createdAt,
-    updated_at: period.updatedAt,
-  };
-}
+import {
+  target,
+  successor,
+  malformedCommand,
+  toD1Row,
+  earlierBoundary,
+} from "./period-boundary-sql-fixture";
 
 async function readPair(
   repository: ReturnType<typeof createInMemoryBudgetPeriodRepository>,
@@ -92,10 +51,17 @@ function executeGeneratedSql(sql: string, payload: string, setup = "") {
     select changes();
     select id,start_date,end_date from budget_periods order by id;
   `;
-  return spawnSync("sqlite3", [":memory:"], {
-    input: schema,
+  // D1 uses a much smaller depth/cursor budget than the CLI default of 1000.
+  const result = spawnSync("sqlite3", ["-bail", ":memory:"], {
+    input: `.limit expr_depth 100\n.limit expr_depth\n${schema}`,
     encoding: "utf8",
   });
+  expect(result.error).toBeUndefined();
+  expect(result.stdout).toMatch(/^(?:\s*expr_depth 100\n)+/);
+  return {
+    ...result,
+    stdout: result.stdout.replace(/^(?:\s*expr_depth 100\n)+/, ""),
+  };
 }
 
 describe("linked boundary generated SQL", () => {
@@ -140,18 +106,17 @@ describe("linked boundary generated SQL", () => {
         },
       }),
     });
-    const earlier: LinkedPeriodBoundaryUpdateCommand = {
-      target: { before: target, after: { ...target, endDate: "2026-07-19" } },
-      successor: {
-        before: successor,
-        after: { ...successor, startDate: "2026-07-20" },
-      },
-      nowIso: "2026-07-18T00:00:00.000Z",
-    };
-    await runApiEffect(repository.updateLinkedBoundary(earlier));
+    await runApiEffect(repository.updateLinkedBoundary(earlierBoundary));
     const captured = captures[0];
     if (!captured || typeof captured.args[0] !== "string")
       throw new Error("missing SQL");
+    expect(captures).toHaveLength(1);
+    expect(captured.args).toEqual([JSON.stringify(earlierBoundary)]);
+    expect(captured.sql.match(/\?/g)).toHaveLength(1);
+    expect(captured.sql).toContain('from "linked_boundary_input"');
+    expect(captured.sql).toContain('"linked_boundary_input"."payload"');
+    expect(captured.sql).not.toMatch(/select\s+(?:"payload"|payload)\s+from/i);
+    expect(captured.sql).not.toContain(earlierBoundary.nowIso);
     const success = executeGeneratedSql(captured.sql, captured.args[0]);
     expect(success.status).toBe(0);
     expect(success.stdout.trim().split("\n")).toEqual([

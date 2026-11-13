@@ -50,8 +50,8 @@ export function applyDailyTotalMutation(
   args: unknown[],
   state: PeriodAwareD1FakeState,
 ): void {
-  const normalizedSql = sql.toLowerCase();
-  if (!normalizedSql.includes("daily_totals")) {
+  const normalizedSql = sql.toLowerCase().replaceAll('"', "");
+  if (!/^\s*(?:insert into|delete from) daily_totals\b/.test(normalizedSql)) {
     return;
   }
 
@@ -73,7 +73,9 @@ export function applyDailyTotalMutation(
 
   const isReplayTotal =
     normalizedSql.includes("from daily_operation_histories") &&
-    normalizedSql.includes("order by created_at desc, rowid desc");
+    /order by (?:daily_operation_histories\.)?created_at desc, rowid desc/.test(
+      normalizedSql,
+    );
   const periodId = String(args[0]);
   const date = String(args[1]);
   const key = toDailyTotalKey(date, periodId);
