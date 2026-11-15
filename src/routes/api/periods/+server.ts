@@ -17,6 +17,7 @@ import {
   toApiErrorResponse,
 } from "#lib/server/validation/month.ts";
 import { parseDate } from "#lib/server/validation/day.ts";
+import { assertValidPeriodRange } from "#lib/server/db/budget-period-validation-coordinator.ts";
 
 export type PeriodsRouteDependencies = {
   services: InMemoryApiServices;
@@ -32,12 +33,13 @@ export function _createPeriodsHandler(
       async () => {
         const body = await runApiEffect(parseRequestBodyObject(request));
         const id = parsePeriodId(body.id as string | undefined);
-        const startDate = parseDate(body.startDate as string | undefined);
-        const endDate = parseDate(body.endDate as string | undefined);
+        const startDate = parseDate(body.startDate);
+        const endDate = parseDate(body.endDate);
         const budgetYen = parseNonNegativeIntegerYen(
           body.budgetYen,
           "budgetYen",
         );
+        assertValidPeriodRange(startDate, endDate);
         const predecessorPeriodId =
           body.predecessorPeriodId == null
             ? null

@@ -148,6 +148,9 @@ export function createPeriodControllerState(
     get periodInteractionDisabled() {
       return interactionDisabled();
     },
+    get createRangeInput() {
+      return createState.createRangeInput;
+    },
     get createStartDate() {
       return createState.createStartDate;
     },
@@ -165,6 +168,9 @@ export function createPeriodControllerState(
     },
     set createBudgetInput(value: string) {
       createState.createBudgetInput = value;
+    },
+    get createBudgetValue() {
+      return createState.createBudgetValue;
     },
     get createSaving() {
       return createState.createSaving;

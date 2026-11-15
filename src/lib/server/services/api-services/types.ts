@@ -18,6 +18,9 @@ import type { PeriodSummaryDailyTotal } from "#lib/server/services/period-summar
 import type { PeriodUpdateRequest } from "#lib/server/services/period-update/period-update-types.ts";
 import type { PeriodUpdateServiceResult } from "#lib/server/services/period-update/period-update-service.ts";
 
+// Commands cross the request validation boundary before reaching this port.
+// Dates and amounts are valid and memos are already normalized; implementations
+// still enforce period membership and persistence invariants.
 export type DayEntryServicePort = {
   addDailyAmount(command: {
     periodId: string;

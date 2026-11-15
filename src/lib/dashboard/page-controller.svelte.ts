@@ -74,6 +74,9 @@ export function createDashboardPageController(getData: () => PageData) {
     get periodInteractionDisabled() {
       return periodController.periodInteractionDisabled;
     },
+    get createBudgetValue() {
+      return periodController.createBudgetValue;
+    },
     get createSaving() {
       return periodController.createSaving;
     },
@@ -88,6 +91,9 @@ export function createDashboardPageController(getData: () => PageData) {
     },
     get createdRefreshPending() {
       return periodController.createdRefreshPending;
+    },
+    get createRangeInput() {
+      return periodController.createRangeInput;
     },
     get createStartDate() {
       return periodController.createStartDate;
@@ -145,6 +151,9 @@ export function createDashboardPageController(getData: () => PageData) {
     },
     set modalInputYen(value: string) {
       dayEntryController.modalInputYen = value;
+    },
+    get modalInputValue() {
+      return dayEntryController.modalInputValue;
     },
     get modalMemo() {
       return dayEntryController.modalMemo;

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
   type Props = {
     inputYen?: string;
+    addedYen?: number | null;
     currentUsedYen?: number;
     previewAfterYen?: number;
     previewRemainingYen?: number | null;
@@ -10,13 +10,12 @@
 
   let {
     inputYen = "",
+    addedYen = null,
     currentUsedYen = 0,
     previewAfterYen = 0,
     previewRemainingYen = null,
     previewRecommendedYen = null,
   }: Props = $props();
-
-  const addedYen = $derived(parseNonNegativeIntegerYenInput(inputYen));
 
   function formatYen(value: number): string {
     return value.toLocaleString("ja-JP");

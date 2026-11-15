@@ -8,6 +8,7 @@ import {
   LinkedPeriodBoundaryConflictError,
   type BudgetPeriodRecord,
   type BudgetPeriodRepository,
+  type LinkedPeriodBoundaryUpdateCommand,
 } from "#lib/server/db/budget-period-repository.ts";
 import { PeriodNotFoundError } from "#lib/server/db/budget-period-types.ts";
 import { decidePeriodBoundaryUpdate } from "#lib/server/services/period-update/period-boundary-decision.ts";
@@ -16,7 +17,6 @@ import {
   assertPeriodHasNoOverlap,
   assertPeriodPredecessorContinuity,
   assertPeriodSuccessorContinuity,
-  assertValidPeriodInput,
 } from "#lib/server/db/budget-period-validation-coordinator.ts";
 import {
   PeriodUpdateConflictError,
@@ -149,7 +149,7 @@ export function createPeriodUpdateService(
                     target: decision.proposal.previous,
                     successor: decision.proposal.next,
                     nowIso: dependencies.nowIso(),
-                  })
+                  } as LinkedPeriodBoundaryUpdateCommand)
                   .pipe(
                     Effect.catchIf(
                       (error) =>
@@ -176,11 +176,6 @@ export function createPeriodUpdateService(
 
       const decision = yield* Effect.try({
         try: () => {
-          assertValidPeriodInput(
-            request.startDate,
-            request.endDate,
-            request.budgetYen,
-          );
           return decidePeriodBoundaryUpdate({
             target,
             successors,

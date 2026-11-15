@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
   import { Button } from "#lib/components/ui/button/index.ts";
   import { Input } from "#lib/components/ui/input/index.ts";
   import { Label } from "#lib/components/ui/label/index.ts";
@@ -53,6 +54,7 @@
 
   let editingHistoryId = $state<string | null>(null);
   let editInputYen = $state("");
+  let editInputValue = $state<number | null>(null);
   let editMemo = $state("");
   let pendingSaveHistoryId = $state<string | null>(null);
   let editFailureHistoryId = $state<string | null>(null);
@@ -174,12 +176,14 @@
     editFailureHistoryId = null;
     editingHistoryId = history.id;
     editInputYen = String(history.inputYen);
+    editInputValue = parseNonNegativeIntegerYenInput(editInputYen);
     editMemo = history.memo ?? "";
   }
 
   function cancelEdit(): void {
     editingHistoryId = null;
     editInputYen = "";
+    editInputValue = null;
     editMemo = "";
     pendingSaveHistoryId = null;
     activeEdit = null;
@@ -217,7 +221,16 @@
     clearDeleteSuccess();
   }
 
-  async function saveEdit(historyId: string): Promise<HistoryActionResult> {
+  function setEditInputYen(value: string): void {
+    if (value === editInputYen) return;
+    editInputYen = value;
+    editInputValue = parseNonNegativeIntegerYenInput(value);
+  }
+
+  async function saveEdit(
+    historyId: string,
+    inputYen: number,
+  ): Promise<HistoryActionResult> {
     if (!isOpen || date == null) return { kind: "ignored" };
     editFailureHistoryId = null;
     const operation: EditOperation = { date, historyId };
@@ -226,7 +239,7 @@
     editingHistoryId = null;
     const result = await updateHistory({
       historyId,
-      inputYen: Number(editInputYen.trim()),
+      inputYen,
       memo: editMemo,
     });
     if (activeEdit !== operation || !isOpen || date !== operation.date) {
@@ -418,7 +431,8 @@
         <HistoryRow
           {history}
           {...rowState(history.id)}
-          bind:editInputYen
+          bind:editInputYen={() => editInputYen, setEditInputYen}
+          {editInputValue}
           bind:editMemo
           onStartEdit={startEdit}
           onCancelEdit={cancelEdit}

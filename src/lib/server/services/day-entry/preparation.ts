@@ -4,11 +4,6 @@ import type {
   BudgetPeriodRepository,
 } from "#lib/server/db/budget-period-repository.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
-import {
-  assertValidDate,
-  assertValidInputYen,
-  normalizeMemo,
-} from "#lib/server/domain/daily-entry.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
 import type { PeriodDayEntryCommand } from "#lib/server/services/day-entry-service.ts";
 import { DateOutOfPeriodError, PeriodNotFoundError } from "./errors";
@@ -29,19 +24,6 @@ type EntryPreparationInput = {
   budgetPeriodRepository: BudgetPeriodRepository;
   now: () => string;
 };
-
-export function validateEntryInputEffect(
-  command: Pick<PeriodDayEntryCommand, "date" | "inputYen" | "memo">,
-): Effect.Effect<string | null, Error> {
-  return Effect.try({
-    try: () => {
-      assertValidDate(command.date);
-      assertValidInputYen(command.inputYen);
-      return normalizeMemo(command.memo);
-    },
-    catch: toEffectError,
-  });
-}
 
 export function validatePeriodDateEffect(input: {
   date: string;
@@ -67,7 +49,7 @@ export function prepareEntryEffect(
   input: EntryPreparationInput,
 ): Effect.Effect<PreparedEntryInput, Error> {
   return Effect.gen(function* () {
-    const memo = yield* validateEntryInputEffect(input.execute.command);
+    const memo = input.execute.command.memo ?? null;
     const nowIso = input.now();
 
     const period = yield* input.budgetPeriodRepository.findById(

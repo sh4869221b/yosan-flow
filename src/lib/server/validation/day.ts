@@ -9,8 +9,8 @@ import {
   normalizeMemo,
 } from "#lib/server/domain/daily-entry.ts";
 
-export function parseDate(date: string | undefined): string {
-  const value = date ?? "";
+export function parseDate(date: unknown): string {
+  const value = typeof date === "string" ? date : "";
   try {
     assertValidDate(value);
   } catch {

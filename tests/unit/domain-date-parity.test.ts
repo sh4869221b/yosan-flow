@@ -4,6 +4,8 @@ import {
   isDateWithinPeriod,
 } from "#lib/server/domain/budget-period.ts";
 import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
+import { parseDate } from "#lib/server/validation/day.ts";
+import { assertValidPeriodRange } from "#lib/server/db/budget-period-validation-coordinator.ts";
 
 describe("shared domain calendar-date contract", () => {
   it.each([
@@ -16,18 +18,11 @@ describe("shared domain calendar-date contract", () => {
     "2026-13-01",
     "2026-01-00",
     "0099-01-01",
-  ])("preserves identical invalid-date messages for %j", (date) => {
+  ])("rejects invalid input dates at the boundary: %j", (date) => {
     const message = `Invalid date: ${date}`;
     expect(() => assertValidDate(date)).toThrow(message);
-    expect(() => getNextPeriodStartDate(date)).toThrow(message);
-    expect(() => isDateWithinPeriod(date, "2026-01-01", "2026-12-31")).toThrow(
-      message,
-    );
-    expect(() => isDateWithinPeriod("2026-06-01", date, "2026-12-31")).toThrow(
-      message,
-    );
-    expect(() => isDateWithinPeriod("2026-06-01", "2026-01-01", date)).toThrow(
-      message,
+    expect(() => parseDate(date)).toThrowError(
+      expect.objectContaining({ code: "INVALID_DATE" }),
     );
   });
   it.each([
@@ -40,8 +35,8 @@ describe("shared domain calendar-date contract", () => {
     expect(isDateWithinPeriod(date, date, date)).toBe(true);
   });
   it("retains the reversed-period error", () => {
-    expect(() =>
-      isDateWithinPeriod("2026-06-01", "2026-06-02", "2026-05-31"),
-    ).toThrow("Invalid period: 2026-06-02..2026-05-31");
+    expect(() => assertValidPeriodRange("2026-06-02", "2026-05-31")).toThrow(
+      "Invalid period: 2026-06-02..2026-05-31",
+    );
   });
 });

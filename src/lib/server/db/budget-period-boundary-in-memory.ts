@@ -58,31 +58,6 @@ function isValidNextDate(endDate: string, startDate: string): boolean {
   }
 }
 
-function isValidDate(date: string): boolean {
-  try {
-    getNextPeriodStartDate(date);
-    return true;
-  } catch (error) {
-    if (error instanceof Error) {
-      return false;
-    }
-    throw error;
-  }
-}
-
-function hasValidAfterRange(
-  before: Readonly<BudgetPeriodRecord>,
-  after: LinkedPeriodBoundaryUpdateCommand["target"]["after"],
-): boolean {
-  return (
-    after.id === before.id &&
-    after.budgetYen >= 0 &&
-    after.startDate <= after.endDate &&
-    isValidDate(after.startDate) &&
-    isValidDate(after.endDate)
-  );
-}
-
 function overlaps(
   period: BudgetPeriodRecord,
   proposed: LinkedPeriodBoundaryUpdateCommand["target"]["after"],
@@ -162,8 +137,8 @@ export function evaluateLinkedPeriodBoundaryGate(input: GateInput): GateResult {
       command.target.before.endDate,
       command.successor.before.startDate,
     ) ||
-    !hasValidAfterRange(command.target.before, command.target.after) ||
-    !hasValidAfterRange(command.successor.before, command.successor.after) ||
+    command.target.after.id !== command.target.before.id ||
+    command.successor.after.id !== command.successor.before.id ||
     !isValidNextDate(
       command.target.after.endDate,
       command.successor.after.startDate,

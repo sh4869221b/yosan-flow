@@ -4,8 +4,9 @@ import {
 } from "#lib/server/domain/budget-period.ts";
 import {
   assertPeriodSuccessorContinuity,
-  assertValidPeriodInput,
+  assertValidPeriodRange,
 } from "#lib/server/db/budget-period-validation-coordinator.ts";
+import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
 import { PeriodValidationError } from "#lib/server/db/budget-period-types.ts";
 import {
   PeriodMultipleSuccessorsError,
@@ -76,11 +77,6 @@ function buildProposal(
   const { target, requested } = input;
   const { previous, next, reverse } = pair;
   assertPeriodSuccessorContinuity(previous.endDate, [next]);
-  assertValidPeriodInput(
-    requested.startDate,
-    requested.endDate,
-    requested.budgetYen,
-  );
   const editedAfter = {
     id: target.id,
     startDate: requested.startDate,
@@ -103,16 +99,19 @@ function buildProposal(
         endDate: next.endDate,
         budgetYen: next.budgetYen,
       };
-  assertValidPeriodInput(
-    previousAfter.startDate,
-    previousAfter.endDate,
-    previousAfter.budgetYen,
-  );
-  assertValidPeriodInput(
-    nextAfter.startDate,
-    nextAfter.endDate,
-    nextAfter.budgetYen,
-  );
+  // Only the neighboring range is newly derived; the edited range was checked
+  // at the request boundary.
+  const derived = reverse ? previousAfter : nextAfter;
+  // Arithmetic can cross the supported calendar range even when its input is valid.
+  try {
+    assertValidDate(reverse ? derived.endDate : derived.startDate);
+    assertValidPeriodRange(derived.startDate, derived.endDate);
+  } catch {
+    throw new PeriodValidationError(
+      "INVALID_PERIOD_RANGE",
+      `Invalid period: ${derived.startDate}..${derived.endDate}`,
+    );
+  }
   return {
     kind: "confirmation-required",
     proposal: {

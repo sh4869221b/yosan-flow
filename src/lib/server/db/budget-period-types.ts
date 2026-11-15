@@ -38,7 +38,11 @@ export type LinkedPeriodBoundaryAfter = {
   readonly budgetYen: number;
 };
 
+// Constructed only after the request has been parsed and the proposal derived.
+// The brand makes construction of a fresh raw command require an explicit assertion.
+declare const trustedLinkedBoundary: unique symbol;
 export type LinkedPeriodBoundaryUpdateCommand = {
+  readonly [trustedLinkedBoundary]: true;
   readonly target: {
     readonly before: Readonly<BudgetPeriodRecord>;
     readonly after: LinkedPeriodBoundaryAfter;
@@ -95,6 +99,9 @@ export class PeriodNotFoundError extends Error {
   }
 }
 
+// Mutation inputs are internal commands: request fields have been validated at
+// ingress, and newly derived ranges have been checked before persistence.
+// Implementations still enforce relationships with current stored state.
 export interface BudgetPeriodRepository {
   findById(id: string): Effect.Effect<BudgetPeriodRecord | null, Error>;
   findByDate(date: string): Effect.Effect<BudgetPeriodRecord | null, Error>;

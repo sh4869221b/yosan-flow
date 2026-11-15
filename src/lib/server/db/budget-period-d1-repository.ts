@@ -17,11 +17,11 @@ import {
   assertPeriodHasNoOverlap,
   assertPeriodPredecessorContinuity,
   assertPeriodSuccessorContinuity,
-  assertValidPeriodInput,
 } from "#lib/server/db/budget-period-validation-coordinator.ts";
 import type { BudgetPeriodRepository } from "#lib/server/db/budget-period-types.ts";
 import { PeriodNotFoundError } from "#lib/server/db/budget-period-types.ts";
 import { budget_periods } from "#lib/server/db/schema.ts";
+import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 type CreateD1BudgetPeriodRepositoryInput = {
@@ -119,12 +119,6 @@ export function createD1BudgetPeriodRepository(
     createPeriod(inputRow) {
       return Effect.tryPromise({
         try: async () => {
-          assertValidPeriodInput(
-            inputRow.startDate,
-            inputRow.endDate,
-            inputRow.budgetYen,
-          );
-
           const existing = await findD1BudgetPeriodById(database, inputRow.id);
           if (existing) {
             return existing;
@@ -139,6 +133,8 @@ export function createD1BudgetPeriodRepository(
               .limit(1)
               .all();
             predecessorEndDate = predecessor?.end_date ?? null;
+            if (predecessorEndDate !== null)
+              assertValidDate(predecessorEndDate);
           }
           assertPeriodPredecessorContinuity(
             inputRow.predecessorPeriodId,
@@ -168,12 +164,6 @@ export function createD1BudgetPeriodRepository(
     updatePeriod(inputRow) {
       return Effect.tryPromise({
         try: async () => {
-          assertValidPeriodInput(
-            inputRow.startDate,
-            inputRow.endDate,
-            inputRow.budgetYen,
-          );
-
           const existing = await findD1BudgetPeriodById(database, inputRow.id);
           if (!existing) {
             throw new PeriodNotFoundError(inputRow.id);
@@ -187,6 +177,8 @@ export function createD1BudgetPeriodRepository(
               .limit(1)
               .all();
             predecessorEndDate = predecessor?.end_date ?? null;
+            if (predecessorEndDate !== null)
+              assertValidDate(predecessorEndDate);
           }
           assertPeriodPredecessorContinuity(
             existing.predecessorPeriodId,
@@ -204,10 +196,10 @@ export function createD1BudgetPeriodRepository(
             .all();
           assertPeriodSuccessorContinuity(
             inputRow.endDate,
-            successors.map((row) => ({
-              id: row.id,
-              startDate: row.start_date,
-            })),
+            successors.map((row) => {
+              assertValidDate(row.start_date);
+              return { id: row.id, startDate: row.start_date };
+            }),
           );
 
           await assertNoOverlap(inputRow, inputRow.id);

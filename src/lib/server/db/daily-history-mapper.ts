@@ -1,3 +1,4 @@
+import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
 import type {
   DailyHistoryRecord,
   InsertDailyHistoryInput,
@@ -7,6 +8,7 @@ import type { DailyOperationHistoryRow } from "#lib/server/db/schema.ts";
 export function toDailyHistoryRecord(
   row: DailyOperationHistoryRow,
 ): DailyHistoryRecord {
+  assertValidDate(row.date);
   return {
     id: row.id,
     date: row.date,

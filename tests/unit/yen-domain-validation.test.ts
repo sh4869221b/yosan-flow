@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assertValidInputYen } from "#lib/server/domain/daily-entry.ts";
-import { assertValidPeriodInput } from "#lib/server/db/budget-period-validation-coordinator.ts";
+import { parseNonNegativeIntegerYen } from "#lib/server/validation/month.ts";
 
 describe("domain yen validation", () => {
   const validators = [
@@ -8,7 +8,7 @@ describe("domain yen validation", () => {
     {
       name: "period budget",
       validate: (value: number) =>
-        assertValidPeriodInput("2026-04-20", "2026-05-19", value),
+        parseNonNegativeIntegerYen(value, "budgetYen"),
     },
   ];
 

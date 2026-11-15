@@ -65,32 +65,26 @@ function executeGeneratedSql(sql: string, payload: string, setup = "") {
 }
 
 describe("linked boundary generated SQL", () => {
-  it.each(["d1", "in-memory"] as const)(
-    "rejects a noncanonical calendar date without mutation with %s",
-    async (implementation) => {
-      // Given a linked pair and February 30 in the proposed target range
-      const repository =
-        implementation === "d1"
-          ? createD1BudgetPeriodRepository({
-              db: createPeriodAwareD1Fake([], {
-                periods: [target, successor].map(toD1Row),
-              }),
-            })
-          : createInMemoryBudgetPeriodRepository([target, successor]);
-      const before = await readPair(repository);
+  it("rejects a noncanonical calendar date at the D1 persistence gate", async () => {
+    // Given a linked pair and February 30 in the proposed target range
+    const repository = createD1BudgetPeriodRepository({
+      db: createPeriodAwareD1Fake([], {
+        periods: [target, successor].map(toD1Row),
+      }),
+    });
+    const before = await readPair(repository);
 
-      // When the linked-boundary command reaches the persistence gate
-      const failure = runApiEffect(
-        repository.updateLinkedBoundary(malformedCommand),
-      );
+    // When the linked-boundary command reaches the persistence gate
+    const failure = runApiEffect(
+      repository.updateLinkedBoundary(malformedCommand),
+    );
 
-      // Then it returns a typed conflict and preserves both records
-      await expect(failure).rejects.toMatchObject({
-        code: "PERIOD_UPDATE_CONFLICT",
-      });
-      await expect(readPair(repository)).resolves.toEqual(before);
-    },
-  );
+    // Then it returns a typed conflict and preserves both records
+    await expect(failure).rejects.toMatchObject({
+      code: "PERIOD_UPDATE_CONFLICT",
+    });
+    await expect(readPair(repository)).resolves.toEqual(before);
+  });
 
   it("executes the earlier boundary atomically and rejects displaced data in real SQLite", async () => {
     const captures: {

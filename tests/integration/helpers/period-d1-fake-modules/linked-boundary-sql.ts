@@ -1,3 +1,4 @@
+import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
 import {
   evaluateLinkedPeriodBoundaryGate,
   type LinkedBoundaryOwnedEntryDates,
@@ -85,7 +86,7 @@ function parseCommand(payload: unknown): LinkedPeriodBoundaryUpdateCommand {
     target: parseSide(payload.target),
     successor: parseSide(payload.successor),
     nowIso: readString(payload, "nowIso"),
-  };
+  } as LinkedPeriodBoundaryUpdateCommand;
 }
 
 function toRecord(row: BudgetPeriodRow): BudgetPeriodRecord {
@@ -150,6 +151,21 @@ export function applyLinkedBoundaryMutation(
   const parsed: unknown = JSON.parse(payloadText);
   const command = parseCommand(parsed);
   try {
+    // Simulate the independent SQL guards on data entering D1.
+    for (const side of [command.target, command.successor]) {
+      try {
+        assertValidDate(side.after.startDate);
+        assertValidDate(side.after.endDate);
+      } catch {
+        throw new LinkedPeriodBoundaryConflictError();
+      }
+      if (
+        side.after.budgetYen < 0 ||
+        side.after.startDate > side.after.endDate
+      ) {
+        throw new LinkedPeriodBoundaryConflictError();
+      }
+    }
     const next = evaluateLinkedPeriodBoundaryGate({
       command,
       periods: [...state.periods.values()].map(toRecord),

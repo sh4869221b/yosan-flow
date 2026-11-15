@@ -1,5 +1,6 @@
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as dailyEntry from "#lib/server/domain/daily-entry.ts";
 import { createD1BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
 import {
   createInMemoryBudgetPeriodRepository,
@@ -32,7 +33,7 @@ const successor: BudgetPeriodRecord = {
   updatedAt: "2026-06-02T00:00:00.000Z",
 };
 
-const command: LinkedPeriodBoundaryUpdateCommand = {
+const command = {
   target: {
     before: target,
     after: { ...target, endDate: "2026-07-21" },
@@ -42,7 +43,7 @@ const command: LinkedPeriodBoundaryUpdateCommand = {
     after: { ...successor, startDate: "2026-07-22" },
   },
   nowIso: "2026-07-18T00:00:00.000Z",
-};
+} as unknown as LinkedPeriodBoundaryUpdateCommand;
 
 type Seed = {
   readonly periods?: readonly BudgetPeriodRecord[];
@@ -207,7 +208,7 @@ describe("linked period boundary persistence", () => {
           },
         },
         {
-          name: "proposed range is malformed",
+          name: "proposed range also breaks continuity",
           input: {
             ...command,
             successor: {
@@ -222,7 +223,12 @@ describe("linked period boundary persistence", () => {
             periods: [
               target,
               successor,
-              { ...target, id: "third", startDate: "2026-07-21" },
+              {
+                ...target,
+                id: "third",
+                startDate: "2026-07-21",
+                endDate: "2026-07-22",
+              },
             ],
           },
         },
@@ -275,6 +281,17 @@ describe("linked period boundary persistence", () => {
       }
     },
   );
+
+  it("does not revalidate dates in a trusted in-memory confirmation", async () => {
+    const harness = createHarness("in-memory");
+    const date = vi.spyOn(dailyEntry, "assertValidDate");
+    try {
+      await harness.update(command);
+      expect(date).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
 
   it("rejects an impossible one-row D1 result without accepting partial state", async () => {
     // Given a fake that reports an impossible affected-row count

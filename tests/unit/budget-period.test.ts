@@ -29,22 +29,6 @@ describe("budget period domain", () => {
 });
 
 describe("budget period repository", () => {
-  it("rejects invalid period ranges on create", async () => {
-    const repository = createInMemoryBudgetPeriodRepository();
-
-    await expect(
-      runApiEffect(
-        repository.createPeriod({
-          id: "period-1",
-          startDate: "2026-05-20",
-          endDate: "2026-05-19",
-          budgetYen: 1000,
-          nowIso: "2026-05-01T00:00:00.000Z",
-        }),
-      ),
-    ).rejects.toThrow("Invalid period");
-  });
-
   it("rejects predecessor updates that would break successor continuity", async () => {
     const repository = createInMemoryBudgetPeriodRepository();
     await Effect.runPromise(
