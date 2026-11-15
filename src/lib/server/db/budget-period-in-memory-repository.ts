@@ -7,7 +7,6 @@ import {
   assertPeriodHasNoOverlap,
   assertPeriodPredecessorContinuity,
   assertPeriodSuccessorContinuity,
-  assertValidPeriodInput,
 } from "#lib/server/db/budget-period-validation-coordinator.ts";
 import { clonePeriod } from "#lib/server/db/budget-period-row-mapper.ts";
 import type {
@@ -16,6 +15,11 @@ import type {
 } from "#lib/server/db/budget-period-types.ts";
 import { PeriodNotFoundError } from "#lib/server/db/budget-period-types.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import {
+  assertValidDate,
+  assertValidInputYen,
+} from "#lib/server/domain/daily-entry.ts";
+import { assertValidPeriodRange } from "#lib/server/db/budget-period-validation-coordinator.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 export function createInMemoryBudgetPeriodRepository(
@@ -27,6 +31,11 @@ export function createInMemoryBudgetPeriodRepository(
 ): BudgetPeriodRepository {
   const store = new Map<string, BudgetPeriodRecord>();
   for (const period of initialPeriods) {
+    // Initial records are an independent input, unlike validated commands.
+    assertValidDate(period.startDate);
+    assertValidDate(period.endDate);
+    assertValidInputYen(period.budgetYen);
+    assertValidPeriodRange(period.startDate, period.endDate);
     store.set(period.id, clonePeriod(period));
   }
 
@@ -85,11 +94,6 @@ export function createInMemoryBudgetPeriodRepository(
     createPeriod(input) {
       return Effect.try({
         try: () => {
-          assertValidPeriodInput(
-            input.startDate,
-            input.endDate,
-            input.budgetYen,
-          );
           const existing = store.get(input.id);
           if (existing) {
             return clonePeriod(existing);
@@ -125,11 +129,6 @@ export function createInMemoryBudgetPeriodRepository(
     updatePeriod(input) {
       return Effect.try({
         try: () => {
-          assertValidPeriodInput(
-            input.startDate,
-            input.endDate,
-            input.budgetYen,
-          );
           const existing = store.get(input.id);
           if (!existing) {
             throw new PeriodNotFoundError(input.id);

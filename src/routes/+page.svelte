@@ -108,6 +108,7 @@
     historyMutatingId={controller.historyMutatingId}
     histories={controller.histories}
     bind:inputYen={controller.modalInputYen}
+    inputValue={controller.modalInputValue}
     bind:memo={controller.modalMemo}
     previewAfterYen={controller.modalPreviewAfterYen}
     previewRemainingYen={controller.modalPreviewRemainingYen}

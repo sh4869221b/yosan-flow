@@ -95,7 +95,7 @@ describe("budget summary component structure", () => {
       "src/lib/dashboard/period-settings-state.svelte.ts",
     );
     expect(settingsStateSource).toMatch(
-      /parseNonNegativeIntegerYenInput\(budget\.draft\)/,
+      /budget\.value = parseNonNegativeIntegerYenInput\(value\)/,
     );
   });
 });

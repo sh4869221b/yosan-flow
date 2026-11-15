@@ -239,26 +239,6 @@ describe("period boundary update decision", () => {
     ).toThrowError(expect.objectContaining({ code: "INVALID_PERIOD_RANGE" }));
   });
 
-  it("rejects malformed requested dates without producing a proposal", () => {
-    // Given a malformed end date that reaches a linked successor lexically
-    const malformedRequest = { ...requested, endDate: "2026-07-99" };
-
-    // When and then the real date boundary evaluates it
-    expect(() =>
-      decidePeriodBoundaryUpdate({
-        target,
-        successors: [successor],
-        requested: malformedRequest,
-      }),
-    ).toThrowError(
-      expect.objectContaining({
-        name: "PeriodValidationError",
-        code: "INVALID_PERIOD_RANGE",
-        message: "Invalid period: 2026-06-21..2026-07-99",
-      }),
-    );
-  });
-
   it("exposes the stable boundary error contracts", () => {
     // Given the stable domain errors
     const multipleSuccessorsError = new PeriodMultipleSuccessorsError();

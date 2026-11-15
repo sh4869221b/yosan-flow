@@ -1,6 +1,4 @@
 import { Effect } from "effect";
-import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
-import { toEffectError } from "#lib/server/effect/runtime.ts";
 import type { DatabaseClient } from "#lib/server/db/client.ts";
 import type {
   BudgetPeriodRecord,
@@ -19,7 +17,6 @@ import { persistEntryEffect } from "./day-entry/entry-persistence";
 import { replayHistoryMutationEffect } from "./day-entry/history-mutation";
 import {
   prepareEntryEffect,
-  validateEntryInputEffect,
   type ExecuteEntryInput,
 } from "./day-entry/preparation";
 
@@ -36,6 +33,7 @@ type DayEntryServiceInput = {
   createHistoryId?: () => string;
 };
 
+// Inputs must already be validated and memos normalized by the caller.
 export type PeriodDayEntryCommand = {
   periodId: string;
   date: string;
@@ -113,7 +111,7 @@ export class DayEntryService {
     command: UpdateHistoryCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen({ self: this }, function* () {
-      const memo = yield* validateEntryInputEffect(command);
+      const memo = command.memo ?? null;
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
         mutateTarget: (history) => ({
@@ -129,10 +127,6 @@ export class DayEntryService {
     command: HistoryMutationCommand,
   ): Effect.Effect<HistoryReplayResult, Error> {
     return Effect.gen({ self: this }, function* () {
-      yield* Effect.try({
-        try: () => assertValidDate(command.date),
-        catch: toEffectError,
-      });
       return yield* replayHistoryMutationEffect({
         ...this.createHistoryMutationInput(command),
         mutateTarget: () => null,

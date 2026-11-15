@@ -1,4 +1,3 @@
-import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 import type {
   DailyRow,
   PeriodSummary,
@@ -6,12 +5,9 @@ import type {
 
 export function getModalPreviewAfterYen(
   selectedRow: DailyRow | null,
-  modalInputYen: string,
+  inputValue: number | null,
 ): number {
-  return (
-    (selectedRow?.usedYen ?? 0) +
-    (parseNonNegativeIntegerYenInput(modalInputYen) ?? 0)
-  );
+  return (selectedRow?.usedYen ?? 0) + (inputValue ?? 0);
 }
 
 export function getModalRemainingRows(

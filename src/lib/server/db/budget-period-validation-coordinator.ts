@@ -15,17 +15,13 @@ type BudgetPeriodSuccessorLike = {
   startDate: string;
 };
 
-export function assertValidPeriodInput(
+// Dates entering this function have already been validated at their input boundary.
+// This checks the relationship, including newly derived boundary pairs.
+export function assertValidPeriodRange(
   startDate: string,
   endDate: string,
-  budgetYen: number,
 ): void {
-  if (!Number.isSafeInteger(budgetYen) || budgetYen < 0) {
-    throw new Error(`Invalid budgetYen: ${budgetYen}`);
-  }
-  try {
-    isDateWithinPeriod(startDate, startDate, endDate);
-  } catch {
+  if (startDate > endDate) {
     throw new PeriodValidationError(
       "INVALID_PERIOD_RANGE",
       `Invalid period: ${startDate}..${endDate}`,

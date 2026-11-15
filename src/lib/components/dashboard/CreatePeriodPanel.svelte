@@ -1,9 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
-  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
   import PeriodRangePicker from "#lib/components/PeriodRangePicker.svelte";
-  import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
   import { Button } from "#lib/components/ui/button/index.ts";
   import { Input } from "#lib/components/ui/input/index.ts";
   import { Label } from "#lib/components/ui/label/index.ts";
@@ -30,13 +28,10 @@
   const prefix = $derived(
     variant === "empty-state" ? "initial-period" : "create-period",
   );
-  const range = $derived({
-    startDate: controller.createStartDate,
-    endDate: controller.createEndDate,
-  });
-  const rangeValidation = $derived(getPeriodRangeValidation(range));
+  const range = $derived(controller.createRangeInput.draft);
+  const rangeValidation = $derived(controller.createRangeInput.validation);
   const budgetError = $derived(
-    parseNonNegativeIntegerYenInput(controller.createBudgetInput) == null
+    controller.createBudgetValue == null
       ? "予算は 0 以上の整数で入力してください。"
       : null,
   );
@@ -183,6 +178,7 @@
     <h2>期間設定</h2>
     <PeriodRangePicker
       value={range}
+      calendarValue={controller.createRangeInput.calendarValue}
       onValueChange={controller.updateCreatePeriodRange}
       onFieldBlur={markBlurred}
       {disabled}

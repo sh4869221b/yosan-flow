@@ -1,7 +1,5 @@
-import { assertValidDate } from "./daily-entry";
-
+// Calendar dates and ranges here are validated at their respective input boundaries.
 function toDateValue(date: string): number {
-  assertValidDate(date);
   return Date.parse(`${date}T00:00:00.000Z`);
 }
 
@@ -24,13 +22,7 @@ export function isDateWithinPeriod(
   startDate: string,
   endDate: string,
 ): boolean {
-  const dateValue = toDateValue(date);
-  const startDateValue = toDateValue(startDate);
-  const endDateValue = toDateValue(endDate);
-
-  if (startDateValue > endDateValue) {
-    throw new Error(`Invalid period: ${startDate}..${endDate}`);
-  }
-
-  return startDateValue <= dateValue && dateValue <= endDateValue;
+  // ISO calendar dates are validated at their input boundary and sort in
+  // chronological order. The range itself was checked when it was formed.
+  return startDate <= date && date <= endDate;
 }

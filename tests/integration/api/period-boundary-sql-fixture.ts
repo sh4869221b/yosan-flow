@@ -25,7 +25,7 @@ export const successor: BudgetPeriodRecord = {
   updatedAt: "2026-06-02T00:00:00.000Z",
 };
 
-export const malformedCommand: LinkedPeriodBoundaryUpdateCommand = {
+export const malformedCommand = {
   target: {
     before: target,
     after: { ...target, startDate: "2026-02-30", endDate: "2026-07-21" },
@@ -35,7 +35,7 @@ export const malformedCommand: LinkedPeriodBoundaryUpdateCommand = {
     after: { ...successor, startDate: "2026-07-22" },
   },
   nowIso: "2026-07-18T00:00:00.000Z",
-};
+} as unknown as LinkedPeriodBoundaryUpdateCommand;
 
 export function toD1Row(period: BudgetPeriodRecord) {
   return {
@@ -50,14 +50,14 @@ export function toD1Row(period: BudgetPeriodRecord) {
   };
 }
 
-export const laterBoundary: LinkedPeriodBoundaryUpdateCommand = {
+export const laterBoundary = {
   target: { before: target, after: { ...target, endDate: "2026-07-21" } },
   successor: {
     before: successor,
     after: { ...successor, startDate: "2026-07-22" },
   },
   nowIso: "2026-07-18T00:00:00.000Z",
-};
+} as unknown as LinkedPeriodBoundaryUpdateCommand;
 
 export const earlierBoundary: LinkedPeriodBoundaryUpdateCommand = {
   ...laterBoundary,

@@ -4,6 +4,7 @@ import type {
   PeriodSnapshot,
   PeriodUpdateRequest,
 } from "#lib/server/services/period-update/period-update-types.ts";
+import { assertValidPeriodRange } from "#lib/server/db/budget-period-validation-coordinator.ts";
 import { parseDate } from "#lib/server/validation/day.ts";
 import {
   ApiRouteError,
@@ -148,6 +149,7 @@ export function parsePeriodUpdateRequest(
     typeof body.endDate === "string" ? body.endDate : undefined,
   );
   const budgetYen = parseNonNegativeIntegerYen(body.budgetYen, "budgetYen");
+  assertValidPeriodRange(startDate, endDate);
   if (!("confirmation" in body)) {
     return { startDate, endDate, budgetYen };
   }

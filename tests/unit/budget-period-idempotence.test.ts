@@ -64,20 +64,4 @@ describe("budget period create idempotence", () => {
       ]);
     },
   );
-
-  it.each([
-    { budgetYen: -1 },
-    { budgetYen: 1.5 },
-    { startDate: "2026-06-01" },
-    { startDate: "invalid" },
-  ])("rejects invalid base input on a duplicate ID: %j", async (invalid) => {
-    const { repository, original } = await setup();
-
-    await expect(
-      runApiEffect(repository.createPeriod({ ...originalInput, ...invalid })),
-    ).rejects.toThrow();
-    await expect(
-      runApiEffect(repository.findById(original.id)),
-    ).resolves.toEqual(original);
-  });
 });

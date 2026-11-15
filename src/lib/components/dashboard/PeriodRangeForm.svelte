@@ -8,7 +8,7 @@
   import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
   import type { PeriodSettingsState } from "#lib/dashboard/period-settings-state.svelte.ts";
   import PeriodRangePicker from "#lib/components/PeriodRangePicker.svelte";
-  import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
+  import type { PeriodRange } from "#lib/components/period-range-state.ts";
   import { Button } from "#lib/components/ui/button/index.ts";
 
   type Props = {
@@ -46,7 +46,7 @@
     periodId: string | null;
     source: HTMLElement | null;
   } | null>(null);
-  const validation = $derived(getPeriodRangeValidation(range.draft));
+  const validation = $derived(range.validation);
   const disabled = $derived(
     range.saving ||
       loading ||
@@ -99,9 +99,12 @@
     if (draft !== editedDraft) clearValidation();
   });
 
-  function edit(value: { startDate: string; endDate: string }): void {
+  function edit(
+    value: { startDate: string; endDate: string },
+    calendarRange?: PeriodRange,
+  ): void {
     confirmation.dismissResult();
-    range.edit(value);
+    range.edit(value, calendarRange);
     editedDraft = range.draft;
   }
 
@@ -277,6 +280,7 @@
   <p class="notice">変更する期間</p>
   <PeriodRangePicker
     value={range.draft}
+    calendarValue={range.calendarValue}
     onValueChange={edit}
     onFieldBlur={(field) => {
       if (field === "start") touchedStart = true;

@@ -1,7 +1,10 @@
 import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import type { SavePeriodPayload } from "#lib/dashboard/types.ts";
 import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
-import { getPeriodRangeValidation } from "#lib/components/period-range-state.ts";
+import {
+  parsePeriodRangeInput,
+  type PeriodRange,
+} from "#lib/components/period-range-state.ts";
 
 type RangeDraft = Readonly<{ startDate: string; endDate: string }>;
 export type PeriodSetting = "budget" | "range";
@@ -24,15 +27,36 @@ function sameRange(left: RangeDraft, right: RangeDraft): boolean {
   return left.startDate === right.startDate && left.endDate === right.endDate;
 }
 
+function summaryBudgetInput(summary: PeriodSummary | null) {
+  const source: unknown = summary?.budgetYen;
+  return {
+    source,
+    draft:
+      typeof source === "number" || typeof source === "string"
+        ? String(source)
+        : "",
+    value:
+      typeof source === "number" && Number.isSafeInteger(source) && source >= 0
+        ? source
+        : null,
+  };
+}
+
 export function createPeriodSettingsState(dependencies: Dependencies) {
+  let savedBudgetInput = summaryBudgetInput(dependencies.getSummary());
+  let savedRangeInput = parsePeriodRangeInput(
+    rangeOf(dependencies.getSummary()),
+  );
   const budget = $state({
-    draft: String(dependencies.getSummary()?.budgetYen ?? ""),
+    draft: savedBudgetInput.draft,
+    value: savedBudgetInput.value,
     saving: false,
     validationError: null as string | null,
     serverError: null as string | null,
     success: false,
     settingChanged: false,
   });
+  let rangeInput = $state.raw(savedRangeInput);
   const range = $state({
     draft: rangeOf(dependencies.getSummary()),
     saving: false,
@@ -47,26 +71,32 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
   });
 
   function resetBudget(summary: PeriodSummary | null): void {
-    budget.draft = String(summary?.budgetYen ?? "");
+    if (!Object.is(savedBudgetInput.source, summary?.budgetYen)) {
+      savedBudgetInput = summaryBudgetInput(summary);
+    }
+    budget.draft = savedBudgetInput.draft;
+    budget.value = savedBudgetInput.value;
     budget.validationError = budget.serverError = null;
     budget.success = budget.settingChanged = false;
   }
   function resetRange(summary: PeriodSummary | null): void {
-    range.draft = rangeOf(summary);
+    savedRangeInput = parsePeriodRangeInput(rangeOf(summary), savedRangeInput);
+    rangeInput = savedRangeInput;
+    range.draft = rangeInput.draft;
     range.validationErrors = { startDate: null, endDate: null, range: null };
     range.serverError = null;
     range.success = range.settingChanged = false;
   }
   function validateBudget(): number | null {
     if (dependencies.getSummary() == null) return null;
-    const value = parseNonNegativeIntegerYenInput(budget.draft);
+    const value = budget.value;
     budget.validationError =
       value == null ? "予算は 0 以上の整数で入力してください。" : null;
     return budget.settingChanged ? null : value;
   }
   function validateRange(): RangeDraft | null {
     if (dependencies.getSummary() == null) return null;
-    const validation = getPeriodRangeValidation(range.draft);
+    const validation = rangeInput.validation;
     range.validationErrors = {
       startDate: validation.startError,
       endDate: validation.endError,
@@ -90,10 +120,7 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
       resetBudget(next);
       budget.success = true;
     } else if (previous.budgetYen !== next.budgetYen) {
-      if (
-        budget.settingChanged ||
-        parseNonNegativeIntegerYenInput(budget.draft) !== previous.budgetYen
-      ) {
+      if (budget.settingChanged || budget.value !== previous.budgetYen) {
         budget.settingChanged = true;
       } else resetBudget(next);
     }
@@ -124,7 +151,9 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
         return budget.draft;
       },
       set draft(value: string) {
+        if (value === budget.draft) return;
         budget.draft = value;
+        budget.value = parseNonNegativeIntegerYenInput(value);
         budget.serverError = null;
         budget.success = false;
         if (budget.validationError != null) validateBudget();
@@ -133,7 +162,7 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
         const summary = dependencies.getSummary();
         return summary == null
           ? budget.draft !== ""
-          : parseNonNegativeIntegerYenInput(budget.draft) !== summary.budgetYen;
+          : budget.value !== summary.budgetYen;
       },
       get saving() {
         return budget.saving;
@@ -159,8 +188,15 @@ export function createPeriodSettingsState(dependencies: Dependencies) {
       get draft(): RangeDraft {
         return range.draft;
       },
-      edit(value: RangeDraft): void {
-        range.draft = { ...value };
+      get validation() {
+        return rangeInput.validation;
+      },
+      get calendarValue() {
+        return rangeInput.calendarValue;
+      },
+      edit(value: RangeDraft, calendarRange?: PeriodRange): void {
+        rangeInput = parsePeriodRangeInput(value, rangeInput, calendarRange);
+        range.draft = rangeInput.draft;
         range.serverError = null;
         range.success = false;
         if (

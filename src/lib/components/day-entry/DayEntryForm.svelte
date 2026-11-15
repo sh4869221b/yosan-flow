@@ -5,12 +5,12 @@
   import { Input } from "#lib/components/ui/input/index.ts";
   import { Label } from "#lib/components/ui/label/index.ts";
   import { Textarea } from "#lib/components/ui/textarea/index.ts";
-  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 
   const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
 
   type Props = {
     inputYen?: string;
+    inputValue?: number | null;
     memo?: string;
     saving?: boolean;
     close?: () => void;
@@ -22,6 +22,7 @@
 
   let {
     inputYen = $bindable(""),
+    inputValue = null,
     memo = $bindable(""),
     saving = false,
     close = () => {},
@@ -53,14 +54,9 @@
     });
   });
 
-  function handleAmountInput(event: Event): void {
-    if (inputError == null) {
-      return;
-    }
-    const value = (event.currentTarget as HTMLInputElement).value;
-    inputError =
-      parseNonNegativeIntegerYenInput(value) == null ? AMOUNT_ERROR : null;
-  }
+  $effect(() => {
+    if (inputValue != null) inputError = null;
+  });
 
   function handleClose(): void {
     if (!saving) {
@@ -73,7 +69,7 @@
     if (!date || saving) {
       return;
     }
-    const parsed = parseNonNegativeIntegerYenInput(inputYen);
+    const parsed = inputValue;
     if (parsed == null) {
       inputError = AMOUNT_ERROR;
       await tick();
@@ -108,7 +104,6 @@
         bind:value={inputYen}
         aria-invalid={inputError != null}
         aria-describedby={inputError ? "day-entry-amount-error" : undefined}
-        oninput={handleAmountInput}
       />
     </span>
   </div>

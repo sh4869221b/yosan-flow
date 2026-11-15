@@ -1,3 +1,8 @@
+import {
+  parsePeriodRangeInput,
+  type PeriodRange,
+} from "#lib/components/period-range-state.ts";
+import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 import { addDays } from "#lib/dashboard/date.ts";
 
 type CreateRange = Readonly<{ endDate: string; startDate: string }>;
@@ -10,10 +15,11 @@ export function createPeriodCreateState(initialState: InitialState) {
     periodId: `p-${initialState.startDate}`,
     budgetInput: "120000",
   };
-  let createStartDate = $state(defaults.startDate);
-  let createEndDate = $state(defaults.endDate);
+  const defaultRangeInput = parsePeriodRangeInput(defaults);
+  let createRangeInput = $state.raw(defaultRangeInput);
   let createPeriodId = $state(defaults.periodId);
   let createBudgetInput = $state(defaults.budgetInput);
+  let createBudgetValue = $state<number | null>(120000);
   let manuallyEditedPeriodId = $state(false);
   let createSaving = $state(false);
   let createError = $state<string | null>(null);
@@ -32,10 +38,13 @@ export function createPeriodCreateState(initialState: InitialState) {
 
   return {
     get createStartDate() {
-      return createStartDate;
+      return createRangeInput.draft.startDate;
     },
     get createEndDate() {
-      return createEndDate;
+      return createRangeInput.draft.endDate;
+    },
+    get createRangeInput() {
+      return createRangeInput;
     },
     get createPeriodId() {
       return createPeriodId;
@@ -51,8 +60,13 @@ export function createPeriodCreateState(initialState: InitialState) {
       return createBudgetInput;
     },
     set createBudgetInput(value: string) {
-      if (value !== createBudgetInput) recordDraftEdit();
+      if (value === createBudgetInput) return;
+      recordDraftEdit();
       createBudgetInput = value;
+      createBudgetValue = parseNonNegativeIntegerYenInput(value);
+    },
+    get createBudgetValue() {
+      return createBudgetValue;
     },
     get createSaving() {
       return createSaving;
@@ -91,23 +105,26 @@ export function createPeriodCreateState(initialState: InitialState) {
       }
     },
     resetDraft(): void {
-      createStartDate = defaults.startDate;
-      createEndDate = defaults.endDate;
+      createRangeInput = defaultRangeInput;
       createPeriodId = defaults.periodId;
       createBudgetInput = defaults.budgetInput;
+      createBudgetValue = 120000;
       manuallyEditedPeriodId = false;
       createError = null;
       recovery.createdPeriodId = null;
     },
-    updateRange(range: CreateRange): void {
+    updateRange(range: CreateRange, calendarRange?: PeriodRange): void {
       if (
-        range.startDate !== createStartDate ||
-        range.endDate !== createEndDate
+        range.startDate !== createRangeInput.draft.startDate ||
+        range.endDate !== createRangeInput.draft.endDate
       ) {
         recordDraftEdit();
       }
-      createStartDate = range.startDate;
-      createEndDate = range.endDate;
+      createRangeInput = parsePeriodRangeInput(
+        range,
+        createRangeInput,
+        calendarRange,
+      );
       if (!manuallyEditedPeriodId) createPeriodId = `p-${range.startDate}`;
     },
   };

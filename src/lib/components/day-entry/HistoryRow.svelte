@@ -9,7 +9,6 @@
     HistoryActionResult,
     HistoryItem,
   } from "#lib/dashboard/types.ts";
-  import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 
   const AMOUNT_ERROR = "入力額は 0 以上の整数で入力してください。";
 
@@ -28,12 +27,16 @@
     isSaveSuccessful?: boolean;
     deleteError?: string | null;
     editInputYen?: string;
+    editInputValue?: number | null;
     editMemo?: string;
     onStartEdit?: (_history: HistoryItem) => void;
     onCancelEdit?: () => void;
     onStartDelete?: (_history: HistoryItem) => void;
     onCancelDelete?: () => void;
-    onSaveEdit?: (_historyId: string) => Promise<HistoryActionResult>;
+    onSaveEdit?: (
+      _historyId: string,
+      _inputYen: number,
+    ) => Promise<HistoryActionResult>;
     onDelete?: (_historyId: string) => Promise<HistoryActionResult>;
   };
 
@@ -50,6 +53,7 @@
     isSaveSuccessful = false,
     deleteError = null,
     editInputYen = $bindable(""),
+    editInputValue = null,
     editMemo = $bindable(""),
     onStartEdit = () => {},
     onCancelEdit = () => {},
@@ -168,15 +172,9 @@
     focusedEditElement = element instanceof HTMLElement ? element : null;
   }
 
-  function handleInput(): void {
-    if (
-      inputError != null &&
-      parseNonNegativeIntegerYenInput(editInputYen) != null
-    ) {
-      inputError = null;
-    }
-    saveError = null;
-  }
+  $effect(() => {
+    if (editInputValue != null) inputError = null;
+  });
 
   function restoreFailureFocus(
     submitFocusElement: Element | null,
@@ -204,7 +202,7 @@
     if (isPending || mutationUnavailable) {
       return;
     }
-    const parsed = parseNonNegativeIntegerYenInput(editInputYen);
+    const parsed = editInputValue;
     if (parsed == null) {
       inputError = AMOUNT_ERROR;
       await tick();
@@ -222,7 +220,7 @@
       }
     };
     submitting = true;
-    const resultPromise = onSaveEdit(history.id);
+    const resultPromise = onSaveEdit(history.id, parsed);
     await tick();
     const stopTracking = (): void => {
       window.removeEventListener("focusin", trackPendingInteraction, true);
@@ -318,7 +316,7 @@
           ? `history-edit-${history.id}-amount-error`
           : undefined}
         disabled={isPending}
-        oninput={handleInput}
+        oninput={() => (saveError = null)}
         onfocus={(event) => captureEditFocus("amount", event.currentTarget)}
         onkeydown={handleEditKeydown}
       />

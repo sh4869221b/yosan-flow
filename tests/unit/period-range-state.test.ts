@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
-  getPeriodRangeCalendarValue,
-  getPeriodRangeValidation,
+  parsePeriodRangeInput,
+  type PeriodRange,
 } from "#lib/components/period-range-state.ts";
 
-function rangeStrings(range: ReturnType<typeof getPeriodRangeCalendarValue>) {
+function rangeStrings(range: PeriodRange) {
   return {
     startDate: range.start?.toString() ?? "",
     endDate: range.end?.toString() ?? "",
   };
 }
 
-describe("getPeriodRangeCalendarValue", () => {
+describe("parsed period range calendar values", () => {
   it.each([
     {
       name: "projects an ordered valid pair",
@@ -49,13 +49,15 @@ describe("getPeriodRangeCalendarValue", () => {
       expected: { startDate: "", endDate: "" },
     },
   ])("$name", ({ input, expected }) => {
-    expect(rangeStrings(getPeriodRangeCalendarValue(input))).toEqual(expected);
+    expect(rangeStrings(parsePeriodRangeInput(input).calendarValue)).toEqual(
+      expected,
+    );
   });
 
   it("does not mutate the raw draft", () => {
     const input = { startDate: "2026-09-30", endDate: "2026-09-01" };
 
-    getPeriodRangeCalendarValue(input);
+    parsePeriodRangeInput(input);
 
     expect(input).toEqual({ startDate: "2026-09-30", endDate: "2026-09-01" });
   });
@@ -63,7 +65,7 @@ describe("getPeriodRangeCalendarValue", () => {
 
 describe("existing range validation helpers", () => {
   it("keeps reversed endpoints for validation", () => {
-    const validation = getPeriodRangeValidation({
+    const { validation } = parsePeriodRangeInput({
       startDate: "2026-09-30",
       endDate: "2026-09-01",
     });

@@ -43,6 +43,7 @@
     historyMutatingId?: string | null;
     histories?: HistoryItem[];
     inputYen?: string;
+    inputValue?: number | null;
     memo?: string;
     previewAfterYen?: number;
     previewRemainingYen?: number | null;
@@ -71,6 +72,7 @@
     historyMutatingId = null,
     histories = [],
     inputYen = $bindable(""),
+    inputValue = null,
     memo = $bindable(""),
     previewAfterYen = 0,
     previewRemainingYen = null,
@@ -159,6 +161,7 @@
       {#key date}
         <DayEntryForm
           bind:inputYen
+          {inputValue}
           bind:memo
           {saving}
           close={cancel}
@@ -169,6 +172,7 @@
           {#snippet preview()}
             <DayEntryPreview
               {inputYen}
+              addedYen={inputValue}
               {currentUsedYen}
               {previewAfterYen}
               {previewRemainingYen}

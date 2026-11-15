@@ -12,7 +12,6 @@ import type {
   PeriodCreateResponse,
   PeriodListResponse,
 } from "#lib/dashboard/types.ts";
-import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 import type { PeriodCreateState } from "#lib/dashboard/period-create-state.svelte.ts";
 
 export type PeriodCreationDependencies = {
@@ -140,9 +139,7 @@ export function createPeriodCreationEffect(
   dependencies: PeriodCreationDependencies,
 ): Effect.Effect<void, never> {
   const createState = dependencies.createState;
-  const budgetYen = parseNonNegativeIntegerYenInput(
-    createState.createBudgetInput,
-  );
+  const budgetYen = createState.createBudgetValue;
   if (budgetYen == null) {
     createState.setError("予算は 0 以上の整数で入力してください。");
     createState.setSaving(false);

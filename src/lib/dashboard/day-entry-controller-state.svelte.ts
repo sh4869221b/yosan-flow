@@ -1,3 +1,4 @@
+import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
 import { createDayEntryDraftStore } from "#lib/dashboard/day-entry-draft-store.ts";
 import { Effect } from "effect";
 import { runClientEffect } from "#lib/dashboard/client-effect.ts";
@@ -45,6 +46,7 @@ export function createDayEntryControllerState(
   let selectedDate = $state<string | null>(null);
   let selectedRow = $state<DailyRow | null>(null);
   let modalInputYen = $state("");
+  let modalInputValue = $state<number | null>(null);
   let modalMemo = $state("");
   let daySaveSuccess = $state<DaySaveSuccess | null>(null);
   let dayEntryCloseReason = $state<DayEntryCloseReason | null>(null);
@@ -77,7 +79,7 @@ export function createDayEntryControllerState(
   });
 
   const modalPreviewAfterYen = $derived(
-    getModalPreviewAfterYen(selectedRow, modalInputYen),
+    getModalPreviewAfterYen(selectedRow, modalInputValue),
   );
   const modalRemainingRows = $derived(
     getModalRemainingRows(dependencies.getSummary(), selectedDate),
@@ -95,7 +97,13 @@ export function createDayEntryControllerState(
 
   function retainDraft(): void {
     if (draftPeriodId && selectedDate) {
-      drafts.write(draftPeriodId, selectedDate, modalInputYen, modalMemo);
+      drafts.write(
+        draftPeriodId,
+        selectedDate,
+        modalInputYen,
+        modalMemo,
+        modalInputValue,
+      );
     }
   }
 
@@ -143,9 +151,14 @@ export function createDayEntryControllerState(
       return modalInputYen;
     },
     set modalInputYen(value: string) {
+      if (value === modalInputYen) return;
       modalInputYen = value;
+      modalInputValue = parseNonNegativeIntegerYenInput(value);
       retainDraft();
       daySaveSuccess = null;
+    },
+    get modalInputValue() {
+      return modalInputValue;
     },
     get modalMemo() {
       return modalMemo;
@@ -181,6 +194,7 @@ export function createDayEntryControllerState(
         ? drafts.read(draftPeriodId, payload.date)
         : undefined;
       modalInputYen = draft?.inputYen ?? "";
+      modalInputValue = draft?.inputValue ?? null;
       modalMemo = draft?.memo ?? "";
       dependencies.historyController.resetHistories();
       dependencies.historyController.loadHistory(payload.date);

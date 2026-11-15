@@ -4,6 +4,7 @@ import type { DatabaseTransaction } from "#lib/server/db/client.ts";
 import { createDrizzleD1Database } from "#lib/server/db/client.ts";
 import type { D1Database } from "#lib/server/db/d1-types.ts";
 import { daily_totals, type DailyTotalRow } from "#lib/server/db/schema.ts";
+import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 export type DailyTotalRecord = {
@@ -69,6 +70,7 @@ function toDailyTotalKey(date: string, budgetPeriodId: string): string {
 }
 
 function toDailyTotalRecord(row: DailyTotalRow): DailyTotalRecord {
+  assertValidDate(row.date);
   return {
     date: row.date,
     yearMonth: row.year_month,

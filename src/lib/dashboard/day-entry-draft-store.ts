@@ -1,5 +1,6 @@
 type Draft = {
   inputYen: string;
+  inputValue: number | null;
   memo: string;
   revision: number;
 };
@@ -18,12 +19,18 @@ export function createDayEntryDraftStore() {
       date: string,
       inputYen: string,
       memo: string,
+      inputValue: number | null,
     ): void {
       const draftKey = key(periodId, date);
       if (inputYen === "" && memo === "") {
         drafts.delete(draftKey);
       } else {
-        drafts.set(draftKey, { inputYen, memo, revision: ++revision });
+        drafts.set(draftKey, {
+          inputYen,
+          inputValue,
+          memo,
+          revision: ++revision,
+        });
       }
     },
     clearSubmitted(

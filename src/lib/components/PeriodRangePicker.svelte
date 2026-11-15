@@ -1,15 +1,15 @@
 <script lang="ts">
   import PeriodRangeCalendar from "./PeriodRangeCalendar.svelte";
   import PeriodRangeInputRow from "./PeriodRangeInputRow.svelte";
-  import {
-    getPeriodRangeCalendarValue,
-    type PeriodRange,
-    type PeriodRangeField,
-  } from "./period-range-state";
+  import type { PeriodRange, PeriodRangeField } from "./period-range-state";
 
   type Props = {
     value: { readonly startDate: string; readonly endDate: string };
-    onValueChange: (_value: { startDate: string; endDate: string }) => void;
+    calendarValue: PeriodRange;
+    onValueChange: (
+      _value: { startDate: string; endDate: string },
+      _calendarRange?: PeriodRange,
+    ) => void;
     onFieldBlur: (_field: PeriodRangeField) => void;
     disabled: boolean;
     startId: string;
@@ -22,6 +22,7 @@
 
   let {
     value,
+    calendarValue,
     onValueChange,
     onFieldBlur,
     disabled,
@@ -32,8 +33,6 @@
     rangeError,
     testIdPrefix,
   }: Props = $props();
-
-  const calendarValue = $derived(getPeriodRangeCalendarValue(value));
 
   function handleDateInput(payload: {
     readonly field: PeriodRangeField;
@@ -46,10 +45,13 @@
   }
 
   function handleCalendarChange(range: PeriodRange): void {
-    onValueChange({
-      startDate: range.start?.toString() ?? "",
-      endDate: range.end?.toString() ?? "",
-    });
+    onValueChange(
+      {
+        startDate: range.start?.toString() ?? "",
+        endDate: range.end?.toString() ?? "",
+      },
+      range,
+    );
   }
 </script>
 
