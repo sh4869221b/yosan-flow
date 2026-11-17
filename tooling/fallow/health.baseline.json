@@ -72,11 +72,6 @@
         "count": 1
       }
     },
-    "src/lib/dashboard/history-controller-state.svelte.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "src/lib/dashboard/history-mutation-lifecycle.ts": {
       "crap_moderate": {
         "count": 1
@@ -286,11 +281,6 @@
       }
     },
     "src/lib/dashboard/day-entry-summary-reconciliation.ts\u0000<anonymous>": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/dashboard/history-controller-state.svelte.ts\u0000<anonymous>": {
       "crap_moderate": {
         "count": 1
       }

@@ -16,6 +16,7 @@ const build = prebuilt
 export default defineConfig({
   globalSetup: "./scripts/e2e-timing.ts",
   testDir: "./tests/e2e",
+  forbidOnly: Boolean(process.env.CI),
   fullyParallel: false,
   workers: 1,
   reporter: [

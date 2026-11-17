@@ -40,6 +40,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>読み込みに失敗しました | Yosan Flow</title>
+</svelte:head>
+
 <main class="dashboard-page">
   <section aria-labelledby="page-error-heading">
     <Card.Root class="gap-4">

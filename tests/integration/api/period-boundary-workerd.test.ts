@@ -11,6 +11,8 @@ import {
 import { createDrizzleD1Database } from "#lib/server/db/client.ts";
 import type { D1Database } from "#lib/server/db/d1-types.ts";
 import { updateD1LinkedPeriodBoundary } from "#lib/server/db/budget-period-boundary-d1.ts";
+import { createD1BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import type {
   BudgetPeriodRecord,
   LinkedPeriodBoundaryUpdateCommand,
@@ -35,6 +37,7 @@ describe("linked boundary in actual local D1", () => {
   let directory: string;
   let proxy: PlatformProxy<{ DB: D1Database }> | undefined;
   let database: ReturnType<typeof createDrizzleD1Database>;
+  let repository: ReturnType<typeof createD1BudgetPeriodRepository>;
 
   beforeAll(async () => {
     directory = mkdtempSync(join(tmpdir(), "yosan-boundary-d1-"));
@@ -66,6 +69,7 @@ describe("linked boundary in actual local D1", () => {
       }
     }
     database = createDrizzleD1Database(proxy.env.DB);
+    repository = createD1BudgetPeriodRepository({ db: proxy.env.DB });
   }, 30_000);
 
   afterAll(async () => {
@@ -110,6 +114,44 @@ describe("linked boundary in actual local D1", () => {
     ).rejects.toMatchObject({ code: "PERIOD_UPDATE_CONFLICT" });
     expect(await state()).toEqual(before);
   }
+
+  it("returns the rows from ordinary period writes and preserves create idempotency", async () => {
+    const input = {
+      id: "later",
+      startDate: "2026-08-20",
+      endDate: "2026-09-19",
+      predecessorPeriodId: successor.id,
+      budgetYen: 100_000,
+      nowIso: laterBoundary.nowIso,
+    };
+    const created = await runApiEffect(repository.createPeriod(input));
+    expect(created).toEqual({
+      id: input.id,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      predecessorPeriodId: input.predecessorPeriodId,
+      budgetYen: input.budgetYen,
+      status: "active",
+      createdAt: input.nowIso,
+      updatedAt: input.nowIso,
+    });
+    await expect(
+      runApiEffect(repository.createPeriod({ ...input, budgetYen: 1 })),
+    ).resolves.toEqual(created);
+
+    const update = {
+      ...input,
+      budgetYen: 120_000,
+      nowIso: "2026-07-19T00:00:00.000Z",
+    };
+    await expect(
+      runApiEffect(repository.updatePeriod(update)),
+    ).resolves.toEqual({
+      ...created,
+      budgetYen: update.budgetYen,
+      updatedAt: update.nowIso,
+    });
+  });
 
   it.each([
     ["earlier", earlierBoundary],

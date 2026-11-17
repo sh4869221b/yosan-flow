@@ -1,10 +1,12 @@
 import type { D1PreparedStatement } from "#lib/server/db/d1-types.ts";
+import { applyBudgetPeriodMutation } from "./budget-period-sql";
 import { createD1Result } from "./d1-result";
 import {
   applySqlMutation,
   selectFirstRow,
   selectRawRows,
 } from "./sql-dispatch";
+import { toBudgetPeriodRawRow } from "./raw-row-mapping";
 import type { PeriodAwareD1FakeState } from "./table-state";
 
 export type PreparedStatementObserver = (statement: {
@@ -31,11 +33,27 @@ export function createPeriodAwarePreparedStatement(
     columnNames?: false;
   }): Promise<T[]>;
   async function rawRows<T = unknown[]>(options?: { columnNames?: boolean }) {
-    const rows = selectRawRows(sql, boundArgs, state) as T[];
+    const rows = (
+      /\b(?:insert into|update) "budget_periods" [\s\S]+\breturning\b/i.test(
+        sql,
+      )
+        ? returningBudgetPeriods()
+        : selectRawRows(sql, boundArgs, state)
+    ) as T[];
     if (options?.columnNames) {
       return [[], ...rows] as [string[], ...T[]];
     }
     return rows;
+  }
+
+  function returningBudgetPeriods() {
+    options.onStatementRun?.({ sql, args: [...boundArgs] });
+    return applyBudgetPeriodMutation(
+      sql,
+      boundArgs,
+      state,
+      options.linkedBoundaryChangesOverride,
+    ).map((row) => toBudgetPeriodRawRow(sql, row));
   }
 
   const statement: D1PreparedStatement = {

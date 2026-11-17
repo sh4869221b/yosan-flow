@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { afterNavigate } from "$app/navigation";
   import { createDashboardPageController } from "#lib/dashboard/page-controller.svelte.ts";
   import { observeDashboardResume } from "#lib/dashboard/dashboard-resume.ts";
   import { getDashboardToday } from "#lib/dashboard/dashboard-current-date.ts";
@@ -31,6 +32,16 @@
       controller.summaryLoading ||
       controller.periodInteractionDisabled,
   );
+
+  afterNavigate(({ from, to }) => {
+    if (
+      from?.route.id === to?.route.id &&
+      from?.url.searchParams.get("periodId") !==
+        to?.url.searchParams.get("periodId")
+    ) {
+      controller.navigateToPeriod(data);
+    }
+  });
 
   $effect(() => {
     if (!resumeRequested || resumeBlocked) {
@@ -87,6 +98,10 @@
     }
   }
 </script>
+
+<svelte:head>
+  <title>予算ダッシュボード | Yosan Flow</title>
+</svelte:head>
 
 <main class="dashboard-page" aria-busy={!hydrated}>
   <DashboardWorkspace

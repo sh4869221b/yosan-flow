@@ -134,7 +134,7 @@ export function applyLinkedBoundaryMutation(
   args: unknown[],
   state: PeriodAwareD1FakeState,
   changesOverride?: number,
-): number | null {
+): BudgetPeriodRow[] | null {
   const normalizedSql = sql.toLowerCase();
   if (
     !normalizedSql.includes("linked_boundary_input") ||
@@ -171,15 +171,13 @@ export function applyLinkedBoundaryMutation(
       periods: [...state.periods.values()].map(toRecord),
       entries: listEntryDates(state),
     });
-    if (changesOverride !== undefined) {
-      return changesOverride;
-    }
-    state.periods.set(next.target.id, toRow(next.target));
-    state.periods.set(next.successor.id, toRow(next.successor));
-    return 2;
+    const rows = [toRow(next.successor), toRow(next.target)];
+    if (changesOverride !== undefined) return rows.slice(0, changesOverride);
+    for (const row of rows) state.periods.set(row.id, row);
+    return rows;
   } catch (error) {
     if (error instanceof LinkedPeriodBoundaryConflictError) {
-      return 0;
+      return [];
     }
     throw error;
   }

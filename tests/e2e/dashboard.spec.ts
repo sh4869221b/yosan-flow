@@ -167,6 +167,22 @@ test("switches between current and future budget periods", async ({
     page.getByText(`期間: ${futureStartDate} - ${futureEndDate}`),
   ).toBeVisible();
   await expect(page.getByTestId("today-food-allowance")).toContainText("0 円");
+
+  // Add a same-route link so SvelteKit uses client-side navigation.
+  const currentPeriodUrl = `/?periodId=${encodeURIComponent(currentPeriodId)}`;
+  await page.evaluate((href) => {
+    const link = document.createElement("a");
+    link.href = href;
+    link.textContent = "元の期間を表示";
+    document.body.insertBefore(link, document.body.firstChild);
+  }, currentPeriodUrl);
+  await page.getByRole("link", { name: "元の期間を表示" }).click();
+  await expect(page).toHaveURL(`${getBaseUrl()}${currentPeriodUrl}`);
+  await expect(
+    page.getByRole("link", { name: "元の期間を表示" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("period-select")).toHaveValue(currentPeriodId);
+  await expect(page.getByTestId("period-id")).toContainText(currentPeriodId);
 });
 
 test("shows the prior-day surplus as today's bonus", async ({

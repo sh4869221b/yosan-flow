@@ -58,6 +58,21 @@ export function createHistoryControllerState(
     );
   }
 
+  function replayRetainedHistory(periodId: string, date: string): void {
+    const retained = retainedHistories.replay(
+      periodId,
+      date,
+      summaryRevision.get(periodId),
+      summaryRevision.getMutationSequence(periodId),
+      dependencies.getSummary?.() ?? null,
+    );
+    if (retained.histories != null) {
+      histories = [...retained.histories];
+    } else if (retained.invalidated) {
+      histories = [];
+    }
+  }
+
   function loadHistoryResultEffect(
     date: string,
     options: {
@@ -66,57 +81,52 @@ export function createHistoryControllerState(
     } = {},
   ): Effect.Effect<HistoryActionResult, never> {
     const selectedPeriodId = dependencies.getSelectedPeriodId();
-    if (selectedPeriodId == null) {
-      return Effect.succeed({ kind: "ignored" });
-    }
-    if (!options.background) {
-      const retained = retainedHistories.replay(
-        selectedPeriodId,
-        date,
-        summaryRevision.get(selectedPeriodId),
-        summaryRevision.getMutationSequence(selectedPeriodId),
-        dependencies.getSummary?.() ?? null,
-      );
-      if (retained.histories != null) {
-        histories = [...retained.histories];
-      } else if (retained.invalidated) {
-        histories = [];
+    return Effect.suspend((): Effect.Effect<HistoryActionResult> => {
+      if (
+        selectedPeriodId == null ||
+        dependencies.getSelectedPeriodId() !== selectedPeriodId
+      ) {
+        return Effect.succeed({ kind: "ignored" } as const);
       }
-    }
-    historyRequestSequence += 1;
-    const requestSequence = historyRequestSequence;
-    activeHistoryRequest = { periodId: selectedPeriodId, date };
-    return Effect.gen(function* () {
-      if (!options.background) {
-        historyLoading = true;
-        historyError = null;
-      }
-      const result = yield* fetchJsonEffect<HistoryResponse>(
-        dayHistoryUrl(selectedPeriodId, date),
-        undefined,
-        "履歴の取得に失敗しました。",
-      ).pipe(Effect.result);
-      const requestIsCurrent = ownsHistoryRequest(
-        requestSequence,
-        selectedPeriodId,
-        date,
-        options.isCurrent,
-      );
-      if (result._tag === "Failure" && requestIsCurrent) {
-        historyError = result.failure;
-      } else if (result._tag === "Success" && requestIsCurrent) {
+      let requestSequence: number | undefined;
+      return Effect.gen(function* () {
+        requestSequence = ++historyRequestSequence;
+        activeHistoryRequest = { periodId: selectedPeriodId, date };
+        if (!options.background) {
+          replayRetainedHistory(selectedPeriodId, date);
+          historyLoading = true;
+          historyError = null;
+        }
+        const result = yield* fetchJsonEffect<HistoryResponse>(
+          dayHistoryUrl(selectedPeriodId, date),
+          undefined,
+          "履歴の取得に失敗しました。",
+        ).pipe(Effect.result);
+        const requestIsCurrent = ownsHistoryRequest(
+          requestSequence,
+          selectedPeriodId,
+          date,
+          options.isCurrent,
+        );
+        if (!requestIsCurrent) return { kind: "ignored" } as const;
+        if (result._tag === "Failure") {
+          historyError = result.failure;
+          return { kind: "failure", message: result.failure } as const;
+        }
         histories = result.success.histories ?? [];
         historyError = null;
         retainedHistories.clear(selectedPeriodId, date);
-      }
-      if (requestSequence === historyRequestSequence) {
-        historyLoading = false;
-        activeHistoryRequest = null;
-      }
-      if (!requestIsCurrent) return { kind: "ignored" } as const;
-      return result._tag === "Success"
-        ? ({ kind: "success" } as const)
-        : ({ kind: "failure", message: result.failure } as const);
+        return { kind: "success" } as const;
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (requestSequence === historyRequestSequence) {
+              historyLoading = false;
+              activeHistoryRequest = null;
+            }
+          }),
+        ),
+      );
     });
   }
 

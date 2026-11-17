@@ -53,79 +53,91 @@ function createPeriodController(
   );
 }
 
-it("selects a fetched period before an old add settles in the same turn", async () => {
-  const oldAddResponse = Promise.withResolvers<Response>();
-  const selectedPeriodResponse = Promise.withResolvers<Response>();
-  const addStarted = Promise.withResolvers<void>();
-  const selectionStarted = Promise.withResolvers<void>();
-  const summaryRevision = createPeriodSummaryRevision();
-  const initialSummary = createSummary(0);
-  const oldAddSummary = createSummary(2_000);
-  const selectedSummary = forPeriod(createSummary(0), otherPeriod.id);
-  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    const method = init?.method ?? "GET";
-    if (method === "POST" && url.endsWith("/add")) {
-      addStarted.resolve();
-      return oldAddResponse.promise;
-    }
-    if (method === "GET" && url.endsWith(`/${otherPeriod.id}`)) {
-      selectionStarted.resolve();
-      return selectedPeriodResponse.promise;
-    }
-    if (method === "GET" && url.endsWith(`/${period.id}`)) {
-      return Promise.resolve(jsonResponse({ error: {} }, 503));
-    }
-    throw new Error(`Unexpected fetch: ${method} ${url}`);
-  });
-  vi.stubGlobal("fetch", fetchMock);
-  let closeDayEntry = (): void => undefined;
-  const periodController = createPeriodController(
-    initialSummary,
-    summaryRevision,
-    () => closeDayEntry(),
-  );
-  const dayEntryController = createDayEntryControllerState(
-    {
-      getSelectedPeriodId: () => periodController.selectedPeriodId,
-      getSummary: () => periodController.summary,
-      historyController: {
-        getMutationSequence: () => 0,
-        loadHistory: vi.fn(),
-        loadHistoryEffect: () => Effect.void,
-        resetHistories: vi.fn(),
+it.each(["selector", "navigation"])(
+  "selects a fetched period before an old add settles in the same turn (%s)",
+  async (source) => {
+    const oldAddResponse = Promise.withResolvers<Response>();
+    const selectedPeriodResponse = Promise.withResolvers<Response>();
+    const addStarted = Promise.withResolvers<void>();
+    const selectionStarted = Promise.withResolvers<void>();
+    const summaryRevision = createPeriodSummaryRevision();
+    const initialSummary = createSummary(0);
+    const oldAddSummary = createSummary(2_000);
+    const selectedSummary = forPeriod(createSummary(0), otherPeriod.id);
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (method === "POST" && url.endsWith("/add")) {
+        addStarted.resolve();
+        return oldAddResponse.promise;
+      }
+      if (method === "GET" && url.endsWith(`/${otherPeriod.id}`)) {
+        selectionStarted.resolve();
+        return selectedPeriodResponse.promise;
+      }
+      if (method === "GET" && url.endsWith(`/${period.id}`)) {
+        return Promise.resolve(jsonResponse({ error: {} }, 503));
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    let closeDayEntry = (): void => undefined;
+    const periodController = createPeriodController(
+      initialSummary,
+      summaryRevision,
+      () => closeDayEntry(),
+    );
+    const dayEntryController = createDayEntryControllerState(
+      {
+        getSelectedPeriodId: () => periodController.selectedPeriodId,
+        getSummary: () => periodController.summary,
+        historyController: {
+          getMutationSequence: () => 0,
+          loadHistory: vi.fn(),
+          loadHistoryEffect: () => Effect.void,
+          resetHistories: vi.fn(),
+        },
+        setSummary: periodController.setSummary,
       },
-      setSummary: periodController.setSummary,
-    },
-    summaryRevision,
-  );
-  closeDayEntry = dayEntryController.closeDayEntry;
+      summaryRevision,
+    );
+    closeDayEntry = dayEntryController.closeDayEntry;
 
-  dayEntryController.openDayEntry({ date: "2026-07-12" });
-  dayEntryController.submitDayEntry({
-    date: "2026-07-12",
-    inputYen: 2_000,
-    memo: "old period add",
-  });
-  try {
-    await settled(addStarted.promise);
-    expect(fetchMock).toHaveBeenCalledOnce();
-    periodController.handleSelectPeriod({ periodId: otherPeriod.id });
-    await settled(selectionStarted.promise);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    selectedPeriodResponse.resolve(jsonResponse(selectedSummary));
-    await settled(executions[1]);
+    dayEntryController.openDayEntry({ date: "2026-07-12" });
+    dayEntryController.submitDayEntry({
+      date: "2026-07-12",
+      inputYen: 2_000,
+      memo: "old period add",
+    });
+    try {
+      await settled(addStarted.promise);
+      expect(fetchMock).toHaveBeenCalledOnce();
+      if (source === "navigation") {
+        periodController.navigateToPeriod({
+          today: period.startDate,
+          periods: [period, otherPeriod],
+          selectedPeriodId: otherPeriod.id,
+          summary: { ...selectedSummary, budgetYen: 1 },
+        });
+      } else {
+        periodController.handleSelectPeriod({ periodId: otherPeriod.id });
+      }
+      await settled(selectionStarted.promise);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      selectedPeriodResponse.resolve(jsonResponse(selectedSummary));
+      await settled(executions[1]);
+      expect(periodController.selectedPeriodId).toBe(otherPeriod.id);
+      expect(dayEntryController.modalOpen).toBe(false);
+    } finally {
+      selectedPeriodResponse.resolve(jsonResponse(selectedSummary));
+      oldAddResponse.resolve(jsonResponse(oldAddSummary));
+      await settled(Promise.all(executions));
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(periodController.selectedPeriodId).toBe(otherPeriod.id);
-    expect(dayEntryController.modalOpen).toBe(false);
-  } finally {
-    selectedPeriodResponse.resolve(jsonResponse(selectedSummary));
-    oldAddResponse.resolve(jsonResponse(oldAddSummary));
-    await settled(Promise.all(executions));
-  }
-  expect(fetchMock).toHaveBeenCalledTimes(3);
-  expect(periodController.selectedPeriodId).toBe(otherPeriod.id);
-  expect(periodController.summary).toEqual(selectedSummary);
-});
+    expect(periodController.summary).toEqual(selectedSummary);
+  },
+);
 
 it("clears summary loading when a superseding period-list request fails", async () => {
   const staleSelectionResponse = Promise.withResolvers<Response>();

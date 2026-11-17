@@ -87,12 +87,13 @@ describe("linked boundary generated SQL", () => {
   });
 
   it("executes the earlier boundary atomically and rejects displaced data in real SQLite", async () => {
+    const statements: string[] = [];
     const captures: {
       readonly sql: string;
       readonly args: readonly unknown[];
     }[] = [];
     const repository = createD1BudgetPeriodRepository({
-      db: createPeriodAwareD1Fake([], {
+      db: createPeriodAwareD1Fake(statements, {
         periods: [target, successor].map(toD1Row),
         onStatementRun: (statement) => {
           if (statement.sql.toLowerCase().includes('update "budget_periods"'))
@@ -101,6 +102,7 @@ describe("linked boundary generated SQL", () => {
       }),
     });
     await runApiEffect(repository.updateLinkedBoundary(earlierBoundary));
+    expect(statements).toHaveLength(1);
     const captured = captures[0];
     if (!captured || typeof captured.args[0] !== "string")
       throw new Error("missing SQL");
@@ -113,7 +115,14 @@ describe("linked boundary generated SQL", () => {
     expect(captured.sql).not.toContain(earlierBoundary.nowIso);
     const success = executeGeneratedSql(captured.sql, captured.args[0]);
     expect(success.status).toBe(0);
-    expect(success.stdout.trim().split("\n")).toEqual([
+    const [returnedFirst, returnedSecond, ...persisted] = success.stdout
+      .trim()
+      .split("\n");
+    expect([returnedFirst, returnedSecond].sort()).toEqual([
+      `successor|2026-07-20|2026-08-19|120000|closed|target|${successor.createdAt}|${earlierBoundary.nowIso}`,
+      `target|2026-06-21|2026-07-19|100000|active||${target.createdAt}|${earlierBoundary.nowIso}`,
+    ]);
+    expect(persisted).toEqual([
       "2",
       "successor|2026-07-20|2026-08-19",
       "target|2026-06-21|2026-07-19",

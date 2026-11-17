@@ -64,6 +64,26 @@ describe("parsed period range calendar values", () => {
 });
 
 describe("existing range validation helpers", () => {
+  it.each(["+002026-09-01", "0000-01-01", "0099-12-31"])(
+    "rejects %s as a period endpoint",
+    (startDate) => {
+      const { validation } = parsePeriodRangeInput({
+        startDate,
+        endDate: "2026-09-30",
+      });
+      expect(validation.startError).toBe("有効な開始日を入力してください。");
+      expect(validation.isValid).toBe(false);
+    },
+  );
+
+  it("accepts the earliest supported period date", () => {
+    const { validation } = parsePeriodRangeInput({
+      startDate: "0100-01-01",
+      endDate: "0100-01-01",
+    });
+    expect(validation.isValid).toBe(true);
+  });
+
   it("keeps reversed endpoints for validation", () => {
     const { validation } = parsePeriodRangeInput({
       startDate: "2026-09-30",

@@ -11,6 +11,13 @@
     "sourceMap": true,
     "strict": true
   },
-  "include": ["src", "test", "tests", "vite.config.ts", "vite.config.js"],
+  "include": [
+    "src",
+    "test",
+    "tests",
+    "scripts",
+    "*.config.ts",
+    "vite.config.js"
+  ],
   "exclude": ["node_modules", "src/service-worker"]
 }

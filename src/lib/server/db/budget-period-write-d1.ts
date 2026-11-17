@@ -146,7 +146,8 @@ export function insertD1BudgetPeriod(
       // A simultaneous create of the same ID has the same idempotent read result
       // as an ID already present during preflight; it must not become a 500.
       .onConflictDoNothing({ target: budget_periods.id })
-      .run()
+      .returning()
+      .get()
   );
 }
 
@@ -170,7 +171,8 @@ export function updateD1BudgetPeriod(
         notExists(outsideEntries(database, daily_operation_histories, input)),
       ),
     )
-    .run();
+    .returning()
+    .get();
 }
 
 export async function rejectD1BudgetPeriodWrite(

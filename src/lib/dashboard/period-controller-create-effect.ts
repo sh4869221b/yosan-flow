@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { periodSummaryUrl, PERIODS_URL } from "#lib/dashboard/api-urls.ts";
+import { periodSummaryUrl, periodsUrl } from "#lib/dashboard/api-urls.ts";
 import type {
   PeriodOption,
   PeriodSummary,
@@ -50,7 +50,7 @@ function refreshCreatedPeriodEffect(
       return yield* refreshCreatedPeriodEffect(dependencies, periodId);
     }
     const listResult = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
-      PERIODS_URL,
+      periodsUrl(),
       undefined,
       "保存に失敗しました。",
     ).pipe(Effect.result);
@@ -158,7 +158,7 @@ export function createPeriodCreationEffect(
   dependencies.setSummaryLoading(false);
   createState.setError(null);
   const post = fetchJsonEffect<PeriodCreateResponse>(
-    PERIODS_URL,
+    periodsUrl(),
     {
       body: JSON.stringify({
         budgetYen,

@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { PERIODS_URL } from "#lib/dashboard/api-urls.ts";
+import { periodsUrl } from "#lib/dashboard/api-urls.ts";
 import { getJstToday } from "#lib/dashboard/date.ts";
 import { selectDashboardPeriodId } from "#lib/dashboard/select-dashboard-period.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
@@ -47,7 +47,7 @@ export function createPeriodResumeRefreshEffect(dependencies: Dependencies) {
         return;
       }
       const result = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
-        PERIODS_URL,
+        periodsUrl(),
         undefined,
         "再取得に失敗しました。",
       ).pipe(Effect.result);
