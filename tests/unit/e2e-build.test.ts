@@ -181,7 +181,9 @@ describe("E2E setup workflow contract", () => {
     "runs smoke, guarded build and tests in the same container in %s",
     (workflow) => {
       const text = readFileSync(`.github/workflows/${workflow}.yml`, "utf8");
-      expect(text).toMatch(/run: bash scripts\/e2e-container.sh --shard=.+\/2/);
+      expect(text).toMatch(
+        /run: bash scripts\/e2e-container\.sh --shard=.+\/3$/m,
+      );
       expect(text).toContain("persist-credentials: false");
       expect(text).not.toMatch(
         /nix-e2e|Cache E2E image|comparison-cache|continue-on-error/,
