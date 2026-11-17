@@ -62,6 +62,43 @@ describe("period summary date ranges", () => {
         recommendations,
       );
       expect(summary.foodPace.todayAllowanceYen).toBe(allowance);
+      expect(summary.todayRecommendedYen).toBe(allowance);
     },
   );
+
+  it("puts a future period's surplus remainder on the earliest days", () => {
+    const summary = calculatePeriodSummary(
+      { ...period, budgetYen: 3002 },
+      { jstToday: "2028-02-27" },
+    );
+
+    expect(summary.todayRecommendedYen).toBe(0);
+    expect(summary.dailyRows.map((row) => row.recommendedYen)).toEqual([
+      1001, 1001, 1000,
+    ]);
+  });
+
+  it("starts distributing a shortage at today when prior days have no recommendation", () => {
+    const summary = calculatePeriodSummary(period, {
+      jstToday: "2028-02-29",
+      dailyTotals: [
+        {
+          date: "2028-02-28",
+          budgetPeriodId: period.id,
+          totalUsedYen: 1001,
+        },
+        {
+          date: "2028-02-29",
+          budgetPeriodId: period.id,
+          totalUsedYen: 500,
+        },
+      ],
+    });
+
+    expect(summary.dailyRows.map((row) => row.recommendedYen)).toEqual([
+      0, 999, 1000,
+    ]);
+    expect(summary.todayRecommendedYen).toBe(999);
+    expect(summary.varianceFromRecommendationYen).toBe(-499);
+  });
 });
