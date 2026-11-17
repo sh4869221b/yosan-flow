@@ -5,7 +5,11 @@ import {
   saveDayEntrySuccessfully,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
-import { getBaseUrl, waitForSurfaceAnimations } from "./dashboard-shared";
+import {
+  getBaseUrl,
+  waitForDashboardReady,
+  waitForSurfaceAnimations,
+} from "./dashboard-shared";
 
 configureDashboardDayEntryE2E();
 
@@ -143,4 +147,40 @@ test("shows history edit and delete controls on mobile", async ({
     modal.getByRole("button", { name: "保存", exact: true }),
   ).toBeVisible();
   await expect(modal.getByRole("button", { name: "キャンセル" })).toBeVisible();
+});
+
+test("returns to the calendar from the end of a long mobile history", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  const baseUrl = getBaseUrl();
+  for (const memo of ["朝食", "昼食", "夕食"]) {
+    const response = await request.post(
+      `${baseUrl}/api/periods/${periodId}/days/${todayDate}/add`,
+      { data: { inputYen: 500, memo } },
+    );
+    expect(response.ok()).toBe(true);
+  }
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto(`${baseUrl}/?periodId=${periodId}`);
+  await waitForDashboardReady(page);
+  const day = page.getByTestId(`calendar-day-${todayDate}`);
+  await day.click();
+  const modal = page.getByRole("dialog");
+  await expect(modal.getByRole("listitem")).toHaveCount(3);
+  const amount = modal.getByLabel("追加する支出額 (円)");
+  await amount.fill("300");
+  await modal.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+
+  const back = modal.getByRole("button", { name: "予算画面に戻る" });
+  await expect(back).toBeInViewport({ ratio: 1 });
+  await expect(
+    modal.getByRole("button", { name: "閉じる" }),
+  ).not.toBeInViewport();
+  await back.click();
+  await expect(modal).toBeHidden();
+  await expect(day).toBeFocused();
+  await day.click();
+  await expect(amount).toHaveValue("300");
 });
