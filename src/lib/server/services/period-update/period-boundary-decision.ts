@@ -122,12 +122,20 @@ function buildProposal(
   };
 }
 
+export function getEarlierBoundaryPredecessorId(
+  target: PeriodSnapshot,
+  requested: PeriodUpdateValues,
+): string | null {
+  return requested.startDate < target.startDate
+    ? target.predecessorPeriodId
+    : null;
+}
+
 export function decidePeriodBoundaryUpdate(
   input: PeriodBoundaryDecisionInput,
 ): PeriodBoundaryUpdateDecision {
   const reverse =
-    input.requested.startDate < input.target.startDate &&
-    input.target.predecessorPeriodId !== null;
+    getEarlierBoundaryPredecessorId(input.target, input.requested) !== null;
   const pair = reverse ? resolveReversePair(input) : resolveForwardPair(input);
   return pair ? buildProposal(input, pair) : { kind: "ordinary-update" };
 }

@@ -6,6 +6,13 @@ import {
 import { createSummary } from "./day-entry-controller-test-fixtures";
 
 describe("merging add-only summary snapshots", () => {
+  it("reuses the base summary when it already contains all recordings", () => {
+    const current = createSummary(0, 500);
+    const candidate = createSummary(0, 300);
+
+    expect(mergeAddedSummary(candidate, current)).toBe(current);
+  });
+
   it("retains zero recordings from either response alongside the greatest amount", () => {
     const initial = createSummary(0);
     const zero = {

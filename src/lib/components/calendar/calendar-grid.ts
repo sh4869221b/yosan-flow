@@ -5,6 +5,12 @@
  * The Svelte component imports from here instead of computing inline.
  */
 
+import {
+  fromDateValue,
+  MILLISECONDS_PER_DAY,
+  toDateValue,
+} from "#lib/utc-date.ts";
+
 export type DailyRow = {
   date: string;
   label: "today" | "planned";
@@ -20,29 +26,6 @@ export type CalendarMonth = {
 };
 
 /**
- * Convert a YYYY-MM-DD string to a UTC epoch number.
- * Uses the T00:00:00.000Z suffix so the date is interpreted
- * in UTC regardless of the host timezone.
- */
-export function toDateValue(date: string): number {
-  return Date.parse(`${date}T00:00:00.000Z`);
-}
-
-/**
- * Convert a UTC epoch number back to a YYYY-MM-DD string.
- */
-export function fromDateValue(value: number): string {
-  return new Date(value).toISOString().slice(0, 10);
-}
-
-/**
- * Add one day (86 400 000 ms) to a YYYY-MM-DD string.
- */
-export function addDay(date: string): string {
-  return fromDateValue(toDateValue(date) + 24 * 60 * 60 * 1000);
-}
-
-/**
  * Build a human-readable month label like "2026年5月".
  */
 const monthFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -50,10 +33,6 @@ const monthFormatter = new Intl.DateTimeFormat("ja-JP", {
   year: "numeric",
   month: "long",
 });
-
-function buildMonthLabel(date: string): string {
-  return monthFormatter.format(new Date(`${date}T00:00:00.000Z`));
-}
 
 /**
  * Build calendar months covering the period from `periodStartDate`
@@ -68,49 +47,35 @@ export function buildMonths(
   periodStartDate: string,
   periodEndDate: string,
 ): CalendarMonth[] {
-  if (!periodStartDate || !periodEndDate || periodStartDate > periodEndDate) {
+  if (
+    periodStartDate.length !== 10 ||
+    periodEndDate.length !== 10 ||
+    periodStartDate > periodEndDate
+  ) {
     return [];
   }
 
-  const monthMap = new Map<string, string[]>();
+  const months: CalendarMonth[] = [];
+  let cursor = toDateValue(periodStartDate);
   const endTime = toDateValue(periodEndDate);
-  for (
-    let cursor = toDateValue(periodStartDate);
-    cursor <= endTime;
-    cursor += 24 * 60 * 60 * 1000
-  ) {
-    const date = fromDateValue(cursor);
-    const key = date.slice(0, 7);
-    const dates = monthMap.get(key);
-    if (dates) {
-      dates.push(date);
-    } else {
-      monthMap.set(key, [date]);
+  while (cursor <= endTime) {
+    const monthDate = new Date(cursor);
+    const key = monthDate.toISOString().slice(0, 7);
+    const label = monthFormatter.format(monthDate);
+    let weekday = monthDate.getUTCDay();
+    const nextMonth = monthDate.setUTCMonth(monthDate.getUTCMonth() + 1, 1);
+    const monthEnd = Math.min(endTime, nextMonth - MILLISECONDS_PER_DAY);
+    const weeks: CalendarMonth["weeks"] = [];
+    while (cursor <= monthEnd) {
+      const week = Array<string | null>(7).fill(null);
+      for (; weekday < week.length && cursor <= monthEnd; weekday++) {
+        week[weekday] = fromDateValue(cursor);
+        cursor += MILLISECONDS_PER_DAY;
+      }
+      weeks.push(week);
+      weekday = 0;
     }
+    months.push({ key, label, weeks });
   }
-
-  return [...monthMap.entries()].map(([key, dates]) => {
-    const firstWeekday = new Date(`${dates[0]}T00:00:00.000Z`).getUTCDay();
-    const cells: Array<string | null> = Array.from(
-      { length: firstWeekday },
-      () => null,
-    );
-    for (const date of dates) {
-      cells.push(date);
-    }
-    while (cells.length % 7 !== 0) {
-      cells.push(null);
-    }
-
-    const weeks: Array<Array<string | null>> = [];
-    for (let index = 0; index < cells.length; index += 7) {
-      weeks.push(cells.slice(index, index + 7));
-    }
-
-    return {
-      key,
-      label: buildMonthLabel(`${key}-01`),
-      weeks,
-    };
-  });
+  return months;
 }

@@ -74,15 +74,7 @@ export function createD1ApiServices(
     updatePeriod,
     listPeriods: () => budgetPeriodRepository.listPeriods(),
     listDailyTotalsByPeriodId: (periodId) =>
-      dailyTotalRepository.listByPeriodId(periodId).pipe(
-        Effect.map((rows) =>
-          rows.map((row) => ({
-            date: row.date,
-            budgetPeriodId: row.budgetPeriodId,
-            totalUsedYen: row.totalUsedYen,
-          })),
-        ),
-      ),
+      dailyTotalRepository.listByPeriodId(periodId),
     listHistoryByDate: (periodId, date) =>
       budgetPeriodRepository
         .findById(periodId)

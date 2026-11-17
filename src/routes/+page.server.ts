@@ -1,4 +1,5 @@
 import type { PageServerLoad } from "./$types";
+import { selectDashboardPeriodId } from "#lib/dashboard/select-dashboard-period.ts";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { getRequestTracing } from "#lib/server/observability/tracing-workers.ts";
 import {
@@ -26,37 +27,16 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
   const requestedPeriodId = resolveRequestedPeriodId(url);
   const periods = await runApiEffect(services.listPeriods());
   const today = services.jstToday();
-  if (periods.length === 0) {
-    return {
-      today,
-      periods,
-      selectedPeriodId: null,
-      summary: null,
-    };
-  }
-
-  const requestedPeriod = requestedPeriodId
-    ? (periods.find((period) => period.id === requestedPeriodId) ?? null)
-    : null;
-  const currentPeriod =
-    periods.find(
-      (period) =>
-        period.status === "active" &&
-        period.startDate <= today &&
-        today <= period.endDate,
-    ) ?? null;
-  const latestPeriod = periods[periods.length - 1] ?? null;
-  const selectedPeriod = requestedPeriod ?? currentPeriod ?? latestPeriod;
-  const summary = selectedPeriod
-    ? await runApiEffect(
-        getPeriodSummaryFromServices(services, selectedPeriod.id, tracing),
-      )
-    : null;
-
-  return {
-    today,
+  const selectedPeriodId = selectDashboardPeriodId(
     periods,
-    selectedPeriodId: selectedPeriod?.id ?? null,
-    summary,
-  };
+    requestedPeriodId,
+    today,
+  );
+  if (selectedPeriodId === null) {
+    return { today, periods, selectedPeriodId, summary: null };
+  }
+  const summary = await runApiEffect(
+    getPeriodSummaryFromServices(services, selectedPeriodId, tracing),
+  );
+  return { today, periods, selectedPeriodId, summary };
 };

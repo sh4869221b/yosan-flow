@@ -1,21 +1,46 @@
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import type { BudgetPeriodRecord } from "#lib/server/db/budget-period-repository.ts";
 import type { PeriodSummaryDailyTotal } from "./period-summary-calculator";
 
-export function buildDailyTotalMap(
-  periodId: string,
-  startDate: string,
-  endDate: string,
+export function summarizeDailyTotals(
+  { id, startDate, endDate }: BudgetPeriodRecord,
   dailyTotals: PeriodSummaryDailyTotal[],
-): Map<string, number> {
-  const map = new Map<string, number>();
+  jstToday: string,
+) {
+  const totalsByDate = new Map<string, number>();
   for (const row of dailyTotals) {
-    if (row.budgetPeriodId !== periodId) {
+    if (row.budgetPeriodId !== id) {
       continue;
     }
     if (!isDateWithinPeriod(row.date, startDate, endDate)) {
       continue;
     }
-    map.set(row.date, (map.get(row.date) ?? 0) + row.totalUsedYen);
+    totalsByDate.set(
+      row.date,
+      (totalsByDate.get(row.date) ?? 0) + row.totalUsedYen,
+    );
   }
-  return map;
+
+  let plannedTotalYen = 0;
+  let spentToDateYen = 0;
+  let spentBeforeTodayYen = 0;
+  let usedTodayYen = 0;
+  // Sum grouped dates in first-seen order so large totals round consistently.
+  for (const [date, totalUsedYen] of totalsByDate) {
+    plannedTotalYen += totalUsedYen;
+    if (date < jstToday) {
+      spentBeforeTodayYen += totalUsedYen;
+      spentToDateYen += totalUsedYen;
+    } else if (date === jstToday) {
+      usedTodayYen = totalUsedYen;
+      spentToDateYen += totalUsedYen;
+    }
+  }
+  return {
+    totalsByDate,
+    plannedTotalYen,
+    spentToDateYen,
+    spentBeforeTodayYen,
+    usedTodayYen,
+  };
 }

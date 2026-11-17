@@ -11,7 +11,10 @@ import {
   type LinkedPeriodBoundaryUpdateCommand,
 } from "#lib/server/db/budget-period-repository.ts";
 import { PeriodNotFoundError } from "#lib/server/db/budget-period-types.ts";
-import { decidePeriodBoundaryUpdate } from "#lib/server/services/period-update/period-boundary-decision.ts";
+import {
+  decidePeriodBoundaryUpdate,
+  getEarlierBoundaryPredecessorId,
+} from "#lib/server/services/period-update/period-boundary-decision.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 import {
   assertPeriodHasNoOverlap,
@@ -100,26 +103,34 @@ export function createPeriodUpdateService(
 ) => Effect.Effect<PeriodUpdateServiceResult, Error> {
   return (periodId, request, tracing = noopTracing) =>
     Effect.gen(function* () {
-      const target =
-        yield* dependencies.budgetPeriodRepository.findById(periodId);
+      const { budgetPeriodRepository } = dependencies;
+      const target = yield* budgetPeriodRepository.findById(periodId);
       if (!target) {
         return yield* Effect.fail(new PeriodNotFoundError(periodId));
       }
+      const predecessorId = getEarlierBoundaryPredecessorId(target, request);
       const successors =
-        yield* dependencies.budgetPeriodRepository.findSuccessorsByPredecessorId(
-          periodId,
-        );
+        predecessorId === null && request.endDate !== target.endDate
+          ? yield* budgetPeriodRepository.findSuccessorsByPredecessorId(
+              periodId,
+            )
+          : [];
 
-      const predecessor = target.predecessorPeriodId
-        ? yield* dependencies.budgetPeriodRepository.findById(
-            target.predecessorPeriodId,
-          )
+      const predecessor = predecessorId
+        ? yield* budgetPeriodRepository.findById(predecessorId)
         : null;
-      const predecessorSuccessors = target.predecessorPeriodId
-        ? yield* dependencies.budgetPeriodRepository.findSuccessorsByPredecessorId(
-            target.predecessorPeriodId,
+      const predecessorSuccessors = predecessorId
+        ? yield* budgetPeriodRepository.findSuccessorsByPredecessorId(
+            predecessorId,
           )
         : [];
+      const boundaryInput = {
+        target,
+        successors,
+        predecessor,
+        predecessorSuccessors,
+        requested: request,
+      };
       const confirmation = request.confirmation;
       if (confirmation !== undefined) {
         return yield* withTracingEffect<PeriodUpdateServiceResult>(
@@ -127,14 +138,7 @@ export function createPeriodUpdateService(
           "api.budget_period.linked_boundary.confirm",
           Effect.gen(function* () {
             const decision = yield* Effect.try({
-              try: () =>
-                decidePeriodBoundaryUpdate({
-                  target,
-                  successors,
-                  predecessor,
-                  predecessorSuccessors,
-                  requested: request,
-                }),
+              try: () => decidePeriodBoundaryUpdate(boundaryInput),
               catch: () => new PeriodUpdateConflictError(),
             });
             switch (decision.kind) {
@@ -175,15 +179,7 @@ export function createPeriodUpdateService(
       }
 
       const decision = yield* Effect.try({
-        try: () => {
-          return decidePeriodBoundaryUpdate({
-            target,
-            successors,
-            predecessor,
-            predecessorSuccessors,
-            requested: request,
-          });
-        },
+        try: () => decidePeriodBoundaryUpdate(boundaryInput),
         catch: toEffectError,
       });
       switch (decision.kind) {

@@ -1,4 +1,8 @@
-import { fromDateValue, toDateValue } from "./calendar-grid";
+import {
+  fromDateValue,
+  MILLISECONDS_PER_DAY,
+  toDateValue,
+} from "#lib/utc-date.ts";
 
 export type CalendarDateRange = {
   readonly startDate: string;
@@ -10,21 +14,21 @@ export function getInitialFocusDate(
   today: string,
   range: CalendarDateRange,
 ): string | null {
-  if (!isValidRange(range)) {
+  const startValue = toDateValue(range.startDate);
+  const endValue = toDateValue(range.endDate);
+  if (!(startValue <= endValue)) {
     return null;
   }
 
-  const candidates: readonly (string | null)[] = [
-    selectedDate,
-    today,
-    range.startDate,
-  ];
-  for (const candidate of candidates) {
-    if (candidate !== null && isWithinRange(candidate, range)) {
-      return candidate;
-    }
+  if (selectedDate !== null) {
+    const selectedValue = toDateValue(selectedDate);
+    if (selectedValue >= startValue && selectedValue <= endValue)
+      return selectedDate;
   }
-  return null;
+  const todayValue = toDateValue(today);
+  return todayValue >= startValue && todayValue <= endValue
+    ? today
+    : range.startDate;
 }
 
 export function getCalendarNavigationTarget(
@@ -32,7 +36,9 @@ export function getCalendarNavigationTarget(
   key: string,
   range: CalendarDateRange,
 ): string | null {
-  if (!isValidRange(range)) {
+  const startValue = toDateValue(range.startDate);
+  const endValue = toDateValue(range.endDate);
+  if (!(startValue <= endValue)) {
     return null;
   }
 
@@ -45,35 +51,7 @@ export function getCalendarNavigationTarget(
   if (targetValue === null) {
     return null;
   }
-  return clampDate(fromDateValue(targetValue), range);
-}
-
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function isValidRange(range: CalendarDateRange): boolean {
-  const startValue = toDateValue(range.startDate);
-  const endValue = toDateValue(range.endDate);
-  return (
-    !Number.isNaN(startValue) &&
-    !Number.isNaN(endValue) &&
-    startValue <= endValue
-  );
-}
-
-function isWithinRange(date: string, range: CalendarDateRange): boolean {
-  const dateValue = toDateValue(date);
-  return (
-    !Number.isNaN(dateValue) &&
-    dateValue >= toDateValue(range.startDate) &&
-    dateValue <= toDateValue(range.endDate)
-  );
-}
-
-function clampDate(date: string, range: CalendarDateRange): string {
-  const dateValue = toDateValue(date);
-  const startValue = toDateValue(range.startDate);
-  const endValue = toDateValue(range.endDate);
-  return fromDateValue(Math.min(Math.max(dateValue, startValue), endValue));
+  return fromDateValue(Math.min(Math.max(targetValue, startValue), endValue));
 }
 
 function getTargetValue(currentValue: number, key: string): number | null {
@@ -103,11 +81,8 @@ function getTargetValue(currentValue: number, key: string): number | null {
 }
 
 function shiftMonth(date: Date, monthOffset: number): number {
-  const targetMonth = date.getUTCMonth() + monthOffset;
-  const targetYear = date.getUTCFullYear();
   const targetDay = date.getUTCDate();
-  const lastDay = new Date(
-    Date.UTC(targetYear, targetMonth + 1, 0),
-  ).getUTCDate();
-  return Date.UTC(targetYear, targetMonth, Math.min(targetDay, lastDay));
+  // Day zero of the following month is the last day of the target month.
+  date.setUTCMonth(date.getUTCMonth() + monthOffset + 1, 0);
+  return date.setUTCDate(Math.min(targetDay, date.getUTCDate()));
 }

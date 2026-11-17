@@ -5,8 +5,8 @@ import type {
 } from "#lib/server/db/budget-period-repository.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
 import { getJstDateParts } from "#lib/server/time/jst-format.ts";
-import { buildDailyTotalMap } from "./daily-totals";
-import { buildDateRange } from "./date-range";
+import { summarizeDailyTotals } from "./daily-totals";
+import { getDateIndex, getDateRange, mapDateRange } from "./date-range";
 import { buildFoodPaceSummary, type FoodPaceSummary } from "./food-pace";
 import { createFoodPaceRecommender } from "./recommendations";
 
@@ -73,18 +73,18 @@ export function buildPeriodSummary(
 }
 
 function getRemainingDayCount(
-  periodDates: string[],
+  range: ReturnType<typeof getDateRange>,
   period: BudgetPeriodRecord,
   jstToday: string,
 ): number {
-  if (jstToday <= period.startDate) return periodDates.length;
+  if (jstToday <= period.startDate) return range.length;
   if (jstToday > period.endDate) return 0;
 
-  const todayIndex = periodDates.indexOf(jstToday);
-  // Preserve the final-day fallback of slicing at index -1.
+  const todayIndex = getDateIndex(range, jstToday);
+  // A date missing from the range uses the final day as the recommendation start.
   return todayIndex === -1
-    ? Math.min(1, periodDates.length)
-    : periodDates.length - todayIndex;
+    ? Math.min(1, range.length)
+    : range.length - todayIndex;
 }
 
 export function calculatePeriodSummary(
@@ -92,31 +92,22 @@ export function calculatePeriodSummary(
   options: BuildPeriodSummaryOptions = {},
 ): PeriodSummary {
   const jstToday = options.jstToday ?? getJstDateParts(new Date()).date;
-  const dailyTotals = options.dailyTotals ?? [];
-  const dailyTotalsByDate = buildDailyTotalMap(
-    period.id,
-    period.startDate,
-    period.endDate,
-    dailyTotals,
-  );
-  const periodDates = buildDateRange(period.startDate, period.endDate);
-  const periodLengthDays = periodDates.length;
-  let plannedTotalYen = 0;
-  let spentToDateYen = 0;
-  let spentBeforeTodayYen = 0;
-  for (const [date, totalUsedYen] of dailyTotalsByDate) {
-    plannedTotalYen += totalUsedYen;
-    if (date <= jstToday) spentToDateYen += totalUsedYen;
-    if (date < jstToday) spentBeforeTodayYen += totalUsedYen;
-  }
-  const usedTodayYen = dailyTotalsByDate.get(jstToday) ?? 0;
+  const {
+    totalsByDate,
+    plannedTotalYen,
+    spentToDateYen,
+    spentBeforeTodayYen,
+    usedTodayYen,
+  } = summarizeDailyTotals(period, options.dailyTotals ?? [], jstToday);
+  const range = getDateRange(period.startDate, period.endDate);
+  const periodLengthDays = range.length;
   const remainingAtTodayYen = period.budgetYen - spentBeforeTodayYen;
   const isTodayWithinPeriod = isDateWithinPeriod(
     jstToday,
     period.startDate,
     period.endDate,
   );
-  const daysRemaining = getRemainingDayCount(periodDates, period, jstToday);
+  const daysRemaining = getRemainingDayCount(range, period, jstToday);
   const remainingStartIndex = periodLengthDays - daysRemaining;
 
   const remainingYen = period.budgetYen - plannedTotalYen;
@@ -134,9 +125,9 @@ export function calculatePeriodSummary(
     daysRemaining,
   });
   let todayRecommendedYen = 0;
-  const dailyRows: PeriodDailyRow[] = periodDates.map((date, index) => {
+  const dailyRows = mapDateRange<PeriodDailyRow>(range, (date, index) => {
     const isToday = date === jstToday;
-    const usedYen = dailyTotalsByDate.get(date);
+    const usedYen = totalsByDate.get(date);
     const dayOffset = index - remainingStartIndex;
     const recommendedYen = dayOffset < 0 ? 0 : getRecommendedYen(dayOffset);
     if (isToday) todayRecommendedYen = recommendedYen;

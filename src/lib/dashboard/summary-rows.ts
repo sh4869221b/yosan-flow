@@ -23,16 +23,18 @@ export function mergeAddedSummary(
   const base =
     candidate.plannedTotalYen > current.plannedTotalYen ? candidate : current;
   const other = base === candidate ? current : candidate;
-  const recordedDates = new Set(
-    other.dailyRows.filter((row) => row.isRecorded).map((row) => row.date),
-  );
-  let changed = false;
-  const dailyRows = base.dailyRows.map((row) => {
-    if (row.isRecorded || !recordedDates.has(row.date)) return row;
-    changed = true;
-    return { ...row, isRecorded: true };
-  });
-  return changed ? { ...base, dailyRows } : base;
+  const recordedDates = new Set<string>();
+  for (const row of other.dailyRows) {
+    if (row.isRecorded) recordedDates.add(row.date);
+  }
+  let dailyRows: DailyRow[] | undefined;
+  for (let index = 0; index < base.dailyRows.length; index++) {
+    const row = base.dailyRows[index];
+    if (row.isRecorded || !recordedDates.has(row.date)) continue;
+    dailyRows ??= base.dailyRows.slice();
+    dailyRows[index] = { ...row, isRecorded: true };
+  }
+  return dailyRows ? { ...base, dailyRows } : base;
 }
 
 export function summaryConfigurationMatches(
