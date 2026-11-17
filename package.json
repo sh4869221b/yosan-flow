@@ -60,7 +60,7 @@
   },
   "dependencies": {
     "@internationalized/date": "^3.12.4",
-    "@lucide/svelte": "^1.72.0",
+    "@lucide/svelte": "^1.73.0",
     "bits-ui": "^2.21.0",
     "cn": "^0.5.2",
     "drizzle-orm": "^0.45.4",
