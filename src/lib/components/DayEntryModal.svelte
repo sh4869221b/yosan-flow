@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ClipboardList } from "@lucide/svelte";
+  import { Button } from "#lib/components/ui/button/index.ts";
   import * as Dialog from "#lib/components/ui/dialog/index.ts";
   import "./day-entry-modal.css";
   import DayEntryPreview from "#lib/components/day-entry/DayEntryPreview.svelte";
@@ -199,6 +200,16 @@
           headingId="day-entry-history-heading"
         />
       </section>
+      {#if histories.length > 0}
+        <Button
+          variant="outline"
+          class="hidden min-h-12 [@media(max-width:760px)]:inline-flex"
+          disabled={saving}
+          onclick={cancel}
+        >
+          予算画面に戻る
+        </Button>
+      {/if}
     </Dialog.Content>
   {/if}
 </Dialog.Root>

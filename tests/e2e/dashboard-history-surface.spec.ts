@@ -10,6 +10,7 @@ import {
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
 import { getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
+import type { HistoryItem } from "#lib/dashboard/types.ts";
 
 configureDashboardDayEntryE2E();
 
@@ -46,6 +47,56 @@ async function openHistoryWithEntries(
   expect((await historyResponse).ok()).toBe(true);
   return modal;
 }
+
+test("shows history timestamps in Japan time and handles invalid dates", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  const validMemo = "日時あり";
+  const invalidMemo = "日時なし";
+  const utcTimestamp = "2026-01-31T15:05:00.000Z";
+  const invalidTimestamp = "invalid-date";
+  await seedHistory(request, periodId, todayDate, validMemo);
+  await seedHistory(request, periodId, todayDate, invalidMemo);
+
+  const historyPath = `/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/history`;
+  const historyUrl = new URL(historyPath, getBaseUrl()).href;
+  await page.route(`**${historyPath}`, async (route) => {
+    if (
+      route.request().method() !== "GET" ||
+      route.request().url() !== historyUrl
+    ) {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    const body: { histories: HistoryItem[] } = await response.json();
+    await route.fulfill({
+      response,
+      json: {
+        ...body,
+        histories: body.histories.map((item) => ({
+          ...item,
+          createdAt: item.memo === validMemo ? utcTimestamp : invalidTimestamp,
+        })),
+      },
+    });
+  });
+
+  await page.goto(`${getBaseUrl()}/?periodId=${encodeURIComponent(periodId)}`);
+  const modal = await openHistoryWithEntries(page, periodId, todayDate);
+  const validTime = modal
+    .getByRole("listitem")
+    .filter({ hasText: validMemo })
+    .locator("time");
+  await expect(validTime).toHaveText("2026年2月1日 0:05");
+  await expect(validTime).toHaveAttribute("datetime", utcTimestamp);
+  const invalidRow = modal
+    .getByRole("listitem")
+    .filter({ hasText: invalidMemo });
+  await expect(invalidRow.getByText("日時不明", { exact: true })).toBeVisible();
+});
 
 test("keeps loading and empty history states exclusive", async ({
   page,

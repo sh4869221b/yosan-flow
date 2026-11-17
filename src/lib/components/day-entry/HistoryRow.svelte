@@ -1,3 +1,11 @@
+<script lang="ts" module>
+  const historyDateTimeFormatter = new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Asia/Tokyo",
+  });
+</script>
+
 <script lang="ts">
   import { Pencil, Save, Trash2, X } from "@lucide/svelte";
   import { onDestroy, tick } from "svelte";
@@ -81,6 +89,12 @@
 
   const isPending = $derived(submitting || isMutating || isSaving);
   const isDeletePending = $derived(deleting || isDeleting);
+  const createdAt = $derived(new Date(history.createdAt));
+  const createdAtLabel = $derived(
+    Number.isFinite(createdAt.getTime())
+      ? historyDateTimeFormatter.format(createdAt)
+      : null,
+  );
 
   $effect(() => {
     if (!isEditing || !shouldFocusAmount) {
@@ -380,7 +394,11 @@
   <div class="history-row-header">
     <div class="history-meta">
       <strong>{history.operationType === "add" ? "追加" : "調整"}</strong>
-      <time datetime={history.createdAt}>{history.createdAt}</time>
+      {#if createdAtLabel}
+        <time datetime={history.createdAt}>{createdAtLabel}</time>
+      {:else}
+        <span class="unknown-time">日時不明</span>
+      {/if}
     </div>
     <div class="row-actions" aria-label="履歴操作">
       <Button
@@ -560,7 +578,8 @@
   }
 
   p,
-  time {
+  time,
+  .unknown-time {
     color: var(--muted-foreground);
     font-size: 0.84rem;
   }
