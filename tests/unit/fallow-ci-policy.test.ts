@@ -16,6 +16,7 @@ const required = [
   "build",
   "e2e-shard-1",
   "e2e-shard-2",
+  "e2e-shard-3",
 ];
 const quality = workflow.slice(workflow.indexOf("  quality:\n"));
 const command = quality.split("        run: |\n")[1];
@@ -92,9 +93,11 @@ describe("Fallow CI wiring", () => {
     },
   );
 
-  it("only permits both E2E skips for exact true from a successful classifier", () => {
+  it("only permits all E2E shards to skip for exact true from a successful classifier", () => {
     const results = Object.fromEntries(required.map((job) => [job, "success"]));
-    results["e2e-shard-1"] = results["e2e-shard-2"] = "skipped";
+    for (const shard of ["e2e-shard-1", "e2e-shard-2", "e2e-shard-3"]) {
+      results[shard] = "skipped";
+    }
     expect(aggregate(results, "true").status).toBe(0);
     for (const output of [
       "",
@@ -109,14 +112,11 @@ describe("Fallow CI wiring", () => {
     }
     for (const job of required) {
       const expected = results[job];
-      for (const status of ["failure", "cancelled", "skipped"]) {
+      for (const status of ["success", "failure", "cancelled", "skipped"]) {
         if (status === expected) continue;
         expect(aggregate({ ...results, [job]: status }, "true").status).toBe(1);
       }
     }
-    expect(
-      aggregate({ ...results, "e2e-shard-1": "success" }, "true").status,
-    ).toBe(1);
   });
 
   it("isolates PR cancellation by workflow and uses unique non-PR groups", () => {
@@ -130,16 +130,16 @@ describe("Fallow CI wiring", () => {
     expect(workflow).not.toMatch(/^ +concurrency:/m);
   });
 
-  it("runs both shards unless classification positively permits the skip", () => {
+  it("runs all shards unless classification positively permits the skip", () => {
     expect(
       workflow.match(
         /if: \$\{\{ !cancelled\(\) && !\(needs\.changes\.result == 'success' && needs\.changes\.outputs\.docs_only == 'true'\) \}\}/g,
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(workflow).toContain("steps: &e2e-steps");
-    expect(workflow).toContain("steps: *e2e-steps");
+    expect(workflow.match(/^    steps: \*e2e-steps$/gm)).toHaveLength(2);
     expect(workflow).toContain(
-      "run: bash scripts/e2e-container.sh --shard=${{ env.E2E_SHARD }}/2",
+      "run: bash scripts/e2e-container.sh --shard=${{ env.E2E_SHARD }}/3",
     );
     expect(workflow).not.toMatch(/continue-on-error|pull_request_target/);
   });

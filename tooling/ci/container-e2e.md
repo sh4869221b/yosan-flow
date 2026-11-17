@@ -12,13 +12,14 @@ Playwright の解決版は `pnpm-lock.yaml` が正です。通常開発の手順
 
 ```bash
 pnpm test:e2e
-pnpm test:e2e --shard=1/2
-pnpm test:e2e --shard=2/2
+pnpm test:e2e --shard=1/3
+pnpm test:e2e --shard=2/3
+pnpm test:e2e --shard=3/3
 pnpm test:e2e --grep 'budget'
 ```
 
 標準入口は `scripts/e2e-container.sh` です。CI/手動 workflow も同じ入口を使い、
-shard は別 runner、各１ worker で実行します。Playwright 引数は literal argv
+3 shard を別々の runner、各1 worker で実行します。Playwright 引数は literal argv
 として渡し、wrapper が workers=1 を固定します。`test:e2e:worker` は container
 内部専用の Playwright command で、host 開発環境の代替入口ではありません。
 ローカルでは suite 全体を実行し、元の build-before-migration path を使います。

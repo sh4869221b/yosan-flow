@@ -223,7 +223,7 @@ jobs:
         run: pnpm build
 
   e2e-shard-1:
-    name: E2E tests (shard 1/2)
+    name: E2E tests (shard 1/3)
     needs: changes
     if: ${{ !cancelled() && !(needs.changes.result == 'success' && needs.changes.outputs.docs_only == 'true') }}
     env:
@@ -256,7 +256,7 @@ jobs:
           key: e2e-font-v1-${{ hashFiles('tooling/ci/container/font.json') }}
 
       - name: E2E tests in fixed container
-        run: bash scripts/e2e-container.sh --shard=${{ env.E2E_SHARD }}/2
+        run: bash scripts/e2e-container.sh --shard=${{ env.E2E_SHARD }}/3
 
       - name: Upload E2E diagnostics
         if: ${{ failure() }}
@@ -288,7 +288,7 @@ jobs:
           retention-days: 7
 
   e2e-shard-2:
-    name: E2E tests (shard 2/2)
+    name: E2E tests (shard 2/3)
     needs: changes
     if: ${{ !cancelled() && !(needs.changes.result == 'success' && needs.changes.outputs.docs_only == 'true') }}
     env:
@@ -297,9 +297,19 @@ jobs:
     timeout-minutes: 20
     steps: *e2e-steps
 
+  e2e-shard-3:
+    name: E2E tests (shard 3/3)
+    needs: changes
+    if: ${{ !cancelled() && !(needs.changes.result == 'success' && needs.changes.outputs.docs_only == 'true') }}
+    env:
+      E2E_SHARD: 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps: *e2e-steps
+
   e2e-summary:
     name: E2E timing summary
-    needs: [changes, e2e-shard-1, e2e-shard-2]
+    needs: [changes, e2e-shard-1, e2e-shard-2, e2e-shard-3]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -320,7 +330,8 @@ jobs:
         run: |
           test "${{ needs['e2e-shard-1'].result }}" = "skipped"
           test "${{ needs['e2e-shard-2'].result }}" = "skipped"
-          echo 'Both E2E shards intentionally skipped for the complete docs-only PR diff; E2E runner time is 0 seconds.' >> "$GITHUB_STEP_SUMMARY"
+          test "${{ needs['e2e-shard-3'].result }}" = "skipped"
+          echo 'All E2E shards intentionally skipped for the complete docs-only PR diff; E2E runner time is 0 seconds.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarize completed E2E job
         if: ${{ !(needs.changes.result == 'success' && needs.changes.outputs.docs_only == 'true') }}
@@ -331,7 +342,7 @@ jobs:
           mkdir -p .tmp-e2e-summary
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" > .tmp-e2e-summary/jobs.json
           summary_status=0
-          for shard in 1 2; do
+          for shard in 1 2 3; do
             artifact_name="e2e-timing-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-shard-$shard"
             if artifact_id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" --jq ".artifacts[] | select(.name == \"$artifact_name\") | .id"); then
               if [ -n "$artifact_id" ]; then
@@ -342,7 +353,7 @@ jobs:
             else
               summary_status=1
             fi
-            if ! node scripts/e2e-summary.ts --report ".tmp-e2e-summary/shard-$shard/test-results/results.json" --timing ".tmp-e2e-summary/shard-$shard/.tmp-e2e-timing.json" --jobs .tmp-e2e-summary/jobs.json --job-name "E2E tests (shard $shard/2)" | tee -a "$GITHUB_STEP_SUMMARY"; then
+            if ! node scripts/e2e-summary.ts --report ".tmp-e2e-summary/shard-$shard/test-results/results.json" --timing ".tmp-e2e-summary/shard-$shard/.tmp-e2e-timing.json" --jobs .tmp-e2e-summary/jobs.json --job-name "E2E tests (shard $shard/3)" | tee -a "$GITHUB_STEP_SUMMARY"; then
               summary_status=1
             fi
           done
@@ -362,6 +373,7 @@ jobs:
       - build
       - e2e-shard-1
       - e2e-shard-2
+      - e2e-shard-3
     if: ${{ always() }}
 
     steps:
@@ -384,3 +396,4 @@ jobs:
           test "${{ needs.build.result }}" = "success"
           test "${{ needs['e2e-shard-1'].result }}" = "$expected_e2e"
           test "${{ needs['e2e-shard-2'].result }}" = "$expected_e2e"
+          test "${{ needs['e2e-shard-3'].result }}" = "$expected_e2e"

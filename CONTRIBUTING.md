@@ -579,7 +579,7 @@ Local and hosted E2E use the [fixed container runner](tooling/ci/container-e2e.m
 The normal Node/pnpm development environment and non-E2E CI are unchanged. Run
 `pnpm test:e2e` from a secret-free checkout with Docker/BuildKit available; examples
 and a dedicated worktree procedure are documented there. CI/manual workflows use
-the same wrapper with shards `1/2` and `2/2`. The internal `test:e2e:worker` script
+the same wrapper with shards `1/3`, `2/3`, and `3/3`. The internal `test:e2e:worker` script
 runs Playwright only inside that container. One worker, local D1 migrations/reset
 and the existing browser/headless settings remain mandatory.
 
@@ -597,7 +597,7 @@ do not set this CI-only flag manually. Generated output is never shared across
 shards, and each shard owns its disposable local D1. Revert this migration as a
 reviewed change for rollback; do not relax the prebuild or reset guards.
 
-Both CI and the manual E2E workflow run shards `1/2` and `2/2` on independent hosted runners, with one Playwright worker and runner-local Wrangler/D1 state per shard. `fail-fast: false` lets the other shard finish after a failure, and `Quality checks` requires both CI shards to succeed. The **E2E timing summary** runs after both shards complete and publishes a separate section for each shard. Open the workflow run's summary or the `Summarize completed E2E job` log for timing, outcome counts and the five slowest individual tests in each shard.
+CI and the manual E2E workflow run three shards on independent hosted runners, with one Playwright worker and runner-local Wrangler/D1 state per shard. Each shard can finish independently after another fails. `Quality checks` requires all three CI shards to succeed when E2E runs. The **E2E timing summary** runs after all three shards complete and publishes a separate section for each shard. Open the workflow run's summary or the `Summarize completed E2E job` log for timing, outcome counts and the five slowest individual tests in each shard.
 
 - **Job** is the completed E2E job's `completed_at - started_at`, excluding queue time and the dependent summary job. It includes the measurement upload.
 - **E2E step** is the existing `pnpm test:e2e` step interval. Every other completed step has its own interval; their sum need not equal job wall-clock.
