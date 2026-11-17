@@ -1,6 +1,7 @@
 import { Effect } from "effect";
-import { PERIODS_URL } from "#lib/dashboard/api-urls.ts";
+import { periodsUrl } from "#lib/dashboard/api-urls.ts";
 import { getJstToday } from "#lib/dashboard/date.ts";
+import { selectDashboardPeriodId } from "#lib/dashboard/select-dashboard-period.ts";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
 import type {
   PeriodOption,
@@ -20,24 +21,6 @@ type Dependencies = Pick<
   readonly selectEmpty: () => void;
   readonly refreshSummary: (_periodId: string) => Effect.Effect<void, never>;
 };
-
-function selectResumePeriod(
-  periods: readonly PeriodOption[],
-  preferredPeriodId: string | null,
-  today: string,
-): PeriodOption | null {
-  return (
-    periods.find((period) => period.id === preferredPeriodId) ??
-    periods.find(
-      (period) =>
-        period.status === "active" &&
-        period.startDate <= today &&
-        today <= period.endDate,
-    ) ??
-    periods.at(-1) ??
-    null
-  );
-}
 
 export function createPeriodResumeRefreshEffect(dependencies: Dependencies) {
   function refreshOnResumeEffect(): Effect.Effect<void, never> {
@@ -64,7 +47,7 @@ export function createPeriodResumeRefreshEffect(dependencies: Dependencies) {
         return;
       }
       const result = yield* fetchJsonEffect<PeriodListResponse<PeriodOption>>(
-        PERIODS_URL,
+        periodsUrl(),
         undefined,
         "再取得に失敗しました。",
       ).pipe(Effect.result);
@@ -75,13 +58,17 @@ export function createPeriodResumeRefreshEffect(dependencies: Dependencies) {
       }
       const periods = result.success.periods ?? [];
       dependencies.setPeriods(periods);
-      const selected = selectResumePeriod(periods, periodId, getJstToday());
-      if (selected == null) {
+      const selectedId = selectDashboardPeriodId(
+        periods,
+        periodId,
+        getJstToday(),
+      );
+      if (selectedId == null) {
         dependencies.selectEmpty();
         dependencies.publishSummary(null);
         return;
       }
-      yield* dependencies.refreshSummary(selected.id);
+      yield* dependencies.refreshSummary(selectedId);
     });
   }
   return refreshOnResumeEffect;

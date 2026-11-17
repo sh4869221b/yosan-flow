@@ -54,6 +54,7 @@ for (const [name, destination] of [
       await expect(page).toHaveURL(retryUrl);
 
       const retry = page.getByRole("button", { name: "再読み込み" });
+      await expect(page).toHaveTitle("読み込みに失敗しました | Yosan Flow");
       await retry.click();
       await expect.poll(() => loads).toBe(2);
       await expect(retry).toHaveAttribute("aria-disabled", "true");
@@ -61,6 +62,7 @@ for (const [name, destination] of [
       expect(loads).toBe(2);
       releaseRetry.resolve();
       await expect(page.locator("#empty-period-heading")).toBeFocused();
+      await expect(page).toHaveTitle("予算ダッシュボード | Yosan Flow");
       await expect(page.locator("#page-error-heading")).toHaveCount(0);
       await expect(page).toHaveURL(retryUrl);
       expect(loads).toBe(2);

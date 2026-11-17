@@ -111,7 +111,7 @@ function applyBudgetPeriodInsert(
   normalizedSql: string,
   args: unknown[],
   state: PeriodAwareD1FakeState,
-): number | null {
+): BudgetPeriodRow[] | null {
   if (
     normalizedSql.includes('insert into "budget_periods"') &&
     args.length >= 8
@@ -130,9 +130,9 @@ function applyBudgetPeriodInsert(
       normalizedSql.includes('"overlapping_period"') &&
       (state.periods.has(row.id) || !permitsOrdinaryWrite(row, state, false))
     )
-      return 0;
+      return [];
     state.periods.set(row.id, row);
-    return 1;
+    return [row];
   }
   return null;
 }
@@ -141,12 +141,12 @@ function applyBudgetPeriodUpdate(
   normalizedSql: string,
   args: unknown[],
   state: PeriodAwareD1FakeState,
-): number | null {
+): BudgetPeriodRow[] | null {
   if (normalizedSql.includes('update "budget_periods"') && args.length >= 5) {
     const id = String(args[4]);
     const existing = state.periods.get(id);
     if (!existing) {
-      return 0;
+      return [];
     }
     const row: BudgetPeriodRow = {
       ...existing,
@@ -159,9 +159,9 @@ function applyBudgetPeriodUpdate(
       normalizedSql.includes('"overlapping_period"') &&
       !permitsOrdinaryWrite(row, state, true)
     )
-      return 0;
+      return [];
     state.periods.set(id, row);
-    return 1;
+    return [row];
   }
   return null;
 }
@@ -171,10 +171,10 @@ export function applyBudgetPeriodMutation(
   args: unknown[],
   state: PeriodAwareD1FakeState,
   linkedBoundaryChangesOverride?: number,
-): number {
+): BudgetPeriodRow[] {
   const normalizedSql = sql.toLowerCase();
   if (!normalizedSql.includes("budget_periods")) {
-    return 0;
+    return [];
   }
   const linkedBoundaryChanges = applyLinkedBoundaryMutation(
     sql,
@@ -196,5 +196,5 @@ export function applyBudgetPeriodMutation(
   ) {
     throw new Error(`Unhandled budget period mutation in D1 fake: ${sql}`);
   }
-  return 0;
+  return [];
 }

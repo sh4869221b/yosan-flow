@@ -5,8 +5,7 @@ import viteConfig from "./vite.config.ts";
 export default defineConfig({
   ...viteConfig,
   test: {
-    // Resolve before the adapter's randomized external module so vi.mock can
-    // replace the Workers boundary without booting a local Cloudflare proxy.
+    // Resolve the native Workers import so vi.mock can replace it in Node.
     alias: {
       "cloudflare:workers": fileURLToPath(
         new URL("./tests/helpers/cloudflare-workers.ts", import.meta.url),

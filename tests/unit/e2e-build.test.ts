@@ -205,7 +205,7 @@ describe("E2E setup workflow contract", () => {
     },
   );
 
-  it("keeps local builds, isolated D1 migrations and single-worker serial execution", () => {
+  it("keeps local builds, isolated D1 and single-worker CI runs with no focused tests", () => {
     const config = resolve("playwright.config.ts");
     const load = (prebuilt: string) =>
       spawnSync(
@@ -216,7 +216,11 @@ describe("E2E setup workflow contract", () => {
           `import config from ${JSON.stringify(config)}; console.log(JSON.stringify(config))`,
         ],
         {
-          env: { ...process.env, YOSAN_FLOW_E2E_PREBUILT: prebuilt },
+          env: {
+            ...process.env,
+            CI: prebuilt ? "true" : "",
+            YOSAN_FLOW_E2E_PREBUILT: prebuilt,
+          },
           encoding: "utf8",
         },
       );
@@ -224,6 +228,7 @@ describe("E2E setup workflow contract", () => {
       const result = load(prebuilt);
       expect(result.status, result.stderr).toBe(0);
       const config = JSON.parse(result.stdout);
+      expect(config.forbidOnly).toBe(Boolean(prebuilt));
       expect(config.workers).toBe(1);
       expect(config.fullyParallel).toBe(false);
       expect(config.webServer.reuseExistingServer).toBe(false);

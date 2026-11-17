@@ -16,7 +16,7 @@ import {
 } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { alias } from "drizzle-orm/sqlite-core";
-import { findD1BudgetPeriodById } from "#lib/server/db/budget-period-d1-query.ts";
+import { toBudgetPeriodRecord } from "#lib/server/db/budget-period-row-mapper.ts";
 import {
   LinkedPeriodBoundaryConflictError,
   LinkedPeriodBoundaryInvariantError,
@@ -253,7 +253,7 @@ export async function updateD1LinkedPeriodBoundary(
   const payload = sql<string>`${input}.${input.payload}`;
   const targetId = jsonField(payload, "target.before.id");
   const successorId = jsonField(payload, "successor.before.id");
-  const result = await database
+  const rows = await database
     .with(input)
     .update(budget_periods)
     .set({
@@ -278,25 +278,27 @@ export async function updateD1LinkedPeriodBoundary(
         buildGlobalPredicate(database, payload),
       ),
     )
-    .run();
+    .returning()
+    .all();
 
-  if (result.meta.changes === 0) {
+  if (rows.length === 0) {
     throw new LinkedPeriodBoundaryConflictError();
   }
-  if (result.meta.changes !== 2) {
-    throw new LinkedPeriodBoundaryInvariantError(result.meta.changes);
+  if (rows.length !== 2) {
+    throw new LinkedPeriodBoundaryInvariantError(rows.length);
   }
 
-  const [updatedTarget, updatedSuccessor] = await Promise.all([
-    findD1BudgetPeriodById(database, command.target.before.id),
-    findD1BudgetPeriodById(database, command.successor.before.id),
-  ]);
+  // SQLite does not guarantee an order for rows from RETURNING.
+  const updatedTarget = rows.find((row) => row.id === command.target.before.id);
+  const updatedSuccessor = rows.find(
+    (row) => row.id === command.successor.before.id,
+  );
   if (!updatedTarget || !updatedSuccessor) {
-    throw new LinkedPeriodBoundaryInvariantError(result.meta.changes);
+    throw new LinkedPeriodBoundaryInvariantError(rows.length);
   }
   return {
     changedCount: 2,
-    target: updatedTarget,
-    successor: updatedSuccessor,
+    target: toBudgetPeriodRecord(updatedTarget),
+    successor: toBudgetPeriodRecord(updatedSuccessor),
   };
 }

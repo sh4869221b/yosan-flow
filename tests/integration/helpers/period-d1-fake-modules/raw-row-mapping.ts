@@ -39,6 +39,13 @@ export function toBudgetPeriodRawRow(
 
 export function toDailyTotalRawRow(sql: string, row: DailyTotalRow): unknown[] {
   const normalizedSql = sql.toLowerCase();
+  if (
+    normalizedSql.startsWith(
+      'select "date", "budget_period_id", "total_used_yen"',
+    )
+  ) {
+    return [row.date, row.budget_period_id, row.total_used_yen];
+  }
   if (normalizedSql.startsWith('select "date"')) {
     return [row.date];
   }

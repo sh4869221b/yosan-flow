@@ -15,6 +15,24 @@ const UPDATE_CONFLICT = {
 } as const;
 
 describe("linked period boundary default D1 handler", () => {
+  it("skips boundary preflight reads for a budget-only update", async () => {
+    const preparedSql: string[] = [];
+    const harness = createD1BoundaryHarness({ preparedSql });
+    const response = await harness.put(
+      { startDate: "2026-07-21", endDate: "2026-08-19", budgetYen: 81_000 },
+      SUCCESSOR_ID,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ budgetYen: 81_000 });
+    const successorReads = preparedSql.filter((sql) =>
+      /^select .*where "budget_periods"\."predecessor_period_id" = \?/i.test(
+        sql,
+      ),
+    );
+    expect(successorReads).toHaveLength(1);
+  });
+
   it("uses the same preview and atomic confirmation", async () => {
     // Given
     const harness = createD1BoundaryHarness();

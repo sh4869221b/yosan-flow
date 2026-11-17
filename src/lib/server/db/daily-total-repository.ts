@@ -53,7 +53,12 @@ export interface D1DailyTotalRepository {
   upsertDailyTotal(
     input: DailyTotalUpsertInput,
   ): Effect.Effect<DailyTotalRecord, Error>;
-  listByPeriodId(periodId: string): Effect.Effect<DailyTotalRecord[], Error>;
+  listByPeriodId(
+    periodId: string,
+  ): Effect.Effect<
+    Pick<DailyTotalRecord, "date" | "budgetPeriodId" | "totalUsedYen">[],
+    Error
+  >;
   hasEntriesOutsidePeriod(
     periodId: string,
     startDate: string,
@@ -221,12 +226,19 @@ export function createD1DailyTotalRepository(
       return Effect.tryPromise({
         try: async () => {
           const rows = await database
-            .select()
+            .select({
+              date: daily_totals.date,
+              budgetPeriodId: daily_totals.budget_period_id,
+              totalUsedYen: daily_totals.total_used_yen,
+            })
             .from(daily_totals)
             .where(eq(daily_totals.budget_period_id, periodId))
             .orderBy(asc(daily_totals.date))
             .all();
-          return rows.map((row) => toDailyTotalRecord(row));
+          for (const { date } of rows) {
+            assertValidDate(date);
+          }
+          return rows;
         },
         catch: toEffectError,
       });

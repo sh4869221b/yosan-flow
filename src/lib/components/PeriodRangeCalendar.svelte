@@ -1,7 +1,7 @@
 <script lang="ts">
   import { RangeCalendar } from "#lib/components/ui/range-calendar/index.ts";
   import { createPeriodRangeSelection } from "./period-range-selection.ts";
-  import type { PeriodRange } from "./period-range-state.ts";
+  import { MIN_PERIOD_DATE, type PeriodRange } from "./period-range-state.ts";
 
   type Props = {
     range: PeriodRange;
@@ -25,6 +25,7 @@
   onStartValueChange={selection.onStartValueChange}
   onEndValueChange={selection.onEndValueChange}
   locale="ja-JP"
+  minValue={MIN_PERIOD_DATE}
   weekdayFormat="short"
   fixedWeeks={true}
   preventDeselect={true}

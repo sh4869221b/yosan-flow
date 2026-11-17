@@ -91,7 +91,7 @@ export function applySqlMutation(
     args,
     state,
     linkedBoundaryChangesOverride,
-  );
+  ).length;
   applyDailyTotalMutation(sql, args, state);
   applyDailyOperationHistoryMutation(sql, args, state);
   return changes;

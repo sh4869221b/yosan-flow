@@ -134,8 +134,9 @@ export type D1BoundaryHarness = {
 export function createD1BoundaryHarness(input?: {
   readonly periods?: readonly BudgetPeriodRow[];
   readonly totalDates?: Readonly<Record<string, readonly string[]>>;
+  readonly preparedSql?: string[];
 }): D1BoundaryHarness {
-  const db = createPeriodAwareD1Fake([], {
+  const db = createPeriodAwareD1Fake(input?.preparedSql, {
     periods: input?.periods ?? [targetRow, successorRow],
     totalDates: input?.totalDates,
   });

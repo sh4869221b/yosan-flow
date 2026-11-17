@@ -179,6 +179,29 @@ describe("request tracing Effect bridge", () => {
     expect(exit).toEqual(Exit.die(defect));
   });
 
+  it("resumes the fiber with a defect when native span completion rejects", async () => {
+    const defect = new Error("span completion failed");
+    const tracing = createTracing({
+      enterSpan<T>(
+        _name: string,
+        callback: Parameters<NativeTracing["enterSpan"]>[1],
+      ): T {
+        const result = callback({ isTraced: false, setAttribute: vi.fn() });
+        return (
+          result instanceof Promise
+            ? result.then(() => {
+                throw defect;
+              })
+            : result
+        ) as T;
+      },
+    });
+    const exit = await Effect.runPromiseExit(
+      withTracingEffect(tracing, "summary.calculate", Effect.succeed(42)),
+    );
+    expect(exit).toEqual(Exit.die(defect));
+  });
+
   it("preserves both causes when a finalizer defect elects the typed failure", async () => {
     const error = new Error("private failure");
     const defect = new Error("private finalizer defect");

@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  addDay,
-  buildMonths,
-  fromDateValue,
-  toDateValue,
-} from "#lib/components/calendar/calendar-grid.ts";
+import { buildMonths } from "#lib/components/calendar/calendar-grid.ts";
+import { addDays, fromDateValue, toDateValue } from "#lib/utc-date.ts";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -22,22 +18,22 @@ describe("fromDateValue", () => {
   });
 });
 
-describe("addDay", () => {
+describe("addDays", () => {
   it("adds one day to a date string", () => {
-    expect(addDay("2026-05-01")).toBe("2026-05-02");
+    expect(addDays("2026-05-01", 1)).toBe("2026-05-02");
   });
 
   it("crosses month boundaries", () => {
-    expect(addDay("2026-05-31")).toBe("2026-06-01");
+    expect(addDays("2026-05-31", 1)).toBe("2026-06-01");
   });
 
   it("crosses year boundaries", () => {
-    expect(addDay("2026-12-31")).toBe("2027-01-01");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
   });
 
   it("handles leap year February", () => {
-    expect(addDay("2024-02-28")).toBe("2024-02-29");
-    expect(addDay("2025-02-28")).toBe("2025-03-01");
+    expect(addDays("2024-02-28", 1)).toBe("2024-02-29");
+    expect(addDays("2025-02-28", 1)).toBe("2025-03-01");
   });
 });
 
@@ -72,6 +68,7 @@ describe("buildMonths", () => {
     ["empty end", "2026-05-01", ""],
     ["reversed range", "2026-05-10", "2026-05-01"],
     ["invalid range", "invalid", "invalid"],
+    ["extended year", "+275760-09-12", "+275760-09-13"],
   ])("returns no months for %s", (_case, start, end) => {
     expect(buildMonths(start, end)).toEqual([]);
   });
@@ -136,6 +133,16 @@ describe("buildMonths", () => {
     expect(months[0].key).toBe("2026-04");
     expect(months[1].key).toBe("2026-05");
     expect(months[2].key).toBe("2026-06");
+  });
+
+  it("starts a fresh week when a leap month ends midweek", () => {
+    const [february, march] = buildMonths("2024-02-28", "2024-03-02");
+    expect(february.weeks).toEqual([
+      [null, null, null, "2024-02-28", "2024-02-29", null, null],
+    ]);
+    expect(march.weeks).toEqual([
+      [null, null, null, null, null, "2024-03-01", "2024-03-02"],
+    ]);
   });
 
   it("produces weeks of exactly 7 cells each", () => {

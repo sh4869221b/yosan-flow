@@ -1,12 +1,5 @@
-export function addDays(date: string, days: number): string {
-  const current = Date.parse(`${date}T00:00:00.000Z`);
-  return new Date(current + days * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
-}
+import { fromDateValue } from "#lib/utc-date.ts";
 
 export function getJstToday(now: Date = new Date()): string {
-  return new Date(now.getTime() + 9 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  return fromDateValue(now.getTime() + 9 * 60 * 60 * 1000);
 }

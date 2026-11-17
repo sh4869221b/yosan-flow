@@ -1,4 +1,4 @@
-import { addDays } from "#lib/dashboard/date.ts";
+import { addDays } from "#lib/utc-date.ts";
 import type { PageData } from "../../routes/$types";
 
 export function getInitialPeriodControllerState(data: PageData) {

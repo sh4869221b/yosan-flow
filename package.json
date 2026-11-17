@@ -12,7 +12,7 @@
     "lint:ci": "eslint . --max-warnings=0",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:ci": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
-    "test:unit": "vitest run --passWithNoTests tests/unit",
+    "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:coverage": "vitest run --coverage tests/unit tests/integration",
     "test:e2e": "bash scripts/e2e-container.sh",

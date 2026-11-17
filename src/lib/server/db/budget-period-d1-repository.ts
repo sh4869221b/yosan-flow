@@ -144,18 +144,19 @@ export function createD1BudgetPeriodRepository(
 
           await assertNoOverlap(inputRow);
 
-          const result = await insertD1BudgetPeriod(database, inputRow);
+          const inserted = await insertD1BudgetPeriod(database, inputRow);
+          if (inserted) {
+            return toBudgetPeriodRecord(inserted);
+          }
 
-          const created = await findD1BudgetPeriodById(database, inputRow.id);
-          if (!created && result.meta.changes === 0) {
-            return rejectD1BudgetPeriodWrite(database, inputRow, "create");
-          }
-          if (!created) {
-            throw new Error(
-              `budget period not found after create: ${inputRow.id}`,
-            );
-          }
-          return created;
+          const concurrent = await findD1BudgetPeriodById(
+            database,
+            inputRow.id,
+          );
+          return (
+            concurrent ??
+            rejectD1BudgetPeriodWrite(database, inputRow, "create")
+          );
         },
         catch: toEffectError,
       });
@@ -204,16 +205,11 @@ export function createD1BudgetPeriodRepository(
 
           await assertNoOverlap(inputRow, inputRow.id);
 
-          const result = await updateD1BudgetPeriod(database, inputRow);
-          if (result.meta.changes === 0) {
+          const updated = await updateD1BudgetPeriod(database, inputRow);
+          if (!updated) {
             return rejectD1BudgetPeriodWrite(database, inputRow, "update");
           }
-
-          const updated = await findD1BudgetPeriodById(database, inputRow.id);
-          if (!updated) {
-            throw new Error(`period not found after update: ${inputRow.id}`);
-          }
-          return updated;
+          return toBudgetPeriodRecord(updated);
         },
         catch: toEffectError,
       });

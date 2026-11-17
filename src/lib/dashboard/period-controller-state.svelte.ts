@@ -123,6 +123,22 @@ export function createPeriodControllerState(
   return {
     budget: settings.budget,
     range: settings.range,
+    navigateToPeriod(data: PageData): void {
+      periods = data.periods;
+      if (data.selectedPeriodId === selectedPeriodId && !summaryLoading) return;
+      confirmationState.clear();
+      if (data.selectedPeriodId === null) {
+        summaryRequests.start(null);
+        summaryLoading = false;
+        summaryError = null;
+        selectedPeriodId = null;
+        publishSummary(null);
+        onPeriodChanged();
+        return;
+      }
+      // Route loading can overlap local writes. Reuse the guarded summary read.
+      runClientEffect(refreshSummaryEffect(data.selectedPeriodId));
+    },
     get periods() {
       return periods;
     },

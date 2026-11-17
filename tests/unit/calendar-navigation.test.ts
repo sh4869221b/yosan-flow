@@ -85,6 +85,21 @@ describe("getCalendarNavigationTarget", () => {
     );
   });
 
+  it("navigates in year zero and clamps at the end of year 9999", () => {
+    expect(
+      getCalendarNavigationTarget("0000-01-31", "PageDown", {
+        startDate: "0000-01-01",
+        endDate: "0000-03-31",
+      }),
+    ).toBe("0000-02-29");
+    expect(
+      getCalendarNavigationTarget("9999-12-31", "ArrowRight", {
+        startDate: "9999-12-01",
+        endDate: "9999-12-31",
+      }),
+    ).toBe("9999-12-31");
+  });
+
   it("does not handle activation or tab keys", () => {
     expect(
       getCalendarNavigationTarget("2026-02-04", "Enter", range),

@@ -25,10 +25,16 @@ export type PeriodRangeInput = Readonly<{
   validation: PeriodRangeValidation;
 }>;
 
+// The period API accepts four-digit Gregorian years from 0100 onward.
+export const MIN_PERIOD_DATE = parseDate("0100-01-01");
+
 function toDateValue(value: string): DateValue | undefined {
   if (!value) return undefined;
   try {
-    return parseDate(value);
+    const date = parseDate(value);
+    return date.toString() === value && date.compare(MIN_PERIOD_DATE) >= 0
+      ? date
+      : undefined;
   } catch {
     return undefined;
   }

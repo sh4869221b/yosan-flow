@@ -191,6 +191,12 @@ export function createDashboardPageController(getData: () => PageData) {
       dayEntryController.invalidateDaySelection();
       periodController.handleSelectPeriod(payload);
     },
+    navigateToPeriod(data: PageData): void {
+      if (data.selectedPeriodId !== periodController.selectedPeriodId) {
+        dayEntryController.invalidateDaySelection();
+      }
+      periodController.navigateToPeriod(data);
+    },
     confirmPeriodUpdate: periodController.confirmPeriodUpdate,
     cancelPeriodUpdateConfirmation:
       periodController.cancelPeriodUpdateConfirmation,

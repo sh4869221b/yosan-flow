@@ -3,7 +3,7 @@ import {
   type PeriodRange,
 } from "#lib/components/period-range-state.ts";
 import { parseNonNegativeIntegerYenInput } from "#lib/dashboard/yen-input.ts";
-import { addDays } from "#lib/dashboard/date.ts";
+import { addDays } from "#lib/utc-date.ts";
 
 type CreateRange = Readonly<{ endDate: string; startDate: string }>;
 type InitialState = Readonly<{ startDate: string }>;

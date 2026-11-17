@@ -1,8 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildDateRange } from "#lib/server/services/period-summary/date-range.ts";
+import {
+  getDateRange,
+  mapDateRange,
+} from "#lib/server/services/period-summary/date-range.ts";
 import { calculatePeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
 
 afterEach(() => vi.restoreAllMocks());
+
+function listDates(start: string, end: string): string[] {
+  return mapDateRange(getDateRange(start, end), (date) => date);
+}
 
 describe("period summary date ranges", () => {
   it.each([
@@ -18,7 +25,7 @@ describe("period summary date ranges", () => {
         if (++parses > 10) throw new Error("date range did not terminate");
         return parse(value);
       });
-      expect(buildDateRange(start, end)).toEqual(expected);
+      expect(listDates(start, end)).toEqual(expected);
     },
   );
 
@@ -26,8 +33,10 @@ describe("period summary date ranges", () => {
     ["2028-02-28", "2028-03-01", ["2028-02-28", "2028-02-29", "2028-03-01"]],
     ["2027-12-31", "2028-01-01", ["2027-12-31", "2028-01-01"]],
     ["2028-03-01", "2028-02-28", []],
+    ["2027-02-29", "2027-03-01", ["2027-03-01"]],
+    ["2028-00-28", "2028-03-01", []],
   ])("returns inclusive days from %s through %s", (start, end, expected) => {
-    expect(buildDateRange(start, end)).toEqual(expected);
+    expect(listDates(start, end)).toEqual(expected);
   });
 
   const period = {
@@ -62,6 +71,78 @@ describe("period summary date ranges", () => {
         recommendations,
       );
       expect(summary.foodPace.todayAllowanceYen).toBe(allowance);
+      expect(summary.todayRecommendedYen).toBe(allowance);
     },
   );
+
+  it("puts a future period's surplus remainder on the earliest days", () => {
+    const summary = calculatePeriodSummary(
+      { ...period, budgetYen: 3002 },
+      { jstToday: "2028-02-27" },
+    );
+
+    expect(summary.todayRecommendedYen).toBe(0);
+    expect(summary.dailyRows.map((row) => row.recommendedYen)).toEqual([
+      1001, 1001, 1000,
+    ]);
+  });
+
+  it("starts distributing a shortage at today when prior days have no recommendation", () => {
+    const summary = calculatePeriodSummary(period, {
+      jstToday: "2028-02-29",
+      dailyTotals: [
+        {
+          date: "2028-02-28",
+          budgetPeriodId: period.id,
+          totalUsedYen: 1001,
+        },
+        {
+          date: "2028-02-29",
+          budgetPeriodId: period.id,
+          totalUsedYen: 500,
+        },
+      ],
+    });
+
+    expect(summary.dailyRows.map((row) => row.recommendedYen)).toEqual([
+      0, 999, 1000,
+    ]);
+    expect(summary.todayRecommendedYen).toBe(999);
+    expect(summary.varianceFromRecommendationYen).toBe(-499);
+  });
+
+  it("keeps today's recommendation zero when a legacy date normalizes to a calendar day", () => {
+    const summary = calculatePeriodSummary(
+      { ...period, endDate: "2028-03-02", budgetYen: 4000 },
+      { jstToday: "2028-02-30" },
+    );
+
+    expect(summary.daysRemaining).toBe(1);
+    expect(summary.todayRecommendedYen).toBe(0);
+    expect(summary.dailyRows.map((row) => row.recommendedYen)).toEqual([
+      0, 0, 0, 4000,
+    ]);
+  });
+
+  it("groups duplicate totals and sums dates in their first-seen order", () => {
+    const dailyTotals = [
+      { date: "2028-03-01", totalUsedYen: 1 },
+      { date: "2028-02-29", totalUsedYen: 1 },
+      { date: "2028-02-28", totalUsedYen: Number.MAX_SAFE_INTEGER },
+      { date: "2028-02-28", totalUsedYen: 1 },
+    ].map((row) => ({ ...row, budgetPeriodId: period.id }));
+    const summary = calculatePeriodSummary(period, {
+      jstToday: "2028-03-01",
+      dailyTotals,
+    });
+
+    const firstDayTotal = Number.MAX_SAFE_INTEGER + 1;
+    expect(summary.dailyRows.map((row) => row.usedYen)).toEqual([
+      firstDayTotal,
+      1,
+      1,
+    ]);
+    expect(summary.plannedTotalYen).toBe(firstDayTotal + 2);
+    expect(summary.spentToDateYen).toBe(firstDayTotal + 2);
+  });
 });

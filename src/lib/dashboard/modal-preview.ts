@@ -17,7 +17,11 @@ export function getModalRemainingRows(
   if (summary == null || selectedDate == null) {
     return 0;
   }
-  return summary.dailyRows.filter((row) => row.date >= selectedDate).length;
+  let remainingRows = 0;
+  for (const row of summary.dailyRows) {
+    if (row.date >= selectedDate) remainingRows++;
+  }
+  return remainingRows;
 }
 
 export function getModalPreviewRemainingYen(

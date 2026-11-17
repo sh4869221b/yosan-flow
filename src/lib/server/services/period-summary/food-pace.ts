@@ -16,13 +16,13 @@ export function buildFoodPaceSummary(input: {
   periodLengthDays: number;
   spentBeforeTodayYen: number;
   usedTodayYen: number;
-  remainingDates: string[];
+  daysFromToday: number;
 }): FoodPaceSummary {
   const baseDailyYen =
     input.periodLengthDays === 0
       ? 0
       : Math.floor(input.budgetYen / input.periodLengthDays);
-  const daysFromToday = input.remainingDates.length;
+  const { daysFromToday } = input;
   if (daysFromToday === 0) {
     return {
       status: "on_track",

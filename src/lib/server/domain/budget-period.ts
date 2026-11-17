@@ -1,20 +1,11 @@
-// Calendar dates and ranges here are validated at their respective input boundaries.
-function toDateValue(date: string): number {
-  return Date.parse(`${date}T00:00:00.000Z`);
-}
+import { addDays } from "#lib/utc-date.ts";
 
 export function getNextPeriodStartDate(previousEndDate: string): string {
-  const previousEndDateValue = toDateValue(previousEndDate);
-  return new Date(previousEndDateValue + 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  return addDays(previousEndDate, 1);
 }
 
 export function getPreviousPeriodEndDate(nextStartDate: string): string {
-  const nextStartDateValue = toDateValue(nextStartDate);
-  return new Date(nextStartDateValue - 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  return addDays(nextStartDate, -1);
 }
 
 export function isDateWithinPeriod(

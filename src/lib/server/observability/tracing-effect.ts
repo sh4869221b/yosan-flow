@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Exit } from "effect";
 import type { CustomSpanAttributes, CustomSpanName } from "./span-schema";
 import type { TracingAdapter } from "./tracing";
 
@@ -10,11 +10,13 @@ export function withTracingEffect<A>(
 ): Effect.Effect<A, Error> {
   return Effect.flatMap(Effect.context(), (context) =>
     Effect.callback<A, Error>((resume, signal) => {
-      const completion = tracing.withSpan(
-        name,
-        () => Effect.runPromiseExitWith(context)(effect, { signal }),
-        attributes,
-      );
+      const completion = tracing
+        .withSpan(
+          name,
+          () => Effect.runPromiseExitWith(context)(effect, { signal }),
+          attributes,
+        )
+        .catch((defect: unknown) => Exit.die(defect));
       void completion.then(resume);
       // Interruption aborts the inner fiber and waits for its finalizers.
       return Effect.promise(() => completion).pipe(Effect.asVoid);
