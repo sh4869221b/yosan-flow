@@ -39,6 +39,7 @@ type DayEntryControllerDependencies = {
 export function createDayEntryControllerState(
   dependencies: DayEntryControllerDependencies,
   summaryRevision = createPeriodSummaryRevision(),
+  summarySync = createDayEntrySyncState(dependencies.getSelectedPeriodId),
 ) {
   const drafts = createDayEntryDraftStore();
   let draftPeriodId: string | null = null;
@@ -53,8 +54,8 @@ export function createDayEntryControllerState(
   let daySaveSuccess = $state<DaySaveSuccess | null>(null);
   let dayEntryCloseReason = $state<DayEntryCloseReason | null>(null);
   let daySelectionSequence = 0;
-  const summarySync = createDayEntrySyncState(dependencies.getSelectedPeriodId);
   const mutationLifecycle = createDayEntryMutationLifecycle({
+    beginSummaryRead: summarySync.beginSummaryRead,
     cancelHistoryLoad: dependencies.historyController.cancelHistoryLoad,
     closeModal: closeDayEntry,
     getHistoryMutationSequence:
@@ -66,7 +67,6 @@ export function createDayEntryControllerState(
     getSummary: dependencies.getSummary,
     loadHistoryEffect: dependencies.historyController.loadHistoryEffect,
     markPending: summarySync.markPending,
-    markSynchronized: summarySync.markSynchronized,
     publishSaveSuccess: (success) => {
       daySaveSuccess = success;
     },

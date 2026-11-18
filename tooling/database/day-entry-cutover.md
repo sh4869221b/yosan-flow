@@ -9,14 +9,14 @@
 3. 読み取り専用の診断を同じ対象に対して実行し、結果が空であることを確認します。従来スキーマには `--legacy-schema` を使います。前段の `day_entry_receipts_and_order` を適用済みならフラグを外します。
 
    ```bash
-   cutover_sql=$(mktemp)
-   node scripts/day-entry-cutover-diagnostics.ts --legacy-schema > "$cutover_sql"
    # TARGET_D1 と TARGET_ENV には確認したDB名と環境を指定する。
-   pnpm wrangler d1 execute "$TARGET_D1" --env "$TARGET_ENV" --remote --file "$cutover_sql"
-   rm "$cutover_sql"
+   cutover_sql=$(node scripts/day-entry-cutover-diagnostics.ts --legacy-schema) &&
+     pnpm wrangler d1 execute "$TARGET_D1" --env "$TARGET_ENV" --remote --command "$cutover_sql" --json
    ```
 
-   診断結果には期間 ID と日付が含まれます。対応するバックアップや書き込み記録と照合し、順序を裏付ける証拠が得られるまで受付停止を継続してください。診断は元の行や日計を書き換えません。証拠で順序を確定できても診断が解消しない場合は、証拠を反映した修復手順を別途レビューしてください。順序候補が複数ある場合、金額と一致しない場合、履歴のない日計、または時刻の逆転がある513件以上の日は移行が停止します。
+   コマンドが成功し、出力された JSON 配列に `success: true` と空の `results` (`[]`) を持つ結果が1件あることを確認してから進みます。Wrangler 4.162.0 では `--remote --file` はインポート経由で実行されるため、診断の SELECT は上記の `--command` で実行します。[Wrangler の実行オプション](https://developers.cloudflare.com/workers/wrangler/commands/d1/#d1-execute)
+
+   `results` に行がある場合は `budget_period_id`、`date`、`issue` を確認し、対応するバックアップや書き込み記録と照合します。順序を裏付ける証拠が得られるまで受付停止を継続してください。診断は元の行や日計を書き換えません。証拠で順序を確定できても診断が解消しない場合は、証拠を反映した修復手順を別途レビューしてください。順序候補が複数ある場合、金額と一致しない場合、履歴のない日計、または時刻の逆転がある513件以上の日は移行が停止します。
 
 ## 適用と再開
 

@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -76,7 +76,14 @@ it("uses Wrangler's actual pending-migration ledger for empty and legacy local D
   const query = (state: string, sql: string) =>
     JSON.parse(run(state, ["execute", "DB", "--json", "--command", sql])) as {
       results: Record<string, unknown>[];
+      success: boolean;
     }[];
+  const diagnosticSql = (...args: string[]) =>
+    execFileSync(
+      process.execPath,
+      [join(root, "scripts/day-entry-cutover-diagnostics.ts"), ...args],
+      { encoding: "utf8" },
+    );
   const read = (state: string, upgraded = true) =>
     query(
       state,
@@ -95,15 +102,35 @@ it("uses Wrangler's actual pending-migration ledger for empty and legacy local D
     run("legacy", ["execute", "DB", "--file", fixture]);
     const before = read("legacy", false);
     expect(before.map((rows) => rows.length)).toEqual([3, 2, 4]);
+    const legacyDiagnostic = diagnosticSql("--legacy-schema");
+    expect(query("legacy", legacyDiagnostic)).toMatchObject([
+      { success: true, results: [] },
+    ]);
     run("blocked", ["migrations", "apply", "DB"]);
     run("blocked", ["execute", "DB", "--file", fixture]);
     query(
       "blocked",
       "UPDATE daily_totals SET total_used_yen = 999 WHERE budget_period_id = 'period-current';",
     );
+    const expectedDiagnostic = [
+      {
+        success: true,
+        results: [
+          {
+            budget_period_id: "period-current",
+            date: "2026-09-30",
+            issue: "inconsistent_ledger",
+          },
+        ],
+      },
+    ];
+    expect(query("blocked", legacyDiagnostic)).toMatchObject(
+      expectedDiagnostic,
+    );
     copy(migrations.slice(2));
     const blocked = run("blocked", ["migrations", "apply", "DB"], 1);
     expect(blocked).toContain("LEGACY_HISTORY_ORDER_UNRESOLVED");
+    expect(query("blocked", diagnosticSql())).toMatchObject(expectedDiagnostic);
     expect(
       query(
         "blocked",

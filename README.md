@@ -219,18 +219,20 @@ pnpm test:coverage
 preview は専用 D1 `yosan-flow-preview` と `yosan-preview.sh4869221b.work` を使用します。UUID と custom domain は `wrangler.jsonc` の `env.preview` に設定されています。
 
 1. 配備前に preview ホストの専用 Cloudflare Access アプリが production と同じ限定された許可対象を持つことを確認する
-2. `pnpm run cf:migrate:preview`
-3. `pnpm build`
-4. `pnpm run deploy:preview`
-5. preview ホストで未認証アクセスが Access に転送または拒否され、認証後にアプリへ到達できることを確認する
+2. `verify_history_and_fence_writers` が未適用なら、移行コマンドを実行する前に切り替え手順の適用前確認を完了する。[支出履歴の切り替え手順](tooling/database/day-entry-cutover.md)
+3. `pnpm run cf:migrate:preview`
+4. `pnpm build`
+5. `pnpm run deploy:preview`
+6. preview ホストで未認証アクセスが Access に転送または拒否され、認証後にアプリへ到達できることを確認する
 
 ### production
 
 1. production 用 D1 を作成して `wrangler.jsonc` の `env.production.d1_databases[0].database_id` を実 UUID に置き換える
-2. `pnpm run cf:migrate:production`
-3. `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build && pnpm test:e2e`
-4. `pnpm run deploy:production`
-5. production ホストが Cloudflare Access 保護対象であることを確認
+2. `verify_history_and_fence_writers` が未適用なら、移行コマンドを実行する前に切り替え手順の適用前確認を完了する。[支出履歴の切り替え手順](tooling/database/day-entry-cutover.md)
+3. `pnpm run cf:migrate:production`
+4. `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build && pnpm test:e2e`
+5. `pnpm run deploy:production`
+6. production ホストが Cloudflare Access 保護対象であることを確認
 
 ## Cloudflare Access 保護メモ
 

@@ -212,51 +212,57 @@ test("reuses the fallback key when a save response is lost", async ({
   });
 });
 
-test("acknowledges a 204 and retries only the failed summary read", async ({
-  page,
-  request,
-}) => {
-  const { periodId, todayDate } = await seedCurrentPeriod(request);
-  await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
-  await waitForDashboardReady(page);
-  const summaryPath = `${getBaseUrl()}/api/periods/${periodId}`;
-  let posts = 0;
-  let summaryReads = 0;
-  await page.route(`${summaryPath}/days/${todayDate}/add`, async (route) => {
-    posts++;
-    expect((await route.fetch()).status()).toBe(200);
-    await route.fulfill({ status: 204 });
-  });
-  await page.route(summaryPath, async (route) => {
-    summaryReads++;
-    if (summaryReads === 1) await route.fulfill({ status: 503 });
-    else await route.continue();
-  });
+for (const retry of ["button", "online"] as const) {
+  test(`acknowledges a 204 and retries only the failed summary read via ${retry}`, async ({
+    page,
+    request,
+  }) => {
+    const { periodId, todayDate } = await seedCurrentPeriod(request);
+    await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
+    await waitForDashboardReady(page);
+    const summaryPath = `${getBaseUrl()}/api/periods/${periodId}`;
+    let posts = 0;
+    let summaryReads = 0;
+    await page.route(`${summaryPath}/days/${todayDate}/add`, async (route) => {
+      posts++;
+      expect((await route.fetch()).status()).toBe(200);
+      await route.fulfill({ status: 204 });
+    });
+    await page.route(summaryPath, async (route) => {
+      summaryReads++;
+      if (summaryReads === 1) await route.fulfill({ status: 503 });
+      else await route.continue();
+    });
 
-  const day = page.getByTestId(`calendar-day-${todayDate}`);
-  await day.click();
-  const modal = page.getByTestId("day-entry-modal");
-  await modal.getByLabel("追加する支出額 (円)").fill("300");
-  const failedSummary = page.waitForResponse(
-    (response) =>
-      response.url() === summaryPath &&
-      response.status() === 503 &&
-      response.request().method() === "GET",
-  );
-  await modal.getByRole("button", { name: "支出を追加" }).click();
-  await failedSummary;
-  await expect(modal).toBeHidden();
-  await expect(page.getByTestId("day-entry-save-status")).toContainText(
-    "支出を保存しました",
-  );
-  const warning = page.getByTestId("day-entry-summary-unsynced");
-  await expect(warning).toContainText("表示中の集計はまだ更新されていません");
-  const used = day.getByTestId(`used-${todayDate}`);
-  await expect(used).toHaveText("0 円");
+    const day = page.getByTestId(`calendar-day-${todayDate}`);
+    await day.click();
+    const modal = page.getByTestId("day-entry-modal");
+    await modal.getByLabel("追加する支出額 (円)").fill("300");
+    const failedSummary = page.waitForResponse(
+      (response) =>
+        response.url() === summaryPath &&
+        response.status() === 503 &&
+        response.request().method() === "GET",
+    );
+    await modal.getByRole("button", { name: "支出を追加" }).click();
+    await failedSummary;
+    await expect(modal).toBeHidden();
+    await expect(page.getByTestId("day-entry-save-status")).toContainText(
+      "支出を保存しました",
+    );
+    const warning = page.getByTestId("day-entry-summary-unsynced");
+    await expect(warning).toContainText("表示中の集計はまだ更新されていません");
+    const used = day.getByTestId(`used-${todayDate}`);
+    await expect(used).toHaveText("0 円");
 
-  await page.getByRole("button", { name: "集計を再取得" }).click();
-  await expect(used).toHaveText("300 円");
-  await expect(warning).toHaveCount(0);
-  expect(posts).toBe(1);
-  expect(summaryReads).toBe(2);
-});
+    if (retry === "online") {
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    } else {
+      await page.getByRole("button", { name: "集計を再取得" }).click();
+    }
+    await expect(used).toHaveText("300 円");
+    await expect(warning).toHaveCount(0);
+    expect(posts).toBe(1);
+    expect(summaryReads).toBe(2);
+  });
+}

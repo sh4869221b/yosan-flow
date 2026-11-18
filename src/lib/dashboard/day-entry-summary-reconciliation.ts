@@ -10,10 +10,10 @@ import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revisi
 import { findSummaryRow } from "#lib/dashboard/summary-rows.ts";
 
 type Dependencies = {
+  readonly beginSummaryRead: (_periodId: string) => (() => void) | undefined;
   readonly getHistoryMutationSequence: (_periodId: string) => number;
   readonly getSelectedDate: () => string | null;
   readonly getSelectedPeriodId: () => string | null;
-  readonly markSynchronized: (_periodId: string) => void;
   readonly setSelectedRow: (_row: DailyRow | null) => void;
   readonly setSummary: (_summary: PeriodSummary) => void;
   readonly submissionTracker: ReturnType<
@@ -40,6 +40,7 @@ export function createDayEntrySummaryReconciliation(
       latestRefreshSequences.set(periodId, currentRefreshSequence);
       const refreshMutationSequence =
         dependencies.getHistoryMutationSequence(periodId);
+      const acceptSummaryRead = dependencies.beginSummaryRead(periodId);
       const result = yield* fetchJsonEffect<PeriodSummary>(
         periodSummaryUrl(periodId),
         undefined,
@@ -69,7 +70,7 @@ export function createDayEntrySummaryReconciliation(
             findSummaryRow(result.success, submittedDate),
           );
         }
-        dependencies.markSynchronized(periodId);
+        acceptSummaryRead?.();
       }
     });
 }

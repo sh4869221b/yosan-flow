@@ -18,6 +18,7 @@ import {
 import type { SubmitDayEntryPayload } from "#lib/dashboard/types.ts";
 
 type Dependencies = {
+  readonly beginSummaryRead: (_periodId: string) => (() => void) | undefined;
   readonly cancelHistoryLoad?: (_periodId: string, _date: string) => void;
   readonly closeModal: (_reason: DayEntryCloseReason) => void;
   readonly getHistoryMutationSequence: (_periodId: string) => number;
@@ -28,7 +29,6 @@ type Dependencies = {
   readonly getSummary: () => PeriodSummary | null;
   readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
   readonly markPending: (_periodId: string, _date: string) => void;
-  readonly markSynchronized: (_periodId: string) => void;
   readonly publishSaveSuccess: (_success: DaySaveSuccess) => void;
   readonly setError: (_error: string | null) => void;
   readonly setSaving: (_saving: boolean) => void;
@@ -44,10 +44,10 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
     dependencies.summaryRevision,
   );
   const reconcileSummaryEffect = createDayEntrySummaryReconciliation({
+    beginSummaryRead: dependencies.beginSummaryRead,
     getHistoryMutationSequence: dependencies.getHistoryMutationSequence,
     getSelectedDate: dependencies.getSelectedDate,
     getSelectedPeriodId: dependencies.getSelectedPeriodId,
-    markSynchronized: dependencies.markSynchronized,
     setSelectedRow: dependencies.setSelectedRow,
     setSummary: dependencies.setSummary,
     submissionTracker,
