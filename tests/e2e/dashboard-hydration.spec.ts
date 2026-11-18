@@ -35,7 +35,7 @@ async function delayClientEntry(page: Page) {
   };
 }
 
-test("waits for hydration before editing server-rendered settings", async ({
+test("preserves a desktop settings disclosure opened before hydration", async ({
   page,
   request,
 }) => {
@@ -50,17 +50,33 @@ test("waits for hydration before editing server-rendered settings", async ({
     });
     await clientRequested.promise;
     const settings = page.getByText("期間の日付や予算を変更する");
+    const settingsStart = page.getByTestId("current-period-range-start");
+    const createStart = page.getByTestId("create-period-range-start");
     await expect(settings).toBeVisible();
     await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
+    await expect(settingsStart).toHaveCount(0);
+    await expect(createStart).toHaveCount(0);
+    await settings.click();
+    const disclosure = page.locator("details").filter({ has: settings });
+    await expect(disclosure.getByRole("status")).toHaveText(
+      "フォームを読み込み中…",
+    );
 
     const ready = waitForDashboardReady(page);
     releaseClient.resolve();
     await ready;
+    await expect(settingsStart).toBeVisible();
+    await expect(createStart).toHaveCount(0);
+    const budget = page.getByLabel("期間予算 (円)");
+    await budget.fill("123456");
     await settings.click();
-    await page.getByLabel("期間予算 (円)").fill("123456");
+    await expect(settingsStart).toHaveCount(1);
+    await expect(settingsStart).toBeHidden();
+    await settings.click();
+    await expect(budget).toHaveValue("123456");
     await proposeBoundaryChange(page);
     await assertExactDialog(page);
-    await expect(page.getByLabel("期間予算 (円)")).toHaveValue("123456");
+    await expect(budget).toHaveValue("123456");
     await assertUnchangedPair(request);
   } finally {
     await dispose();

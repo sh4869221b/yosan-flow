@@ -5,9 +5,7 @@ import {
   exists,
   gte,
   isNull,
-  lt,
   lte,
-  gt,
   ne,
   notExists,
   or,
@@ -25,6 +23,7 @@ import {
   type LinkedPeriodBoundaryUpdateCommand,
   type LinkedPeriodBoundaryUpdateResult,
 } from "#lib/server/db/budget-period-types.ts";
+import { dailyEntryOutsideRange } from "#lib/server/db/daily-entry-range-query.ts";
 import type * as schema from "#lib/server/db/schema.ts";
 import {
   budget_periods,
@@ -197,19 +196,17 @@ function buildGlobalPredicate(database: D1Database, payload: SQL<string>) {
         .from(displacedTotal)
         .where(
           or(
-            and(
-              eq(displacedTotal.budget_period_id, targetId),
-              or(
-                lt(displacedTotal.date, targetStart),
-                gt(displacedTotal.date, targetEnd),
-              ),
+            dailyEntryOutsideRange(
+              displacedTotal,
+              targetId,
+              targetStart,
+              targetEnd,
             ),
-            and(
-              eq(displacedTotal.budget_period_id, successorId),
-              or(
-                lt(displacedTotal.date, successorStart),
-                gt(displacedTotal.date, successorEnd),
-              ),
+            dailyEntryOutsideRange(
+              displacedTotal,
+              successorId,
+              successorStart,
+              successorEnd,
             ),
           ),
         ),
@@ -220,19 +217,17 @@ function buildGlobalPredicate(database: D1Database, payload: SQL<string>) {
         .from(displacedHistory)
         .where(
           or(
-            and(
-              eq(displacedHistory.budget_period_id, targetId),
-              or(
-                lt(displacedHistory.date, targetStart),
-                gt(displacedHistory.date, targetEnd),
-              ),
+            dailyEntryOutsideRange(
+              displacedHistory,
+              targetId,
+              targetStart,
+              targetEnd,
             ),
-            and(
-              eq(displacedHistory.budget_period_id, successorId),
-              or(
-                lt(displacedHistory.date, successorStart),
-                gt(displacedHistory.date, successorEnd),
-              ),
+            dailyEntryOutsideRange(
+              displacedHistory,
+              successorId,
+              successorStart,
+              successorEnd,
             ),
           ),
         ),

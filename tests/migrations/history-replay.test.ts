@@ -319,6 +319,27 @@ describe("history replay totals against SQLite", () => {
     );
   });
 
+  it("writes only histories whose derived totals change", async () => {
+    seed(db, false);
+    const d1 = createSqliteD1(db);
+    const results = await d1.batch(
+      buildHistoryReplayStatements(d1, {
+        ...command,
+        historyId: "z-first",
+        kind: "update",
+        inputYen: 200,
+        memo: null,
+      }),
+    );
+    // The later overwrite absorbs the change. The last add is already correct.
+    expect(results[1]?.meta.changes).toBe(2);
+    expect(histories(db)).toEqual([
+      { id: "z-first", before_total_yen: 0, after_total_yen: 200 },
+      { id: "m-middle", before_total_yen: 200, after_total_yen: 70 },
+      { id: "a-last", before_total_yen: 70, after_total_yen: 95 },
+    ]);
+  });
+
   it("rolls back history mutation and replay if the final total write fails", async () => {
     seed(db, false);
     const before = histories(db);

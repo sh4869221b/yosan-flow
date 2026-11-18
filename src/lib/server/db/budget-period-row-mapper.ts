@@ -10,13 +10,17 @@ export function clonePeriod(record: BudgetPeriodRecord): BudgetPeriodRecord {
   return { ...record };
 }
 
-export function toBudgetPeriodRecord(row: BudgetPeriodRow): BudgetPeriodRecord {
+export function assertValidBudgetPeriodRow(row: BudgetPeriodRow): void {
   // D1 is a separate input boundary; its SQL constraints do not ensure that
   // dates are real calendar dates or amounts fit in a safe JS integer.
   assertValidDate(row.start_date);
   assertValidDate(row.end_date);
   assertValidInputYen(row.budget_yen);
   assertValidPeriodRange(row.start_date, row.end_date);
+}
+
+export function toBudgetPeriodRecord(row: BudgetPeriodRow): BudgetPeriodRecord {
+  assertValidBudgetPeriodRow(row);
   return {
     id: row.id,
     startDate: row.start_date,

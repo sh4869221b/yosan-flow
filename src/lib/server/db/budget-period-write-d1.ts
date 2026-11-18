@@ -2,10 +2,8 @@ import {
   and,
   eq,
   exists,
-  gt,
   gte,
   isNull,
-  lt,
   lte,
   ne,
   notExists,
@@ -15,6 +13,7 @@ import {
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { createDrizzleD1Database } from "#lib/server/db/client.ts";
+import { dailyEntryOutsideRange } from "#lib/server/db/daily-entry-range-query.ts";
 import { toBudgetPeriodRecord } from "#lib/server/db/budget-period-row-mapper.ts";
 import {
   assertPeriodHasNoOverlap,
@@ -50,10 +49,7 @@ function outsideEntries(
     .select()
     .from(table)
     .where(
-      and(
-        eq(table.budget_period_id, input.id),
-        or(lt(table.date, input.startDate), gt(table.date, input.endDate)),
-      ),
+      dailyEntryOutsideRange(table, input.id, input.startDate, input.endDate),
     );
 }
 

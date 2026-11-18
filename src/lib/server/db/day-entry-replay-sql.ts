@@ -88,33 +88,25 @@ function buildReplayHistoryTotalsStatement(
   db: D1Database,
   command: D1DayEntryReplayCommand,
 ): D1PreparedStatement {
+  // Casting the replay key steers SQLite toward indexed rowid lookups on the
+  // history table instead of scanning unrelated histories to probe replay.
   return db
     .prepare(
       `
       ${HISTORY_REPLAY_CTE}
       UPDATE daily_operation_histories
       SET
-        before_total_yen = (
-          SELECT before_total_yen
-          FROM replay
-          WHERE replay.history_rowid = daily_operation_histories.rowid
-        ),
-        after_total_yen = (
-          SELECT after_total_yen
-          FROM replay
-          WHERE replay.history_rowid = daily_operation_histories.rowid
+        before_total_yen = replay.before_total_yen,
+        after_total_yen = replay.after_total_yen
+      FROM replay
+      WHERE daily_operation_histories.rowid = CAST(replay.history_rowid AS INTEGER)
+        AND (
+          daily_operation_histories.before_total_yen <> replay.before_total_yen
+          OR daily_operation_histories.after_total_yen <> replay.after_total_yen
         )
-      WHERE budget_period_id = ?
-        AND date = ?
-        AND rowid IN (SELECT history_rowid FROM replay)
       `,
     )
-    .bind(
-      command.budgetPeriodId,
-      command.date,
-      command.budgetPeriodId,
-      command.date,
-    );
+    .bind(command.budgetPeriodId, command.date);
 }
 
 function buildDailyTotalDeleteWhenHistoryEmptyStatement(

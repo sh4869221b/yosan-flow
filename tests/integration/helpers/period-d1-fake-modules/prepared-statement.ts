@@ -68,8 +68,21 @@ export function createPeriodAwarePreparedStatement(
       return createD1Result([] as T[]);
     },
     raw: rawRows,
-    async run() {
+    async run<T = Record<string, unknown>>() {
       options.onStatementRun?.({ sql, args: [...boundArgs] });
+      const selection = /^select (.*?) from /i.exec(sql)?.[1];
+      if (selection) {
+        // D1 returns named columns for both SELECT statements in a batch.
+        const columns = [...selection.matchAll(/"(\w+)"/g)].map(
+          ([, column]) => column,
+        );
+        const rows = selectRawRows(sql, boundArgs, state).map((values) =>
+          Object.fromEntries(
+            columns.map((column, index) => [column, values[index]]),
+          ),
+        );
+        return createD1Result(rows as T[]);
+      }
       const changes = applySqlMutation(
         sql,
         boundArgs,

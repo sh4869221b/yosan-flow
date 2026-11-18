@@ -1,3 +1,4 @@
+import { filterEntriesOutsideRange } from "./entries-outside-range";
 import { toDailyTotalKey, type PeriodAwareD1FakeState } from "./table-state";
 import type { DailyTotalRow } from "./types";
 
@@ -26,14 +27,7 @@ export function queryDailyTotals(
     (normalizedSql.includes('"daily_totals"."date" < ?') ||
       normalizedSql.includes('"daily_totals"."date" > ?'))
   ) {
-    const periodId = String(args[0]);
-    const startDate = String(args[1]);
-    const endDate = String(args[2]);
-    return rows.filter(
-      (row) =>
-        row.budget_period_id === periodId &&
-        (row.date < startDate || row.date > endDate),
-    );
+    return filterEntriesOutsideRange(rows, args);
   }
   if (normalizedSql.includes('"daily_totals"."budget_period_id" = ?')) {
     const periodId = String(args[0]);

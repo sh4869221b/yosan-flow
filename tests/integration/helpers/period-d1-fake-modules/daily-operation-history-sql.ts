@@ -1,3 +1,4 @@
+import { filterEntriesOutsideRange } from "./entries-outside-range";
 import type { PeriodAwareD1FakeState } from "./table-state";
 import type { DailyOperationHistoryRow } from "./types";
 
@@ -53,14 +54,7 @@ export function queryDailyOperationHistories(
     (normalizedSql.includes('"daily_operation_histories"."date" < ?') ||
       normalizedSql.includes('"daily_operation_histories"."date" > ?'))
   ) {
-    const periodId = String(args[0]);
-    const startDate = String(args[1]);
-    const endDate = String(args[2]);
-    return rows.filter(
-      (row) =>
-        row.budget_period_id === periodId &&
-        (row.date < startDate || row.date > endDate),
-    );
+    return filterEntriesOutsideRange(rows, args);
   }
 
   return rows;
