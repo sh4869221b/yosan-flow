@@ -33,9 +33,9 @@ export function findSummaryRow(
 export function mergeAddedSummary(
   candidate: PeriodSummary,
   current: PeriodSummary | null,
-): PeriodSummary {
+) {
   if (current == null || current.periodId !== candidate.periodId)
-    return candidate;
+    return { summary: candidate, adoptedCandidate: true };
   const base =
     candidate.plannedTotalYen > current.plannedTotalYen ? candidate : current;
   const other = base === candidate ? current : candidate;
@@ -50,7 +50,21 @@ export function mergeAddedSummary(
     dailyRows ??= base.dailyRows.slice();
     dailyRows[index] = { ...row, isRecorded: true };
   }
-  return dailyRows ? { ...base, dailyRows } : base;
+  // A zero-yen recording may be adopted while retaining equivalent totals.
+  const adoptedCandidate =
+    base === candidate ||
+    (dailyRows !== undefined &&
+      candidate.plannedTotalYen === base.plannedTotalYen &&
+      candidate.dailyRows.length === base.dailyRows.length &&
+      candidate.dailyRows.every(
+        (row, index) =>
+          row.date === base.dailyRows[index].date &&
+          row.usedYen === base.dailyRows[index].usedYen,
+      ));
+  return {
+    summary: dailyRows ? { ...base, dailyRows } : base,
+    adoptedCandidate,
+  };
 }
 
 export function summaryConfigurationMatches(

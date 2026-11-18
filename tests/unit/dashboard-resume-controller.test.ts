@@ -161,21 +161,21 @@ it("clears a 204 warning only after adopting a post-save summary on resume", asy
 it("keeps a newer save pending when the summary read began before it", () => {
   const sync = createDayEntrySyncState(() => period.id);
   const date = period.startDate;
-  const beforeSave = sync.beginSummaryRead(period.id);
+  const beforeSave = sync.captureSummarySync(period.id);
   sync.markPending(period.id, date);
   beforeSave?.();
   expect(sync.pending).toBe(true);
 
-  const afterFirstSave = sync.beginSummaryRead(period.id);
+  const afterFirstSave = sync.captureSummarySync(period.id);
   sync.markPending(period.id, date);
   afterFirstSave?.();
   expect(sync.pending).toBe(true);
 
   sync.markPending("period-2", date);
-  sync.beginSummaryRead("period-2")?.();
+  sync.captureSummarySync("period-2")?.();
   expect(sync.pending).toBe(true);
 
-  sync.beginSummaryRead(period.id)?.();
+  sync.captureSummarySync(period.id)?.();
   expect(sync.pending).toBe(false);
 });
 

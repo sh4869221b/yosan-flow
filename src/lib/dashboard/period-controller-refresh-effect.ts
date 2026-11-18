@@ -56,7 +56,7 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
         else complete?.("dropped");
         return;
       }
-      const acceptSummaryRead = summaryRevision.beginSummaryRead(periodId);
+      const acceptSummary = summaryRevision.captureSummarySync(periodId);
       const result = yield* fetchJsonEffect<PeriodSummary>(
         periodSummaryUrl(periodId),
         undefined,
@@ -69,7 +69,7 @@ export function createPeriodRefreshEffects(dependencies: Dependencies) {
           else if (reportError) dependencies.setError(result.failure);
         } else if (result.success.periodId === periodId) {
           publishSummary(result.success, submission);
-          acceptSummaryRead?.();
+          acceptSummary?.();
           complete?.("accepted");
         } else complete?.("dropped");
       } else complete?.("dropped");

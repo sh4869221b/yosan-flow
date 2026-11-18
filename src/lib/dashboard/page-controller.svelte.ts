@@ -14,7 +14,7 @@ export function createDashboardPageController(getData: () => PageData) {
     (): string | null => periodController.selectedPeriodId,
   );
   const summaryRevision = createPeriodSummaryRevision(
-    summarySync.beginSummaryRead,
+    summarySync.captureSummarySync,
   );
   let closeDayEntry = (_reason?: DayEntryCloseReason): void => undefined;
   let invalidateDaySelection = (): void => undefined;

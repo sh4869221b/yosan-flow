@@ -55,7 +55,7 @@ export function createDayEntryControllerState(
   let dayEntryCloseReason = $state<DayEntryCloseReason | null>(null);
   let daySelectionSequence = 0;
   const mutationLifecycle = createDayEntryMutationLifecycle({
-    beginSummaryRead: summarySync.beginSummaryRead,
+    captureSummarySync: summarySync.captureSummarySync,
     cancelHistoryLoad: dependencies.historyController.cancelHistoryLoad,
     closeModal: closeDayEntry,
     getHistoryMutationSequence:

@@ -10,7 +10,10 @@ describe("merging add-only summary snapshots", () => {
     const current = createSummary(0, 500);
     const candidate = createSummary(0, 300);
 
-    expect(mergeAddedSummary(candidate, current)).toBe(current);
+    expect(mergeAddedSummary(candidate, current)).toEqual({
+      summary: current,
+      adoptedCandidate: false,
+    });
   });
 
   it("retains zero recordings from either response alongside the greatest amount", () => {
@@ -27,7 +30,7 @@ describe("merging add-only summary snapshots", () => {
       [zero, positive],
       [positive, zero],
     ] as const) {
-      const merged = mergeAddedSummary(second, first);
+      const { summary: merged } = mergeAddedSummary(second, first);
       expect(merged.plannedTotalYen).toBe(500);
       expect(merged.dailyRows.map((row) => row.isRecorded)).toEqual([
         true,
@@ -71,7 +74,7 @@ it("retains both recorded dates from out-of-order concurrent zero saves", async 
     expect(
       tracker
         .getBest(initial.periodId, 0)
-        ?.dailyRows.map((row) => row.isRecorded),
+        ?.summary.dailyRows.map((row) => row.isRecorded),
     ).toEqual([true, true]);
   }
 });

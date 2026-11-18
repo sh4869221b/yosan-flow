@@ -18,7 +18,7 @@ import {
 import type { SubmitDayEntryPayload } from "#lib/dashboard/types.ts";
 
 type Dependencies = {
-  readonly beginSummaryRead: (_periodId: string) => (() => void) | undefined;
+  readonly captureSummarySync: (_periodId: string) => (() => void) | undefined;
   readonly cancelHistoryLoad?: (_periodId: string, _date: string) => void;
   readonly closeModal: (_reason: DayEntryCloseReason) => void;
   readonly getHistoryMutationSequence: (_periodId: string) => number;
@@ -44,7 +44,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
     dependencies.summaryRevision,
   );
   const reconcileSummaryEffect = createDayEntrySummaryReconciliation({
-    beginSummaryRead: dependencies.beginSummaryRead,
+    captureSummarySync: dependencies.captureSummarySync,
     getHistoryMutationSequence: dependencies.getHistoryMutationSequence,
     getSelectedDate: dependencies.getSelectedDate,
     getSelectedPeriodId: dependencies.getSelectedPeriodId,
@@ -56,16 +56,19 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
 
   function publishBestSummary(
     periodId: string,
-    bestSummary: PeriodSummary | null,
+    best: ReturnType<typeof submissionTracker.getBest>,
   ): void {
     const currentSummary = dependencies.getSummary();
     if (
       dependencies.getSelectedPeriodId() !== periodId ||
-      bestSummary == null ||
-      !summaryConfigurationMatches(bestSummary, currentSummary)
+      best == null ||
+      !summaryConfigurationMatches(best.summary, currentSummary)
     )
       return;
-    const mergedSummary = mergeAddedSummary(bestSummary, currentSummary);
+    const { summary: mergedSummary, adoptedCandidate } = mergeAddedSummary(
+      best.summary,
+      currentSummary,
+    );
     if (mergedSummary === currentSummary) return;
     dependencies.summaryRevision.publish(
       mergedSummary,
@@ -74,6 +77,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
     dependencies.setSelectedRow(
       findSummaryRow(mergedSummary, dependencies.getSelectedDate()),
     );
+    if (adoptedCandidate) best.acceptSummary?.();
   }
 
   function submitEffect(
@@ -103,6 +107,8 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
             const summarySequence = submissionTracker.start(selectedPeriodId);
             let remainingSubmissions = 0;
             let submissionFinished = false;
+            const acceptSummary =
+              dependencies.captureSummarySync(selectedPeriodId);
             const result = yield* fetchJsonEffect<PeriodSummary | null>(
               dayAddUrl(selectedPeriodId, submittedDate),
               {
@@ -153,6 +159,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
                   result.success,
                   mutationSequence,
                   dependencies.getHistoryMutationSequence(selectedPeriodId),
+                  acceptSummary,
                 );
               }
             }

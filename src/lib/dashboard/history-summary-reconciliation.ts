@@ -86,8 +86,8 @@ export function createHistorySummaryReconciliation(dependencies: Dependencies) {
     const reconciliationMutation =
       dependencies.summaryRevision.getMutationSequence(periodId);
     return Effect.gen(function* () {
-      const acceptSummaryRead =
-        dependencies.summaryRevision.beginSummaryRead(periodId);
+      const acceptSummary =
+        dependencies.summaryRevision.captureSummarySync(periodId);
       const result = yield* fetchJsonEffect<PeriodSummary>(
         periodSummaryUrl(periodId),
         undefined,
@@ -104,7 +104,7 @@ export function createHistorySummaryReconciliation(dependencies: Dependencies) {
         result.success.periodId === periodId;
       if (summaryWasApplied && result._tag === "Success") {
         dependencies.applySummary(result.success);
-        acceptSummaryRead?.();
+        acceptSummary?.();
       }
       const recoveryResult = yield* recoverHistories(
         request,

@@ -3,6 +3,7 @@ import { mergeAddedSummary } from "#lib/dashboard/summary-rows.ts";
 import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 
 type SuccessfulSummaryCandidate = {
+  readonly acceptSummary: (() => void) | undefined;
   readonly mutationSequence: number;
   readonly summary: PeriodSummary;
 };
@@ -62,20 +63,24 @@ export function createDayEntrySubmissionTracker(
       summary: PeriodSummary,
       submittedMutationSequence: number,
       currentMutationSequence: number,
+      acceptSummary?: () => void,
     ): boolean {
       const currentBest = bestSuccessfulSummaries.get(periodId);
       const accepted =
         summary.periodId === periodId &&
         submittedMutationSequence === currentMutationSequence;
       if (accepted) {
+        const previous =
+          currentBest?.mutationSequence === currentMutationSequence
+            ? currentBest
+            : undefined;
+        const merged = mergeAddedSummary(summary, previous?.summary ?? null);
         bestSuccessfulSummaries.set(periodId, {
+          acceptSummary: merged.adoptedCandidate
+            ? acceptSummary
+            : previous?.acceptSummary,
           mutationSequence: currentMutationSequence,
-          summary: mergeAddedSummary(
-            summary,
-            currentBest?.mutationSequence === currentMutationSequence
-              ? currentBest.summary
-              : null,
-          ),
+          summary: merged.summary,
         });
       }
       return accepted;
@@ -83,10 +88,10 @@ export function createDayEntrySubmissionTracker(
     getBest(
       periodId: string,
       currentMutationSequence: number,
-    ): PeriodSummary | null {
+    ): SuccessfulSummaryCandidate | null {
       const candidate = bestSuccessfulSummaries.get(periodId);
       return candidate?.mutationSequence === currentMutationSequence
-        ? candidate.summary
+        ? candidate
         : null;
     },
     clearBest(periodId: string): void {

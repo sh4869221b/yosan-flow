@@ -12,7 +12,7 @@ export function createDayEntrySyncState(
     markPending(periodId: string, date: string): void {
       pending.set(periodId, { date });
     },
-    beginSummaryRead(periodId: string): (() => void) | undefined {
+    captureSummarySync(periodId: string): (() => void) | undefined {
       const saved = pending.get(periodId);
       if (saved === undefined) return;
       return () => {

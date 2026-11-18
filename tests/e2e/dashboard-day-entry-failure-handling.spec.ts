@@ -212,8 +212,8 @@ test("reuses the fallback key when a save response is lost", async ({
   });
 });
 
-for (const retry of ["button", "online"] as const) {
-  test(`acknowledges a 204 and retries only the failed summary read via ${retry}`, async ({
+for (const recovery of ["button", "online", "add", "edit"] as const) {
+  test(`acknowledges a 204 and synchronizes the summary via ${recovery}`, async ({
     page,
     request,
   }) => {
@@ -221,16 +221,19 @@ for (const retry of ["button", "online"] as const) {
     await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
     await waitForDashboardReady(page);
     const summaryPath = `${getBaseUrl()}/api/periods/${periodId}`;
+    const recoveryRequiresRead = recovery === "button" || recovery === "online";
     let posts = 0;
     let summaryReads = 0;
     await page.route(`${summaryPath}/days/${todayDate}/add`, async (route) => {
       posts++;
+      if (posts > 1) return route.continue();
       expect((await route.fetch()).status()).toBe(200);
       await route.fulfill({ status: 204 });
     });
     await page.route(summaryPath, async (route) => {
       summaryReads++;
-      if (summaryReads === 1) await route.fulfill({ status: 503 });
+      if (summaryReads === 1 || !recoveryRequiresRead)
+        await route.fulfill({ status: 503 });
       else await route.continue();
     });
 
@@ -255,14 +258,27 @@ for (const retry of ["button", "online"] as const) {
     const used = day.getByTestId(`used-${todayDate}`);
     await expect(used).toHaveText("0 円");
 
-    if (retry === "online") {
+    if (recovery === "online") {
       await page.evaluate(() => window.dispatchEvent(new Event("online")));
-    } else {
+    } else if (recovery === "button") {
       await page.getByRole("button", { name: "集計を再取得" }).click();
+    } else {
+      await day.click();
+      if (recovery === "add") {
+        await modal.getByLabel("追加する支出額 (円)").fill("200");
+        await modal.getByRole("button", { name: "支出を追加" }).click();
+      } else {
+        await modal.getByRole("button", { name: "編集" }).click();
+        const editingRow = modal.locator("li.editing");
+        await editingRow.getByLabel("入力額 (円)").fill("500");
+        await editingRow
+          .getByRole("button", { name: "保存", exact: true })
+          .click();
+      }
     }
-    await expect(used).toHaveText("300 円");
+    await expect(used).toHaveText(recoveryRequiresRead ? "300 円" : "500 円");
     await expect(warning).toHaveCount(0);
-    expect(posts).toBe(1);
-    expect(summaryReads).toBe(2);
+    expect(posts).toBe(recovery === "add" ? 2 : 1);
+    if (recoveryRequiresRead) expect(summaryReads).toBe(2);
   });
 }

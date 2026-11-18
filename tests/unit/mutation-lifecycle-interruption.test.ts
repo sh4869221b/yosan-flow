@@ -23,7 +23,7 @@ it("cleans up an interrupted day-entry mutation lifecycle", async () => {
     getSummary: () => createSummary(0),
     loadHistoryEffect: () => Effect.succeed({ kind: "success" } as const),
     markPending: vi.fn(),
-    beginSummaryRead: vi.fn(),
+    captureSummarySync: vi.fn(),
     publishSaveSuccess: vi.fn(),
     setError: vi.fn(),
     setSaving: (nextSaving) => {

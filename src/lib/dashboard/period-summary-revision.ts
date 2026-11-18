@@ -14,7 +14,7 @@ export type PeriodSummaryRevision = {
     _sequence: number,
   ) => Effect.Effect<void>;
   readonly beginMutation: (_periodId: string) => number;
-  readonly beginSummaryRead: (_periodId: string) => (() => void) | undefined;
+  readonly captureSummarySync: (_periodId: string) => (() => void) | undefined;
   readonly completeMutation: (_periodId: string, _sequence: number) => void;
   readonly get: (_periodId: string) => number;
   readonly getMutationSequence: (_periodId: string) => number;
@@ -31,7 +31,8 @@ export type PeriodSummaryRevision = {
 };
 
 export function createPeriodSummaryRevision(
-  beginSummaryRead: PeriodSummaryRevision["beginSummaryRead"] = () => undefined,
+  captureSummarySync: PeriodSummaryRevision["captureSummarySync"] = () =>
+    undefined,
 ): PeriodSummaryRevision {
   type MutationWaiter = {
     cancelled: boolean;
@@ -148,7 +149,7 @@ export function createPeriodSummaryRevision(
   }
 
   return {
-    beginSummaryRead,
+    captureSummarySync,
     withMutationSlot<A, E, R>(
       periodId: string,
       kind: MutationKind,
