@@ -6,6 +6,7 @@ import {
   fetchPeriodUpdateEffect,
   type PeriodUpdateApiOutcome,
   type PeriodBoundaryUpdateProposal,
+  type PeriodUpdateRequest,
 } from "#lib/dashboard/period-update-api.ts";
 import type { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
 import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
@@ -102,11 +103,10 @@ function publishUpdatedSummary(
   return false;
 }
 
-function fetchUpdateWithSummarySync(
+export function fetchUpdateWithSummarySync(
   summaryRevision: PeriodSummaryRevision,
   periodId: string,
-  payload: SavePeriodPayload,
-  operation: PeriodSetting,
+  body: PeriodUpdateRequest | Pick<SavePeriodPayload, "budgetYen">,
 ) {
   return Effect.gen(function* () {
     const acceptSummary = summaryRevision.captureSummarySync(periodId);
@@ -115,11 +115,7 @@ function fetchUpdateWithSummarySync(
     const result = yield* fetchPeriodUpdateEffect(
       periodSummaryUrl(periodId),
       {
-        body: JSON.stringify(
-          operation === "budget"
-            ? { budgetYen: payload.budgetYen }
-            : { startDate: payload.startDate, endDate: payload.endDate },
-        ),
+        body: JSON.stringify(body),
         headers: { "content-type": "application/json" },
         method: "PUT",
       },
@@ -204,8 +200,9 @@ export function createPeriodUpdateEffect(
           fetchUpdateWithSummarySync(
             dependencies.summaryRevision,
             periodId,
-            payload,
-            operation,
+            operation === "budget"
+              ? { budgetYen: payload.budgetYen }
+              : { startDate: payload.startDate, endDate: payload.endDate },
           ),
         );
       if (
