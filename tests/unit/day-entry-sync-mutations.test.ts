@@ -14,7 +14,7 @@ const executions = captureClientEffects();
 const periodId = "period-1";
 const date = "2026-07-12";
 
-function setup() {
+function setup(initial = createSummary(0)) {
   const post = vi.fn<() => Promise<Response>>();
   const read = vi.fn(async () => jsonResponse({}, 503));
   vi.stubGlobal(
@@ -23,7 +23,7 @@ function setup() {
       init?.method === "POST" ? post() : read(),
     ),
   );
-  let summary = createSummary(0);
+  let summary = initial;
   const controller = createDayEntryControllerState({
     getSelectedPeriodId: () => periodId,
     getSummary: () => summary,
@@ -44,9 +44,9 @@ function setup() {
     get summary() {
       return summary;
     },
-    submit(inputYen: number) {
-      controller.openDayEntry({ date });
-      controller.submitDayEntry({ date, inputYen, memo: "" });
+    submit(inputYen: number, submittedDate = date) {
+      controller.openDayEntry({ date: submittedDate });
+      controller.submitDayEntry({ date: submittedDate, inputYen, memo: "" });
       return executions.at(-1)!;
     },
   };
@@ -123,4 +123,70 @@ it("keeps the warning when a POST contributes a recording but its older day tota
   expect(harness.summary.plannedTotalYen).toBe(500);
   expect(harness.summary.dailyRows[1].isRecorded).toBe(true);
   expect(harness.controller.summarySyncPending).toBe(true);
+});
+
+it.each(["next day", "external deletion"] as const)(
+  "keeps the warning when a POST merge differs from the full response after %s",
+  async (change) => {
+    const initial = createSummary(300);
+    const response = createSummary(change === "next day" ? 300 : 400);
+    if (change === "next day") {
+      initial.foodPace.todayAllowanceYen = 100;
+      response.foodPace.todayAllowanceYen = 600;
+      response.dailyRows[0].label = "planned";
+      response.dailyRows[1].label = "today";
+      response.dailyRows[1].isRecorded = true;
+    } else {
+      initial.dailyRows[1].isRecorded = true;
+    }
+    const harness = setup(initial);
+    harness.post.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await settled(harness.submit(0));
+
+    harness.post.mockResolvedValueOnce(jsonResponse(response));
+    await settled(
+      change === "next day"
+        ? harness.submit(0, response.dailyRows[1].date)
+        : harness.submit(100),
+    );
+    expect(harness.summary.dailyRows[1].isRecorded).toBe(true);
+    expect(harness.summary.foodPace.todayAllowanceYen).toBe(
+      initial.foodPace.todayAllowanceYen,
+    );
+    expect(harness.summary).not.toEqual(response);
+    expect(harness.controller.summarySyncPending).toBe(true);
+
+    harness.read.mockResolvedValueOnce(jsonResponse(response));
+    harness.controller.retrySummarySync();
+    await settled(executions.at(-1)!);
+    expect(harness.summary).toEqual(response);
+    expect(harness.controller.summarySyncPending).toBe(false);
+  },
+);
+
+it("clears a warning only for an identical 0-yen response requested after the 204", async () => {
+  const initial = createSummary(0);
+  initial.dailyRows[0].isRecorded = true;
+  const harness = setup(initial);
+  const oldResponse = Promise.withResolvers<Response>();
+  const oldStarted = Promise.withResolvers<void>();
+  harness.post
+    .mockImplementationOnce(() => {
+      oldStarted.resolve();
+      return oldResponse.promise;
+    })
+    .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+  const oldSubmission = harness.submit(0);
+  await settled(oldStarted.promise);
+  await settled(harness.submit(0));
+  oldResponse.resolve(jsonResponse(initial));
+  await settled(oldSubmission);
+  expect(harness.summary).toBe(initial);
+  expect(harness.controller.summarySyncPending).toBe(true);
+
+  harness.post.mockResolvedValueOnce(jsonResponse(initial));
+  await settled(harness.submit(0));
+  expect(harness.summary).toBe(initial);
+  expect(harness.controller.summarySyncPending).toBe(false);
 });

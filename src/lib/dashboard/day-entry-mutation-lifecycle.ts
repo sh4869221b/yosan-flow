@@ -1,4 +1,4 @@
-import { Deferred, Effect } from "effect";
+import { Deferred, Effect, Equal } from "effect";
 import { dayAddUrl } from "#lib/dashboard/api-urls.ts";
 import type {
   DailyRow,
@@ -65,19 +65,22 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
       !summaryConfigurationMatches(best.summary, currentSummary)
     )
       return;
-    const { summary: mergedSummary, adoptedCandidate } = mergeAddedSummary(
-      best.summary,
-      currentSummary,
-    );
-    if (mergedSummary === currentSummary) return;
-    dependencies.summaryRevision.publish(
-      mergedSummary,
-      dependencies.setSummary,
-    );
-    dependencies.setSelectedRow(
-      findSummaryRow(mergedSummary, dependencies.getSelectedDate()),
-    );
-    if (adoptedCandidate) best.acceptSummary?.();
+    const mergedSummary = mergeAddedSummary(best.summary, currentSummary);
+    if (mergedSummary !== currentSummary) {
+      dependencies.summaryRevision.publish(
+        mergedSummary,
+        dependencies.setSummary,
+      );
+      dependencies.setSelectedRow(
+        findSummaryRow(mergedSummary, dependencies.getSelectedDate()),
+      );
+    }
+    if (
+      best.acceptSummaries.length &&
+      Equal.equals(mergedSummary, best.summary)
+    ) {
+      for (const acceptSummary of best.acceptSummaries) acceptSummary();
+    }
   }
 
   function submitEffect(

@@ -86,7 +86,8 @@ function publishUpdatedSummary(
   periodId: string,
   outcome: Extract<PeriodUpdateApiOutcome, { readonly kind: "updated" }>,
   mutationIsFresh: boolean,
-  submission?: PeriodSettingsSubmission,
+  submission: PeriodSettingsSubmission,
+  acceptSummary: (() => void) | undefined,
 ): boolean {
   if (
     dependencies.getSelectedPeriodId() === periodId &&
@@ -95,9 +96,43 @@ function publishUpdatedSummary(
       summarySpendingMatches(outcome.summary, dependencies.getSummary()))
   ) {
     dependencies.publishSummary(outcome.summary, submission);
+    acceptSummary?.();
     return true;
   }
   return false;
+}
+
+function fetchUpdateWithSummarySync(
+  summaryRevision: PeriodSummaryRevision,
+  periodId: string,
+  payload: SavePeriodPayload,
+  operation: PeriodSetting,
+) {
+  return Effect.gen(function* () {
+    const acceptSummary = summaryRevision.captureSummarySync(periodId);
+    const revision = summaryRevision.get(periodId);
+    const mutation = summaryRevision.getMutationSequence(periodId);
+    const result = yield* fetchPeriodUpdateEffect(
+      periodSummaryUrl(periodId),
+      {
+        body: JSON.stringify(
+          operation === "budget"
+            ? { budgetYen: payload.budgetYen }
+            : { startDate: payload.startDate, endDate: payload.endDate },
+        ),
+        headers: { "content-type": "application/json" },
+        method: "PUT",
+      },
+      "保存に失敗しました。",
+    );
+    const summaryIsFresh =
+      summaryRevision.get(periodId) === revision &&
+      summaryRevision.getMutationSequence(periodId) === mutation;
+    return {
+      result,
+      acceptSummary: summaryIsFresh ? acceptSummary : undefined,
+    };
+  });
 }
 
 function openConfirmation(
@@ -162,23 +197,17 @@ export function createPeriodUpdateEffect(
     dependencies.setSaving(true, operation);
     localDependencies.setError(null);
     return Effect.gen(function* () {
-      const result = yield* dependencies.summaryRevision.withMutationSlot(
-        periodId,
-        "period",
-        fetchPeriodUpdateEffect(
-          periodSummaryUrl(periodId),
-          {
-            body: JSON.stringify(
-              operation === "budget"
-                ? { budgetYen: payload.budgetYen }
-                : { startDate: payload.startDate, endDate: payload.endDate },
-            ),
-            headers: { "content-type": "application/json" },
-            method: "PUT",
-          },
-          "保存に失敗しました。",
-        ),
-      );
+      const { result, acceptSummary } =
+        yield* dependencies.summaryRevision.withMutationSlot(
+          periodId,
+          "period",
+          fetchUpdateWithSummarySync(
+            dependencies.summaryRevision,
+            periodId,
+            payload,
+            operation,
+          ),
+        );
       if (
         currentSaveSequence !== saveSequence ||
         !dependencies.summaryRequests.owns(request) ||
@@ -215,6 +244,7 @@ export function createPeriodUpdateEffect(
           result,
           mutationIsFresh,
           submission,
+          acceptSummary,
         );
       } else {
         localDependencies.setError(result.message);

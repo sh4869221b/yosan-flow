@@ -1,9 +1,10 @@
+import { Equal } from "effect";
 import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
 import { mergeAddedSummary } from "#lib/dashboard/summary-rows.ts";
 import type { PeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 
 type SuccessfulSummaryCandidate = {
-  readonly acceptSummary: (() => void) | undefined;
+  readonly acceptSummaries: readonly (() => void)[];
   readonly mutationSequence: number;
   readonly summary: PeriodSummary;
 };
@@ -76,11 +77,14 @@ export function createDayEntrySubmissionTracker(
             : undefined;
         const merged = mergeAddedSummary(summary, previous?.summary ?? null);
         bestSuccessfulSummaries.set(periodId, {
-          acceptSummary: merged.adoptedCandidate
-            ? acceptSummary
-            : previous?.acceptSummary,
+          acceptSummaries: retainMatchingAcknowledgements(
+            summary,
+            merged,
+            acceptSummary,
+            previous,
+          ),
           mutationSequence: currentMutationSequence,
-          summary: merged.summary,
+          summary: merged,
         });
       }
       return accepted;
@@ -105,4 +109,23 @@ export function createDayEntrySubmissionTracker(
       return !summaryRevision.isMutationActive(periodId);
     },
   };
+}
+
+function retainMatchingAcknowledgements(
+  response: PeriodSummary,
+  merged: PeriodSummary,
+  acceptSummary: (() => void) | undefined,
+  previous: SuccessfulSummaryCandidate | undefined,
+): readonly (() => void)[] {
+  if (!acceptSummary && !previous?.acceptSummaries.length) return [];
+  // A later response that disagrees with the provisional merge invalidates
+  // earlier confirmations, even if the merge itself remains unchanged.
+  if (!Equal.equals(merged, response)) return [];
+  const retained =
+    previous && Equal.equals(merged, previous.summary)
+      ? previous.acceptSummaries
+      : [];
+  return acceptSummary && !retained.includes(acceptSummary)
+    ? [...retained, acceptSummary]
+    : retained;
 }

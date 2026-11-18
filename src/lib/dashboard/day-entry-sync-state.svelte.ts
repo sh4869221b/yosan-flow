@@ -5,19 +5,24 @@ import { runClientEffect } from "#lib/dashboard/client-effect.ts";
 export function createDayEntrySyncState(
   getSelectedPeriodId: () => string | null,
 ) {
-  const pending = new SvelteMap<string, { readonly date: string }>();
+  const pending = new SvelteMap<
+    string,
+    { readonly date: string; readonly acceptSummary: () => void }
+  >();
   const refreshing = new SvelteMap<string, true>();
 
   return {
     markPending(periodId: string, date: string): void {
-      pending.set(periodId, { date });
+      const saved = {
+        date,
+        acceptSummary: () => {
+          if (pending.get(periodId) === saved) pending.delete(periodId);
+        },
+      };
+      pending.set(periodId, saved);
     },
     captureSummarySync(periodId: string): (() => void) | undefined {
-      const saved = pending.get(periodId);
-      if (saved === undefined) return;
-      return () => {
-        if (pending.get(periodId) === saved) pending.delete(periodId);
-      };
+      return pending.get(periodId)?.acceptSummary;
     },
     get pending() {
       const periodId = getSelectedPeriodId();

@@ -1,9 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   configureDashboardDayEntryE2E,
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
 import { getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
+import { postDayAdd } from "./helpers/db";
 
 configureDashboardDayEntryE2E();
 
@@ -212,25 +213,83 @@ test("reuses the fallback key when a save response is lost", async ({
   });
 });
 
-for (const recovery of ["button", "online", "add", "edit"] as const) {
+const summaryRecoveryModes = [
+  "button",
+  "online",
+  "add",
+  "edit",
+  "zero",
+  "budget",
+] as const;
+
+async function recoverSummary(
+  page: Page,
+  day: Locator,
+  modal: Locator,
+  recovery: (typeof summaryRecoveryModes)[number],
+) {
+  switch (recovery) {
+    case "online":
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      return;
+    case "button":
+      await page.getByRole("button", { name: "集計を再取得" }).click();
+      return;
+    case "budget":
+      await page.getByText("期間の日付や予算を変更する").click();
+      await page.getByLabel("期間予算 (円)").fill("150000");
+      await page.getByRole("button", { name: "予算を保存" }).click();
+      await expect(page.getByTestId("budget-value")).toContainText("150,000");
+      return;
+    case "edit": {
+      await day.click();
+      await modal.getByRole("button", { name: "編集" }).click();
+      const editingRow = modal.locator("li.editing");
+      await editingRow.getByLabel("入力額 (円)").fill("500");
+      await editingRow
+        .getByRole("button", { name: "保存", exact: true })
+        .click();
+      return;
+    }
+    case "add":
+    case "zero":
+      await day.click();
+      await modal
+        .getByLabel("追加する支出額 (円)")
+        .fill(recovery === "zero" ? "0" : "200");
+      if (recovery === "zero")
+        await modal.getByLabel("メモ").fill("次の0円保存");
+      await modal.getByRole("button", { name: "支出を追加" }).click();
+  }
+}
+
+for (const recovery of summaryRecoveryModes) {
   test(`acknowledges a 204 and synchronizes the summary via ${recovery}`, async ({
     page,
     request,
   }) => {
     const { periodId, todayDate } = await seedCurrentPeriod(request);
+    const summaryPath = `${getBaseUrl()}/api/periods/${periodId}`;
+    const addPath = `${summaryPath}/days/${todayDate}/add`;
+    if (recovery === "zero") {
+      const seeded = await postDayAdd(request, addPath, {
+        data: { inputYen: 0, memo: "記録済み" },
+      });
+      expect(seeded.status()).toBe(200);
+    }
     await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
     await waitForDashboardReady(page);
-    const summaryPath = `${getBaseUrl()}/api/periods/${periodId}`;
     const recoveryRequiresRead = recovery === "button" || recovery === "online";
     let posts = 0;
     let summaryReads = 0;
-    await page.route(`${summaryPath}/days/${todayDate}/add`, async (route) => {
+    await page.route(addPath, async (route) => {
       posts++;
       if (posts > 1) return route.continue();
       expect((await route.fetch()).status()).toBe(200);
       await route.fulfill({ status: 204 });
     });
     await page.route(summaryPath, async (route) => {
+      if (route.request().method() !== "GET") return route.continue();
       summaryReads++;
       if (summaryReads === 1 || !recoveryRequiresRead)
         await route.fulfill({ status: 503 });
@@ -240,7 +299,10 @@ for (const recovery of ["button", "online", "add", "edit"] as const) {
     const day = page.getByTestId(`calendar-day-${todayDate}`);
     await day.click();
     const modal = page.getByTestId("day-entry-modal");
-    await modal.getByLabel("追加する支出額 (円)").fill("300");
+    await modal
+      .getByLabel("追加する支出額 (円)")
+      .fill(recovery === "zero" ? "0" : "300");
+    if (recovery === "zero") await modal.getByLabel("メモ").fill("初回の保存");
     const failedSummary = page.waitForResponse(
       (response) =>
         response.url() === summaryPath &&
@@ -258,27 +320,18 @@ for (const recovery of ["button", "online", "add", "edit"] as const) {
     const used = day.getByTestId(`used-${todayDate}`);
     await expect(used).toHaveText("0 円");
 
-    if (recovery === "online") {
-      await page.evaluate(() => window.dispatchEvent(new Event("online")));
-    } else if (recovery === "button") {
-      await page.getByRole("button", { name: "集計を再取得" }).click();
-    } else {
-      await day.click();
-      if (recovery === "add") {
-        await modal.getByLabel("追加する支出額 (円)").fill("200");
-        await modal.getByRole("button", { name: "支出を追加" }).click();
-      } else {
-        await modal.getByRole("button", { name: "編集" }).click();
-        const editingRow = modal.locator("li.editing");
-        await editingRow.getByLabel("入力額 (円)").fill("500");
-        await editingRow
-          .getByRole("button", { name: "保存", exact: true })
-          .click();
-      }
-    }
-    await expect(used).toHaveText(recoveryRequiresRead ? "300 円" : "500 円");
+    await recoverSummary(page, day, modal, recovery);
+    const expectedYen = {
+      button: 300,
+      online: 300,
+      add: 500,
+      edit: 500,
+      zero: 0,
+      budget: 300,
+    };
+    await expect(used).toHaveText(`${expectedYen[recovery]} 円`);
     await expect(warning).toHaveCount(0);
-    expect(posts).toBe(recovery === "add" ? 2 : 1);
+    expect(posts).toBe(recovery === "add" || recovery === "zero" ? 2 : 1);
     if (recoveryRequiresRead) expect(summaryReads).toBe(2);
   });
 }
