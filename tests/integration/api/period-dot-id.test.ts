@@ -84,3 +84,31 @@ it.each([".", ".."])(
     });
   },
 );
+
+it.each(["", "wrong", "legacyPeriodId=."])(
+  "rejects invalid explicit legacy selector %s before writing the literal period",
+  async (invalid) => {
+    const fixture = createFixture();
+    await runApiEffect(
+      fixture.services.createPeriod({ id: "_legacy", ...period }),
+    );
+    const query = invalid.startsWith("legacyPeriodId")
+      ? `legacyPeriodId=.&${invalid}`
+      : `legacyPeriodId=${invalid}`;
+    const response = await fixture.updatePeriod({
+      params: { periodId: "_legacy" },
+      request: request(`/api/periods/_legacy?${query}`, "PUT", {
+        budgetYen: 777,
+      }),
+    } as Parameters<typeof fixture.updatePeriod>[0]);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: { code: "INVALID_PERIOD_ID" },
+    });
+    expect(
+      await runApiEffect(
+        fixture.services.budgetPeriodRepository.findById("_legacy"),
+      ),
+    ).toMatchObject({ budgetYen: 1000 });
+  },
+);

@@ -14,7 +14,7 @@ export function applyDailyOperationHistoryMutation(
   state: PeriodAwareD1FakeState,
 ): void {
   const normalizedSql = sql.toLowerCase().replaceAll('"', "").trim();
-  if (!normalizedSql.includes("daily_operation_histories")) {
+  if (!normalizedSql.includes("daily_operation_histories_v2")) {
     return;
   }
   if (tryApplyRecursiveReplay(normalizedSql, args, state)) {
@@ -36,7 +36,7 @@ function tryApplyRecursiveReplay(
 ): boolean {
   if (
     !normalizedSql.includes("with recursive") ||
-    !normalizedSql.includes("update daily_operation_histories") ||
+    !normalizedSql.includes("update daily_operation_histories_v2") ||
     !normalizedSql.includes("from replay") ||
     args.length !== 9
   ) {
@@ -70,7 +70,7 @@ function tryApplyPartialUpdate(
   state: PeriodAwareD1FakeState,
 ): boolean {
   if (
-    !normalizedSql.startsWith("update daily_operation_histories") ||
+    !normalizedSql.startsWith("update daily_operation_histories_v2") ||
     args.length < 5
   ) {
     return false;
@@ -96,7 +96,7 @@ function tryApplyDelete(
   state: PeriodAwareD1FakeState,
 ): boolean {
   if (
-    !normalizedSql.startsWith("delete from daily_operation_histories") ||
+    !normalizedSql.startsWith("delete from daily_operation_histories_v2") ||
     args.length < 3
   ) {
     return false;
@@ -122,7 +122,7 @@ function tryApplyInsert(
   state: PeriodAwareD1FakeState,
 ): boolean {
   if (
-    !normalizedSql.startsWith("insert into daily_operation_histories") ||
+    !normalizedSql.startsWith("insert into daily_operation_histories_v2") ||
     args.length < 9
   ) {
     return false;
@@ -132,7 +132,7 @@ function tryApplyInsert(
   const duplicated = state.dailyOperationHistories.some((row) => row.id === id);
   if (duplicated) {
     throw new Error(
-      "D1_ERROR: UNIQUE constraint failed: daily_operation_histories.id",
+      "D1_ERROR: UNIQUE constraint failed: daily_operation_histories_v2.id",
     );
   }
 

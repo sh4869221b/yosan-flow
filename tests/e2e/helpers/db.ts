@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 
 type DailySeed = {
@@ -38,7 +39,8 @@ export async function seedPeriod(
   }
 
   for (const row of input.dailyTotals ?? []) {
-    const dayResponse = await request.post(
+    const dayResponse = await postDayAdd(
+      request,
       new URL(
         `/api/periods/${encodeURIComponent(input.periodId)}/days/${encodeURIComponent(row.date)}/add`,
         `${baseUrl}/`,
@@ -49,4 +51,19 @@ export async function seedPeriod(
       throw new Error(`seedPeriod day add failed: ${dayResponse.status()}`);
     }
   }
+}
+
+export async function postDayAdd(
+  request: APIRequestContext,
+  url: string,
+  options: { data: { inputYen: number; memo?: string } },
+) {
+  const periods = await request.get(new URL("/api/periods", url).href);
+  const epoch = periods.headers()["day-entry-epoch"];
+  if (!periods.ok() || !epoch)
+    throw new Error("Missing current day entry epoch");
+  return request.post(url, {
+    ...options,
+    headers: { "idempotency-key": `${epoch}.${randomUUID()}` },
+  });
 }

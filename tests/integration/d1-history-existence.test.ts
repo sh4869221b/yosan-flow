@@ -53,7 +53,7 @@ describe("D1 history mutation identity", () => {
           ),
         ).rejects.toMatchObject({ code: "HISTORY_NOT_FOUND" });
         const historySql = statements.filter((sql) =>
-          sql.includes("daily_operation_histories"),
+          sql.includes("daily_operation_histories_v2"),
         );
         expect(historySql).toHaveLength(4);
         expect(historySql.some((sql) => /^select "id" from/.test(sql))).toBe(

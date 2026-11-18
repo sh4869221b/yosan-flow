@@ -38,7 +38,7 @@ function period(
 }
 
 function state(db: DatabaseSync) {
-  return ["budget_periods", "daily_totals", "daily_operation_histories"].map(
+  return ["budget_periods", "daily_totals", "daily_operation_histories_v2"].map(
     (table) => db.prepare(`SELECT rowid, * FROM ${table} ORDER BY rowid`).all(),
   );
 }
@@ -230,7 +230,7 @@ describe("ordinary period writes against concurrent SQLite changes", () => {
             kind === "total"
               ? `INSERT INTO daily_totals VALUES
                   ('target', '2026-07-25', '2026-07', 10, '${nowIso}')`
-              : `INSERT INTO daily_operation_histories (id, budget_period_id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at) VALUES
+              : `INSERT INTO daily_operation_histories_v2 (id, budget_period_id, date, operation_type, input_yen, before_total_yen, after_total_yen, memo, created_at) VALUES
                   ('late-history', 'target', '2026-07-25', 'add', 10,
                     0, 10, '保持するメモ', '${nowIso}')`,
           );

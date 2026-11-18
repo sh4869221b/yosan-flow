@@ -46,7 +46,10 @@ it("refreshes the selected summary without losing settings or day-entry drafts",
       ),
     ),
   );
-  const controller = createDashboardPageController(data);
+  const controller = createDashboardPageController(() => ({
+    ...data(),
+    dayEntryEpoch: "d".repeat(32),
+  }));
   controller.budget.draft = "15000";
   controller.range.edit({ startDate: "2026-07-12", endDate: "2026-07-14" });
   controller.openDayEntry({ date: "2026-07-12" });

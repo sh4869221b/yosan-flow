@@ -67,8 +67,16 @@ export function _createPeriodsListHandler(
 ): RequestHandler {
   return async () => {
     try {
-      const periods = await runApiEffect(dependencies.services.listPeriods());
-      return json({ periods }, { headers: { "cache-control": "no-store" } });
+      const [periods, epoch] = await Promise.all([
+        runApiEffect(dependencies.services.listPeriods()),
+        runApiEffect(dependencies.services.getDayEntryEpoch()),
+      ]);
+      return json(
+        { periods },
+        {
+          headers: { "cache-control": "no-store", "day-entry-epoch": epoch },
+        },
+      );
     } catch (error) {
       return toApiErrorResponse(error);
     }

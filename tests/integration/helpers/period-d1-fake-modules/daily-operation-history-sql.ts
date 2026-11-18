@@ -8,17 +8,17 @@ export function queryDailyOperationHistories(
   state: PeriodAwareD1FakeState,
 ): DailyOperationHistoryRow[] {
   const normalizedSql = sql.toLowerCase();
-  if (!normalizedSql.includes("daily_operation_histories")) {
+  if (!normalizedSql.includes("daily_operation_histories_v2")) {
     return [];
   }
 
   const rows = [...state.dailyOperationHistories];
   if (
     normalizedSql.includes(
-      '"daily_operation_histories"."budget_period_id" = ?',
+      '"daily_operation_histories_v2"."budget_period_id" = ?',
     ) &&
-    normalizedSql.includes('"daily_operation_histories"."date" = ?') &&
-    normalizedSql.includes('"daily_operation_histories"."id" = ?') &&
+    normalizedSql.includes('"daily_operation_histories_v2"."date" = ?') &&
+    normalizedSql.includes('"daily_operation_histories_v2"."id" = ?') &&
     normalizedSql.includes("limit ?")
   ) {
     return rows
@@ -32,9 +32,9 @@ export function queryDailyOperationHistories(
   }
   if (
     normalizedSql.includes(
-      '"daily_operation_histories"."budget_period_id" = ?',
+      '"daily_operation_histories_v2"."budget_period_id" = ?',
     ) &&
-    normalizedSql.includes('"daily_operation_histories"."date" = ?')
+    normalizedSql.includes('"daily_operation_histories_v2"."date" = ?')
   ) {
     const periodId = String(args[0]);
     const date = String(args[1]);
@@ -48,10 +48,10 @@ export function queryDailyOperationHistories(
   }
   if (
     normalizedSql.includes(
-      '"daily_operation_histories"."budget_period_id" = ?',
+      '"daily_operation_histories_v2"."budget_period_id" = ?',
     ) &&
-    (normalizedSql.includes('"daily_operation_histories"."date" < ?') ||
-      normalizedSql.includes('"daily_operation_histories"."date" > ?'))
+    (normalizedSql.includes('"daily_operation_histories_v2"."date" < ?') ||
+      normalizedSql.includes('"daily_operation_histories_v2"."date" > ?'))
   ) {
     return filterEntriesOutsideRange(rows, args);
   }

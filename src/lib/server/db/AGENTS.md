@@ -25,7 +25,7 @@
 
 - New entries batch history insert, total upsert, and the optional idempotency receipt.
 - History edits/deletes batch guarded replay and total writes before the target mutation, whose affected-row count determines whether it succeeded.
-- Replay and history lists use the per-day `write_order` assigned inside the D1 batch. The migration fills it for legacy rows without rewriting original columns or rowids.
+- Replay and history lists use the per-day `write_order` assigned inside the D1 batch. The cutover validates legacy order against the persisted chain and daily total before fencing old writers. See [the cutover runbook](../../../../tooling/database/day-entry-cutover.md).
 - Preserve repeated period/date/mode fields consistently across writer commands; the current types do not make inconsistent combinations impossible.
 - Raw `.prepare` / `db.batch` access is allowed only in the writer family guarded by `tests/unit/non-migration-drizzle-guard.test.ts`.
 

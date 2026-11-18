@@ -75,6 +75,7 @@ export function createInMemoryApiServices(
     createHistoryId: input.createHistoryId,
   });
 
+  const epoch = crypto.randomUUID().replaceAll("-", "");
   const receipts = new Map<string, string>();
   function writeDay(
     command: DayEntryCommand,
@@ -186,6 +187,7 @@ export function createInMemoryApiServices(
         }),
       ),
     updatePeriod,
+    getDayEntryEpoch: () => Effect.succeed(epoch),
     listPeriods: () => budgetPeriodRepository.listPeriods(),
     listDailyTotalsByPeriodId: (periodId) =>
       databaseClient.read((tx) =>

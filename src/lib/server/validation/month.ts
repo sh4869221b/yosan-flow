@@ -45,11 +45,23 @@ export function parsePeriodPathId(
   value: string | undefined,
   request: Request,
 ): string {
-  if (value === LEGACY_PERIOD_PATH) {
-    const legacyId = new URL(request.url).searchParams.get(LEGACY_PERIOD_QUERY);
-    if (isDotPeriodId(legacyId)) return legacyId;
+  const legacyIds = new URL(request.url).searchParams.getAll(
+    LEGACY_PERIOD_QUERY,
+  );
+  if (legacyIds.length === 0) return parsePeriodId(value);
+  const [legacyId] = legacyIds;
+  if (
+    value === LEGACY_PERIOD_PATH &&
+    legacyIds.length === 1 &&
+    isDotPeriodId(legacyId)
+  ) {
+    return legacyId;
   }
-  return parsePeriodId(value);
+  throw new ApiRouteError(
+    400,
+    "INVALID_PERIOD_ID",
+    "旧期間IDの指定が不正です。",
+  );
 }
 
 export function parseNonNegativeIntegerYen(

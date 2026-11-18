@@ -13,6 +13,7 @@ type Dependencies = {
   readonly getHistoryMutationSequence: (_periodId: string) => number;
   readonly getSelectedDate: () => string | null;
   readonly getSelectedPeriodId: () => string | null;
+  readonly markSynchronized: (_periodId: string) => void;
   readonly setSelectedRow: (_row: DailyRow | null) => void;
   readonly setSummary: (_summary: PeriodSummary) => void;
   readonly submissionTracker: ReturnType<
@@ -47,6 +48,7 @@ export function createDayEntrySummaryReconciliation(
       const refreshIsCurrent =
         latestRefreshSequences.get(periodId) === currentRefreshSequence &&
         !dependencies.submissionTracker.hasActive(periodId) &&
+        !dependencies.summaryRevision.isMutationActive(periodId) &&
         dependencies.getHistoryMutationSequence(periodId) ===
           refreshMutationSequence &&
         dependencies.summaryRevision.getMutationSequence(periodId) ===
@@ -67,6 +69,7 @@ export function createDayEntrySummaryReconciliation(
             findSummaryRow(result.success, submittedDate),
           );
         }
+        dependencies.markSynchronized(periodId);
       }
     });
 }

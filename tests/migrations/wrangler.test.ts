@@ -4,7 +4,12 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { expect, it } from "vitest";
 import { readMigrations } from "./history";
-import { legacyData, legacyProjection, legacyTables } from "./preservation";
+import {
+  legacyData,
+  legacyProjection,
+  legacyTables,
+  upgradedTable,
+} from "./preservation";
 
 const root = resolve(import.meta.dirname, "../..");
 const cli = join(
@@ -37,7 +42,7 @@ it("uses Wrangler's actual pending-migration ledger for empty and legacy local D
   const copy = (items: typeof migrations) => {
     for (const { name, sql } of items) writeFileSync(join(staged, name), sql);
   };
-  const run = (state: string, args: string[]) => {
+  const run = (state: string, args: string[], expectedStatus = 0) => {
     const result = spawnSync(
       process.execPath,
       [
@@ -63,20 +68,22 @@ it("uses Wrangler's actual pending-migration ledger for empty and legacy local D
       },
     );
     expect(result.error).toBeUndefined();
-    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    return result.stdout;
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(
+      expectedStatus,
+    );
+    return expectedStatus ? result.stdout + result.stderr : result.stdout;
   };
   const query = (state: string, sql: string) =>
     JSON.parse(run(state, ["execute", "DB", "--json", "--command", sql])) as {
       results: Record<string, unknown>[];
     }[];
-  const read = (state: string) =>
+  const read = (state: string, upgraded = true) =>
     query(
       state,
       legacyTables
         .map(
           (table) =>
-            `SELECT ${legacyProjection(table)} FROM ${table} ORDER BY rowid;`,
+            `SELECT ${legacyProjection(table)} FROM ${upgraded ? upgradedTable(table) : table} ORDER BY rowid;`,
         )
         .join("\n"),
     ).map(({ results }) => results);
@@ -86,9 +93,35 @@ it("uses Wrangler's actual pending-migration ledger for empty and legacy local D
     const fixture = join(directory, "fixture.sql");
     writeFileSync(fixture, legacyData);
     run("legacy", ["execute", "DB", "--file", fixture]);
-    const before = read("legacy");
+    const before = read("legacy", false);
     expect(before.map((rows) => rows.length)).toEqual([3, 2, 4]);
+    run("blocked", ["migrations", "apply", "DB"]);
+    run("blocked", ["execute", "DB", "--file", fixture]);
+    query(
+      "blocked",
+      "UPDATE daily_totals SET total_used_yen = 999 WHERE budget_period_id = 'period-current';",
+    );
     copy(migrations.slice(2));
+    const blocked = run("blocked", ["migrations", "apply", "DB"], 1);
+    expect(blocked).toContain("LEGACY_HISTORY_ORDER_UNRESOLVED");
+    expect(
+      query(
+        "blocked",
+        "SELECT total_used_yen FROM daily_totals WHERE budget_period_id = 'period-current'",
+      )[0].results,
+    ).toEqual([{ total_used_yen: 999 }]);
+    expect(
+      query(
+        "blocked",
+        "SELECT name FROM sqlite_schema WHERE name LIKE '%cutover%' OR name LIKE '%_v2'",
+      )[0].results,
+    ).toEqual([]);
+    expect(
+      query(
+        "blocked",
+        "SELECT name FROM d1_migrations ORDER BY id",
+      )[0].results.map(({ name }) => name),
+    ).toEqual(migrations.slice(0, -1).map(({ name }) => name));
     run("legacy", ["migrations", "apply", "DB"]);
     expect(read("legacy")).toEqual(before);
     run("empty", ["migrations", "apply", "DB"]);

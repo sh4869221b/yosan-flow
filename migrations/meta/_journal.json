@@ -15,6 +15,13 @@
       "when": 1794975400407,
       "tag": "20261118041640_day_entry_receipts_and_order",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794977143320,
+      "tag": "20261118044543_verify_history_and_fence_writers",
+      "breakpoints": true
     }
   ]
 }

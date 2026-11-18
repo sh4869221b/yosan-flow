@@ -61,7 +61,7 @@ function totals(db: DatabaseSync) {
 function histories(db: DatabaseSync) {
   return db
     .prepare(
-      "SELECT id, before_total_yen, after_total_yen, memo FROM daily_operation_histories ORDER BY rowid",
+      "SELECT id, before_total_yen, after_total_yen, memo FROM daily_operation_histories_v2 ORDER BY rowid",
     )
     .all();
 }

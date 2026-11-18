@@ -71,6 +71,7 @@ export function createD1ApiServices(
         nowIso: now().toISOString(),
       }),
     updatePeriod,
+    getDayEntryEpoch: repositories.getDayEntryEpoch,
     listPeriods: () => budgetPeriodRepository.listPeriods(),
     listDailyTotalsByPeriodId: (periodId) =>
       dailyTotalRepository.listByPeriodId(periodId),

@@ -22,6 +22,8 @@ it("cleans up an interrupted day-entry mutation lifecycle", async () => {
     getSelectedPeriodId: () => "period-1",
     getSummary: () => createSummary(0),
     loadHistoryEffect: () => Effect.succeed({ kind: "success" } as const),
+    markPending: vi.fn(),
+    markSynchronized: vi.fn(),
     publishSaveSuccess: vi.fn(),
     setError: vi.fn(),
     setSaving: (nextSaving) => {

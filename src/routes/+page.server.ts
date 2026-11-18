@@ -20,12 +20,16 @@ function resolveRequestedPeriodId(url: URL): string | null {
   }
 }
 
-export const load: PageServerLoad = async ({ url, setHeaders }) => {
+export const load = (async ({ url, setHeaders }) => {
   setHeaders({ "cache-control": "no-store" });
   const services = getApiServices();
   const tracing = getRequestTracing();
   const requestedPeriodId = resolveRequestedPeriodId(url);
-  const periods = await runApiEffect(services.listPeriods());
+  const [periods, epoch] = await Promise.all([
+    runApiEffect(services.listPeriods()),
+    runApiEffect(services.getDayEntryEpoch()),
+  ]);
+  const cutover: { dayEntryEpoch?: string } = { dayEntryEpoch: epoch };
   const today = services.jstToday();
   const selectedPeriodId = selectDashboardPeriodId(
     periods,
@@ -33,10 +37,10 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
     today,
   );
   if (selectedPeriodId === null) {
-    return { today, periods, selectedPeriodId, summary: null };
+    return { ...cutover, today, periods, selectedPeriodId, summary: null };
   }
   const summary = await runApiEffect(
     getPeriodSummaryFromServices(services, selectedPeriodId, tracing),
   );
-  return { today, periods, selectedPeriodId, summary };
-};
+  return { ...cutover, today, periods, selectedPeriodId, summary };
+}) satisfies PageServerLoad;

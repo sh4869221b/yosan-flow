@@ -11,7 +11,7 @@ import {
   toDailyHistoryRecordFromInput,
 } from "#lib/server/db/daily-history-mapper.ts";
 import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-types.ts";
-import { daily_operation_histories } from "#lib/server/db/schema.ts";
+import { daily_operation_histories_v2 } from "#lib/server/db/schema.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 type CreateD1DailyHistoryRepositoryInput = {
@@ -25,16 +25,16 @@ export function createD1DailyHistoryRepository(
   const buildHistoryQuery = (date: string, budgetPeriodId: string) =>
     database
       .select()
-      .from(daily_operation_histories)
+      .from(daily_operation_histories_v2)
       .where(
         and(
-          eq(daily_operation_histories.budget_period_id, budgetPeriodId),
-          eq(daily_operation_histories.date, date),
+          eq(daily_operation_histories_v2.budget_period_id, budgetPeriodId),
+          eq(daily_operation_histories_v2.date, date),
         ),
       )
       .orderBy(
         desc(
-          sql`coalesce(nullif(${daily_operation_histories.write_order}, 0), rowid)`,
+          sql`coalesce(nullif(${daily_operation_histories_v2.write_order}, 0), rowid)`,
         ),
         desc(sql`rowid`),
       );
@@ -69,7 +69,7 @@ export function createD1DailyHistoryRepository(
       return Effect.tryPromise({
         try: async () => {
           await database
-            .insert(daily_operation_histories)
+            .insert(daily_operation_histories_v2)
             .values(toDailyHistoryInsertValues(inputRow))
             .run();
           return toDailyHistoryRecordFromInput(inputRow);
@@ -82,11 +82,11 @@ export function createD1DailyHistoryRepository(
       return Effect.tryPromise({
         try: async () => {
           const [row] = await database
-            .select({ id: daily_operation_histories.id })
-            .from(daily_operation_histories)
+            .select({ id: daily_operation_histories_v2.id })
+            .from(daily_operation_histories_v2)
             .where(
               dailyEntryOutsideRange(
-                daily_operation_histories,
+                daily_operation_histories_v2,
                 periodId,
                 startDate,
                 endDate,

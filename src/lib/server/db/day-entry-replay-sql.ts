@@ -12,7 +12,7 @@ import {
 import { createDrizzleD1Database } from "#lib/server/db/client.ts";
 import { prepareDayEntryStatement } from "#lib/server/db/day-entry-write-sql.ts";
 import {
-  daily_operation_histories,
+  daily_operation_histories_v2,
   daily_totals,
 } from "#lib/server/db/schema.ts";
 import type {
@@ -30,7 +30,7 @@ import type { D1DayEntryReplayCommand } from "#lib/server/db/day-entry-writer-ty
 const HISTORY_REPLAY_CTE = `
   WITH RECURSIVE
     target AS (
-      SELECT rowid AS history_rowid, input_yen AS target_amount FROM daily_operation_histories
+      SELECT rowid AS history_rowid, input_yen AS target_amount FROM daily_operation_histories_v2
       WHERE budget_period_id = ? AND date = ? AND id = ?
     ),
     ordered AS (
@@ -39,7 +39,7 @@ const HISTORY_REPLAY_CTE = `
         operation_type,
         CASE WHEN rowid = target.history_rowid THEN ? ELSE input_yen END AS input_yen,
         row_number() OVER (ORDER BY coalesce(nullif(write_order, 0), rowid) ASC, rowid ASC) AS rn
-      FROM daily_operation_histories
+      FROM daily_operation_histories_v2
       CROSS JOIN target
       WHERE budget_period_id = ? AND date = ?
         AND (? = 0 OR rowid <> target.history_rowid)
@@ -84,15 +84,15 @@ export function buildHistoryReplayStatements(
 
 function historyScope(command: D1DayEntryReplayCommand) {
   return and(
-    eq(daily_operation_histories.budget_period_id, command.budgetPeriodId),
-    eq(daily_operation_histories.date, command.date),
+    eq(daily_operation_histories_v2.budget_period_id, command.budgetPeriodId),
+    eq(daily_operation_histories_v2.date, command.date),
   );
 }
 
 function historyTarget(command: D1DayEntryReplayCommand) {
   return and(
     historyScope(command),
-    eq(daily_operation_histories.id, command.historyId),
+    eq(daily_operation_histories_v2.id, command.historyId),
   );
 }
 
@@ -101,8 +101,8 @@ function remainingHistories(command: D1DayEntryReplayCommand) {
     historyScope(command),
     command.kind === "delete"
       ? or(
-          ne(daily_operation_histories.id, command.historyId),
-          isNull(daily_operation_histories.id),
+          ne(daily_operation_histories_v2.id, command.historyId),
+          isNull(daily_operation_histories_v2.id),
         )
       : undefined,
   );
@@ -115,12 +115,12 @@ function targetExists(
   return exists(
     database
       .select({ value: sql`1` })
-      .from(daily_operation_histories)
+      .from(daily_operation_histories_v2)
       .where(
         and(
           historyTarget(command),
           command.kind === "update"
-            ? ne(daily_operation_histories.input_yen, command.inputYen)
+            ? ne(daily_operation_histories_v2.input_yen, command.inputYen)
             : undefined,
         ),
       ),
@@ -137,10 +137,10 @@ function buildHistoryMutationStatement(
     db,
     command.kind === "update"
       ? database
-          .update(daily_operation_histories)
+          .update(daily_operation_histories_v2)
           .set({ input_yen: command.inputYen, memo: command.memo })
           .where(identity)
-      : database.delete(daily_operation_histories).where(identity),
+      : database.delete(daily_operation_histories_v2).where(identity),
   );
 }
 
@@ -155,15 +155,15 @@ function buildReplayHistoryTotalsStatement(
     .prepare(
       `
       ${HISTORY_REPLAY_CTE}
-      UPDATE daily_operation_histories
+      UPDATE daily_operation_histories_v2
       SET
         before_total_yen = replay.before_total_yen,
         after_total_yen = replay.after_total_yen
       FROM replay
-      WHERE daily_operation_histories.rowid = CAST(replay.history_rowid AS INTEGER)
+      WHERE daily_operation_histories_v2.rowid = CAST(replay.history_rowid AS INTEGER)
         AND (
-          daily_operation_histories.before_total_yen <> replay.before_total_yen
-          OR daily_operation_histories.after_total_yen <> replay.after_total_yen
+          daily_operation_histories_v2.before_total_yen <> replay.before_total_yen
+          OR daily_operation_histories_v2.after_total_yen <> replay.after_total_yen
         )
       `,
     )
@@ -195,7 +195,7 @@ function buildDailyTotalDeleteWhenHistoryEmptyStatement(
         notExists(
           database
             .select({ value: sql`1` })
-            .from(daily_operation_histories)
+            .from(daily_operation_histories_v2)
             .where(remainingHistories(command)),
         ),
       ),
@@ -221,16 +221,16 @@ function buildReplayedDailyTotalUpsertStatement(
             ),
             date: sql<string>`${command.date}`.as("date"),
             year_month: sql<string>`${command.yearMonth}`.as("year_month"),
-            total_used_yen: daily_operation_histories.after_total_yen,
+            total_used_yen: daily_operation_histories_v2.after_total_yen,
             updated_at: sql<string>`${command.nowIso}`.as("updated_at"),
           })
-          .from(daily_operation_histories)
+          .from(daily_operation_histories_v2)
           .where(
             and(remainingHistories(command), targetExists(database, command)),
           )
           .orderBy(
             desc(
-              sql`coalesce(nullif(${daily_operation_histories.write_order}, 0), rowid)`,
+              sql`coalesce(nullif(${daily_operation_histories_v2.write_order}, 0), rowid)`,
             ),
             desc(sql`rowid`),
           )

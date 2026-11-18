@@ -55,12 +55,15 @@ export function createDayEntrySaveHandler(
         const periodId = parsePeriodPathId(params.periodId, request);
         const date = parseDate(params.date);
         const input = await runApiEffect(parseDayMutationInput(request));
+        const epoch = await runApiEffect(
+          dependencies.services.getDayEntryEpoch(),
+        );
         await runApiEffect(
           dependencies.services.dayEntryService[command]({
             periodId,
             date,
             ...input,
-            idempotencyKey: parseDayEntryKey(request),
+            idempotencyKey: parseDayEntryKey(request, epoch),
           }),
         );
         return { response: await savedResponse(dependencies, periodId) };

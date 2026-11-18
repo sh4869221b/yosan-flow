@@ -174,6 +174,8 @@ it("aborts the post-save history read when the modal session changes", async () 
         Effect.catch(() => Effect.void),
         Effect.asVoid,
       ),
+    markPending: vi.fn(),
+    markSynchronized: vi.fn(),
     publishSaveSuccess: vi.fn(),
     setError: vi.fn(),
     setSaving: vi.fn(),

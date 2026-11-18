@@ -28,7 +28,7 @@ import {
 } from "#lib/server/db/budget-period-types.ts";
 import {
   budget_periods,
-  daily_operation_histories,
+  daily_operation_histories_v2,
   daily_totals,
 } from "#lib/server/db/schema.ts";
 import {
@@ -38,7 +38,7 @@ import {
 
 type Database = ReturnType<typeof createDrizzleD1Database>;
 type PeriodValues = UpdateBudgetPeriodInput;
-type EntryTable = typeof daily_totals | typeof daily_operation_histories;
+type EntryTable = typeof daily_totals | typeof daily_operation_histories_v2;
 
 function outsideEntries(
   database: Database,
@@ -164,7 +164,9 @@ export function updateD1BudgetPeriod(
         eq(budget_periods.id, input.id),
         validRelations(database, input, budget_periods.predecessor_period_id),
         notExists(outsideEntries(database, daily_totals, input)),
-        notExists(outsideEntries(database, daily_operation_histories, input)),
+        notExists(
+          outsideEntries(database, daily_operation_histories_v2, input),
+        ),
       ),
     )
     .returning()
@@ -202,7 +204,9 @@ export async function rejectD1BudgetPeriodWrite(
   if (kind === "update") {
     const [totals, histories] = await Promise.all([
       outsideEntries(database, daily_totals, input).limit(1).all(),
-      outsideEntries(database, daily_operation_histories, input).limit(1).all(),
+      outsideEntries(database, daily_operation_histories_v2, input)
+        .limit(1)
+        .all(),
     ]);
     if (totals.length || histories.length) {
       throw new PeriodValidationError(

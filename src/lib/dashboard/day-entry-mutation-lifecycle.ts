@@ -27,6 +27,8 @@ type Dependencies = {
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary: () => PeriodSummary | null;
   readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
+  readonly markPending: (_periodId: string, _date: string) => void;
+  readonly markSynchronized: (_periodId: string) => void;
   readonly publishSaveSuccess: (_success: DaySaveSuccess) => void;
   readonly setError: (_error: string | null) => void;
   readonly setSaving: (_saving: boolean) => void;
@@ -45,6 +47,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
     getHistoryMutationSequence: dependencies.getHistoryMutationSequence,
     getSelectedDate: dependencies.getSelectedDate,
     getSelectedPeriodId: dependencies.getSelectedPeriodId,
+    markSynchronized: dependencies.markSynchronized,
     setSelectedRow: dependencies.setSelectedRow,
     setSummary: dependencies.setSummary,
     submissionTracker,
@@ -142,13 +145,16 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
               }
             } else {
               onAccepted();
-              if (result.success !== null)
+              if (result.success === null) {
+                dependencies.markPending(selectedPeriodId, submittedDate);
+              } else {
                 submissionTracker.accept(
                   selectedPeriodId,
                   result.success,
                   mutationSequence,
                   dependencies.getHistoryMutationSequence(selectedPeriodId),
                 );
+              }
             }
             const shouldRefreshHistory =
               result._tag === "Success" &&
@@ -225,5 +231,6 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
       dependencies.setSaving(false);
     },
     submitEffect,
+    reconcileSummaryEffect,
   };
 }

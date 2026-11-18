@@ -65,7 +65,7 @@ export function toDailyOperationHistoryRawRow(
 ): unknown[] {
   const normalizedSql = sql.toLowerCase();
   if (
-    normalizedSql.startsWith('select "id" from "daily_operation_histories"')
+    normalizedSql.startsWith('select "id" from "daily_operation_histories_v2"')
   ) {
     return [row.id];
   }

@@ -12,13 +12,13 @@ import type {
 
 const PERIOD_ID = "period-a";
 const DATE = "2026-04-20";
-const UPDATE_SQL = "UPDATE daily_operation_histories SET input_yen = ?";
+const UPDATE_SQL = "UPDATE daily_operation_histories_v2 SET input_yen = ?";
 const INSERT_SQL =
-  "INSERT INTO daily_operation_histories VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+  "INSERT INTO daily_operation_histories_v2 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 const REPLAY_SQL =
-  "WITH RECURSIVE replay AS (SELECT 1) UPDATE daily_operation_histories SET before_total_yen = replay.before_total_yen FROM replay";
+  "WITH RECURSIVE replay AS (SELECT 1) UPDATE daily_operation_histories_v2 SET before_total_yen = replay.before_total_yen FROM replay";
 const COMPUTED_INSERT_SQL =
-  "INSERT INTO daily_operation_histories SELECT coalesce(daily_totals.total_used_yen, 0) FROM budget_periods LEFT JOIN daily_totals";
+  "INSERT INTO daily_operation_histories_v2 SELECT coalesce(daily_totals.total_used_yen, 0) FROM budget_periods LEFT JOIN daily_totals";
 
 function historyRow(
   overrides: Partial<DailyOperationHistoryRow>,
@@ -135,7 +135,7 @@ describe("applyDailyOperationHistoryMutation", () => {
         state,
       ),
     ).toThrow(
-      "D1_ERROR: UNIQUE constraint failed: daily_operation_histories.id",
+      "D1_ERROR: UNIQUE constraint failed: daily_operation_histories_v2.id",
     );
     state.restore(snapshot);
     applyDailyOperationHistoryMutation(
@@ -198,7 +198,7 @@ describe("applyDailyOperationHistoryMutation", () => {
       state,
     );
     applySqlMutation(
-      "INSERT INTO daily_totals SELECT after_total_yen FROM daily_operation_histories WHERE budget_period_id = ? AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid) DESC, rowid DESC LIMIT ? ON CONFLICT (budget_period_id, date) DO UPDATE SET total_used_yen = excluded.total_used_yen",
+      "INSERT INTO daily_totals SELECT after_total_yen FROM daily_operation_histories_v2 WHERE budget_period_id = ? AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid) DESC, rowid DESC LIMIT ? ON CONFLICT (budget_period_id, date) DO UPDATE SET total_used_yen = excluded.total_used_yen",
       [
         PERIOD_ID,
         DATE,

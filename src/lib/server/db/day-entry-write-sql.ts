@@ -13,9 +13,9 @@ import type {
 } from "#lib/server/db/day-entry-writer-types.ts";
 import {
   budget_periods,
-  daily_operation_histories,
+  daily_operation_histories_v2,
   daily_totals,
-  day_entry_receipts,
+  day_entry_receipts_v2,
 } from "#lib/server/db/schema.ts";
 
 type Database = ReturnType<typeof createDrizzleD1Database>;
@@ -54,7 +54,7 @@ export function buildDailyEntryStatements(
   if (receipt && existingReceipt) {
     // Both writes see the old receipt state. Record the original request only
     // after them, within the same transaction, then read the winning receipt.
-    const receiptInsert = database.insert(day_entry_receipts).select(
+    const receiptInsert = database.insert(day_entry_receipts_v2).select(
       database
         .select({
           key: sql<string>`${receipt.key}`.as("key"),
@@ -73,9 +73,9 @@ export function buildDailyEntryStatements(
 
 function findReceipt(database: Database, receipt: DayEntryReceipt) {
   return database
-    .select({ fingerprint: day_entry_receipts.fingerprint })
-    .from(day_entry_receipts)
-    .where(eq(day_entry_receipts.key, receipt.key));
+    .select({ fingerprint: day_entry_receipts_v2.fingerprint })
+    .from(day_entry_receipts_v2)
+    .where(eq(day_entry_receipts_v2.key, receipt.key));
 }
 
 function periodContainsDate(budgetPeriodId: string, date: string) {
@@ -97,19 +97,22 @@ function buildHistoryInsert(
   // and keep advancing the per-day order if physical rowids were compacted.
   const lastRowId = database
     .select({ value: sql<number>`max(rowid)` })
-    .from(daily_operation_histories);
+    .from(daily_operation_histories_v2);
   const lastDayOrder = database
     .select({
-      value: sql<number>`max(${daily_operation_histories.write_order})`,
+      value: sql<number>`max(${daily_operation_histories_v2.write_order})`,
     })
-    .from(daily_operation_histories)
+    .from(daily_operation_histories_v2)
     .where(
       and(
-        eq(daily_operation_histories.budget_period_id, history.budgetPeriodId),
-        eq(daily_operation_histories.date, history.date),
+        eq(
+          daily_operation_histories_v2.budget_period_id,
+          history.budgetPeriodId,
+        ),
+        eq(daily_operation_histories_v2.date, history.date),
       ),
     );
-  return database.insert(daily_operation_histories).select(
+  return database.insert(daily_operation_histories_v2).select(
     database
       .select({
         id: sql<string>`${history.id}`.as("id"),

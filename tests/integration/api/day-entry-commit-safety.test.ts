@@ -64,6 +64,7 @@ describe("day entry commit safety through the API and SQLite", () => {
   ] as const)(
     "acknowledges a committed %s when the summary fails and deduplicates retries",
     async (method, createHandler) => {
+      const epoch = await runApiEffect(services.getDayEntryEpoch());
       const call = (
         handler: ReturnType<typeof createHandler>,
         inputYen = 300,
@@ -74,7 +75,7 @@ describe("day entry commit safety through the API and SQLite", () => {
             method,
             headers: {
               "content-type": "application/json",
-              "idempotency-key": "receipt-1",
+              "idempotency-key": `${epoch}.receipt-1`,
             },
             body: JSON.stringify({ inputYen, memo: "  lunch " }),
           }),

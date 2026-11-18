@@ -47,7 +47,10 @@ describe("period API default routes", () => {
           "http://localhost/api/periods/p-add/days/2026-04-20/add",
           {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: {
+              "content-type": "application/json",
+              "idempotency-key": `${"d".repeat(32)}.${crypto.randomUUID()}`,
+            },
             body: JSON.stringify({ inputYen }),
           },
         ),

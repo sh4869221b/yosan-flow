@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { seedPeriod } from "./helpers/db";
+import { postDayAdd, seedPeriod } from "./helpers/db";
 import {
   expectCalendarDayFitsCell,
   expectVisibleCalendarFocus,
@@ -66,7 +66,8 @@ for (const width of [320, 375, 1280]) {
       endDate: addDays(today, 40),
       budgetYen: 120000,
     });
-    const added = await request.post(
+    const added = await postDayAdd(
+      request,
       `${getBaseUrl()}/api/periods/${periodId}/days/${today}/add`,
       { data: { inputYen: 12345678, memo: "test" } },
     );

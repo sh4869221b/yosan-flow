@@ -37,6 +37,7 @@ export function createDashboardPageController(getData: () => PageData) {
     {
       getSelectedPeriodId: () => periodController.selectedPeriodId,
       getSummary: () => periodController.summary,
+      getDayEntryEpoch: () => getData().dayEntryEpoch,
       historyController,
       setSummary: periodController.setSummary,
     },
@@ -122,6 +123,13 @@ export function createDashboardPageController(getData: () => PageData) {
     get modalError() {
       return dayEntryController.modalError;
     },
+    get daySummarySyncPending() {
+      return dayEntryController.summarySyncPending;
+    },
+    get daySummarySyncRefreshing() {
+      return dayEntryController.summarySyncRefreshing;
+    },
+    retryDaySummarySync: dayEntryController.retrySummarySync,
     get daySaveSuccess() {
       return dayEntryController.daySaveSuccess;
     },

@@ -1,3 +1,5 @@
+import { runApiEffect } from "#lib/server/effect/runtime.ts";
+import type { RequestHandler } from "@sveltejs/kit";
 import { createInMemoryApiServices } from "#lib/server/services/api-services/in-memory.ts";
 import type { InMemoryApiServices } from "#lib/server/services/month-summary-service.ts";
 import type { TracingAdapter } from "#lib/server/observability/tracing.ts";
@@ -34,14 +36,31 @@ export function createFixture(
     createHistoryId,
   });
 
+  function withCurrentSaveKey(handler: RequestHandler): RequestHandler {
+    return async (event) => {
+      const headers = new Headers(event.request.headers);
+      if (!headers.has("idempotency-key")) {
+        const epoch = await runApiEffect(services.getDayEntryEpoch());
+        headers.set("idempotency-key", `${epoch}.${crypto.randomUUID()}`);
+      }
+      return handler({
+        ...event,
+        request: new Request(event.request, { headers }),
+      });
+    };
+  }
   return {
     services,
     createPeriod: _createPeriodsHandler({ services, tracing }),
     listPeriods: _createPeriodsListHandler({ services }),
     getPeriod: _createPeriodGetHandler({ services, tracing }),
     updatePeriod: _createPeriodPutHandler({ services, tracing }),
-    addDay: _createPeriodDayAddHandler({ services, tracing }),
-    overwriteDay: _createPeriodDayOverwriteHandler({ services, tracing }),
+    addDay: withCurrentSaveKey(
+      _createPeriodDayAddHandler({ services, tracing }),
+    ),
+    overwriteDay: withCurrentSaveKey(
+      _createPeriodDayOverwriteHandler({ services, tracing }),
+    ),
     getHistory: _createPeriodDayHistoryHandler({ services }),
     mutateHistory: _createPeriodDayHistoryMutationHandler({
       services,

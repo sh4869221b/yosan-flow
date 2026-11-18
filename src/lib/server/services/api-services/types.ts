@@ -54,6 +54,7 @@ export type InMemoryApiServices = {
     request: PeriodUpdateRequest,
     tracing?: TracingAdapter,
   ) => Effect.Effect<PeriodUpdateServiceResult, Error>;
+  getDayEntryEpoch: () => Effect.Effect<string, Error>;
   listPeriods: () => Effect.Effect<BudgetPeriodRecord[], Error>;
   listDailyTotalsByPeriodId: (
     periodId: string,

@@ -69,8 +69,8 @@ export const daily_totals = sqliteTable(
   ],
 );
 
-export const daily_operation_histories = sqliteTable(
-  "daily_operation_histories",
+export const daily_operation_histories_v2 = sqliteTable(
+  "daily_operation_histories_v2",
   {
     id: text("id").primaryKey(),
     budget_period_id: text("budget_period_id")
@@ -112,16 +112,25 @@ export const daily_operation_histories = sqliteTable(
   ],
 );
 
-export const day_entry_receipts = sqliteTable("day_entry_receipts", {
+export const day_entry_receipts_v2 = sqliteTable("day_entry_receipts_v2", {
   key: text("key").primaryKey().notNull(),
   fingerprint: text("fingerprint").notNull(),
 });
+
+export const day_entry_cutover = sqliteTable(
+  "day_entry_cutover",
+  {
+    id: integer("id").primaryKey().notNull(),
+    epoch: text("epoch").notNull(),
+  },
+  (table) => [check("day_entry_cutover_singleton", sql`${table.id} = 1`)],
+);
 
 export type BudgetPeriodRow = typeof budget_periods.$inferSelect;
 export type NewBudgetPeriodRow = typeof budget_periods.$inferInsert;
 export type DailyTotalRow = typeof daily_totals.$inferSelect;
 export type NewDailyTotalRow = typeof daily_totals.$inferInsert;
 export type DailyOperationHistoryRow =
-  typeof daily_operation_histories.$inferSelect;
+  typeof daily_operation_histories_v2.$inferSelect;
 export type NewDailyOperationHistoryRow =
-  typeof daily_operation_histories.$inferInsert;
+  typeof daily_operation_histories_v2.$inferInsert;
