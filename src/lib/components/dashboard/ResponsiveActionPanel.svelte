@@ -31,6 +31,11 @@
   const mobile = new MediaQuery("(max-width: 760px)");
   let trigger = $state<HTMLElement | null>(null);
   let heading = $state<HTMLElement | null>(null);
+  let desktopContentMounted = $state(false);
+
+  $effect(() => {
+    if (!mobile.current && open) desktopContentMounted = true;
+  });
 
   export function isMobile(): boolean {
     return mobile.current;
@@ -43,6 +48,14 @@
   function handleOpenChange(value: boolean): void {
     open = value;
     if (!value) onClose();
+  }
+
+  function syncDesktopDetails(details: HTMLDetailsElement): void {
+    // A native disclosure can open before the dashboard hydrates.
+    if (details.open) open = true;
+    $effect(() => {
+      details.open = open;
+    });
   }
 
   function focusHeading(event: Event): void {
@@ -106,17 +119,19 @@
 {:else}
   <details
     class="period-action-card rounded-panel border border-border bg-card px-(--panel-padding-inline) py-(--panel-padding-block) shadow-card"
-    bind:open
+    {@attach syncDesktopDetails}
     data-testid={testId}
-    ontoggle={() => {
-      if (!open) onClose();
-    }}
+    ontoggle={(event) => handleOpenChange(event.currentTarget.open)}
   >
     <summary bind:this={trigger}>
       {@render label()}
     </summary>
-    <div class="details-body">
-      {@render children()}
-    </div>
+    {#if open || desktopContentMounted}
+      <div class="details-body">
+        {@render children()}
+      </div>
+    {:else}
+      <p class="details-body" role="status">フォームを読み込み中…</p>
+    {/if}
   </details>
 {/if}

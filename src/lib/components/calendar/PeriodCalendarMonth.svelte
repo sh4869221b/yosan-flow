@@ -54,10 +54,11 @@
   {#if date}
     {@const row = rowsByDate.get(date)}
     {#if row}
+      {@const selected = selectedDate === date}
       {@const presentation = buildCalendarDayPresentation({
         row,
         today,
-        selected: selectedDate === date,
+        selected,
         disabled,
       })}
       <button
