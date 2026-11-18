@@ -36,21 +36,27 @@ export function mapDateRange<T>(
   range: DateRange,
   mapDay: (date: string, index: number) => T,
 ): T[] {
+  if (range.length === 1) return [mapDay(fromDateValue(range.startTime), 0)];
+
   const rows = new Array<T>(range.length);
   const cursor = new Date(range.startTime);
   let time = range.startTime;
-  let monthPrefix = "";
-  for (let index = 0; index < range.length; index += 1) {
-    cursor.setTime(time);
-    const dayOfMonth = cursor.getUTCDate();
-    if (index === 0 || dayOfMonth === 1) {
-      // Format the month once and reuse its prefix for every day in it.
-      const iso = cursor.toISOString();
-      monthPrefix = iso.slice(0, iso.indexOf("T") - 2);
+  let index = 0;
+  while (index < range.length) {
+    const firstDay = cursor.getUTCDate();
+    const iso = cursor.toISOString();
+    const monthPrefix = iso.slice(0, iso.indexOf("T") - 2);
+    const nextMonthTime = cursor.setUTCMonth(cursor.getUTCMonth() + 1, 1);
+    const daysToNextMonth = (nextMonthTime - time) / MILLISECONDS_PER_DAY;
+    // The month after the maximum representable Date is outside Date's range.
+    const stop = Number.isNaN(daysToNextMonth)
+      ? range.length
+      : Math.min(index + daysToNextMonth, range.length);
+    for (let day = firstDay; index < stop; day += 1, index += 1) {
+      const date = (monthPrefix + dayOfMonthLabels[day - 1]).slice(0, 10);
+      rows[index] = mapDay(date, index);
     }
-    const date = (monthPrefix + dayOfMonthLabels[dayOfMonth - 1]).slice(0, 10);
-    rows[index] = mapDay(date, index);
-    time += MILLISECONDS_PER_DAY;
+    time = nextMonthTime;
   }
   return rows;
 }

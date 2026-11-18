@@ -3,13 +3,29 @@ import type {
   PeriodSummary,
 } from "#lib/dashboard/controller-types.ts";
 
+// Summaries emit daily rows in ascending ISO date order.
+export function firstRowIndexOnOrAfter(
+  rows: readonly DailyRow[],
+  date: string,
+): number {
+  let start = 0;
+  let end = rows.length;
+  while (start < end) {
+    const middle = start + Math.floor((end - start) / 2);
+    if (rows[middle].date < date) start = middle + 1;
+    else end = middle;
+  }
+  return start;
+}
+
 export function findSummaryRow(
   summary: PeriodSummary,
   date: string | null,
 ): DailyRow | null {
-  return date == null
-    ? null
-    : (summary.dailyRows.find((row) => row.date === date) ?? null);
+  if (date == null) return null;
+  const row =
+    summary.dailyRows[firstRowIndexOnOrAfter(summary.dailyRows, date)];
+  return row?.date === date ? row : null;
 }
 
 // Add operations only increase totals and can only add recorded dates. Merge

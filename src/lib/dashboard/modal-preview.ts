@@ -2,6 +2,7 @@ import type {
   DailyRow,
   PeriodSummary,
 } from "#lib/dashboard/controller-types.ts";
+import { firstRowIndexOnOrAfter } from "#lib/dashboard/summary-rows.ts";
 
 export function getModalPreviewAfterYen(
   selectedRow: DailyRow | null,
@@ -17,11 +18,8 @@ export function getModalRemainingRows(
   if (summary == null || selectedDate == null) {
     return 0;
   }
-  let remainingRows = 0;
-  for (const row of summary.dailyRows) {
-    if (row.date >= selectedDate) remainingRows++;
-  }
-  return remainingRows;
+  const rows = summary.dailyRows;
+  return rows.length - firstRowIndexOnOrAfter(rows, selectedDate);
 }
 
 export function getModalPreviewRemainingYen(
