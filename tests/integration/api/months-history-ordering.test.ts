@@ -1,5 +1,5 @@
 import { cloudflareRuntime } from "../../helpers/cloudflare-runtime";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { createD1ApiServices } from "#lib/server/services/api-services/d1.ts";
 import { GET as dayHistoryDefaultRoute } from "../../../src/routes/api/periods/[periodId]/days/[date]/history/+server";
@@ -58,6 +58,7 @@ describe("period daily history ordering", () => {
       }),
     );
 
+    const batch = vi.spyOn(fakeDb, "batch");
     const historyResponse = await dayHistoryDefaultRoute({
       params: { periodId: "p-history", date: "2026-04-20" },
       request: new Request(
@@ -66,6 +67,8 @@ describe("period daily history ordering", () => {
       ),
     } as any);
     expect(historyResponse.status).toBe(200);
+    expect(batch).toHaveBeenCalledTimes(1);
+    expect(batch.mock.calls[0][0]).toHaveLength(2);
     await expect(historyResponse.json()).resolves.toMatchObject({
       histories: [
         {

@@ -53,16 +53,7 @@ function buildHistoryInsertStatement(
   mode: D1DayEntryWriteMode,
 ): D1PreparedStatement {
   const database = createDrizzleD1Database(db);
-  const currentTotalQuery = database
-    .select({ value: daily_totals.total_used_yen })
-    .from(daily_totals)
-    .where(
-      and(
-        eq(daily_totals.budget_period_id, history.budgetPeriodId),
-        eq(daily_totals.date, history.date),
-      ),
-    );
-  const currentTotal = sql<number>`coalesce((${currentTotalQuery}), 0)`;
+  const currentTotal = sql<number>`coalesce(${daily_totals.total_used_yen}, 0)`;
   return prepareDayEntryStatement(
     db,
     database.insert(daily_operation_histories).select(
@@ -86,6 +77,13 @@ function buildHistoryInsertStatement(
           created_at: sql<string>`${history.createdAt}`.as("created_at"),
         })
         .from(budget_periods)
+        .leftJoin(
+          daily_totals,
+          and(
+            eq(daily_totals.budget_period_id, budget_periods.id),
+            eq(daily_totals.date, history.date),
+          ),
+        )
         .where(periodContainsDate(history.budgetPeriodId, history.date)),
     ),
   );

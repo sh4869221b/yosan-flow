@@ -1,7 +1,8 @@
-import { and, asc, eq, gt, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { Effect } from "effect";
 import type { DatabaseTransaction } from "#lib/server/db/client.ts";
 import { createDrizzleD1Database } from "#lib/server/db/client.ts";
+import { dailyEntryOutsideRange } from "#lib/server/db/daily-entry-range-query.ts";
 import type { D1Database } from "#lib/server/db/d1-types.ts";
 import { daily_totals, type DailyTotalRow } from "#lib/server/db/schema.ts";
 import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
@@ -251,12 +252,11 @@ export function createD1DailyTotalRepository(
             .select({ date: daily_totals.date })
             .from(daily_totals)
             .where(
-              and(
-                eq(daily_totals.budget_period_id, periodId),
-                or(
-                  lt(daily_totals.date, startDate),
-                  gt(daily_totals.date, endDate),
-                ),
+              dailyEntryOutsideRange(
+                daily_totals,
+                periodId,
+                startDate,
+                endDate,
               ),
             )
             .limit(1)

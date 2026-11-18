@@ -19,7 +19,8 @@ Paths below are under `src/lib/server/db/` unless stated otherwise.
 | `budget-period-d1-repository.ts`         | Typed period CRUD and orchestration of validation and the linked-boundary writer.                                                                        |
 | `budget-period-boundary-d1.ts`           | One conditional two-period UPDATE through Drizzle, with JSON/date/CASE expressions and commit-time predicates.                                           |
 | `daily-total-repository.ts`              | Typed scoped total reads, upsert and outside-range existence checks. In-memory implementation has no SQL.                                                |
-| `daily-history-d1-repository.ts`         | Typed scoped history reads/inserts and ID existence checks; hidden SQLite `rowid` breaks timestamp ties.                                                 |
+| `daily-history-d1-repository.ts`         | Batches period validation with the scoped history read. Hidden SQLite `rowid` breaks timestamp ties. Also owns history inserts and ID existence checks.  |
+| `daily-entry-range-query.ts`             | Shared outside-range predicate. Each branch constrains both period and date for an indexed seek.                                                         |
 | `day-entry-write-sql.ts`                 | Typed history INSERT…SELECT and total UPSERT. Compiles builders with `toSQL()` and binds their parameters without executing them.                        |
 | `day-entry-replay-sql.ts`                | Typed history update/delete, empty-total deletion and final-total upsert; one handwritten recursive replay statement.                                    |
 | `day-entry-writer.ts`                    | Executes each complete entry/replay batch once. Raw D1 batch is the atomic execution boundary.                                                           |
@@ -38,18 +39,21 @@ these boundaries rather than adding a second execution path.
 - Recursive replay is the deliberate SQL exception because the SQLite Drizzle
   builder does not provide a recursive-CTE API. It scopes by period/date and orders
   by `created_at ASC, rowid ASC`. Internal row identity is `rowid`, so preserved
-  legacy NULL text IDs also participate correctly. External mutations still use
-  the period/date/history-ID contract. Do not rebuild tables or rewrite legacy IDs.
+  legacy NULL text IDs also participate correctly. The UPDATE joins the replay
+  result by rowid and writes only rows whose derived totals changed. External
+  mutations still use the period/date/history-ID contract. Do not rebuild tables
+  or rewrite legacy IDs.
 - The linked-boundary writer uses one bound JSON command and an input CTE in the
   UPDATE's FROM clause. Repeated scalar `(SELECT payload FROM input)` expressions
   caused the D1 nested-subquery limit failure; using a CTE alone does not prevent
   repeated expansion. Require exactly two changed rows on success and zero on a
   conditional miss. An unexpected one-row count detects an invariant failure;
   throwing after execution would not undo an already committed partial write.
-- D1 permits 100 bound parameters per statement. Captured entry counts are add
-  `15 + 8`, overwrite `13 + 8`; replay update `5 + 4 + 4 + 7`, delete `3 + 4 + 4 + 7`.
+- D1 permits 100 bound parameters per statement. Captured entry counts are
+  `12 + 8` for add and overwrite. Replay update uses `5 + 2 + 4 + 7` and
+  replay delete uses `3 + 2 + 4 + 7`.
   Ordinary period writes use 13 parameters for create, 15 with a predecessor,
-  and 17 for update, verified against local D1.
+  and 19 for update, verified against local D1.
   These are per-statement counts, not a batch-wide allowance. Keep generated-SQL
   parameter checks when changing builders.
 - SQLite's default parser/subquery limits are not D1's limits. In particular,

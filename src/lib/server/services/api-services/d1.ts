@@ -76,13 +76,13 @@ export function createD1ApiServices(
     listDailyTotalsByPeriodId: (periodId) =>
       dailyTotalRepository.listByPeriodId(periodId),
     listHistoryByDate: (periodId, date) =>
-      budgetPeriodRepository
-        .findById(periodId)
+      dailyHistoryRepository
+        .listHistoriesByDateForExistingPeriod(date, periodId)
         .pipe(
-          Effect.flatMap((period) =>
-            period
-              ? dailyHistoryRepository.listHistoriesByDate(date, periodId)
-              : Effect.fail(new PeriodNotFoundError(periodId)),
+          Effect.flatMap((histories) =>
+            histories === null
+              ? Effect.fail(new PeriodNotFoundError(periodId))
+              : Effect.succeed(histories),
           ),
         ),
     nowIso: () => now().toISOString(),

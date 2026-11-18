@@ -7,16 +7,19 @@ import { budget_periods } from "#lib/server/db/schema.ts";
 
 type D1Database = DrizzleD1Database<typeof schema>;
 
+export function buildD1BudgetPeriodByIdQuery(database: D1Database, id: string) {
+  return database
+    .select()
+    .from(budget_periods)
+    .where(eq(budget_periods.id, id))
+    .limit(1);
+}
+
 export async function findD1BudgetPeriodById(
   database: D1Database,
   id: string,
 ): Promise<BudgetPeriodRecord | null> {
-  const [row] = await database
-    .select()
-    .from(budget_periods)
-    .where(eq(budget_periods.id, id))
-    .limit(1)
-    .all();
+  const [row] = await buildD1BudgetPeriodByIdQuery(database, id).all();
   return row ? toBudgetPeriodRecord(row) : null;
 }
 

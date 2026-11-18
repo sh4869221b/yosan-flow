@@ -37,7 +37,8 @@ function tryApplyRecursiveReplay(
   if (
     !normalizedSql.includes("with recursive") ||
     !normalizedSql.includes("update daily_operation_histories") ||
-    args.length < 4
+    !normalizedSql.includes("from replay") ||
+    args.length !== 2
   ) {
     return false;
   }
@@ -127,9 +128,9 @@ function tryApplyInsert(
   const operationType = args[3] === "overwrite" ? "overwrite" : "add";
   const inputYen = Number(args[4]);
   const total = state.dailyTotals.get(toDailyTotalKey(date, budgetPeriodId));
-  const computesTotalsFromDailyTotals =
-    normalizedSql.includes("select total_used_yen") &&
-    normalizedSql.includes("from daily_totals");
+  const computesTotalsFromDailyTotals = normalizedSql.includes(
+    "left join daily_totals",
+  );
   const beforeTotalYen = computesTotalsFromDailyTotals
     ? (total?.total_used_yen ?? 0)
     : Number(args[5]);
@@ -138,11 +139,7 @@ function tryApplyInsert(
       ? beforeTotalYen + inputYen
       : inputYen
     : Number(args[6]);
-  const memoIndex = computesTotalsFromDailyTotals
-    ? operationType === "add"
-      ? 10
-      : 8
-    : 7;
+  const memoIndex = computesTotalsFromDailyTotals ? 6 : 7;
   const createdAtIndex = memoIndex + 1;
 
   state.dailyOperationHistories.push({

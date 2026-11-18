@@ -72,6 +72,10 @@ export interface D1DailyHistoryRepository {
     date: string,
     budgetPeriodId: string,
   ): Effect.Effect<DailyHistoryRecord[], Error>;
+  listHistoriesByDateForExistingPeriod(
+    date: string,
+    budgetPeriodId: string,
+  ): Effect.Effect<DailyHistoryRecord[] | null, Error>;
   insertHistory(
     input: InsertDailyHistoryInput,
   ): Effect.Effect<DailyHistoryRecord, Error>;
