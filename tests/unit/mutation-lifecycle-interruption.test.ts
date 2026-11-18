@@ -34,11 +34,14 @@ it("cleans up an interrupted day-entry mutation lifecycle", async () => {
   lifecycle.beginModalSession();
 
   const fiber = Effect.runFork(
-    lifecycle.submitEffect({
-      date: "2026-07-12",
-      inputYen: 500,
-      memo: "pending",
-    }),
+    lifecycle.submitEffect(
+      {
+        date: "2026-07-12",
+        inputYen: 500,
+        memo: "pending",
+      },
+      "test-key",
+    ),
   );
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
   expect(saving).toBe(true);

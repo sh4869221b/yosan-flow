@@ -138,7 +138,7 @@ export function createInMemoryBudgetPeriodRepository(
             ...existing,
             startDate: input.startDate,
             endDate: input.endDate,
-            budgetYen: input.budgetYen,
+            budgetYen: input.budgetYen ?? existing.budgetYen,
             updatedAt: input.nowIso,
           };
 
@@ -167,6 +167,21 @@ export function createInMemoryBudgetPeriodRepository(
         },
         catch: toEffectError,
       });
+    },
+
+    updateBudget({ id, budgetYen, nowIso }) {
+      return linkedBoundaryContext.runSerializedEffect(() =>
+        Effect.try({
+          try: () => {
+            const existing = store.get(id);
+            if (!existing) throw new PeriodNotFoundError(id);
+            const updated = { ...existing, budgetYen, updatedAt: nowIso };
+            store.set(id, updated);
+            return clonePeriod(updated);
+          },
+          catch: toEffectError,
+        }),
+      );
     },
 
     updateLinkedBoundary(command) {

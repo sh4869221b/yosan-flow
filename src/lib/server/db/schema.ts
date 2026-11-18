@@ -85,6 +85,7 @@ export const daily_operation_histories = sqliteTable(
     after_total_yen: integer("after_total_yen").notNull(),
     memo: text("memo"),
     created_at: text("created_at").notNull(),
+    write_order: integer("write_order").notNull().default(0),
   },
   (table) => [
     index("idx_daily_histories_period_date_created_at").on(
@@ -110,6 +111,11 @@ export const daily_operation_histories = sqliteTable(
     ),
   ],
 );
+
+export const day_entry_receipts = sqliteTable("day_entry_receipts", {
+  key: text("key").primaryKey().notNull(),
+  fingerprint: text("fingerprint").notNull(),
+});
 
 export type BudgetPeriodRow = typeof budget_periods.$inferSelect;
 export type NewBudgetPeriodRow = typeof budget_periods.$inferInsert;

@@ -12,7 +12,7 @@ import {
   type InMemoryApiServices,
 } from "#lib/server/services/month-summary-service.ts";
 import {
-  parsePeriodId,
+  parsePeriodPathId,
   parseRequestBodyObject,
   toApiErrorResponse,
 } from "#lib/server/validation/month.ts";
@@ -27,9 +27,9 @@ export type PeriodRouteDependencies = {
 export function _createPeriodGetHandler(
   dependencies: PeriodRouteDependencies,
 ): RequestHandler {
-  return async ({ params }) => {
+  return async ({ params, request }) => {
     try {
-      const periodId = parsePeriodId(params.periodId);
+      const periodId = parsePeriodPathId(params.periodId, request);
       const summary = await runApiEffect(
         getPeriodSummaryFromServices(
           dependencies.services,
@@ -62,7 +62,7 @@ export function _createPeriodPutHandler(
       "period.update",
       async (context) => {
         try {
-          const periodId = parsePeriodId(params.periodId);
+          const periodId = parsePeriodPathId(params.periodId, request);
           const body = await runApiEffect(parseRequestBodyObject(request));
           const updateRequest = parsePeriodUpdateRequest(body);
           if (updateRequest.confirmation !== undefined) {

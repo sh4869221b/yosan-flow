@@ -207,10 +207,14 @@ export function createDayEntryControllerState(
         ? drafts.read(periodId, payload.date)
         : undefined;
       runClientEffect(
-        mutationLifecycle.submitEffect(payload, () => {
-          if (periodId)
-            drafts.clearSubmitted(periodId, payload.date, submitted);
-        }),
+        mutationLifecycle.submitEffect(
+          payload,
+          drafts.keyForSubmission(submitted),
+          () => {
+            if (periodId)
+              drafts.clearSubmitted(periodId, payload.date, submitted);
+          },
+        ),
       );
     },
   };

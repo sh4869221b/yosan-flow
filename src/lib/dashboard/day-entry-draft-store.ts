@@ -3,6 +3,7 @@ type Draft = {
   inputValue: number | null;
   memo: string;
   revision: number;
+  idempotencyKey?: string;
 };
 
 export function createDayEntryDraftStore() {
@@ -11,6 +12,10 @@ export function createDayEntryDraftStore() {
   const key = (periodId: string, date: string) =>
     JSON.stringify([periodId, date]);
   return {
+    keyForSubmission(draft: Draft | undefined): string {
+      if (draft === undefined) return crypto.randomUUID();
+      return (draft.idempotencyKey ??= crypto.randomUUID());
+    },
     read(periodId: string, date: string): Draft | undefined {
       return drafts.get(key(periodId, date));
     },

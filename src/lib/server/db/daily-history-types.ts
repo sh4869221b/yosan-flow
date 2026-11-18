@@ -63,11 +63,6 @@ export interface DailyHistoryRepository {
 }
 
 export interface D1DailyHistoryRepository {
-  hasHistoryById(input: {
-    budgetPeriodId: string;
-    date: string;
-    historyId: string;
-  }): Effect.Effect<boolean, Error>;
   listHistoriesByDate(
     date: string,
     budgetPeriodId: string,

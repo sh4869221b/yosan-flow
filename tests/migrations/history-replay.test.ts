@@ -76,7 +76,7 @@ function histories(db: DatabaseSync) {
     .prepare(
       `SELECT id, before_total_yen, after_total_yen
     FROM daily_operation_histories WHERE budget_period_id = 'target'
-      AND date = ? ORDER BY created_at, rowid`,
+      AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid), rowid`,
     )
     .all(date);
 }
@@ -202,10 +202,10 @@ describe("history replay totals against SQLite", () => {
     },
   );
 
-  it("orders different timestamps before rowid when selecting the final total", async () => {
+  it("uses persisted write order when selecting the final total", async () => {
     seed(db, false);
     db.prepare(
-      "UPDATE daily_operation_histories SET created_at = ? WHERE id = 'z-first'",
+      "UPDATE daily_operation_histories SET created_at = ?, write_order = 200 WHERE id = 'z-first'",
     ).run("2026-05-01T01:00:00.000Z");
     const writer = createD1DayEntryWriter({ db: createSqliteD1(db) });
     await runApiEffect(
@@ -250,7 +250,7 @@ describe("history replay totals against SQLite", () => {
       for (const id of nullIds) markLegacy.run(id);
       const beforeRows = db
         .prepare(
-          "SELECT rowid, id FROM daily_operation_histories WHERE budget_period_id = 'target' AND date = ? ORDER BY created_at, rowid",
+          "SELECT rowid, id FROM daily_operation_histories WHERE budget_period_id = 'target' AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid), rowid",
         )
         .all(date);
       const writer = createD1DayEntryWriter({ db: createSqliteD1(db) });
@@ -265,7 +265,7 @@ describe("history replay totals against SQLite", () => {
       );
       const rows = db
         .prepare(
-          "SELECT rowid, id, before_total_yen, after_total_yen FROM daily_operation_histories WHERE budget_period_id = 'target' AND date = ? ORDER BY created_at, rowid",
+          "SELECT rowid, id, before_total_yen, after_total_yen FROM daily_operation_histories WHERE budget_period_id = 'target' AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid), rowid",
         )
         .all(date);
       expect(rows.map(({ rowid, id }) => ({ rowid, id }))).toEqual(
@@ -309,13 +309,13 @@ describe("history replay totals against SQLite", () => {
     expect(
       sql.filter((query) => query.includes("WITH RECURSIVE")),
     ).toHaveLength(1);
-    expect(sql[3]).not.toContain("replay");
-    expect(sql[3]).toContain('from "daily_operation_histories"');
-    expect(sql[3]).toContain(
-      'where ("daily_operation_histories"."budget_period_id" = ? and "daily_operation_histories"."date" = ?)',
+    expect(sql[2]).not.toContain("replay");
+    expect(sql[2]).toContain('from "daily_operation_histories"');
+    expect(sql[2]).toContain(
+      '"daily_operation_histories"."budget_period_id" = ? and "daily_operation_histories"."date" = ?',
     );
-    expect(sql[3]).toContain(
-      'order by "daily_operation_histories"."created_at" desc, rowid desc',
+    expect(sql[2]).toContain(
+      'order by coalesce(nullif("daily_operation_histories"."write_order", 0), rowid) desc, rowid desc',
     );
   });
 
@@ -332,7 +332,7 @@ describe("history replay totals against SQLite", () => {
       }),
     );
     // The later overwrite absorbs the change. The last add is already correct.
-    expect(results[1]?.meta.changes).toBe(2);
+    expect(results[0]?.meta.changes).toBe(2);
     expect(histories(db)).toEqual([
       { id: "z-first", before_total_yen: 0, after_total_yen: 200 },
       { id: "m-middle", before_total_yen: 200, after_total_yen: 70 },

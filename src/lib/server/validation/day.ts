@@ -39,6 +39,19 @@ export type DayMutationInput = {
   memo: string | null;
 };
 
+export function parseDayEntryKey(request: Request): string | undefined {
+  const key = request.headers.get("idempotency-key");
+  if (key === null) return undefined;
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(key)) {
+    throw new ApiRouteError(
+      400,
+      "INVALID_DAY_ENTRY_KEY",
+      "支出の保存キーが不正です。",
+    );
+  }
+  return key;
+}
+
 export function parseDayMutationInput(
   request: Request,
 ): Effect.Effect<DayMutationInput, Error> {

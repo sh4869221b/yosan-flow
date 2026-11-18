@@ -40,12 +40,11 @@ export function queryDailyOperationHistories(
     const date = String(args[1]);
     return rows
       .filter((row) => row.budget_period_id === periodId && row.date === date)
-      .sort((left, right) => {
-        if (left.created_at === right.created_at) {
-          return right.rowid - left.rowid;
-        }
-        return right.created_at.localeCompare(left.created_at);
-      });
+      .sort(
+        (left, right) =>
+          (right.write_order || right.rowid) -
+            (left.write_order || left.rowid) || right.rowid - left.rowid,
+      );
   }
   if (
     normalizedSql.includes(

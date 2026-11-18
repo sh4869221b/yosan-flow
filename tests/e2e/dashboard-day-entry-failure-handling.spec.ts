@@ -167,3 +167,44 @@ test("shows history load error while keeping the day entry modal usable", async 
       .getByRole("button", { name: "支出を追加", exact: true }),
   ).toBeEnabled();
 });
+
+test("retries a lost save response once and accepts a 204 after commit", async ({
+  page,
+  request,
+}) => {
+  const { periodId, todayDate } = await seedCurrentPeriod(request);
+  await page.goto(`${getBaseUrl()}/?periodId=${periodId}`);
+  await waitForDashboardReady(page);
+
+  const keys: string[] = [];
+  const addPath = `/api/periods/${periodId}/days/${todayDate}/add`;
+  await page.route(`**${addPath}`, async (route) => {
+    keys.push(route.request().headers()["idempotency-key"]);
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    if (keys.length === 1) await route.abort("failed");
+    else await route.fulfill({ status: 204 });
+  });
+
+  const day = page.getByTestId(`calendar-day-${todayDate}`);
+  await day.click();
+  const modal = page.getByTestId("day-entry-modal");
+  const amount = modal.getByLabel("追加する支出額 (円)");
+  const save = modal.getByRole("button", { name: "支出を追加" });
+  await amount.fill("300");
+  await save.click();
+  await expect(modal.locator("#day-entry-save-error")).toBeVisible();
+  await expect(amount).toHaveValue("300");
+
+  await save.click();
+  await expect(modal).toBeHidden();
+  await expect(day.getByTestId(`used-${todayDate}`)).toHaveText("300 円");
+  expect(keys).toEqual([expect.any(String), keys[0]]);
+  expect(keys[0]).toBeTruthy();
+  const history = await request.get(
+    `${getBaseUrl()}/api/periods/${periodId}/days/${todayDate}/history`,
+  );
+  expect(await history.json()).toMatchObject({
+    histories: [{ inputYen: 300 }],
+  });
+});

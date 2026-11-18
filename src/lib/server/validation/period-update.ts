@@ -142,13 +142,26 @@ function parsePeriodBoundaryUpdateProposal(
 export function parsePeriodUpdateRequest(
   body: Readonly<Record<string, unknown>>,
 ): PeriodUpdateRequest {
+  if (
+    !("startDate" in body) &&
+    !("endDate" in body) &&
+    !("confirmation" in body) &&
+    "budgetYen" in body
+  ) {
+    return {
+      budgetYen: parseNonNegativeIntegerYen(body.budgetYen, "budgetYen"),
+    };
+  }
   const startDate = parseDate(
     typeof body.startDate === "string" ? body.startDate : undefined,
   );
   const endDate = parseDate(
     typeof body.endDate === "string" ? body.endDate : undefined,
   );
-  const budgetYen = parseNonNegativeIntegerYen(body.budgetYen, "budgetYen");
+  const budgetYen =
+    "budgetYen" in body
+      ? parseNonNegativeIntegerYen(body.budgetYen, "budgetYen")
+      : undefined;
   assertValidPeriodRange(startDate, endDate);
   if (!("confirmation" in body)) {
     return { startDate, endDate, budgetYen };

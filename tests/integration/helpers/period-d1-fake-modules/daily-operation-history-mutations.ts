@@ -38,16 +38,29 @@ function tryApplyRecursiveReplay(
     !normalizedSql.includes("with recursive") ||
     !normalizedSql.includes("update daily_operation_histories") ||
     !normalizedSql.includes("from replay") ||
-    args.length !== 2
+    args.length !== 9
   ) {
     return false;
   }
 
-  replayDailyHistoryRows(
-    String(args[0]),
-    String(args[1]),
-    state.dailyOperationHistories,
-  );
+  const [periodId, date, id] = args.slice(0, 3).map(String);
+  const target = findDailyOperationHistory(state.dailyOperationHistories, {
+    periodId,
+    date,
+    id,
+  });
+  const amount = args[3] === null ? null : Number(args[3]);
+  if (target && (amount === null || target.input_yen !== amount)) {
+    replayDailyHistoryRows(
+      periodId,
+      date,
+      state.dailyOperationHistories,
+      id,
+      amount,
+      args[6] === 1,
+    );
+  }
+
   return true;
 }
 
@@ -142,8 +155,18 @@ function tryApplyInsert(
   const memoIndex = computesTotalsFromDailyTotals ? 6 : 7;
   const createdAtIndex = memoIndex + 1;
 
+  const rowid = state.nextHistoryRowId();
+  const writeOrder = Math.max(
+    rowid,
+    ...state.dailyOperationHistories
+      .filter(
+        (row) => row.budget_period_id === budgetPeriodId && row.date === date,
+      )
+      .map((row) => (row.write_order ?? 0) + 1),
+  );
   state.dailyOperationHistories.push({
-    rowid: state.nextHistoryRowId(),
+    write_order: computesTotalsFromDailyTotals ? writeOrder : 0,
+    rowid,
     id,
     budget_period_id: budgetPeriodId,
     date,

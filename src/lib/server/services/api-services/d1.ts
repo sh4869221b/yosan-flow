@@ -26,7 +26,6 @@ export function createD1ApiServices(
     dailyHistoryRepository,
   } = repositories;
   const dayEntryService = createD1DayEntryService({
-    dailyHistoryRepository,
     budgetPeriodRepository,
     dayEntryWriter: repositories.dayEntryWriter,
     now,
@@ -36,7 +35,7 @@ export function createD1ApiServices(
     readonly id: string;
     readonly startDate: string;
     readonly endDate: string;
-    readonly budgetYen: number;
+    readonly budgetYen?: number;
   }) =>
     Effect.gen(function* () {
       yield* assertNoOutOfRangePeriodEntries(

@@ -22,6 +22,18 @@ export type D1DayEntryHistoryWriteInput = {
   createdAt: string;
 };
 
+export type DayEntryReceipt = {
+  readonly key: string;
+  readonly fingerprint: string;
+};
+
+export type D1DayEntryCommand = {
+  total: D1DayEntryTotalWriteInput;
+  history: D1DayEntryHistoryWriteInput;
+  mode: D1DayEntryWriteMode;
+  receipt?: DayEntryReceipt;
+};
+
 export type D1DayEntryReplayCommand =
   | {
       kind: "update";
@@ -43,12 +55,8 @@ export type D1DayEntryReplayCommand =
     };
 
 export interface D1DayEntryWriter {
-  writeDailyEntry(input: {
-    total: D1DayEntryTotalWriteInput;
-    history: D1DayEntryHistoryWriteInput;
-    mode: D1DayEntryWriteMode;
-  }): Effect.Effect<void, Error>;
+  writeDailyEntry(input: D1DayEntryCommand): Effect.Effect<void, Error>;
   writeHistoryReplay(
     input: D1DayEntryReplayCommand,
-  ): Effect.Effect<void, Error>;
+  ): Effect.Effect<boolean, Error>;
 }

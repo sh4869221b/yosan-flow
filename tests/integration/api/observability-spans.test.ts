@@ -309,10 +309,8 @@ describe("business spans around actual mutation work", () => {
     expect(log).not.toHaveBeenCalled();
     release.resolve();
     const response = await pending;
-    expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({
-      error: { code: "INTERNAL_ERROR" },
-    });
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe("");
     expect(write).toHaveBeenCalledOnce();
     expect(refresh).toHaveBeenCalledOnce();
     expect(
@@ -325,9 +323,8 @@ describe("business spans around actual mutation work", () => {
       [
         expect.objectContaining({
           operation: "day.add",
-          outcome: "unexpected_error",
-          error_code: "INTERNAL_ERROR",
-          status: 500,
+          outcome: "success",
+          status: 204,
         }),
       ],
     ]);

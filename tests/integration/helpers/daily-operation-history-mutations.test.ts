@@ -62,6 +62,7 @@ describe("applyDailyOperationHistoryMutation", () => {
       historyRow({
         rowid: 1,
         id: "first-add",
+        input_yen: 99,
         before_total_yen: -1,
         after_total_yen: -1,
         created_at: "2026-04-20T00:01:00.000Z",
@@ -90,7 +91,11 @@ describe("applyDailyOperationHistoryMutation", () => {
       }),
     );
 
-    applyDailyOperationHistoryMutation(REPLAY_SQL, [PERIOD_ID, DATE], state);
+    applyDailyOperationHistoryMutation(
+      REPLAY_SQL,
+      [PERIOD_ID, DATE, "first-add", 100, PERIOD_ID, DATE, 0, 100, 100],
+      state,
+    );
 
     expect(state.dailyOperationHistories).toMatchObject([
       { id: "later-add", before_total_yen: 100, after_total_yen: 150 },
@@ -188,14 +193,30 @@ describe("applyDailyOperationHistoryMutation", () => {
     );
 
     applySqlMutation(
-      UPDATE_SQL,
-      [200, "edited", PERIOD_ID, DATE, "history-a"],
+      REPLAY_SQL,
+      [PERIOD_ID, DATE, "history-a", 200, PERIOD_ID, DATE, 0, 200, 200],
       state,
     );
-    applySqlMutation(REPLAY_SQL, [PERIOD_ID, DATE], state);
     applySqlMutation(
-      "INSERT INTO daily_totals SELECT after_total_yen FROM daily_operation_histories WHERE budget_period_id = ? AND date = ? ORDER BY created_at DESC, rowid DESC LIMIT 1 ON CONFLICT (budget_period_id, date) DO UPDATE SET total_used_yen = excluded.total_used_yen",
-      [PERIOD_ID, DATE, "2026-04", "2026-04-20T00:12:00.000Z", PERIOD_ID, DATE],
+      "INSERT INTO daily_totals SELECT after_total_yen FROM daily_operation_histories WHERE budget_period_id = ? AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid) DESC, rowid DESC LIMIT ? ON CONFLICT (budget_period_id, date) DO UPDATE SET total_used_yen = excluded.total_used_yen",
+      [
+        PERIOD_ID,
+        DATE,
+        "2026-04",
+        "2026-04-20T00:12:00.000Z",
+        PERIOD_ID,
+        DATE,
+        PERIOD_ID,
+        DATE,
+        "history-a",
+        200,
+        1,
+      ],
+      state,
+    );
+    applySqlMutation(
+      UPDATE_SQL,
+      [200, "edited", PERIOD_ID, DATE, "history-a"],
       state,
     );
 

@@ -792,8 +792,8 @@ separate schema change. Do not treat snapshot equality as physical-schema equali
 2. Review and commit the SQL, corresponding snapshot and journal together. Check
    table recreation, copy/rename/drop operations, defaults, nullability, CHECKs,
    indexes (including DESC ordering), composite PKs, FKs and preservation of rows,
-   values and rowids. History replay uses `created_at ASC, rowid ASC`, so preserve
-   same-timestamp ordering during table copies. Custom SQL must preserve or
+   values and rowids. History replay uses the persisted per-day `write_order`. Preserve
+   it, along with any legacy rowids, during table copies. Custom SQL must preserve or
    deliberately reconcile schema metadata;
    use schema-generated SQL for representable DDL.
 3. Run `pnpm db:check`. This checks Drizzle metadata consistency, not live drift,

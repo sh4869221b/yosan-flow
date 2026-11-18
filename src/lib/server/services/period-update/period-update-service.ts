@@ -42,7 +42,7 @@ export type PeriodUpdateServiceDependencies = {
     readonly id: string;
     readonly startDate: string;
     readonly endDate: string;
-    readonly budgetYen: number;
+    readonly budgetYen?: number;
   }) => Effect.Effect<BudgetPeriodRecord, Error>;
   readonly assertNoOutOfRangeEntries: (
     periodId: string,
@@ -101,18 +101,21 @@ export function createPeriodUpdateService(
   request: PeriodUpdateRequest,
   tracing?: TracingAdapter,
 ) => Effect.Effect<PeriodUpdateServiceResult, Error> {
-  return (periodId, request, tracing = noopTracing) =>
-    Effect.gen(function* () {
-      const { budgetPeriodRepository } = dependencies;
-      const target = yield* budgetPeriodRepository.findById(periodId);
-      if (!target) {
-        return yield* Effect.fail(new PeriodNotFoundError(periodId));
-      }
-      const predecessorId = getEarlierBoundaryPredecessorId(target, request);
+  const budgetPeriodRepository = dependencies.budgetPeriodRepository;
+  function loadBoundaryInput(
+    target: BudgetPeriodRecord,
+    request: Extract<PeriodUpdateRequest, { startDate: string }>,
+  ) {
+    return Effect.gen(function* () {
+      const requested = {
+        ...request,
+        budgetYen: request.budgetYen ?? target.budgetYen,
+      };
+      const predecessorId = getEarlierBoundaryPredecessorId(target, requested);
       const successors =
         predecessorId === null && request.endDate !== target.endDate
           ? yield* budgetPeriodRepository.findSuccessorsByPredecessorId(
-              periodId,
+              target.id,
             )
           : [];
 
@@ -124,13 +127,27 @@ export function createPeriodUpdateService(
             predecessorId,
           )
         : [];
-      const boundaryInput = {
+      return {
         target,
         successors,
         predecessor,
         predecessorSuccessors,
-        requested: request,
+        requested,
       };
+    });
+  }
+
+  function updateRange(
+    periodId: string,
+    request: Extract<PeriodUpdateRequest, { startDate: string }>,
+    tracing: TracingAdapter,
+  ): Effect.Effect<PeriodUpdateServiceResult, Error> {
+    return Effect.gen(function* () {
+      const target = yield* budgetPeriodRepository.findById(periodId);
+      if (!target) {
+        return yield* Effect.fail(new PeriodNotFoundError(periodId));
+      }
+      const boundaryInput = yield* loadBoundaryInput(target, request);
       const confirmation = request.confirmation;
       if (confirmation !== undefined) {
         return yield* withTracingEffect<PeriodUpdateServiceResult>(
@@ -246,4 +263,17 @@ export function createPeriodUpdateService(
           );
       }
     });
+  }
+
+  return (periodId, request, tracing = noopTracing) => {
+    if (request.startDate !== undefined)
+      return updateRange(periodId, request, tracing);
+    return budgetPeriodRepository
+      .updateBudget({
+        id: periodId,
+        budgetYen: request.budgetYen,
+        nowIso: dependencies.nowIso(),
+      })
+      .pipe(Effect.map((period) => ({ kind: "updated", period })));
+  };
 }

@@ -29,6 +29,7 @@ function requestJsonEffect<T>(
   url: string,
   init: RequestInit | undefined,
   fallbackError: string,
+  noContent?: () => T,
 ): Effect.Effect<T, string> {
   return Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
@@ -40,6 +41,7 @@ function requestJsonEffect<T>(
         yield* parseApiErrorEffect(response, fallbackError),
       );
     }
+    if (response.status === 204 && noContent) return noContent();
     return yield* Effect.tryPromise<T, string>({
       try: () => response.json(),
       catch: () => fallbackError,
@@ -51,13 +53,14 @@ export function fetchJsonEffect<T>(
   url: string,
   init: RequestInit | undefined,
   fallbackError: string,
+  noContent?: () => T,
 ): Effect.Effect<T, string> {
   return Effect.suspend(() => {
     const method = init?.method?.toUpperCase() ?? "GET";
     // Read fibers can lose a modal-session race; mutations may still commit
     // after interruption and retain their existing caller-owned cancellation.
     if (method !== "GET" && method !== "HEAD") {
-      return requestJsonEffect<T>(url, init, fallbackError);
+      return requestJsonEffect<T>(url, init, fallbackError, noContent);
     }
 
     const controller = new AbortController();

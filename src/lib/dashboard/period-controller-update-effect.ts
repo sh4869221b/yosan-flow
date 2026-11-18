@@ -113,7 +113,11 @@ function openConfirmation(
     id === periodId ? request.revision : dependencies.summaryRevision.get(id);
   dependencies.confirmationState.open({
     proposal,
-    request: { ...payload, confirmation: proposal },
+    request: {
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      confirmation: proposal,
+    },
     ownership: {
       editedPeriodId: periodId,
       previousId,
@@ -164,7 +168,11 @@ export function createPeriodUpdateEffect(
         fetchPeriodUpdateEffect(
           periodSummaryUrl(periodId),
           {
-            body: JSON.stringify(payload),
+            body: JSON.stringify(
+              operation === "budget"
+                ? { budgetYen: payload.budgetYen }
+                : { startDate: payload.startDate, endDate: payload.endDate },
+            ),
             headers: { "content-type": "application/json" },
             method: "PUT",
           },

@@ -75,9 +75,9 @@ it.each([false, true])(
       `/api/periods/${targetPeriod.id}`,
     );
     expect(fetchMock.mock.lastCall?.[1]?.method).toBe("PUT");
-    expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toEqual(
-      payload,
-    );
+    expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toEqual({
+      budgetYen: payload.budgetYen,
+    });
     expect(controller.summary).toEqual(createSummary(0));
     expect(controller.budget.draft).toBe("13000");
     expect(controller.budget.serverError).not.toBeNull();
@@ -146,7 +146,6 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   expect(controller.periodInteractionDisabled).toBe(true);
   expect(revision.getMutationSequence(targetPeriod.id)).toBe(0);
   expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
-    budgetYen: targetPeriod.budgetYen,
     startDate: proposal.previous.after.startDate,
     endDate: proposal.previous.after.endDate,
   });
@@ -177,7 +176,6 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
     expect(controller.budget.draft).toBe("13000");
     expect(controller.range.success).toBe(false);
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
-      budgetYen: proposal.previous.after.budgetYen,
       confirmation: proposal,
       endDate: proposal.previous.after.endDate,
       startDate: proposal.previous.after.startDate,

@@ -80,5 +80,6 @@ export function toDailyOperationHistoryRawRow(
     row.after_total_yen,
     row.memo,
     row.created_at,
+    row.write_order ?? 0,
   ];
 }

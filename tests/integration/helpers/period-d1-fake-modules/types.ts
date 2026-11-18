@@ -28,4 +28,5 @@ export type DailyOperationHistoryRow = {
   after_total_yen: number;
   memo: string | null;
   created_at: string;
+  write_order?: number;
 };

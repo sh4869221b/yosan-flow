@@ -75,6 +75,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
 
   function submitEffect(
     payload: SubmitDayEntryPayload,
+    idempotencyKey: string,
     onAccepted: () => void = () => {},
   ): Effect.Effect<void, never> {
     const selectedPeriodId = dependencies.getSelectedPeriodId();
@@ -99,17 +100,21 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
             const summarySequence = submissionTracker.start(selectedPeriodId);
             let remainingSubmissions = 0;
             let submissionFinished = false;
-            const result = yield* fetchJsonEffect<PeriodSummary>(
+            const result = yield* fetchJsonEffect<PeriodSummary | null>(
               dayAddUrl(selectedPeriodId, submittedDate),
               {
                 body: JSON.stringify({
                   inputYen: payload.inputYen,
                   memo: payload.memo,
                 }),
-                headers: { "content-type": "application/json" },
+                headers: {
+                  "content-type": "application/json",
+                  "idempotency-key": idempotencyKey,
+                },
                 method: "POST",
               },
               "保存に失敗しました。",
+              () => null,
             ).pipe(
               Effect.result,
               Effect.onInterrupt(() =>
@@ -137,12 +142,13 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
               }
             } else {
               onAccepted();
-              submissionTracker.accept(
-                selectedPeriodId,
-                result.success,
-                mutationSequence,
-                dependencies.getHistoryMutationSequence(selectedPeriodId),
-              );
+              if (result.success !== null)
+                submissionTracker.accept(
+                  selectedPeriodId,
+                  result.success,
+                  mutationSequence,
+                  dependencies.getHistoryMutationSequence(selectedPeriodId),
+                );
             }
             const shouldRefreshHistory =
               result._tag === "Success" &&

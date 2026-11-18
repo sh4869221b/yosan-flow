@@ -27,7 +27,7 @@ export type UpdateBudgetPeriodInput = {
   id: string;
   startDate: string;
   endDate: string;
-  budgetYen: number;
+  budgetYen?: number;
   nowIso: string;
 };
 
@@ -115,6 +115,11 @@ export interface BudgetPeriodRepository {
   updatePeriod(
     input: UpdateBudgetPeriodInput,
   ): Effect.Effect<BudgetPeriodRecord, Error>;
+  updateBudget(input: {
+    id: string;
+    budgetYen: number;
+    nowIso: string;
+  }): Effect.Effect<BudgetPeriodRecord, Error>;
   updateLinkedBoundary(
     command: LinkedPeriodBoundaryUpdateCommand,
   ): Effect.Effect<LinkedPeriodBoundaryUpdateResult, Error>;

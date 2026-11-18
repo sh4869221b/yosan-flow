@@ -11,7 +11,7 @@ function sqliteHarness(start: string, end: string) {
   sqlite.exec(`
     CREATE TABLE budget_periods (id TEXT PRIMARY KEY, start_date TEXT, end_date TEXT);
     CREATE TABLE daily_totals (budget_period_id TEXT, date TEXT, year_month TEXT, total_used_yen INTEGER, updated_at TEXT, PRIMARY KEY (budget_period_id, date));
-    CREATE TABLE daily_operation_histories (id TEXT PRIMARY KEY, budget_period_id TEXT, date TEXT, operation_type TEXT, input_yen INTEGER, before_total_yen INTEGER, after_total_yen INTEGER, memo TEXT, created_at TEXT);
+    CREATE TABLE daily_operation_histories (id TEXT PRIMARY KEY, budget_period_id TEXT, date TEXT, operation_type TEXT, input_yen INTEGER, before_total_yen INTEGER, after_total_yen INTEGER, memo TEXT, created_at TEXT, write_order INTEGER NOT NULL DEFAULT 0);
   `);
   sqlite
     .prepare("INSERT INTO budget_periods VALUES (?, ?, ?)")

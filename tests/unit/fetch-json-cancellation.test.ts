@@ -183,7 +183,10 @@ it("aborts the post-save history read when the modal session changes", async () 
   });
   lifecycle.beginModalSession();
   const fiber = Effect.runFork(
-    lifecycle.submitEffect({ date: "2026-07-12", inputYen: 500, memo: "" }),
+    lifecycle.submitEffect(
+      { date: "2026-07-12", inputYen: 500, memo: "" },
+      "test-key",
+    ),
   );
   try {
     await vi.waitFor(() => expect(historySignal).toBeDefined());

@@ -24,7 +24,10 @@ test.beforeEach(async ({ request }) => {
   await resetTestData(request);
 });
 
-test("updates a seeded period budget", async ({ page, request }) => {
+test("updates only the budget when another request changes the range", async ({
+  page,
+  request,
+}) => {
   const today = getCurrentJstDate();
   const endDate = addDays(today, 29);
   const periodId = `p-budget-${today}`;
@@ -40,18 +43,51 @@ test("updates a seeded period budget", async ({ page, request }) => {
   await waitForDashboardReady(page);
   await page.getByText("期間の日付や予算を変更する").click();
   await page.getByLabel("期間予算 (円)").fill("150000");
+  const updatedEnd = addDays(endDate, 1);
+  const external = await request.put(
+    `${getBaseUrl()}/api/periods/${periodId}`,
+    {
+      data: { startDate: today, endDate: updatedEnd, budgetYen: 120000 },
+    },
+  );
+  expect(external.status()).toBe(200);
+  await expect(page.getByTestId("current-period-range-end")).toHaveValue(
+    endDate,
+  );
   const updateRequest = page.waitForRequest(
     (request) =>
       request.method() === "PUT" &&
       request.url() === `${getBaseUrl()}/api/periods/${periodId}`,
   );
   await page.getByRole("button", { name: "予算を保存" }).click();
-  expect((await updateRequest).postDataJSON()).toEqual({
-    budgetYen: 150000,
-    startDate: today,
-    endDate,
-  });
   await expect(page.getByTestId("budget-value")).toContainText("150,000");
+  const saved = await request.get(`${getBaseUrl()}/api/periods/${periodId}`);
+  expect(await saved.json()).toMatchObject({
+    endDate: updatedEnd,
+    budgetYen: 150000,
+  });
+  expect((await updateRequest).postDataJSON()).toEqual({ budgetYen: 150000 });
+
+  const rangeEnd = page.getByTestId("current-period-range-end");
+  await expect(rangeEnd).toHaveValue(updatedEnd);
+  const nextEnd = addDays(updatedEnd, 1);
+  await rangeEnd.fill(nextEnd);
+  const budgetUpdate = await request.put(
+    `${getBaseUrl()}/api/periods/${periodId}`,
+    {
+      data: { startDate: today, endDate: updatedEnd, budgetYen: 160000 },
+    },
+  );
+  expect(budgetUpdate.status()).toBe(200);
+  await page.getByTestId("current-period-range-apply").click();
+  await expect(page.getByTestId("budget-value")).toContainText("160,000");
+  const rangeSaved = await request.get(
+    `${getBaseUrl()}/api/periods/${periodId}`,
+  );
+  expect(await rangeSaved.json()).toMatchObject({
+    endDate: nextEnd,
+    budgetYen: 160000,
+  });
 });
 
 test("rejects malformed period budget values before requests", async ({
@@ -235,7 +271,7 @@ test("shows committed and draft budget and cancels without writing", async ({
   const updated = waitForUpdate(page, 200, budgetUrl);
   await save.click();
   await updated;
-  expect(writes).toEqual([{ budgetYen: 150000, startDate: today, endDate }]);
+  expect(writes).toEqual([{ budgetYen: 150000 }]);
   await expect(region.getByText("150,000 円", { exact: true })).toBeVisible();
   await expect(region.getByText("未保存の変更があります")).toHaveCount(0);
   await expect(save).toBeDisabled();

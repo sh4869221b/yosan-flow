@@ -19,7 +19,7 @@
 - Daily totals and histories are owned by `budget_period_id`; never query or mutate by date alone.
 - Same-day spending changes today's used/remaining values without recalculating today's bonus/adjustment.
 - Future periods expose no today allowance before their start date.
-- Replay histories oldest-to-newest within `(budget_period_id, date)`; deleting the last history removes its daily total.
+- Replay histories in persisted write order within `(budget_period_id, date)`; deleting the last history removes its daily total.
 
 ## Effect and Error Boundary
 
