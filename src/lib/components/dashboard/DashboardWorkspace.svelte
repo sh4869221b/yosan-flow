@@ -298,6 +298,21 @@
                 {daySaveSuccess.date} の支出を保存しました。
               </p>
             {/if}
+            {#if controller.daySummarySyncPending}
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <p role="alert" data-testid="day-entry-summary-unsynced">
+                  支出は保存済みです。表示中の集計はまだ更新されていません。
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={controller.daySummarySyncRefreshing}
+                  onclick={controller.retryDaySummarySync}
+                >
+                  集計を再取得
+                </Button>
+              </div>
+            {/if}
           {/key}
         </section>
       </Card.Content>

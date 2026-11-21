@@ -142,28 +142,26 @@ function applyBudgetPeriodUpdate(
   args: unknown[],
   state: PeriodAwareD1FakeState,
 ): BudgetPeriodRow[] | null {
-  if (normalizedSql.includes('update "budget_periods"') && args.length >= 5) {
-    const id = String(args[4]);
-    const existing = state.periods.get(id);
-    if (!existing) {
-      return [];
-    }
-    const row: BudgetPeriodRow = {
-      ...existing,
-      start_date: String(args[0]),
-      end_date: String(args[1]),
-      budget_yen: Number(args[2]),
-      updated_at: String(args[3]),
-    };
-    if (
-      normalizedSql.includes('"overlapping_period"') &&
-      !permitsOrdinaryWrite(row, state, true)
-    )
-      return [];
-    state.periods.set(id, row);
-    return [row];
-  }
-  return null;
+  if (!normalizedSql.startsWith('update "budget_periods"')) return null;
+  const assignments = [
+    ...normalizedSql
+      .split(" where ")[0]
+      .matchAll(/"(start_date|end_date|budget_yen|updated_at)" = \?/g),
+  ];
+  const id = String(args[assignments.length]);
+  const existing = state.periods.get(id);
+  if (!existing) return [];
+  const fields = Object.fromEntries(
+    assignments.map((match, index) => [match[1], args[index]]),
+  );
+  const row = { ...existing, ...fields };
+  if (
+    normalizedSql.includes('"overlapping_period"') &&
+    !permitsOrdinaryWrite(row, state, true)
+  )
+    return [];
+  state.periods.set(id, row);
+  return [row];
 }
 
 export function applyBudgetPeriodMutation(

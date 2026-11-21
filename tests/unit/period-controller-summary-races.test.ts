@@ -5,6 +5,7 @@ import {
   settled,
 } from "./period-controller-effect-fixture";
 import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
+import { createDayEntrySyncState } from "#lib/dashboard/day-entry-sync-state.svelte.ts";
 import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import type { PeriodSummary } from "#lib/dashboard/controller-types.ts";
@@ -122,6 +123,63 @@ it("reconciles a period PUT body captured before a newer summary", async () => {
   expect(controller.summary).toEqual(authoritativeSummary);
   expect(controller.budget.saving).toBe(false);
 });
+
+it.each(["queued", "changed summary", "newer warning"] as const)(
+  "synchronizes an accepted budget PUT only for the matching request snapshot (%s)",
+  async (scenario) => {
+    const sync = createDayEntrySyncState(() => period.id);
+    const revision = createPeriodSummaryRevision(sync.captureSummarySync);
+    const initial = createSummary(300);
+    const controller = createPeriodController(initial, revision);
+    const released = Promise.withResolvers<void>();
+    const started = Promise.withResolvers<void>();
+    const response = Promise.withResolvers<Response>();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === "PUT") {
+          started.resolve();
+          return response.promise;
+        }
+        return Promise.resolve(jsonResponse({}, 503));
+      }),
+    );
+
+    const blocker =
+      scenario === "queued"
+        ? Effect.runPromise(
+            revision.withMutationSlot(
+              period.id,
+              "add",
+              Effect.promise(() => released.promise),
+            ),
+          )
+        : undefined;
+    if (!blocker) sync.markPending(period.id, period.startDate);
+    controller.budget.draft = "12000";
+    controller.saveBudget();
+    if (blocker) {
+      sync.markPending(period.id, period.startDate);
+      revision.publish(initial, controller.setSummary);
+      released.resolve();
+      await settled(blocker);
+    }
+    await settled(started.promise);
+    if (scenario === "changed summary") {
+      revision.publish(
+        { ...initial, todayRecommendedYen: 600 },
+        controller.setSummary,
+      );
+    } else if (scenario === "newer warning") {
+      sync.markPending(period.id, period.startDate);
+    }
+    const updated = withBudget(initial, 12_000);
+    response.resolve(jsonResponse(updated));
+    await settled(executions[0]);
+    expect(controller.summary).toEqual(updated);
+    expect(sync.pending).toBe(scenario !== "queued");
+  },
+);
 
 it("keeps a later period PUT authoritative over an older add response", async () => {
   const addResponse = Promise.withResolvers<Response>();

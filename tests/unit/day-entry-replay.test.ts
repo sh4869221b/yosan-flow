@@ -20,7 +20,7 @@ function createHistory(
 }
 
 describe("replayDailyHistories", () => {
-  it("replays add histories in chronological order", () => {
+  it("replays add histories in persisted order even when capture times run backward", () => {
     const result = replayDailyHistories([
       createHistory({
         id: "h2",
@@ -36,8 +36,8 @@ describe("replayDailyHistories", () => {
 
     expect(result.finalTotalYen).toBe(3000);
     expect(result.histories).toMatchObject([
-      { id: "h1", beforeTotalYen: 0, afterTotalYen: 1000 },
-      { id: "h2", beforeTotalYen: 1000, afterTotalYen: 3000 },
+      { id: "h2", beforeTotalYen: 0, afterTotalYen: 2000 },
+      { id: "h1", beforeTotalYen: 2000, afterTotalYen: 3000 },
     ]);
   });
 

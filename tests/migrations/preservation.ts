@@ -17,10 +17,18 @@ export function legacyProjection(table: keyof typeof baseline.tables) {
   return `rowid, ${Object.keys(baseline.tables[table].columns).join(", ")}`;
 }
 
-export function preservedRows(db: DatabaseSync) {
+export function upgradedTable(table: (typeof legacyTables)[number]) {
+  return table === "daily_operation_histories"
+    ? "daily_operation_histories_v2"
+    : table;
+}
+
+export function preservedRows(db: DatabaseSync, upgraded = true) {
   return legacyTables.map((table) =>
     db
-      .prepare(`SELECT ${legacyProjection(table)} FROM ${table} ORDER BY rowid`)
+      .prepare(
+        `SELECT ${legacyProjection(table)} FROM ${upgraded ? upgradedTable(table) : table} ORDER BY rowid`,
+      )
       .all(),
   );
 }
@@ -33,7 +41,7 @@ export function verifyConstraints(db: DatabaseSync) {
     ],
     ["INSERT INTO daily_totals SELECT * FROM daily_totals LIMIT 1", "UNIQUE"],
     [
-      "INSERT INTO daily_operation_histories SELECT * FROM daily_operation_histories WHERE id IS NOT NULL LIMIT 1",
+      "INSERT INTO daily_operation_histories_v2 SELECT * FROM daily_operation_histories_v2 WHERE id IS NOT NULL LIMIT 1",
       "UNIQUE",
     ],
     [
@@ -45,7 +53,7 @@ export function verifyConstraints(db: DatabaseSync) {
       "FOREIGN KEY",
     ],
     [
-      "UPDATE daily_operation_histories SET budget_period_id = 'missing'",
+      "UPDATE daily_operation_histories_v2 SET budget_period_id = 'missing'",
       "FOREIGN KEY",
     ],
     ["UPDATE budget_periods SET budget_yen = -1", "CHECK"],
@@ -53,11 +61,11 @@ export function verifyConstraints(db: DatabaseSync) {
     ["UPDATE budget_periods SET end_date = '1900-01-01'", "CHECK"],
     ["UPDATE daily_totals SET total_used_yen = -1", "CHECK"],
     [
-      "UPDATE daily_operation_histories SET operation_type = 'invalid'",
+      "UPDATE daily_operation_histories_v2 SET operation_type = 'invalid'",
       "CHECK",
     ],
     ...["input_yen", "before_total_yen", "after_total_yen"].map((column) => [
-      `UPDATE daily_operation_histories SET ${column} = -1`,
+      `UPDATE daily_operation_histories_v2 SET ${column} = -1`,
       "CHECK",
     ]),
   ];

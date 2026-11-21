@@ -108,7 +108,7 @@ function captureUpdates(summary: PeriodSummary, failRange = false) {
   return { requests, starts, fetchMock };
 }
 
-it("budget uses committed range", async () => {
+it("budget sends only the amount", async () => {
   const { controller, summary } = createController();
   const { requests, starts } = captureUpdates(summary);
 
@@ -122,7 +122,7 @@ it("budget uses committed range", async () => {
     {
       url: periodUrl,
       method: "PUT",
-      body: { budgetYen: 130_000, ...committedRange },
+      body: { budgetYen: 130_000 },
     },
   ]);
   expect(controller.summary).toMatchObject({
@@ -165,12 +165,12 @@ it("failed range does not enter budget payload", async () => {
     {
       url: periodUrl,
       method: "PUT",
-      body: { budgetYen: 120_000, ...changedRange },
+      body: changedRange,
     },
     {
       url: periodUrl,
       method: "PUT",
-      body: { budgetYen: 130_000, ...committedRange },
+      body: { budgetYen: 130_000 },
     },
   ]);
 });
@@ -265,7 +265,7 @@ it("external setting change requires reset", async () => {
     {
       url: periodUrl,
       method: "PUT",
-      body: { budgetYen: 130_000, ...committedRange },
+      body: { budgetYen: 130_000 },
     },
   ]);
   expect(controller.budget.success).toBe(true);
@@ -561,10 +561,9 @@ it("adopts an own range save without erasing the dirty budget", async () => {
   controller.saveRange();
   await settled(started.promise);
   await settled(executions[0]);
-  expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
-    budgetYen: 120_000,
-    ...changedRange,
-  });
+  expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual(
+    changedRange,
+  );
   expect(controller.range.dirty).toBe(false);
   expect(controller.range.settingChanged).toBe(false);
   expect(controller.range.success).toBe(true);
@@ -668,7 +667,7 @@ it("requires a range reset after an accepted same-period settings GET", async ()
   controller.saveRange();
   await settled(submitted.promise);
   await settled(executions[1]);
-  expect(puts).toEqual([{ budgetYen: 140_000, ...changedRange }]);
+  expect(puts).toEqual([changedRange]);
   expect(controller.range.settingChanged).toBe(false);
   expect(controller.range.dirty).toBe(false);
   expect(controller.budget.draft).toBe("130000");
@@ -753,9 +752,7 @@ it.each(["budget", "range"] as const)(
     const summaryStarted = Promise.withResolvers<void>();
     const summaryResponse = Promise.withResolvers<Response>();
     const payload =
-      operation === "budget"
-        ? { budgetYen: 130_000, ...committedRange }
-        : { budgetYen: 120_000, ...changedRange };
+      operation === "budget" ? { budgetYen: 130_000 } : changedRange;
     const updated = { ...summary, ...payload };
     const requests: unknown[] = [];
     vi.stubGlobal(
@@ -966,9 +963,7 @@ it.each(["budget", "range"] as const)(
     const started = Promise.withResolvers<void>();
     const response = Promise.withResolvers<Response>();
     const payload =
-      operation === "budget"
-        ? { budgetYen: 130_000, ...committedRange }
-        : { budgetYen: 120_000, ...changedRange };
+      operation === "budget" ? { budgetYen: 130_000 } : changedRange;
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -1107,7 +1102,7 @@ it("rejects settings submissions while a selection is loading", async () => {
 });
 
 it.each(["budget", "range"] as const)(
-  "reserves queued %s and retains the accepted target and full payload",
+  "reserves queued %s and retains the accepted target and submitted fields",
   async (operation) => {
     const { controller, summary, revision } = createController();
     const slotStarted = Promise.withResolvers<void>();
@@ -1117,9 +1112,7 @@ it.each(["budget", "range"] as const)(
     const requests: Array<{ url: string; body: unknown }> = [];
     const other = { ...summary, periodId: "other", budgetYen: 140_000 };
     const payload =
-      operation === "budget"
-        ? { budgetYen: 130_000, ...committedRange }
-        : { budgetYen: 120_000, ...changedRange };
+      operation === "budget" ? { budgetYen: 130_000 } : changedRange;
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -1193,9 +1186,7 @@ it.each([
     const started = Promise.withResolvers<void>();
     const response = Promise.withResolvers<Response>();
     const payload =
-      operation === "budget"
-        ? { budgetYen: 130_000, ...committedRange }
-        : { budgetYen: 120_000, ...changedRange };
+      operation === "budget" ? { budgetYen: 130_000 } : changedRange;
     const spending = {
       ...summary,
       plannedTotalYen: 1_000,

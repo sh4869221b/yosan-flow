@@ -39,6 +39,26 @@ export type DayMutationInput = {
   memo: string | null;
 };
 
+export function parseDayEntryKey(request: Request, epoch: string): string {
+  const key = request.headers.get("idempotency-key");
+  const prefix = `${epoch}.`;
+  if (!key?.startsWith(prefix)) {
+    throw new ApiRouteError(
+      412,
+      "DAY_ENTRY_EPOCH_REQUIRED",
+      "以前の保存キーでは送信できません。履歴を確認してから、画面を読み直してください。",
+    );
+  }
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(key.slice(prefix.length))) {
+    throw new ApiRouteError(
+      400,
+      "INVALID_DAY_ENTRY_KEY",
+      "支出の保存キーが不正です。",
+    );
+  }
+  return key;
+}
+
 export function parseDayMutationInput(
   request: Request,
 ): Effect.Effect<DayMutationInput, Error> {

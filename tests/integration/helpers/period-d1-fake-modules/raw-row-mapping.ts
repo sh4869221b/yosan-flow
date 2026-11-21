@@ -65,7 +65,7 @@ export function toDailyOperationHistoryRawRow(
 ): unknown[] {
   const normalizedSql = sql.toLowerCase();
   if (
-    normalizedSql.startsWith('select "id" from "daily_operation_histories"')
+    normalizedSql.startsWith('select "id" from "daily_operation_histories_v2"')
   ) {
     return [row.id];
   }
@@ -80,5 +80,6 @@ export function toDailyOperationHistoryRawRow(
     row.after_total_yen,
     row.memo,
     row.created_at,
+    row.write_order ?? 0,
   ];
 }

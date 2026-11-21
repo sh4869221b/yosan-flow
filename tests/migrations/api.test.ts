@@ -21,6 +21,7 @@ import { readMigrations } from "./history";
 import {
   legacyProjection,
   legacyTables,
+  upgradedTable,
   preservedRows as rows,
 } from "./preservation";
 import { createSqliteD1 } from "./sqlite-d1";
@@ -37,6 +38,13 @@ async function request(
   body?: Record<string, unknown>,
 ) {
   cloudflareRuntime.env = { DB: db };
+  const headers = new Headers({ "content-type": "application/json" });
+  if (handler === addDay || handler === overwriteDay) {
+    const epoch = await db
+      .prepare("SELECT epoch FROM day_entry_cutover")
+      .first<string>("epoch");
+    headers.set("idempotency-key", `${epoch}.${crypto.randomUUID()}`);
+  }
   return handler(
     createRouteEvent({
       params,
@@ -45,7 +53,7 @@ async function request(
         ...(body === undefined
           ? {}
           : {
-              headers: { "content-type": "application/json" },
+              headers,
               body: JSON.stringify(body),
             }),
       }),
@@ -131,7 +139,7 @@ describe("public API against migrated SQLite", () => {
     expect(
       db
         .prepare(
-          "SELECT operation_type, before_total_yen, after_total_yen FROM daily_operation_histories ORDER BY rowid",
+          "SELECT operation_type, before_total_yen, after_total_yen FROM daily_operation_histories_v2 ORDER BY rowid",
         )
         .all(),
     ).toEqual([
@@ -150,7 +158,7 @@ describe("public API against migrated SQLite", () => {
     const migrations = readMigrations();
     applyMigrations(db, migrations.slice(0, 2));
     seedLegacy(db);
-    const before = rows(db);
+    const before = rows(db, false);
     applyMigrations(db, migrations);
     expect(rows(db)).toEqual(before);
     const d1 = createSqliteD1(db);
@@ -196,7 +204,7 @@ describe("public API against migrated SQLite", () => {
     expect(
       db
         .prepare(
-          "SELECT rowid, id FROM daily_operation_histories WHERE budget_period_id = ? ORDER BY rowid",
+          "SELECT rowid, id FROM daily_operation_histories_v2 WHERE budget_period_id = ? ORDER BY rowid",
         )
         .all(periodId),
     ).toEqual([
@@ -208,7 +216,7 @@ describe("public API against migrated SQLite", () => {
       expect(
         db
           .prepare(
-            `SELECT ${legacyProjection(table)} FROM ${table} WHERE ${key} = 'other-period' ORDER BY rowid`,
+            `SELECT ${legacyProjection(table)} FROM ${upgradedTable(table)} WHERE ${key} = 'other-period' ORDER BY rowid`,
           )
           .all(),
       ).toEqual(before[index].filter((row) => row[key] === "other-period"));
@@ -217,8 +225,9 @@ describe("public API against migrated SQLite", () => {
   });
 
   it("rolls back all SQLite writes when a later D1 batch statement fails", async () => {
-    applyMigrations(db, readMigrations());
+    applyMigrations(db, readMigrations().slice(0, 2));
     seedLegacy(db);
+    applyMigrations(db, readMigrations());
     const before = rows(db);
     const d1 = createSqliteD1(db);
     await expect(
@@ -229,7 +238,7 @@ describe("public API against migrated SQLite", () => {
           )
           .bind(periodId),
         d1.prepare(
-          "UPDATE daily_operation_histories SET input_yen = -1 WHERE id = 'z-first'",
+          "UPDATE daily_operation_histories_v2 SET input_yen = -1 WHERE id = 'z-first'",
         ),
       ]),
     ).rejects.toThrow(/CHECK constraint failed/);

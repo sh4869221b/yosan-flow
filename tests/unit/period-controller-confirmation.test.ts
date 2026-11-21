@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { expect, it, vi } from "vitest";
 import { fetchJsonEffect } from "#lib/dashboard/fetch-json.ts";
+import { createDayEntrySyncState } from "#lib/dashboard/day-entry-sync-state.svelte.ts";
 import { createPeriodUpdateEffect } from "#lib/dashboard/period-controller-update-effect.ts";
 import * as periodUpdateEffects from "#lib/dashboard/period-controller-update-effect.ts";
 import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
@@ -26,6 +27,63 @@ import {
 } from "./period-controller-confirmation-fixture";
 
 const executions = captureClientEffects();
+
+it.each(["current", "newer warning", "newer revision", "other period"])(
+  "acknowledges a confirmed period summary only for its current warning (%s)",
+  async (scenario) => {
+    let warningPeriodId = targetPeriod.id;
+    const sync = createDayEntrySyncState(() => warningPeriodId);
+    const revision = createPeriodSummaryRevision(sync.captureSummarySync);
+    const controller = createController(revision);
+    const confirmStarted = Promise.withResolvers<void>();
+    const confirmResponse = Promise.withResolvers<Response>();
+    const updated = {
+      ...updatedTargetSummary(),
+      plannedTotalYen: 300,
+      dailyRows: createSummary(300).dailyRows,
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        if (!JSON.parse(String(init.body)).confirmation)
+          return Promise.resolve(jsonResponse(confirmationBody, 409));
+        confirmStarted.resolve();
+        return confirmResponse.promise;
+      }
+      const response =
+        String(input) === "/api/periods"
+          ? jsonResponse({ periods: [targetPeriod, successorPeriod] })
+          : jsonResponse({}, 503);
+      return Promise.resolve(response);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    controller.range.edit(proposal.previous.after);
+    controller.saveRange();
+    await settled(executions[0]);
+    expect(controller.periodUpdateProposal).toEqual(proposal);
+
+    sync.markPending(targetPeriod.id, targetPeriod.startDate);
+    sync.markPending(successorPeriod.id, successorPeriod.startDate);
+    controller.confirmPeriodUpdate();
+    await settled(confirmStarted.promise);
+    if (scenario === "newer warning")
+      sync.markPending(targetPeriod.id, targetPeriod.startDate);
+    if (scenario === "newer revision") revision.advance(targetPeriod.id);
+    const response =
+      scenario === "other period"
+        ? forPeriod(updated, successorPeriod.id)
+        : updated;
+    confirmResponse.resolve(jsonResponse(response));
+    await settled(executions[1]);
+
+    expect(controller.summary).toEqual(
+      scenario === "other period" ? createSummary(0) : updated,
+    );
+    expect(controller.confirmation.result?.kind).toBe("error");
+    expect(sync.pending).toBe(scenario !== "current");
+    warningPeriodId = successorPeriod.id;
+    expect(sync.pending).toBe(true);
+  },
+);
 
 it.each([false, true])(
   "low-level budget confirmation outcome cannot own a range proposal (pending=%s)",
@@ -75,9 +133,9 @@ it.each([false, true])(
       `/api/periods/${targetPeriod.id}`,
     );
     expect(fetchMock.mock.lastCall?.[1]?.method).toBe("PUT");
-    expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toEqual(
-      payload,
-    );
+    expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toEqual({
+      budgetYen: payload.budgetYen,
+    });
     expect(controller.summary).toEqual(createSummary(0));
     expect(controller.budget.draft).toBe("13000");
     expect(controller.budget.serverError).not.toBeNull();
@@ -146,7 +204,6 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
   expect(controller.periodInteractionDisabled).toBe(true);
   expect(revision.getMutationSequence(targetPeriod.id)).toBe(0);
   expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
-    budgetYen: targetPeriod.budgetYen,
     startDate: proposal.previous.after.startDate,
     endDate: proposal.previous.after.endDate,
   });
@@ -177,7 +234,6 @@ it("opens, confirms once, and reconciles both period revisions", async () => {
     expect(controller.budget.draft).toBe("13000");
     expect(controller.range.success).toBe(false);
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
-      budgetYen: proposal.previous.after.budgetYen,
       confirmation: proposal,
       endDate: proposal.previous.after.endDate,
       startDate: proposal.previous.after.startDate,

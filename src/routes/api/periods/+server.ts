@@ -12,6 +12,7 @@ import {
 } from "#lib/server/services/month-summary-service.ts";
 import {
   parseNonNegativeIntegerYen,
+  parseNewPeriodId,
   parsePeriodId,
   parseRequestBodyObject,
   toApiErrorResponse,
@@ -32,7 +33,7 @@ export function _createPeriodsHandler(
       "period.create",
       async () => {
         const body = await runApiEffect(parseRequestBodyObject(request));
-        const id = parsePeriodId(body.id as string | undefined);
+        const id = parseNewPeriodId(body.id);
         const startDate = parseDate(body.startDate);
         const endDate = parseDate(body.endDate);
         const budgetYen = parseNonNegativeIntegerYen(
@@ -43,7 +44,7 @@ export function _createPeriodsHandler(
         const predecessorPeriodId =
           body.predecessorPeriodId == null
             ? null
-            : parsePeriodId(body.predecessorPeriodId as string);
+            : parsePeriodId(body.predecessorPeriodId);
 
         const period = await runApiEffect(
           dependencies.services.createPeriod({
@@ -66,8 +67,16 @@ export function _createPeriodsListHandler(
 ): RequestHandler {
   return async () => {
     try {
-      const periods = await runApiEffect(dependencies.services.listPeriods());
-      return json({ periods }, { headers: { "cache-control": "no-store" } });
+      const [periods, epoch] = await Promise.all([
+        runApiEffect(dependencies.services.listPeriods()),
+        runApiEffect(dependencies.services.getDayEntryEpoch()),
+      ]);
+      return json(
+        { periods },
+        {
+          headers: { "cache-control": "no-store", "day-entry-epoch": epoch },
+        },
+      );
     } catch (error) {
       return toApiErrorResponse(error);
     }

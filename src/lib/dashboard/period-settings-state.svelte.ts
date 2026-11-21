@@ -10,7 +10,7 @@ type RangeDraft = Readonly<{ startDate: string; endDate: string }>;
 export type PeriodSetting = "budget" | "range";
 export type PeriodSettingsSubmission = {
   readonly operation: PeriodSetting;
-  readonly payload: SavePeriodPayload;
+  readonly payload: RangeDraft & Pick<Partial<SavePeriodPayload>, "budgetYen">;
 };
 type Dependencies = {
   readonly getSummary: () => PeriodSummary | null;

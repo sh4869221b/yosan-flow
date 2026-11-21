@@ -49,65 +49,85 @@ export function applyDailyTotalMutation(
     return;
   }
 
-  if (normalizedSql.includes("delete from daily_totals")) {
-    const periodId = String(args[0]);
-    const date = String(args[1]);
-    const hasHistories = state.dailyOperationHistories.some(
-      (row) => row.budget_period_id === periodId && row.date === date,
-    );
-    if (!hasHistories) {
-      state.dailyTotals.delete(toDailyTotalKey(date, periodId));
-    }
+  if (normalizedSql.startsWith("delete from daily_totals")) {
+    deleteReplayedDailyTotal(args, state);
     return;
   }
+  if (args.length < 5) return;
 
-  if (args.length < 5) {
-    return;
-  }
-
-  const isReplayTotal =
-    normalizedSql.includes("from daily_operation_histories") &&
-    /order by (?:daily_operation_histories\.)?created_at desc, rowid desc/.test(
+  if (
+    /order by coalesce\(nullif\((?:daily_operation_histories_v2\.)?write_order, 0\), rowid\) desc, rowid desc/.test(
       normalizedSql,
-    );
-  const periodId = String(args[0]);
-  const date = String(args[1]);
-  const key = toDailyTotalKey(date, periodId);
-  const existing = state.dailyTotals.get(key);
-  const isAtomicAdd =
-    normalizedSql.includes(
-      '"daily_totals"."total_used_yen" + excluded.total_used_yen',
-    ) ||
-    normalizedSql.includes(
-      "daily_totals.total_used_yen + excluded.total_used_yen",
-    );
-  const lastHistory = isReplayTotal
-    ? state.dailyOperationHistories
-        .filter(
-          (row) =>
-            row.budget_period_id === String(args[4]) &&
-            row.date === String(args[5]),
-        )
-        .sort((left, right) =>
-          left.created_at === right.created_at
-            ? right.rowid - left.rowid
-            : right.created_at.localeCompare(left.created_at),
-        )[0]
-    : undefined;
-  if (isReplayTotal && !lastHistory) {
+    )
+  ) {
+    upsertReplayedDailyTotal(args, state, normalizedSql.includes("is null"));
     return;
   }
 
-  const row: DailyTotalRow = {
-    budget_period_id: periodId,
-    date,
-    year_month: String(args[2]),
-    total_used_yen: isReplayTotal
-      ? lastHistory!.after_total_yen
-      : isAtomicAdd && existing
-        ? existing.total_used_yen + Number(args[3])
-        : Number(args[3]),
-    updated_at: String(isReplayTotal ? args[3] : args[4]),
-  };
-  state.dailyTotals.set(key, row);
+  const [periodId, date, yearMonth, input, now] = args;
+  const key = toDailyTotalKey(String(date), String(periodId));
+  const previous = state.dailyTotals.get(key);
+  const isAdd = normalizedSql.includes(
+    "daily_totals.total_used_yen + excluded.total_used_yen",
+  );
+  state.dailyTotals.set(key, {
+    budget_period_id: String(periodId),
+    date: String(date),
+    year_month: String(yearMonth),
+    total_used_yen:
+      Number(input) + (isAdd ? (previous?.total_used_yen ?? 0) : 0),
+    updated_at: String(now),
+  });
+}
+
+function scopedHistories(
+  state: PeriodAwareD1FakeState,
+  periodId: unknown,
+  date: unknown,
+) {
+  return state.dailyOperationHistories.filter(
+    (row) => row.budget_period_id === periodId && row.date === date,
+  );
+}
+
+function deleteReplayedDailyTotal(
+  args: unknown[],
+  state: PeriodAwareD1FakeState,
+) {
+  const [periodId, date, , , target] = args;
+  const histories = scopedHistories(state, periodId, date);
+  const excludedId = args[7];
+  if (
+    histories.some((row) => row.id === target) &&
+    histories.every((row) => row.id === excludedId)
+  ) {
+    state.dailyTotals.delete(toDailyTotalKey(String(date), String(periodId)));
+  }
+}
+
+function upsertReplayedDailyTotal(
+  args: unknown[],
+  state: PeriodAwareD1FakeState,
+  deleting: boolean,
+) {
+  const [periodId, date, yearMonth, now] = args;
+  const histories = scopedHistories(state, periodId, date);
+  const targetId = deleting ? args[9] : args[8];
+  const target = histories.find((row) => row.id === targetId);
+  if (!target || (!deleting && target.input_yen === args[9])) return;
+  const last = histories
+    .filter((row) => !deleting || row.id !== targetId)
+    .sort(
+      (left, right) =>
+        (right.write_order || right.rowid) - (left.write_order || left.rowid) ||
+        right.rowid - left.rowid,
+    )[0];
+  if (!last) return;
+  state.dailyTotals.set(toDailyTotalKey(String(date), String(periodId)), {
+    budget_period_id: String(periodId),
+    date: String(date),
+    year_month: String(yearMonth),
+    total_used_yen: last.after_total_yen,
+    updated_at: String(now),
+  });
 }

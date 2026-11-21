@@ -85,6 +85,8 @@ shadcn-svelte 由来の共通部品を使います。760px 以下の日次入力
 
 期間の作成は日付と予算を入力して進めます。期間IDは開始日から自動設定され、必要な場合だけ「詳細設定（任意）」で変更できます。カレンダーの「今日へ戻る」は今日のセルへ移動してフォーカスします。支出の入力は開きません。今日が期間外の場合、このボタンは表示しません。
 
+期間 ID に `.` と `..` を新規指定すると HTTP 400 が返ります。既存の期間は引き続きダッシュボードから選択できます。API で参照するときはパスの期間 ID を `_legacy` にし、クエリに `legacyPeriodId=.` または `legacyPeriodId=..` を指定します。
+
 ## 今日の支出を追加
 
 ホームでは「今日あと使える金額」を先頭に表示します。今日が選択中の予算期間に含まれるときは、そのすぐ下の「今日の支出を追加」から入力できます。入力を閉じると、このボタンにフォーカスが戻ります。
@@ -102,6 +104,8 @@ shadcn-svelte 由来の共通部品を使います。760px 以下の日次入力
 ## 支出入力の試算
 
 「追加する支出額」は現在の日計に加算されます。金額・メモの下で「現在＋今回の追加＝日計」を確認し、「支出を追加」で保存します。「期間残額・推奨予算を確認」を開くと、期間全体の試算を確認できます。
+
+追加・上書き API の保存には `Idempotency-Key` が必要です。`GET /api/periods` の `Day-Entry-Epoch` と保存ごとの乱数をドットで連結します。同じキーと入力の再送は元の保存を再適用しません。現在の epoch を持たないキーは HTTP 412、同じキーで別の支出を送ると HTTP 409 が返ります。保存後に集計だけ取得できなかった場合は HTTP 204 で保存成功を返します。表示が未同期のときはダッシュボードの「集計を再取得」で表示を更新できます。移行と配備の順序は [支出履歴の切り替え手順](tooling/database/day-entry-cutover.md) を参照してください。
 
 ## スマートフォンでの画面復帰
 
@@ -215,10 +219,11 @@ pnpm test:coverage
 preview は専用 D1 `yosan-flow-preview` と `yosan-preview.sh4869221b.work` を使用します。UUID と custom domain は `wrangler.jsonc` の `env.preview` に設定されています。
 
 1. 配備前に preview ホストの専用 Cloudflare Access アプリが production と同じ限定された許可対象を持つことを確認する
-2. `pnpm run cf:migrate:preview`
-3. `pnpm build`
-4. `pnpm run deploy:preview`
-5. preview ホストで未認証アクセスが Access に転送または拒否され、認証後にアプリへ到達できることを確認する
+2. `verify_history_and_fence_writers` が未適用なら、移行コマンドを実行する前に切り替え手順の適用前確認を完了する。[支出履歴の切り替え手順](tooling/database/day-entry-cutover.md)
+3. `pnpm run cf:migrate:preview`
+4. `pnpm build`
+5. `pnpm run deploy:preview`
+6. preview ホストで未認証アクセスが Access に転送または拒否され、認証後にアプリへ到達できることを確認する
 
 ### PRごとの公開Preview
 
@@ -228,10 +233,11 @@ Issue #544 のPR専用Worker Preview / D1自動化は[運用手順](tooling/ci/p
 ### production
 
 1. production 用 D1 を作成して `wrangler.jsonc` の `env.production.d1_databases[0].database_id` を実 UUID に置き換える
-2. `pnpm run cf:migrate:production`
-3. `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build && pnpm test:e2e`
-4. `pnpm run deploy:production`
-5. production ホストが Cloudflare Access 保護対象であることを確認
+2. `verify_history_and_fence_writers` が未適用なら、移行コマンドを実行する前に切り替え手順の適用前確認を完了する。[支出履歴の切り替え手順](tooling/database/day-entry-cutover.md)
+3. `pnpm run cf:migrate:production`
+4. `pnpm format:check && pnpm lint && pnpm check && pnpm test:unit && pnpm test:integration && pnpm build && pnpm test:e2e`
+5. `pnpm run deploy:production`
+6. production ホストが Cloudflare Access 保護対象であることを確認
 
 ## Cloudflare Access 保護メモ
 

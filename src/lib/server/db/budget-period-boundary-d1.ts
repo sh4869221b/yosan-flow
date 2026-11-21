@@ -28,7 +28,7 @@ import type * as schema from "#lib/server/db/schema.ts";
 import {
   budget_periods,
   daily_totals,
-  daily_operation_histories,
+  daily_operation_histories_v2,
 } from "#lib/server/db/schema.ts";
 
 type D1Database = DrizzleD1Database<typeof schema>;
@@ -76,7 +76,7 @@ function buildGlobalPredicate(database: D1Database, payload: SQL<string>) {
   const thirdPeriod = alias(budget_periods, "third_period");
   const displacedTotal = alias(daily_totals, "displaced_total");
   const displacedHistory = alias(
-    daily_operation_histories,
+    daily_operation_histories_v2,
     "displaced_history",
   );
   const targetId = jsonField(payload, "target.before.id");

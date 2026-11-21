@@ -23,6 +23,7 @@
         "scripts/e2e-container-prepare.ts",
         "scripts/e2e-container-smoke.ts",
         "scripts/e2e-font.ts",
+        "scripts/day-entry-cutover-diagnostics.ts",
       ],
       "entryPointRole": "support",
       "usedExports": [

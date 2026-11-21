@@ -16,7 +16,7 @@ import {
   parseDayMutationInput,
   parseHistoryId,
 } from "#lib/server/validation/day.ts";
-import { parsePeriodId } from "#lib/server/validation/month.ts";
+import { parsePeriodPathId } from "#lib/server/validation/month.ts";
 
 export type PeriodDayHistoryMutationRouteDependencies = {
   services: InMemoryApiServices;
@@ -50,7 +50,7 @@ export function _createPeriodDayHistoryMutationHandler(
       runMutationResponse(
         "history.update",
         async () => {
-          const periodId = parsePeriodId(params.periodId);
+          const periodId = parsePeriodPathId(params.periodId, request);
           const date = parseDate(params.date);
           const historyId = parseHistoryId(params.historyId);
           const input = await runApiEffect(parseDayMutationInput(request));
@@ -77,11 +77,11 @@ export function _createPeriodDayHistoryMutationHandler(
         dependencies.tracing,
       ),
 
-    DELETE: async ({ params }) =>
+    DELETE: async ({ params, request }) =>
       runMutationResponse(
         "history.delete",
         async () => {
-          const periodId = parsePeriodId(params.periodId);
+          const periodId = parsePeriodPathId(params.periodId, request);
           const date = parseDate(params.date);
           const historyId = parseHistoryId(params.historyId);
 

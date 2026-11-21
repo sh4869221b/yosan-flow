@@ -319,7 +319,13 @@ it.each(["budget", "range"] as const)(
       expect(publishSummary).not.toHaveBeenCalled();
       expect(requests[1]).toEqual({
         url: "/api/periods/period-1",
-        body: acceptedPayload,
+        body:
+          newOperation === "budget"
+            ? { budgetYen: acceptedPayload.budgetYen }
+            : {
+                startDate: acceptedPayload.startDate,
+                endDate: acceptedPayload.endDate,
+              },
       });
     } finally {
       firstResponse.resolve(

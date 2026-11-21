@@ -6,7 +6,7 @@ import {
 } from "#lib/server/services/month-summary-service.ts";
 import { parseDate } from "#lib/server/validation/day.ts";
 import {
-  parsePeriodId,
+  parsePeriodPathId,
   toApiErrorResponse,
 } from "#lib/server/validation/month.ts";
 
@@ -17,9 +17,9 @@ export type PeriodDayHistoryRouteDependencies = {
 export function _createPeriodDayHistoryHandler(
   dependencies: PeriodDayHistoryRouteDependencies,
 ): RequestHandler {
-  return async ({ params }) => {
+  return async ({ params, request }) => {
     try {
-      const periodId = parsePeriodId(params.periodId);
+      const periodId = parsePeriodPathId(params.periodId, request);
       const date = parseDate(params.date);
       const histories = await runApiEffect(
         dependencies.services.listHistoryByDate(periodId, date),

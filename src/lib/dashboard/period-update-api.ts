@@ -36,7 +36,7 @@ export type PeriodBoundaryUpdateProposal = {
 export type PeriodUpdateRequest = {
   readonly startDate: string;
   readonly endDate: string;
-  readonly budgetYen: number;
+  readonly budgetYen?: number;
 };
 
 export type PeriodUpdateConfirmationRequest = PeriodUpdateRequest & {

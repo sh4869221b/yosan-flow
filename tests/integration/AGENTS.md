@@ -15,7 +15,7 @@
 
 - Entry point is `helpers/period-d1-fake.ts`; implementation lives in `helpers/period-d1-fake-modules/`.
 - The fake recognizes Drizzle/raw SQL fragments, bind argument positions, and raw column order. Repository/query changes must update the fake and its focused tests together.
-- State keys include period ownership; history order is `created_at` then synthetic `rowid`.
+- State keys include period ownership; history order is persisted `write_order` with a synthetic `rowid` tie breaker.
 - `batch()` snapshots state and restores it on failure to model atomic rollback.
 - Unknown SQL shapes should fail explicitly or gain a deliberate dispatcher branch; do not silently return an empty success.
 

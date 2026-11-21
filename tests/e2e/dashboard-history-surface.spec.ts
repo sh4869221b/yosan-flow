@@ -1,3 +1,4 @@
+import { postDayAdd } from "./helpers/db";
 import {
   expect,
   test,
@@ -20,7 +21,8 @@ async function seedHistory(
   date: string,
   memo: string,
 ): Promise<void> {
-  const response = await request.post(
+  const response = await postDayAdd(
+    request,
     `${getBaseUrl()}/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(date)}/add`,
     { data: { inputYen: 1_200, memo } },
   );
@@ -219,7 +221,8 @@ test("loads a readable history row with wrapping memo", async ({
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   const memo =
     "週末用のまとめ買いとして野菜、肉、魚、調味料、冷凍食品、飲み物を記録した長いメモです。";
-  const response = await request.post(
+  const response = await postDayAdd(
+    request,
     `${getBaseUrl()}/api/periods/${encodeURIComponent(periodId)}/days/${encodeURIComponent(todayDate)}/add`,
     { data: { inputYen: 1_200, memo } },
   );

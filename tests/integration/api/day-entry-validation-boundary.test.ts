@@ -2,7 +2,6 @@ import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import * as dailyEntry from "#lib/server/domain/daily-entry.ts";
 import type { BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
-import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-repository.ts";
 import type { D1DayEntryWriter } from "#lib/server/db/day-entry-writer.ts";
 import { createD1DayEntryService } from "#lib/server/services/api-services/day-entry-command-service.ts";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
@@ -64,12 +63,9 @@ describe("day entry validation boundary", () => {
               endDate: "2026-05-19",
             }),
         } as unknown as BudgetPeriodRepository,
-        dailyHistoryRepository: {
-          hasHistoryById: () => Effect.succeed(true),
-        } as unknown as D1DailyHistoryRepository,
         dayEntryWriter: {
           writeDailyEntry: () => Effect.void,
-          writeHistoryReplay: () => Effect.void,
+          writeHistoryReplay: () => Effect.succeed(true),
         } as unknown as D1DayEntryWriter,
         now: () => new Date("2026-04-20T00:00:00.000Z"),
         createHistoryId: () => "history",

@@ -1,4 +1,4 @@
-import { Deferred, Effect } from "effect";
+import { Deferred, Effect, Equal } from "effect";
 import { dayAddUrl } from "#lib/dashboard/api-urls.ts";
 import type {
   DailyRow,
@@ -18,6 +18,7 @@ import {
 import type { SubmitDayEntryPayload } from "#lib/dashboard/types.ts";
 
 type Dependencies = {
+  readonly captureSummarySync: (_periodId: string) => (() => void) | undefined;
   readonly cancelHistoryLoad?: (_periodId: string, _date: string) => void;
   readonly closeModal: (_reason: DayEntryCloseReason) => void;
   readonly getHistoryMutationSequence: (_periodId: string) => number;
@@ -27,6 +28,7 @@ type Dependencies = {
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary: () => PeriodSummary | null;
   readonly loadHistoryEffect: (_date: string) => Effect.Effect<void, never>;
+  readonly markPending: (_periodId: string, _date: string) => void;
   readonly publishSaveSuccess: (_success: DaySaveSuccess) => void;
   readonly setError: (_error: string | null) => void;
   readonly setSaving: (_saving: boolean) => void;
@@ -42,6 +44,7 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
     dependencies.summaryRevision,
   );
   const reconcileSummaryEffect = createDayEntrySummaryReconciliation({
+    captureSummarySync: dependencies.captureSummarySync,
     getHistoryMutationSequence: dependencies.getHistoryMutationSequence,
     getSelectedDate: dependencies.getSelectedDate,
     getSelectedPeriodId: dependencies.getSelectedPeriodId,
@@ -53,28 +56,36 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
 
   function publishBestSummary(
     periodId: string,
-    bestSummary: PeriodSummary | null,
+    best: ReturnType<typeof submissionTracker.getBest>,
   ): void {
     const currentSummary = dependencies.getSummary();
     if (
       dependencies.getSelectedPeriodId() !== periodId ||
-      bestSummary == null ||
-      !summaryConfigurationMatches(bestSummary, currentSummary)
+      best == null ||
+      !summaryConfigurationMatches(best.summary, currentSummary)
     )
       return;
-    const mergedSummary = mergeAddedSummary(bestSummary, currentSummary);
-    if (mergedSummary === currentSummary) return;
-    dependencies.summaryRevision.publish(
-      mergedSummary,
-      dependencies.setSummary,
-    );
-    dependencies.setSelectedRow(
-      findSummaryRow(mergedSummary, dependencies.getSelectedDate()),
-    );
+    const mergedSummary = mergeAddedSummary(best.summary, currentSummary);
+    if (mergedSummary !== currentSummary) {
+      dependencies.summaryRevision.publish(
+        mergedSummary,
+        dependencies.setSummary,
+      );
+      dependencies.setSelectedRow(
+        findSummaryRow(mergedSummary, dependencies.getSelectedDate()),
+      );
+    }
+    if (
+      best.acceptSummaries.length &&
+      Equal.equals(mergedSummary, best.summary)
+    ) {
+      for (const acceptSummary of best.acceptSummaries) acceptSummary();
+    }
   }
 
   function submitEffect(
     payload: SubmitDayEntryPayload,
+    idempotencyKey: string,
     onAccepted: () => void = () => {},
   ): Effect.Effect<void, never> {
     const selectedPeriodId = dependencies.getSelectedPeriodId();
@@ -99,17 +110,23 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
             const summarySequence = submissionTracker.start(selectedPeriodId);
             let remainingSubmissions = 0;
             let submissionFinished = false;
-            const result = yield* fetchJsonEffect<PeriodSummary>(
+            const acceptSummary =
+              dependencies.captureSummarySync(selectedPeriodId);
+            const result = yield* fetchJsonEffect<PeriodSummary | null>(
               dayAddUrl(selectedPeriodId, submittedDate),
               {
                 body: JSON.stringify({
                   inputYen: payload.inputYen,
                   memo: payload.memo,
                 }),
-                headers: { "content-type": "application/json" },
+                headers: {
+                  "content-type": "application/json",
+                  "idempotency-key": idempotencyKey,
+                },
                 method: "POST",
               },
               "保存に失敗しました。",
+              () => null,
             ).pipe(
               Effect.result,
               Effect.onInterrupt(() =>
@@ -137,12 +154,17 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
               }
             } else {
               onAccepted();
-              submissionTracker.accept(
-                selectedPeriodId,
-                result.success,
-                mutationSequence,
-                dependencies.getHistoryMutationSequence(selectedPeriodId),
-              );
+              if (result.success === null) {
+                dependencies.markPending(selectedPeriodId, submittedDate);
+              } else {
+                submissionTracker.accept(
+                  selectedPeriodId,
+                  result.success,
+                  mutationSequence,
+                  dependencies.getHistoryMutationSequence(selectedPeriodId),
+                  acceptSummary,
+                );
+              }
             }
             const shouldRefreshHistory =
               result._tag === "Success" &&
@@ -219,5 +241,6 @@ export function createDayEntryMutationLifecycle(dependencies: Dependencies) {
       dependencies.setSaving(false);
     },
     submitEffect,
+    reconcileSummaryEffect,
   };
 }

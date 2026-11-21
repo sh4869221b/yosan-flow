@@ -42,7 +42,7 @@ test.describe("independent period operations", () => {
     await openSettings(page);
   });
 
-  test("B1 saves the committed budget when range is applied with a dirty budget", async ({
+  test("B1 keeps the committed budget when range is applied with a dirty budget", async ({
     page,
   }) => {
     // Given: both settings have distinct unsaved values.
@@ -54,10 +54,7 @@ test.describe("independent period operations", () => {
     const response = await updated;
 
     // Then: only the range is committed and the budget draft survives GET.
-    expect(response.request().postDataJSON()).toEqual({
-      budgetYen: 120000,
-      ...changedRange,
-    });
+    expect(response.request().postDataJSON()).toEqual(changedRange);
     await expect(
       page.getByText("期間: 2026-09-02 - 2026-09-29", { exact: true }),
     ).toBeVisible();
@@ -93,13 +90,7 @@ test.describe("independent period operations", () => {
       const failed = waitForUpdate(page, 500);
       await (budgetFailure ? ui.budget : ui.range).click();
       expect((await failed).request().postDataJSON()).toEqual(
-        budgetFailure
-          ? {
-              budgetYen: 130000,
-              startDate: period.startDate,
-              endDate: period.endDate,
-            }
-          : { budgetYen: 120000, ...changedRange },
+        budgetFailure ? { budgetYen: 130000 } : changedRange,
       );
       await expectFailureLocal(page, budgetFailure);
       await expect(page.getByLabel("期間予算 (円)")).toHaveValue("130000");
@@ -117,13 +108,7 @@ test.describe("independent period operations", () => {
 
       // Then: its PUT excludes the failed setting and preserves local feedback.
       expect(response.request().postDataJSON()).toEqual(
-        budgetFailure
-          ? { budgetYen: 120000, ...changedRange }
-          : {
-              budgetYen: 130000,
-              startDate: period.startDate,
-              endDate: period.endDate,
-            },
+        budgetFailure ? changedRange : { budgetYen: 130000 },
       );
       expect(putCount).toBe(2);
       await expectFailureLocal(page, budgetFailure);
@@ -218,7 +203,6 @@ for (const confirm of [false, true]) {
       }
     });
     const payload = {
-      budgetYen: 120000,
       startDate: target.startDate,
       endDate: "2026-07-21",
     };

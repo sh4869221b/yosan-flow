@@ -3,6 +3,7 @@ import { createDayEntryDraftStore } from "#lib/dashboard/day-entry-draft-store.t
 import { Effect } from "effect";
 import { runClientEffect } from "#lib/dashboard/client-effect.ts";
 import { createDayEntryMutationLifecycle } from "#lib/dashboard/day-entry-mutation-lifecycle.ts";
+import { createDayEntrySyncState } from "#lib/dashboard/day-entry-sync-state.svelte.ts";
 import { findSummaryRow } from "#lib/dashboard/summary-rows.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
@@ -30,6 +31,7 @@ type HistoryController = {
 type DayEntryControllerDependencies = {
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary: () => PeriodSummary | null;
+  readonly getDayEntryEpoch?: () => string | undefined;
   readonly historyController: HistoryController;
   readonly setSummary: (_summary: PeriodSummary) => void;
 };
@@ -37,6 +39,7 @@ type DayEntryControllerDependencies = {
 export function createDayEntryControllerState(
   dependencies: DayEntryControllerDependencies,
   summaryRevision = createPeriodSummaryRevision(),
+  summarySync = createDayEntrySyncState(dependencies.getSelectedPeriodId),
 ) {
   const drafts = createDayEntryDraftStore();
   let draftPeriodId: string | null = null;
@@ -52,6 +55,7 @@ export function createDayEntryControllerState(
   let dayEntryCloseReason = $state<DayEntryCloseReason | null>(null);
   let daySelectionSequence = 0;
   const mutationLifecycle = createDayEntryMutationLifecycle({
+    captureSummarySync: summarySync.captureSummarySync,
     cancelHistoryLoad: dependencies.historyController.cancelHistoryLoad,
     closeModal: closeDayEntry,
     getHistoryMutationSequence:
@@ -62,6 +66,7 @@ export function createDayEntryControllerState(
     getSelectedPeriodId: dependencies.getSelectedPeriodId,
     getSummary: dependencies.getSummary,
     loadHistoryEffect: dependencies.historyController.loadHistoryEffect,
+    markPending: summarySync.markPending,
     publishSaveSuccess: (success) => {
       daySaveSuccess = success;
     },
@@ -123,6 +128,15 @@ export function createDayEntryControllerState(
   }
 
   return {
+    get summarySyncPending() {
+      return summarySync.pending;
+    },
+    get summarySyncRefreshing() {
+      return summarySync.refreshing;
+    },
+    retrySummarySync(): void {
+      summarySync.retry(mutationLifecycle.reconcileSummaryEffect);
+    },
     get modalOpen() {
       return modalOpen;
     },
@@ -206,11 +220,21 @@ export function createDayEntryControllerState(
       const submitted = periodId
         ? drafts.read(periodId, payload.date)
         : undefined;
+      const epoch = dependencies.getDayEntryEpoch?.();
+      if (dependencies.getDayEntryEpoch && !epoch) {
+        modalError =
+          "保存の準備ができていません。履歴を確認してから、画面を読み直してください。";
+        return;
+      }
       runClientEffect(
-        mutationLifecycle.submitEffect(payload, () => {
-          if (periodId)
-            drafts.clearSubmitted(periodId, payload.date, submitted);
-        }),
+        mutationLifecycle.submitEffect(
+          payload,
+          drafts.keyForSubmission(submitted, epoch),
+          () => {
+            if (periodId)
+              drafts.clearSubmitted(periodId, payload.date, submitted);
+          },
+        ),
       );
     },
   };

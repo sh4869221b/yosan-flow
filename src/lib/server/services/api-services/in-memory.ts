@@ -20,6 +20,12 @@ import {
 } from "#lib/server/services/day-entry-service.ts";
 import { createPeriodUpdateService } from "#lib/server/services/period-update/period-update-service.ts";
 import { getJstDateParts } from "#lib/server/time/jst-format.ts";
+import { DayEntryReceiptConflictError } from "#lib/server/services/day-entry/errors.ts";
+import {
+  dayEntryFingerprint,
+  type DayEntryCommand,
+} from "#lib/server/services/day-entry/receipt.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import type {
   CreateInMemoryApiServicesInput,
   InMemoryApiServicesWithInternals,
@@ -69,6 +75,34 @@ export function createInMemoryApiServices(
     createHistoryId: input.createHistoryId,
   });
 
+  const epoch = crypto.randomUUID().replaceAll("-", "");
+  const receipts = new Map<string, string>();
+  function writeDay(
+    command: DayEntryCommand,
+    mode: "add" | "overwrite",
+  ): Effect.Effect<unknown, Error> {
+    const write = () =>
+      mode === "add"
+        ? rawDayEntryService.addDailyAmount(command)
+        : rawDayEntryService.overwriteDailyAmount(command);
+    const key = command.idempotencyKey;
+    if (key === undefined) return runSerializedEffect(write);
+    return runSerializedEffect(() =>
+      Effect.gen(function* () {
+        const fingerprint = yield* Effect.tryPromise({
+          try: () => dayEntryFingerprint(command, mode),
+          catch: toEffectError,
+        });
+        const previous = receipts.get(key);
+        if (previous === fingerprint) return;
+        if (previous !== undefined)
+          return yield* Effect.fail(new DayEntryReceiptConflictError());
+        yield* write();
+        receipts.set(key, fingerprint);
+      }).pipe(Effect.uninterruptible),
+    );
+  }
+
   function assertNoOutOfRangePeriodEntries(
     periodId: string,
     startDate: string,
@@ -105,7 +139,7 @@ export function createInMemoryApiServices(
     readonly id: string;
     readonly startDate: string;
     readonly endDate: string;
-    readonly budgetYen: number;
+    readonly budgetYen?: number;
   }) =>
     runSerializedEffect(() =>
       Effect.gen(function* () {
@@ -134,12 +168,8 @@ export function createInMemoryApiServices(
     dailyTotalRepository,
     dailyHistoryRepository,
     dayEntryService: {
-      addDailyAmount: (command) =>
-        runSerializedEffect(() => rawDayEntryService.addDailyAmount(command)),
-      overwriteDailyAmount: (command) =>
-        runSerializedEffect(() =>
-          rawDayEntryService.overwriteDailyAmount(command),
-        ),
+      addDailyAmount: (command) => writeDay(command, "add"),
+      overwriteDailyAmount: (command) => writeDay(command, "overwrite"),
       updateHistoryEntry: (command) =>
         runSerializedEffect(() =>
           rawDayEntryService.updateHistoryEntry(command),
@@ -157,6 +187,7 @@ export function createInMemoryApiServices(
         }),
       ),
     updatePeriod,
+    getDayEntryEpoch: () => Effect.succeed(epoch),
     listPeriods: () => budgetPeriodRepository.listPeriods(),
     listDailyTotalsByPeriodId: (periodId) =>
       databaseClient.read((tx) =>

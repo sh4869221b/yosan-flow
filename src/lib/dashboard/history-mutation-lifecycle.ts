@@ -61,6 +61,7 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
   function publishResponse(
     body: HistoryMutationResponse<PeriodSummary>,
     context: MutationContext,
+    acceptSummary: (() => void) | undefined,
   ): boolean {
     if (!context.ownsPeriod || body.summary.periodId !== context.periodId)
       return false;
@@ -75,6 +76,7 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
       !summaryIsCompatible;
     if (mustReconcile) return false;
     dependencies.applySummary(body.summary);
+    acceptSummary?.();
     if (context.ownsDate) dependencies.applyHistories(body);
     return true;
   }
@@ -143,6 +145,8 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
               dependencies.summaryRevision.beginMutation(selectedPeriodId);
             const mutationSummaryRevision =
               dependencies.summaryRevision.get(selectedPeriodId);
+            const acceptSummary =
+              dependencies.summaryRevision.captureSummarySync(selectedPeriodId);
             const result = yield* fetchJsonEffect<
               HistoryMutationResponse<PeriodSummary>
             >(
@@ -190,7 +194,7 @@ export function createHistoryMutationLifecycle(dependencies: Dependencies) {
             };
             const responseWasPublished =
               result._tag === "Success" &&
-              publishResponse(result.success, context);
+              publishResponse(result.success, context, acceptSummary);
             if (result._tag === "Success")
               retainResponse(result.success, context, responseWasPublished);
             return {

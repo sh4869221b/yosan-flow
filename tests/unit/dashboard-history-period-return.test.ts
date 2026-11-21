@@ -87,6 +87,7 @@ it.each(["PATCH", "DELETE"] as const)(
     });
     vi.stubGlobal("fetch", fetchMock);
     const controller = createDashboardPageController(() => ({
+      dayEntryEpoch: "d".repeat(32),
       today: date,
       periods: [periodA, periodB],
       selectedPeriodId: periodA.id,

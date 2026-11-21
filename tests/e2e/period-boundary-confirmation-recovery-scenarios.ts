@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { getBaseUrl } from "./dashboard-shared";
 import {
   proposeNextBoundary,
   countConfirmations,
@@ -10,6 +11,68 @@ import {
   target,
   updatePeriod,
 } from "./period-boundary-confirmation-helpers";
+
+test("clears the spending warning after the confirmed boundary PUT even when summary GET fails", async ({
+  page,
+  request,
+}) => {
+  await seedBoundaryPair(request);
+  await gotoTarget(page);
+  const summaryUrl = `${getBaseUrl()}/api/periods/${target.periodId}`;
+  await page.route(
+    `${summaryUrl}/days/${target.startDate}/add`,
+    async (route) => {
+      expect((await route.fetch()).status()).toBe(200);
+      await route.fulfill({ status: 204 });
+    },
+  );
+  await page.route(summaryUrl, (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({ status: 503 })
+      : route.continue(),
+  );
+  const waitForFailedSummary = () =>
+    page.waitForResponse(
+      (response) =>
+        response.url() === summaryUrl &&
+        response.request().method() === "GET" &&
+        response.status() === 503,
+    );
+
+  const day = page.getByTestId(`calendar-day-${target.startDate}`);
+  const used = day.getByTestId(`used-${target.startDate}`);
+  await day.click();
+  const modal = page.getByTestId("day-entry-modal");
+  await modal.getByLabel("追加する支出額 (円)").fill("300");
+  const failedAfterSave = waitForFailedSummary();
+  await modal.getByRole("button", { name: "支出を追加" }).click();
+  await failedAfterSave;
+  await expect(modal).toBeHidden();
+  const warning = page.getByTestId("day-entry-summary-unsynced");
+  await expect(warning).toBeVisible();
+  await expect(used).toHaveText("0 円");
+
+  await proposeBoundaryChange(page);
+  const confirmed = page.waitForResponse(
+    (response) =>
+      response.url() === summaryUrl &&
+      response.request().method() === "PUT" &&
+      response.request().postDataJSON().confirmation != null,
+  );
+  const failedAfterBoundary = waitForFailedSummary();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "変更する" })
+    .click();
+  expect((await confirmed).status()).toBe(200);
+  await failedAfterBoundary;
+
+  await expect(page.locator("#range-confirmation-feedback")).toContainText(
+    "期間の保存は完了しています",
+  );
+  await expect(used).toHaveText("300 円");
+  await expect(warning).toHaveCount(0);
+});
 
 for (const failingGet of ["list", "summary", "saved-list"] as const) {
   test(`recovers ${failingGet === "saved-list" ? "saved update" : "real conflict"} after ${failingGet} GET failure with GET-only retry`, async ({

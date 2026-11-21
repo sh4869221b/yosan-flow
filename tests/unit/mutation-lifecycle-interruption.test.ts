@@ -22,6 +22,8 @@ it("cleans up an interrupted day-entry mutation lifecycle", async () => {
     getSelectedPeriodId: () => "period-1",
     getSummary: () => createSummary(0),
     loadHistoryEffect: () => Effect.succeed({ kind: "success" } as const),
+    markPending: vi.fn(),
+    captureSummarySync: vi.fn(),
     publishSaveSuccess: vi.fn(),
     setError: vi.fn(),
     setSaving: (nextSaving) => {
@@ -34,11 +36,14 @@ it("cleans up an interrupted day-entry mutation lifecycle", async () => {
   lifecycle.beginModalSession();
 
   const fiber = Effect.runFork(
-    lifecycle.submitEffect({
-      date: "2026-07-12",
-      inputYen: 500,
-      memo: "pending",
-    }),
+    lifecycle.submitEffect(
+      {
+        date: "2026-07-12",
+        inputYen: 500,
+        memo: "pending",
+      },
+      "test-key",
+    ),
   );
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
   expect(saving).toBe(true);

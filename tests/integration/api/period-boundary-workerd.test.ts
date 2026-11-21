@@ -20,8 +20,10 @@ import type {
 import {
   budget_periods,
   daily_totals,
-  daily_operation_histories,
+  daily_operation_histories_v2,
 } from "#lib/server/db/schema.ts";
+import { createD1ApiServices } from "#lib/server/services/api-services/d1.ts";
+import legacyBatches from "../../migrations/legacy-worker-f2ee86b-batches.json";
 import { readMigrations } from "../../migrations/history";
 import {
   target,
@@ -83,7 +85,7 @@ describe("linked boundary in actual local D1", () => {
   beforeEach(async () => {
     // This binding was created above solely for this suite and is never persisted.
     await database.batch([
-      database.delete(daily_operation_histories),
+      database.delete(daily_operation_histories_v2),
       database.delete(daily_totals),
       database.delete(budget_periods),
     ]);
@@ -103,8 +105,8 @@ describe("linked boundary in actual local D1", () => {
       .orderBy(daily_totals.budget_period_id, daily_totals.date),
     histories: await database
       .select()
-      .from(daily_operation_histories)
-      .orderBy(daily_operation_histories.id),
+      .from(daily_operation_histories_v2)
+      .orderBy(daily_operation_histories_v2.id),
   });
 
   async function expectConflict(command: LinkedPeriodBoundaryUpdateCommand) {
@@ -114,6 +116,46 @@ describe("linked boundary in actual local D1", () => {
     ).rejects.toMatchObject({ code: "PERIOD_UPDATE_CONFLICT" });
     expect(await state()).toEqual(before);
   }
+
+  it("rejects retired write batches during two retries on the live cutover schema", async () => {
+    const db = proxy!.env.DB;
+    const services = createD1ApiServices(db);
+    const epoch = await runApiEffect(services.getDayEntryEpoch());
+    const command = {
+      periodId: target.id,
+      date: target.startDate,
+      inputYen: 300,
+      idempotencyKey: `${epoch}.live-retry`,
+    };
+    const oldBatch = (index: number) =>
+      db.batch(
+        legacyBatches[index].map(({ sql, args }) =>
+          db.prepare(sql).bind(...args),
+        ),
+      );
+    const outcomes = await Promise.allSettled([
+      oldBatch(2),
+      runApiEffect(services.dayEntryService.addDailyAmount(command)),
+      oldBatch(3),
+      runApiEffect(services.dayEntryService.addDailyAmount(command)),
+      db.prepare("DELETE FROM day_entry_receipts").run(),
+    ]);
+    expect(outcomes.map(({ status }) => status)).toEqual([
+      "rejected",
+      "fulfilled",
+      "rejected",
+      "fulfilled",
+      "rejected",
+    ]);
+    expect(
+      await runApiEffect(services.listDailyTotalsByPeriodId(target.id)),
+    ).toMatchObject([{ totalUsedYen: 300 }]);
+    expect(
+      await runApiEffect(
+        services.listHistoryByDate(target.id, target.startDate),
+      ),
+    ).toHaveLength(1);
+  });
 
   it("returns the rows from ordinary period writes and preserves create idempotency", async () => {
     const input = {
@@ -463,7 +505,7 @@ describe("linked boundary in actual local D1", () => {
       total_used_yen: 100,
       updated_at: laterBoundary.nowIso,
     });
-    await database.insert(daily_operation_histories).values({
+    await database.insert(daily_operation_histories_v2).values({
       id: "other-history",
       budget_period_id: other.id,
       date: "2026-07-20",
@@ -500,7 +542,7 @@ describe("linked boundary in actual local D1", () => {
             updated_at: laterBoundary.nowIso,
           });
         } else {
-          await database.insert(daily_operation_histories).values({
+          await database.insert(daily_operation_histories_v2).values({
             id: period.id,
             budget_period_id: period.id,
             date,

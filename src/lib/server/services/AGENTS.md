@@ -24,8 +24,8 @@
 
 - Period summary excludes out-of-period totals and distinguishes spending before today from spending today.
 - Today usage does not feed back into today's allowance/bonus; future and expired periods have no active pace dates.
-- Add/overwrite prepares input, validates period ownership, persists total/history together, then returns a refreshed result.
-- History edit/delete replays operations chronologically; zero remaining histories removes the daily total.
+- Add/overwrite persists totals, history and an optional retry receipt together. The route acknowledges a committed save with HTTP 204 when summary refresh fails.
+- History amount edits and deletes replay operations in stored write order. Deleting the last history removes its daily total.
 - Preserve stable error codes and D1/in-memory response parity when changing either workflow.
 
 ## Verification

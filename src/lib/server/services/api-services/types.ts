@@ -17,23 +17,14 @@ import type {
 import type { PeriodSummaryDailyTotal } from "#lib/server/services/period-summary/period-summary-calculator.ts";
 import type { PeriodUpdateRequest } from "#lib/server/services/period-update/period-update-types.ts";
 import type { PeriodUpdateServiceResult } from "#lib/server/services/period-update/period-update-service.ts";
+import type { DayEntryCommand } from "#lib/server/services/day-entry/receipt.ts";
 
 // Commands cross the request validation boundary before reaching this port.
 // Dates and amounts are valid and memos are already normalized; implementations
 // still enforce period membership and persistence invariants.
 export type DayEntryServicePort = {
-  addDailyAmount(command: {
-    periodId: string;
-    date: string;
-    inputYen: number;
-    memo?: string | null;
-  }): Effect.Effect<unknown, Error>;
-  overwriteDailyAmount(command: {
-    periodId: string;
-    date: string;
-    inputYen: number;
-    memo?: string | null;
-  }): Effect.Effect<unknown, Error>;
+  addDailyAmount(command: DayEntryCommand): Effect.Effect<unknown, Error>;
+  overwriteDailyAmount(command: DayEntryCommand): Effect.Effect<unknown, Error>;
   updateHistoryEntry(command: {
     periodId: string;
     date: string;
@@ -63,6 +54,7 @@ export type InMemoryApiServices = {
     request: PeriodUpdateRequest,
     tracing?: TracingAdapter,
   ) => Effect.Effect<PeriodUpdateServiceResult, Error>;
+  getDayEntryEpoch: () => Effect.Effect<string, Error>;
   listPeriods: () => Effect.Effect<BudgetPeriodRecord[], Error>;
   listDailyTotalsByPeriodId: (
     periodId: string,
