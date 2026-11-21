@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createDayEntrySubmissionTracker } from "#lib/dashboard/day-entry-submission-tracker.ts";
+import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
   mergeAddedSummary,
   summarySpendingMatches,
@@ -38,11 +40,7 @@ describe("merging add-only summary snapshots", () => {
   });
 });
 
-it("retains both recorded dates from out-of-order concurrent zero saves", async () => {
-  const { createDayEntrySubmissionTracker } =
-    await import("#lib/dashboard/day-entry-submission-tracker.ts");
-  const { createPeriodSummaryRevision } =
-    await import("#lib/dashboard/period-summary-revision.ts");
+it("retains both recorded dates from out-of-order concurrent zero saves", () => {
   const tracker = createDayEntrySubmissionTracker(
     createPeriodSummaryRevision(),
   );
@@ -71,7 +69,24 @@ it("retains both recorded dates from out-of-order concurrent zero saves", async 
     expect(
       tracker
         .getBest(initial.periodId, 0)
-        ?.dailyRows.map((row) => row.isRecorded),
+        ?.summary.dailyRows.map((row) => row.isRecorded),
     ).toEqual([true, true]);
   }
+});
+
+it("discards a cached acknowledgement when a subsequent response differs from the provisional merge", () => {
+  const tracker = createDayEntrySubmissionTracker(
+    createPeriodSummaryRevision(),
+  );
+  const first = createSummary(300);
+  const latest = { ...first, daysRemaining: first.daysRemaining - 1 };
+  const firstAcknowledgement = () => undefined;
+  tracker.accept(first.periodId, first, 0, 0, firstAcknowledgement);
+  expect(tracker.getBest(first.periodId, 0)?.acceptSummaries).toEqual([
+    firstAcknowledgement,
+  ]);
+
+  tracker.accept(first.periodId, latest, 0, 0, () => undefined);
+  expect(tracker.getBest(first.periodId, 0)?.summary).toBe(first);
+  expect(tracker.getBest(first.periodId, 0)?.acceptSummaries).toEqual([]);
 });

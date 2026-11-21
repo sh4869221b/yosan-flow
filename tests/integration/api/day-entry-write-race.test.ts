@@ -2,7 +2,6 @@ import { Effect } from "effect";
 import { expect, it } from "vitest";
 import { createD1DayEntryWriter } from "#lib/server/db/day-entry-writer.ts";
 import type { BudgetPeriodRepository } from "#lib/server/db/budget-period-repository.ts";
-import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-repository.ts";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { createD1DayEntryService } from "#lib/server/services/api-services/day-entry-command-service.ts";
 import { DateOutOfPeriodError } from "#lib/server/services/day-entry-service.ts";
@@ -39,7 +38,6 @@ it.each(["addDailyAmount", "overwriteDailyAmount"] as const)(
       budgetPeriodRepository: {
         findById: () => Effect.succeed(before),
       } as unknown as BudgetPeriodRepository,
-      dailyHistoryRepository: {} as D1DailyHistoryRepository,
       dayEntryWriter: createD1DayEntryWriter({ db }),
       now: () => new Date("2026-07-01T00:00:00.000Z"),
       createHistoryId: () => "h",

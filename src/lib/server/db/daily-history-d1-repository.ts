@@ -11,7 +11,7 @@ import {
   toDailyHistoryRecordFromInput,
 } from "#lib/server/db/daily-history-mapper.ts";
 import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-types.ts";
-import { daily_operation_histories } from "#lib/server/db/schema.ts";
+import { daily_operation_histories_v2 } from "#lib/server/db/schema.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 type CreateD1DailyHistoryRepositoryInput = {
@@ -25,41 +25,21 @@ export function createD1DailyHistoryRepository(
   const buildHistoryQuery = (date: string, budgetPeriodId: string) =>
     database
       .select()
-      .from(daily_operation_histories)
+      .from(daily_operation_histories_v2)
       .where(
         and(
-          eq(daily_operation_histories.budget_period_id, budgetPeriodId),
-          eq(daily_operation_histories.date, date),
+          eq(daily_operation_histories_v2.budget_period_id, budgetPeriodId),
+          eq(daily_operation_histories_v2.date, date),
         ),
       )
       .orderBy(
-        desc(daily_operation_histories.created_at),
-        // SQLite rowid is the insertion-order tie breaker shared with replay.
+        desc(
+          sql`coalesce(nullif(${daily_operation_histories_v2.write_order}, 0), rowid)`,
+        ),
         desc(sql`rowid`),
       );
 
   return {
-    hasHistoryById({ budgetPeriodId, date, historyId }) {
-      return Effect.tryPromise({
-        try: async () => {
-          const [row] = await database
-            .select({ id: daily_operation_histories.id })
-            .from(daily_operation_histories)
-            .where(
-              and(
-                eq(daily_operation_histories.budget_period_id, budgetPeriodId),
-                eq(daily_operation_histories.date, date),
-                eq(daily_operation_histories.id, historyId),
-              ),
-            )
-            .limit(1)
-            .all();
-          return Boolean(row);
-        },
-        catch: toEffectError,
-      });
-    },
-
     listHistoriesByDate(date, budgetPeriodId) {
       return Effect.tryPromise({
         try: async () => {
@@ -89,7 +69,7 @@ export function createD1DailyHistoryRepository(
       return Effect.tryPromise({
         try: async () => {
           await database
-            .insert(daily_operation_histories)
+            .insert(daily_operation_histories_v2)
             .values(toDailyHistoryInsertValues(inputRow))
             .run();
           return toDailyHistoryRecordFromInput(inputRow);
@@ -102,11 +82,11 @@ export function createD1DailyHistoryRepository(
       return Effect.tryPromise({
         try: async () => {
           const [row] = await database
-            .select({ id: daily_operation_histories.id })
-            .from(daily_operation_histories)
+            .select({ id: daily_operation_histories_v2.id })
+            .from(daily_operation_histories_v2)
             .where(
               dailyEntryOutsideRange(
-                daily_operation_histories,
+                daily_operation_histories_v2,
                 periodId,
                 startDate,
                 endDate,

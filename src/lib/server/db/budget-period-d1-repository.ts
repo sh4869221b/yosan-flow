@@ -215,6 +215,22 @@ export function createD1BudgetPeriodRepository(
       });
     },
 
+    updateBudget({ id, budgetYen, nowIso }) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await database
+            .update(budget_periods)
+            .set({ budget_yen: budgetYen, updated_at: nowIso })
+            .where(eq(budget_periods.id, id))
+            .returning()
+            .get();
+          if (!row) throw new PeriodNotFoundError(id);
+          return toBudgetPeriodRecord(row);
+        },
+        catch: toEffectError,
+      });
+    },
+
     updateLinkedBoundary: (command) =>
       Effect.tryPromise({
         try: () => updateD1LinkedPeriodBoundary(database, command),

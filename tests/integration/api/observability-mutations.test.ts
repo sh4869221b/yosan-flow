@@ -438,7 +438,7 @@ describe("mutation terminal events", () => {
     ]);
   });
 
-  it("logs only failure when a successful write is followed by a failed summary read", async () => {
+  it("logs the committed write as successful when its summary read fails", async () => {
     const fixture = createFixture();
     await runApiEffect(fixture.services.createPeriod(period));
     const write = vi.spyOn(fixture.services.dayEntryService, "addDailyAmount");
@@ -449,10 +449,8 @@ describe("mutation terminal events", () => {
     const response = await fixture.addDay(
       event("POST", `${dayPath}/add`, { inputYen: 1200 }),
     );
-    expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({
-      error: { code: "INTERNAL_ERROR" },
-    });
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe("");
     expect(write).toHaveBeenCalledTimes(1);
     expect(
       await runApiEffect(fixture.services.listDailyTotalsByPeriodId(period.id)),
@@ -464,9 +462,8 @@ describe("mutation terminal events", () => {
           operation: "day.add",
           route: `${dayRoute}/add`,
           method: "POST",
-          outcome: "unexpected_error",
-          error_code: "INTERNAL_ERROR",
-          status: 500,
+          outcome: "success",
+          status: 204,
         },
       ],
     ]);

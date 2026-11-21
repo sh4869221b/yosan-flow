@@ -24,16 +24,19 @@ export type PeriodBoundaryUpdateProposal = {
   };
 };
 
-export type PeriodUpdatePreviewRequest = PeriodUpdateValues & {
-  readonly confirmation?: never;
-};
-
-export type PeriodUpdateConfirmationRequest = PeriodUpdateValues & {
-  readonly confirmation: PeriodBoundaryUpdateProposal;
-};
-
 export type PeriodUpdateRequest =
-  PeriodUpdatePreviewRequest | PeriodUpdateConfirmationRequest;
+  | {
+      readonly startDate?: never;
+      readonly endDate?: never;
+      readonly budgetYen: number;
+      readonly confirmation?: never;
+    }
+  | {
+      readonly startDate: string;
+      readonly endDate: string;
+      readonly budgetYen?: number;
+      readonly confirmation?: PeriodBoundaryUpdateProposal;
+    };
 
 export type PeriodBoundaryUpdateDecision =
   | { readonly kind: "ordinary-update" }

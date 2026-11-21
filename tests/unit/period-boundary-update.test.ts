@@ -7,7 +7,7 @@ import {
 } from "#lib/server/services/period-update/period-update-types.ts";
 import type {
   PeriodSnapshot,
-  PeriodUpdateRequest,
+  PeriodUpdateValues,
 } from "#lib/server/services/period-update/period-update-types.ts";
 
 const target: PeriodSnapshot = {
@@ -32,7 +32,7 @@ const successor: PeriodSnapshot = {
   updatedAt: "2026-07-20T00:00:00.000Z",
 };
 
-const requested: PeriodUpdateRequest = {
+const requested: PeriodUpdateValues = {
   startDate: target.startDate,
   endDate: "2026-07-21",
   budgetYen: 125_000,

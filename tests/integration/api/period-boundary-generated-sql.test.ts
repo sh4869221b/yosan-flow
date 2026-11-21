@@ -42,7 +42,7 @@ function executeGeneratedSql(sql: string, payload: string, setup = "") {
       predecessor_period_id text, created_at text not null, updated_at text not null
     );
     create table daily_totals (budget_period_id text, date text);
-    create table daily_operation_histories (budget_period_id text, date text);
+    create table daily_operation_histories_v2 (budget_period_id text, date text);
     insert into budget_periods values
       ('target','2026-06-21','2026-07-20',100000,'active',null,'2026-06-01T00:00:00.000Z','2026-06-01T00:00:00.000Z'),
       ('successor','2026-07-21','2026-08-19',120000,'closed','target','2026-06-02T00:00:00.000Z','2026-06-02T00:00:00.000Z');
@@ -127,7 +127,7 @@ describe("linked boundary generated SQL", () => {
       "successor|2026-07-20|2026-08-19",
       "target|2026-06-21|2026-07-19",
     ]);
-    for (const table of ["daily_totals", "daily_operation_histories"]) {
+    for (const table of ["daily_totals", "daily_operation_histories_v2"]) {
       const blocked = executeGeneratedSql(
         captured.sql,
         captured.args[0],

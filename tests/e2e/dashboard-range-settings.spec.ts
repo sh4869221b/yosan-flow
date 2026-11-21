@@ -200,9 +200,7 @@ test("saves range with local feedback and retries an ordinary failure", async ({
     await expect(form).toHaveAttribute("aria-busy", "false");
     await expect(form).toContainText(`現在の期間 ${startDate} - ${nextEnd}`);
     await expect(page.getByLabel("期間予算 (円)")).toHaveValue("130000");
-    expect(writes).toEqual(
-      Array(2).fill({ budgetYen: 120000, startDate, endDate: nextEnd }),
-    );
+    expect(writes).toEqual(Array(2).fill({ startDate, endDate: nextEnd }));
     await page.getByLabel("期間予算 (円)").fill("140000");
     await expect(page.getByLabel("期間予算 (円)")).toBeFocused();
     await expect(form.getByRole("status")).toHaveText("期間を保存しました。");

@@ -84,6 +84,7 @@ it.each([
     });
     vi.stubGlobal("fetch", fetchMock);
     const controller = createDashboardPageController(() => ({
+      dayEntryEpoch: "d".repeat(32),
       today: date,
       periods: [period],
       selectedPeriodId: period.id,
@@ -287,6 +288,7 @@ it("does not replace a later day save with an older resume history response", as
   });
   vi.stubGlobal("fetch", fetchMock);
   const controller = createDashboardPageController(() => ({
+    dayEntryEpoch: "d".repeat(32),
     today: date,
     periods: [period],
     selectedPeriodId: period.id,

@@ -37,6 +37,7 @@ const createdSummary = {
 
 function createController() {
   return createDashboardPageController(() => ({
+    dayEntryEpoch: "d".repeat(32),
     today: period.startDate,
     periods: [period],
     selectedPeriodId: period.id,
@@ -346,6 +347,7 @@ it("publishes a created period from an empty state", async () => {
     }),
   );
   const controller = createDashboardPageController(() => ({
+    dayEntryEpoch: "d".repeat(32),
     today: period.startDate,
     periods: [],
     selectedPeriodId: null,

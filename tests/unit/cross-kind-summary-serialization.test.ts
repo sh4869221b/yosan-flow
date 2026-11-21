@@ -114,8 +114,6 @@ it("serializes a period update between earlier and later add groups", async () =
     expect(String(put?.[0])).toBe("/api/periods/period-1");
     expect(JSON.parse(String(put?.[1]?.body))).toEqual({
       budgetYen: 12_000,
-      startDate: period.startDate,
-      endDate: period.endDate,
     });
 
     putResponse.resolve(jsonResponse(updatedSummary));

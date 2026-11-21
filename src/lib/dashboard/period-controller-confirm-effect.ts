@@ -1,12 +1,9 @@
 import { Effect } from "effect";
-import { periodSummaryUrl } from "#lib/dashboard/api-urls.ts";
+import type { PeriodUpdateApiOutcome } from "#lib/dashboard/period-update-api.ts";
 import {
-  fetchPeriodUpdateEffect,
-  type PeriodUpdateApiOutcome,
-} from "#lib/dashboard/period-update-api.ts";
-import type {
-  PeriodRefreshCompletion,
-  PeriodUpdateDependencies,
+  fetchUpdateWithSummarySync,
+  type PeriodRefreshCompletion,
+  type PeriodUpdateDependencies,
 } from "#lib/dashboard/period-controller-update-effect.ts";
 import type { PendingPeriodUpdateConfirmation } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 
@@ -74,6 +71,7 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
       { readonly kind: "updated" }
     >["summary"],
     current: boolean,
+    acceptSummary: (() => void) | undefined,
   ): void {
     const { editedPeriodId, previousId, nextId } = pending.ownership;
     if (current && summary.periodId === editedPeriodId) {
@@ -81,6 +79,7 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
         operation: "range",
         payload: pending.request,
       });
+      acceptSummary?.();
     } else dependencies.summaryRevision.advance(editedPeriodId);
     dependencies.summaryRevision.advance(
       previousId === editedPeriodId ? nextId : previousId,
@@ -90,12 +89,13 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
     pending: PendingPeriodUpdateConfirmation,
     outcome: PeriodUpdateApiOutcome,
     current: boolean,
+    acceptSummary: (() => void) | undefined,
   ): Effect.Effect<void, never> {
     return Effect.gen(function* () {
       const periodId = pending.ownership.editedPeriodId;
       switch (outcome.kind) {
         case "updated":
-          publishConfirmation(pending, outcome.summary, current);
+          publishConfirmation(pending, outcome.summary, current, acceptSummary);
           if (current) {
             state.recover(periodId, true);
             yield* refresh();
@@ -144,14 +144,10 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
           const request = dependencies.summaryRequests.start(periodId);
           dependencies.setError(null, "range");
           const mutation = dependencies.summaryRevision.beginMutation(periodId);
-          const outcome = yield* fetchPeriodUpdateEffect(
-            periodSummaryUrl(periodId),
-            {
-              body: JSON.stringify(pending.request),
-              headers: { "content-type": "application/json" },
-              method: "PUT",
-            },
-            "保存に失敗しました。",
+          const { result, acceptSummary } = yield* fetchUpdateWithSummarySync(
+            dependencies.summaryRevision,
+            periodId,
+            pending.request,
           ).pipe(
             Effect.ensuring(
               Effect.sync(() =>
@@ -166,7 +162,14 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
           const current =
             dependencies.getSelectedPeriodId() === periodId &&
             dependencies.summaryRequests.owns(request);
-          yield* applyOutcome(pending, outcome, current);
+          yield* applyOutcome(
+            pending,
+            result,
+            current,
+            dependencies.summaryRevision.isMutationFresh(periodId, mutation)
+              ? acceptSummary
+              : undefined,
+          );
         }),
       )
       .pipe(Effect.ensuring(Effect.sync(state.finishConfirmation)));

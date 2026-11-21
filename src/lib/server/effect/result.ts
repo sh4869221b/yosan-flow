@@ -29,6 +29,10 @@ const KNOWN_ERROR_RESPONSES: Record<
     status: 404,
     message: "対象の履歴が見つかりません。",
   },
+  DAY_ENTRY_KEY_CONFLICT: {
+    status: 409,
+    message: "同じ保存キーが別の支出の保存に使用されています。",
+  },
   PERIOD_OVERLAP: {
     status: 400,
     message: "予算期間が既存期間と重複しています。",

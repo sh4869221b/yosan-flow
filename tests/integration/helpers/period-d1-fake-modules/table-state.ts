@@ -9,6 +9,7 @@ export type PeriodAwareD1FakeSnapshot = {
   dailyTotals: Map<string, DailyTotalRow>;
   dailyOperationHistories: DailyOperationHistoryRow[];
   nextRowId: number;
+  receipts: Map<string, string>;
 };
 
 export type PeriodAwareD1FakeState = {
@@ -16,6 +17,7 @@ export type PeriodAwareD1FakeState = {
   dailyTotals: Map<string, DailyTotalRow>;
   dailyOperationHistories: DailyOperationHistoryRow[];
   nextRowId: number;
+  receipts: Map<string, string>;
   snapshot(): PeriodAwareD1FakeSnapshot;
   restore(snapshot: PeriodAwareD1FakeSnapshot): void;
   nextHistoryRowId(): number;
@@ -31,6 +33,7 @@ export function createPeriodAwareD1FakeState(): PeriodAwareD1FakeState {
     dailyTotals: new Map<string, DailyTotalRow>(),
     dailyOperationHistories: [],
     nextRowId: 1,
+    receipts: new Map(),
     snapshot() {
       return {
         periods: new Map(
@@ -46,6 +49,7 @@ export function createPeriodAwareD1FakeState(): PeriodAwareD1FakeState {
           ...row,
         })),
         nextRowId: state.nextRowId,
+        receipts: new Map(state.receipts),
       };
     },
     restore(snapshot: PeriodAwareD1FakeSnapshot) {
@@ -53,6 +57,7 @@ export function createPeriodAwareD1FakeState(): PeriodAwareD1FakeState {
       state.dailyTotals = snapshot.dailyTotals;
       state.dailyOperationHistories = snapshot.dailyOperationHistories;
       state.nextRowId = snapshot.nextRowId;
+      state.receipts = snapshot.receipts;
     },
     nextHistoryRowId() {
       const rowId = state.nextRowId;

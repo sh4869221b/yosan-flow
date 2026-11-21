@@ -6,6 +6,9 @@ import {
 import { createD1DailyHistoryRepository } from "#lib/server/db/daily-history-repository.ts";
 import { createD1DailyTotalRepository } from "#lib/server/db/daily-total-repository.ts";
 import { createD1DayEntryWriter } from "#lib/server/db/day-entry-writer.ts";
+import { createDrizzleD1Database } from "#lib/server/db/client.ts";
+import { day_entry_cutover } from "#lib/server/db/schema.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import type { D1Database } from "#lib/server/db/d1-types.ts";
 
 export function createD1ApiServiceRepositories(db: D1Database) {
@@ -18,6 +21,7 @@ export function createD1ApiServiceRepositories(db: D1Database) {
   const dailyHistoryRepository = createD1DailyHistoryRepository({
     db,
   });
+  const database = createDrizzleD1Database(db);
   const dayEntryWriter = createD1DayEntryWriter({
     db,
   });
@@ -27,6 +31,20 @@ export function createD1ApiServiceRepositories(db: D1Database) {
     dailyTotalRepository,
     dailyHistoryRepository,
     dayEntryWriter,
+    getDayEntryEpoch: () =>
+      Effect.tryPromise({
+        try: async () => {
+          const [row] = await database
+            .select({ epoch: day_entry_cutover.epoch })
+            .from(day_entry_cutover)
+            .limit(1)
+            .all();
+          if (!row || !/^[0-9a-f]{32}$/.test(row.epoch))
+            throw new Error("Day entry cutover has no valid epoch");
+          return row.epoch;
+        },
+        catch: toEffectError,
+      }),
   };
 }
 

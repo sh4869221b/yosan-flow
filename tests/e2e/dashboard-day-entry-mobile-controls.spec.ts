@@ -1,3 +1,4 @@
+import { postDayAdd } from "./helpers/db";
 import { expect, test } from "@playwright/test";
 import {
   configureDashboardDayEntryE2E,
@@ -156,7 +157,8 @@ test("returns to the calendar from the end of a long mobile history", async ({
   const { periodId, todayDate } = await seedCurrentPeriod(request);
   const baseUrl = getBaseUrl();
   for (const memo of ["朝食", "昼食", "夕食"]) {
-    const response = await request.post(
+    const response = await postDayAdd(
+      request,
       `${baseUrl}/api/periods/${periodId}/days/${todayDate}/add`,
       { data: { inputYen: 500, memo } },
     );

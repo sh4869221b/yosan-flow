@@ -69,6 +69,8 @@ function refreshCreatedPeriodEffect(
       } as const;
     }
     dependencies.setSummaryLoading(true);
+    const acceptSummary =
+      dependencies.summaryRevision.captureSummarySync(periodId);
     const summaryResult = yield* fetchJsonEffect<PeriodSummary>(
       periodSummaryUrl(periodId),
       undefined,
@@ -87,6 +89,7 @@ function refreshCreatedPeriodEffect(
       } as const;
     }
     dependencies.publishSummary(summaryResult.success);
+    acceptSummary?.();
     return { kind: "published" } as const;
   }).pipe(
     Effect.ensuring(

@@ -1,49 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createD1DailyHistoryRepository } from "#lib/server/db/daily-history-d1-repository.ts";
 import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { createD1ApiServices } from "#lib/server/services/api-services/d1.ts";
 import { createPeriodAwareD1Fake } from "./helpers/period-d1-fake";
 
-describe("D1 history existence lookup", () => {
-  it("selects only the scoped ID with a single-row limit and no sorting", async () => {
-    const statements: string[] = [];
-    const repository = createD1DailyHistoryRepository({
-      db: createPeriodAwareD1Fake(statements, {
-        historyDates: { first: ["2026-05-01"], second: ["2026-05-01"] },
-      }),
-    });
-    const target = {
-      budgetPeriodId: "first",
-      date: "2026-05-01",
-      historyId: "seed-history-first-2026-05-01",
-    };
-    await expect(runApiEffect(repository.hasHistoryById(target))).resolves.toBe(
-      true,
-    );
-    for (const input of [
-      { ...target, historyId: "missing" },
-      { ...target, budgetPeriodId: "second" },
-      { ...target, date: "2026-05-02" },
-    ]) {
-      await expect(
-        runApiEffect(repository.hasHistoryById(input)),
-      ).resolves.toBe(false);
-    }
-    expect(statements).toHaveLength(4);
-    for (const sql of statements) {
-      expect(sql).toMatch(/^select "id" from "daily_operation_histories"/);
-      expect(sql).toContain(
-        '"daily_operation_histories"."budget_period_id" = ?',
-      );
-      expect(sql).toContain('"daily_operation_histories"."date" = ?');
-      expect(sql).toContain('"daily_operation_histories"."id" = ?');
-      expect(sql).toContain("limit ?");
-      expect(sql).not.toContain("order by");
-    }
-  });
-
+describe("D1 history mutation identity", () => {
   it.each(["updateHistoryEntry", "deleteHistoryEntry"] as const)(
-    "%s rejects a missing or differently owned ID without replaying",
+    "%s rejects a missing or differently owned ID without changing any totals",
     async (method) => {
       const statements: string[] = [];
       const services = createD1ApiServices(
@@ -91,10 +53,12 @@ describe("D1 history existence lookup", () => {
           ),
         ).rejects.toMatchObject({ code: "HISTORY_NOT_FOUND" });
         const historySql = statements.filter((sql) =>
-          sql.includes("daily_operation_histories"),
+          sql.includes("daily_operation_histories_v2"),
         );
-        expect(historySql).toHaveLength(1);
-        expect(historySql[0]).toMatch(/^select "id" from/);
+        expect(historySql).toHaveLength(4);
+        expect(historySql.some((sql) => /^select "id" from/.test(sql))).toBe(
+          false,
+        );
       }
       await expect(
         runApiEffect(services.listDailyTotalsByPeriodId("first")),

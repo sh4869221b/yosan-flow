@@ -17,6 +17,11 @@ export function selectRawRows(
   args: unknown[],
   state: PeriodAwareD1FakeState,
 ): unknown[][] {
+  if (sql.includes('from "day_entry_cutover"')) return [["d".repeat(32)]];
+  if (sql.startsWith('select "fingerprint" from "day_entry_receipts_v2"')) {
+    const fingerprint = state.receipts.get(String(args[0]));
+    return fingerprint === undefined ? [] : [[fingerprint]];
+  }
   const budgetPeriodRows = queryBudgetPeriods(sql, args, state).map((row) =>
     toBudgetPeriodRawRow(sql, row),
   );
@@ -63,27 +68,40 @@ export function applySqlMutation(
   linkedBoundaryChangesOverride?: number,
 ): number {
   const normalized = sql.toLowerCase().replaceAll('"', "");
+  if (normalized.startsWith("delete from day_entry_receipts_v2")) {
+    const size = state.receipts.size;
+    state.receipts.clear();
+    return size;
+  }
+  if (normalized.startsWith("insert into day_entry_receipts_v2"))
+    return insertReceipt(args, state);
+  if (/^(update|delete from) daily_operation_histories_v2/.test(normalized)) {
+    const [id, date, historyId] = args.slice(-3);
+    const matches = state.dailyOperationHistories.some(
+      (row) =>
+        row.budget_period_id === id &&
+        row.date === date &&
+        row.id === historyId,
+    );
+    applyDailyOperationHistoryMutation(sql, args, state);
+    return Number(matches);
+  }
   if (
-    (normalized.includes("insert into daily_operation_histories") ||
-      normalized.includes("insert into daily_totals")) &&
+    normalized.startsWith("insert into daily_operation_histories_v2") &&
     normalized.includes("from budget_periods")
   ) {
-    const period = state.periods.get(
-      String(
-        args[
-          normalized.includes("insert into daily_operation_histories") ? 1 : 0
-        ],
-      ),
-    );
-    const date = String(
-      args[normalized.includes("daily_operation_histories") ? 2 : 1],
-    );
-    if (!period || date < period.start_date || date > period.end_date) return 0;
-    if (normalized.includes("insert into daily_operation_histories")) {
-      applyDailyOperationHistoryMutation(sql, args, state);
-    } else {
-      applyDailyTotalMutation(sql, args, state);
-    }
+    if (!dailyWriteIsEligible(state, args[1], args[2], normalized, args.at(-1)))
+      return 0;
+    applyDailyOperationHistoryMutation(sql, args, state);
+    return 1;
+  }
+  if (
+    normalized.startsWith("insert into daily_totals") &&
+    normalized.includes("from budget_periods")
+  ) {
+    if (!dailyWriteIsEligible(state, args[0], args[1], normalized, args.at(-1)))
+      return 0;
+    applyDailyTotalMutation(sql, args, state);
     return 1;
   }
   const changes = applyBudgetPeriodMutation(
@@ -95,4 +113,37 @@ export function applySqlMutation(
   applyDailyTotalMutation(sql, args, state);
   applyDailyOperationHistoryMutation(sql, args, state);
   return changes;
+}
+
+function containsDate(
+  state: PeriodAwareD1FakeState,
+  id: unknown,
+  value: unknown,
+) {
+  const period = state.periods.get(String(id));
+  const date = String(value);
+  return (
+    period !== undefined && period.start_date <= date && date <= period.end_date
+  );
+}
+
+function dailyWriteIsEligible(
+  state: PeriodAwareD1FakeState,
+  id: unknown,
+  date: unknown,
+  sql: string,
+  key: unknown,
+) {
+  return (
+    containsDate(state, id, date) &&
+    (!sql.includes("from day_entry_receipts_v2") ||
+      !state.receipts.has(String(key)))
+  );
+}
+
+function insertReceipt(args: unknown[], state: PeriodAwareD1FakeState) {
+  const [key, fingerprint, id, date] = args.map(String);
+  if (!containsDate(state, id, date) || state.receipts.has(key)) return 0;
+  state.receipts.set(key, fingerprint);
+  return 1;
 }

@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { runClientEffect } from "#lib/dashboard/client-effect.ts";
 import { createDayEntryControllerState } from "#lib/dashboard/day-entry-controller-state.svelte.ts";
+import { createDayEntrySyncState } from "#lib/dashboard/day-entry-sync-state.svelte.ts";
 import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
 import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
@@ -9,7 +10,12 @@ import type { DayEntryCloseReason } from "#lib/dashboard/controller-types.ts";
 import type { PageData } from "../../routes/$types";
 
 export function createDashboardPageController(getData: () => PageData) {
-  const summaryRevision = createPeriodSummaryRevision();
+  const summarySync = createDayEntrySyncState(
+    (): string | null => periodController.selectedPeriodId,
+  );
+  const summaryRevision = createPeriodSummaryRevision(
+    summarySync.captureSummarySync,
+  );
   let closeDayEntry = (_reason?: DayEntryCloseReason): void => undefined;
   let invalidateDaySelection = (): void => undefined;
   const periodController = createPeriodControllerState(
@@ -37,10 +43,12 @@ export function createDashboardPageController(getData: () => PageData) {
     {
       getSelectedPeriodId: () => periodController.selectedPeriodId,
       getSummary: () => periodController.summary,
+      getDayEntryEpoch: () => getData().dayEntryEpoch,
       historyController,
       setSummary: periodController.setSummary,
     },
     summaryRevision,
+    summarySync,
   );
   closeDayEntry = dayEntryController.closeDayEntry;
   invalidateDaySelection = dayEntryController.invalidateDaySelection;
@@ -122,6 +130,13 @@ export function createDashboardPageController(getData: () => PageData) {
     get modalError() {
       return dayEntryController.modalError;
     },
+    get daySummarySyncPending() {
+      return dayEntryController.summarySyncPending;
+    },
+    get daySummarySyncRefreshing() {
+      return dayEntryController.summarySyncRefreshing;
+    },
+    retryDaySummarySync: dayEntryController.retrySummarySync,
     get daySaveSuccess() {
       return dayEntryController.daySaveSuccess;
     },

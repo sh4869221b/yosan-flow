@@ -30,7 +30,7 @@ function upgraded(extraSql?: string) {
   const db = createMigrationDatabase();
   applyMigrations(db, migrations.slice(0, 2));
   db.exec(legacyData);
-  const before = preservedRows(db);
+  const before = preservedRows(db, false);
   const pending = migrations.slice(2);
   if (extraSql)
     pending.push({ name: "20990101000000_negative.sql", sql: extraSql });
@@ -123,8 +123,9 @@ describe("migration safety", () => {
     const sql = (await generateSQLiteMigration(current, next)).join(";\n");
     const db = createMigrationDatabase();
     try {
-      applyMigrations(db, migrations);
+      applyMigrations(db, migrations.slice(0, 2));
       db.exec(legacyData);
+      applyMigrations(db, migrations);
       const before = preservedRows(db);
       applyMigrations(db, [{ name: "20990101000000_add_column.sql", sql }]);
       expect(preservedRows(db)).toEqual(before);
@@ -140,15 +141,15 @@ describe("migration safety", () => {
   it.each([
     [
       "row loss",
-      "DELETE FROM daily_operation_histories WHERE id = 'history-z'",
+      "DELETE FROM daily_operation_histories_v2 WHERE id = 'history-z'",
     ],
     [
       "value change",
-      "UPDATE daily_operation_histories SET memo = 'lost' WHERE id = 'history-z'",
+      "UPDATE daily_operation_histories_v2 SET memo = 'lost' WHERE id = 'history-z'",
     ],
     [
       "rowid order change",
-      "UPDATE daily_operation_histories SET rowid = 99 WHERE id = 'history-z'",
+      "UPDATE daily_operation_histories_v2 SET rowid = 99 WHERE id = 'history-z'",
     ],
   ])("rejects %s even when all SQL executes successfully", (_name, sql) => {
     expect(() => upgraded(sql)).toThrow(
@@ -160,7 +161,7 @@ describe("migration safety", () => {
     ["missing index", "DROP INDEX idx_daily_totals_period_date"],
     [
       "index direction",
-      "DROP INDEX idx_daily_histories_period_date_created_at; CREATE INDEX idx_daily_histories_period_date_created_at ON daily_operation_histories (budget_period_id, date, created_at ASC)",
+      "DROP INDEX idx_daily_histories_period_date_created_at; CREATE INDEX idx_daily_histories_period_date_created_at ON daily_operation_histories_v2 (budget_period_id, date, created_at ASC)",
     ],
     ["untracked column", "ALTER TABLE daily_totals ADD COLUMN accidental TEXT"],
   ])(

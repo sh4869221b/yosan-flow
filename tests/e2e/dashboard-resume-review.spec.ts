@@ -6,7 +6,7 @@ import {
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
 import { addDays, getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
-import { seedPeriod } from "./helpers/db";
+import { postDayAdd, seedPeriod } from "./helpers/db";
 import { waitForResponse } from "./period-operation-state-helpers";
 import {
   holdDashboardRead as holdNextRead,
@@ -94,9 +94,13 @@ for (const operation of ["edit", "delete"] as const) {
     const amount = modal.getByLabel("追加する支出額 (円)");
     await amount.fill("777");
     await modal.getByLabel("メモ").fill("keep this local draft");
-    const added = await request.post(`${summaryUrl}/days/${todayDate}/add`, {
-      data: { inputYen: 2000, memo: "original external entry" },
-    });
+    const added = await postDayAdd(
+      request,
+      `${summaryUrl}/days/${todayDate}/add`,
+      {
+        data: { inputYen: 2000, memo: "original external entry" },
+      },
+    );
     expect(added.ok()).toBe(true);
     await refreshOpenDay(page, summaryUrl, todayDate);
     await expect(modal.locator("li")).toContainText("入力 2000 円");
@@ -149,7 +153,7 @@ test("keeps an in-progress history edit and its focused input while refreshing o
   });
   expect(
     (
-      await request.post(`${summaryUrl}/days/${todayDate}/add`, {
+      await postDayAdd(request, `${summaryUrl}/days/${todayDate}/add`, {
         data: { inputYen: 2000, memo: "editing this history" },
       })
     ).ok(),
@@ -166,7 +170,7 @@ test("keeps an in-progress history edit and its focused input while refreshing o
   await amount.focus();
   expect(
     (
-      await request.post(`${summaryUrl}/days/${todayDate}/add`, {
+      await postDayAdd(request, `${summaryUrl}/days/${todayDate}/add`, {
         data: { inputYen: 500, memo: "added externally during editing" },
       })
     ).ok(),
@@ -388,7 +392,7 @@ test("a delayed resume history cannot reopen or change a modal closed and reopen
   });
   expect(
     (
-      await request.post(`${summaryUrl}/days/${todayDate}/add`, {
+      await postDayAdd(request, `${summaryUrl}/days/${todayDate}/add`, {
         data: { inputYen: 2000, memo: "belongs to the closed date" },
       })
     ).ok(),
@@ -440,7 +444,7 @@ for (const operation of ["edit", "delete confirmation"] as const) {
     ]) {
       expect(
         (
-          await request.post(`${summaryUrl}/days/${todayDate}/add`, {
+          await postDayAdd(request, `${summaryUrl}/days/${todayDate}/add`, {
             data: entry,
           })
         ).ok(),

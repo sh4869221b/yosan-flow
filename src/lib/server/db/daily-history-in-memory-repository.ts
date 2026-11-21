@@ -12,11 +12,9 @@ function findChronologicalHistories(
   date: string,
   budgetPeriodId: string,
 ): DailyHistoryRecord[] {
-  return tx.state.dailyOperationHistories
-    .filter(
-      (entry) => entry.date === date && entry.budgetPeriodId === budgetPeriodId,
-    )
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  return tx.state.dailyOperationHistories.filter(
+    (entry) => entry.date === date && entry.budgetPeriodId === budgetPeriodId,
+  );
 }
 
 export function createDailyHistoryRepository(): DailyHistoryRepository {

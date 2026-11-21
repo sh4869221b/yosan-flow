@@ -23,6 +23,14 @@ describe("day entry drafts", () => {
     store.clearSubmitted("a", "day", store.read("a", "day"));
     expect(store.read("a", "day")).toBeUndefined();
   });
+  it("keeps the original epoch for a previously submitted draft", () => {
+    const store = createDayEntryDraftStore();
+    store.write("a", "day", "800", "昼食", 800);
+    const draft = store.read("a", "day");
+    const firstKey = store.keyForSubmission(draft, "original");
+    expect(firstKey).toMatch(/^original\./);
+    expect(store.keyForSubmission(draft, "new")).toBe(firstKey);
+  });
   it("does not retain empty drafts or clear another date", () => {
     const store = createDayEntryDraftStore();
     store.write("a", "one", "0", "", 0);

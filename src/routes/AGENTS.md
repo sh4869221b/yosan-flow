@@ -26,6 +26,7 @@
 
 - Period create and period summary endpoints return the period/summary object directly.
 - Period list returns `{ periods }`.
+- Add/overwrite returns the summary on HTTP 200 and acknowledges a committed save with HTTP 204 when the summary could not be read.
 - History GET returns `{ periodId, date, histories }`.
 - History PATCH/DELETE returns `{ summary, histories }` after both are refreshed.
 - Treat these shapes as controller and integration-test contracts, not interchangeable wrappers.

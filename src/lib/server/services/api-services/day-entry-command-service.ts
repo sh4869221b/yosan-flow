@@ -7,7 +7,6 @@ import type {
   BudgetPeriodRecord,
   BudgetPeriodRepository,
 } from "#lib/server/db/budget-period-repository.ts";
-import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-repository.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
 import {
   DateOutOfPeriodError,
@@ -15,13 +14,11 @@ import {
   PeriodNotFoundError,
 } from "#lib/server/services/day-entry-service.ts";
 import type { DayEntryServicePort } from "./types";
-
-type DayEntryCommand = {
-  readonly periodId: string;
-  readonly date: string;
-  readonly inputYen: number;
-  readonly memo?: string | null;
-};
+import {
+  dayEntryFingerprint,
+  type DayEntryCommand,
+} from "#lib/server/services/day-entry/receipt.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 
 type HistoryReplayCommand = {
   readonly periodId: string;
@@ -38,7 +35,6 @@ type HistoryMutation =
   | { readonly kind: "delete" };
 
 type CreateD1DayEntryServiceInput = {
-  readonly dailyHistoryRepository: D1DailyHistoryRepository;
   readonly budgetPeriodRepository: BudgetPeriodRepository;
   readonly dayEntryWriter: D1DayEntryWriter;
   readonly now: () => Date;
@@ -65,24 +61,31 @@ function validatePeriodDate(
 export function createD1DayEntryService(
   input: CreateD1DayEntryServiceInput,
 ): DayEntryServicePort {
-  const {
-    dailyHistoryRepository,
-    budgetPeriodRepository,
-    dayEntryWriter,
-    now,
-    createHistoryId,
-  } = input;
+  const { budgetPeriodRepository, dayEntryWriter, now, createHistoryId } =
+    input;
 
   function execute(
     command: DayEntryCommand,
     operationType: "add" | "overwrite",
   ): Effect.Effect<Record<string, never>, Error> {
     return Effect.gen(function* () {
-      yield* validatePeriodDate(
+      const validate = validatePeriodDate(
         budgetPeriodRepository,
         command.periodId,
         command.date,
       );
+      const key = command.idempotencyKey;
+      if (key === undefined) yield* validate;
+      const receipt =
+        key === undefined
+          ? undefined
+          : {
+              key,
+              fingerprint: yield* Effect.tryPromise({
+                try: () => dayEntryFingerprint(command, operationType),
+                catch: toEffectError,
+              }),
+            };
 
       const nowIso = now().toISOString();
       const memo = command.memo ?? null;
@@ -107,12 +110,18 @@ export function createD1DayEntryService(
             createdAt: nowIso,
           },
           mode: operationType,
+          receipt,
         })
         .pipe(
-          Effect.mapError((error) =>
-            error instanceof DailyEntryPeriodRangeError
-              ? new DateOutOfPeriodError(command.date, command.periodId)
-              : error,
+          Effect.catchIf(
+            (error) => error instanceof DailyEntryPeriodRangeError,
+            () =>
+              Effect.andThen(
+                validate,
+                Effect.fail(
+                  new DateOutOfPeriodError(command.date, command.periodId),
+                ),
+              ),
           ),
         );
       return {};
@@ -129,16 +138,7 @@ export function createD1DayEntryService(
         command.periodId,
         command.date,
       );
-      const historyExists = yield* dailyHistoryRepository.hasHistoryById({
-        date: command.date,
-        budgetPeriodId: command.periodId,
-        historyId: command.historyId,
-      });
-      if (!historyExists) {
-        return yield* Effect.fail(new HistoryNotFoundError(command.historyId));
-      }
-
-      yield* dayEntryWriter.writeHistoryReplay({
+      const changed = yield* dayEntryWriter.writeHistoryReplay({
         ...mutation,
         budgetPeriodId: command.periodId,
         date: command.date,
@@ -146,6 +146,8 @@ export function createD1DayEntryService(
         nowIso: now().toISOString(),
         historyId: command.historyId,
       });
+      if (!changed)
+        return yield* Effect.fail(new HistoryNotFoundError(command.historyId));
       return {};
     });
   }

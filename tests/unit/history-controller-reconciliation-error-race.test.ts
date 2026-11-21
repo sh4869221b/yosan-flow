@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createHistoryControllerState } from "#lib/dashboard/history-controller-state.svelte.ts";
+import { createDayEntrySyncState } from "#lib/dashboard/day-entry-sync-state.svelte.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
   createSummary,
@@ -17,9 +18,11 @@ it("does not expose an old reconciliation error after selection changes", async 
     .mockResolvedValueOnce(jsonResponse({ error: {} }, 503))
     .mockImplementationOnce(() => oldHistoryResponse.promise);
   vi.stubGlobal("fetch", fetchMock);
-  const revision = createPeriodSummaryRevision();
   let selectedPeriodId = "period-1";
   let selectedDate = "2026-07-12";
+  const sync = createDayEntrySyncState(() => selectedPeriodId);
+  sync.markPending(selectedPeriodId, selectedDate);
+  const revision = createPeriodSummaryRevision(sync.captureSummarySync);
   let summary = createSummary(0);
   const controller = createHistoryControllerState(
     {
@@ -47,6 +50,8 @@ it("does not expose an old reconciliation error after selection changes", async 
     jsonResponse({ summary: createSummary(1_000), histories: [] }),
   );
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  expect(summary).toEqual(createSummary(2_000));
+  expect(sync.pending).toBe(true);
 
   selectedPeriodId = "period-2";
   selectedDate = "2026-07-13";

@@ -137,7 +137,11 @@ export function inspectSchema(db: DatabaseSync) {
           // Exactly the two documented TEXT PK differences in the adoption baseline.
           // Data-preservation tests separately reject enforcing NOT NULL on legacy IDs.
           const legacyTextPk =
-            ["budget_periods", "daily_operation_histories"].includes(table) &&
+            [
+              "budget_periods",
+              "daily_operation_histories",
+              "daily_operation_histories_v2",
+            ].includes(table) &&
             column.name === "id" &&
             column.pk === 1 &&
             String(column.type).toUpperCase() === "TEXT";

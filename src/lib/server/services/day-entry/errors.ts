@@ -27,3 +27,8 @@ export class HistoryNotFoundError extends Error {
     this.name = "HistoryNotFoundError";
   }
 }
+
+export class DayEntryReceiptConflictError extends Error {
+  // fallow-ignore-next-line unused-class-member -- The API error boundary reads codes dynamically.
+  readonly code = "DAY_ENTRY_KEY_CONFLICT";
+}

@@ -6,7 +6,7 @@ import {
   seedCurrentPeriod,
 } from "./dashboard-day-entry-helpers";
 import { addDays, getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
-import { seedPeriod } from "./helpers/db";
+import { postDayAdd, seedPeriod } from "./helpers/db";
 import { waitForResponse } from "./period-operation-state-helpers";
 import {
   holdDashboardRead as holdNextSummary,
@@ -96,7 +96,7 @@ for (const event of resumeEvents) {
     const summaryUrl = `${getBaseUrl()}/api/periods/${periodId}`;
     expect(
       (
-        await request.post(`${summaryUrl}/days/${selectedDate}/add`, {
+        await postDayAdd(request, `${summaryUrl}/days/${selectedDate}/add`, {
           data: { inputYen: 2000, memo: "saved while away" },
         })
       ).ok(),
@@ -215,7 +215,7 @@ test("retries after reconnecting while an earlier resume request is still failin
   await waitForDashboardReady(page);
   expect(
     (
-      await request.post(`${summaryUrl}/days/${todayDate}/add`, {
+      await postDayAdd(request, `${summaryUrl}/days/${todayDate}/add`, {
         data: { inputYen: 2000 },
       })
     ).ok(),
