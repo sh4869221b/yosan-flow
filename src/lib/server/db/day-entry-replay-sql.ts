@@ -38,7 +38,7 @@ const HISTORY_REPLAY_CTE = `
         rowid AS history_rowid,
         operation_type,
         CASE WHEN rowid = target.history_rowid THEN ? ELSE input_yen END AS input_yen,
-        row_number() OVER (ORDER BY coalesce(nullif(write_order, 0), rowid) ASC, rowid ASC) AS rn
+        row_number() OVER (ORDER BY write_order ASC, rowid ASC) AS rn
       FROM daily_operation_histories_v2
       CROSS JOIN target
       WHERE budget_period_id = ? AND date = ?
@@ -229,9 +229,7 @@ function buildReplayedDailyTotalUpsertStatement(
             and(remainingHistories(command), targetExists(database, command)),
           )
           .orderBy(
-            desc(
-              sql`coalesce(nullif(${daily_operation_histories_v2.write_order}, 0), rowid)`,
-            ),
+            desc(daily_operation_histories_v2.write_order),
             desc(sql`rowid`),
           )
           .limit(1),

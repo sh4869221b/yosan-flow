@@ -25,6 +25,7 @@ function historyRow(
 ): DailyOperationHistoryRow {
   return {
     rowid: overrides.rowid ?? 1,
+    write_order: overrides.write_order ?? 1,
     id: overrides.id ?? "history-a",
     budget_period_id: overrides.budget_period_id ?? PERIOD_ID,
     date: overrides.date ?? DATE,
@@ -198,7 +199,7 @@ describe("applyDailyOperationHistoryMutation", () => {
       state,
     );
     applySqlMutation(
-      "INSERT INTO daily_totals SELECT after_total_yen FROM daily_operation_histories_v2 WHERE budget_period_id = ? AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid) DESC, rowid DESC LIMIT ? ON CONFLICT (budget_period_id, date) DO UPDATE SET total_used_yen = excluded.total_used_yen",
+      "INSERT INTO daily_totals SELECT after_total_yen FROM daily_operation_histories_v2 WHERE budget_period_id = ? AND date = ? ORDER BY write_order DESC, rowid DESC LIMIT ? ON CONFLICT (budget_period_id, date) DO UPDATE SET total_used_yen = excluded.total_used_yen",
       [
         PERIOD_ID,
         DATE,

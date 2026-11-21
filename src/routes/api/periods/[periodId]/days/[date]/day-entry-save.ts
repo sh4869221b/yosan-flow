@@ -16,7 +16,7 @@ import {
   parseDayEntryKey,
   parseDayMutationInput,
 } from "#lib/server/validation/day.ts";
-import { parsePeriodPathId } from "#lib/server/validation/month.ts";
+import { parsePeriodId } from "#lib/server/validation/month.ts";
 
 type Mode = "add" | "overwrite";
 export type DayEntrySaveDependencies = {
@@ -52,7 +52,7 @@ export function createDayEntrySaveHandler(
     runMutationResponse(
       `day.${mode}`,
       async () => {
-        const periodId = parsePeriodPathId(params.periodId, request);
+        const periodId = parsePeriodId(params.periodId);
         const date = parseDate(params.date);
         const input = await runApiEffect(parseDayMutationInput(request));
         const epoch = await runApiEffect(

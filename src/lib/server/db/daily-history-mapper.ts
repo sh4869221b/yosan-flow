@@ -37,17 +37,3 @@ export function toDailyHistoryRecordFromInput(
     createdAt: input.createdAt,
   };
 }
-
-export function toDailyHistoryInsertValues(input: InsertDailyHistoryInput) {
-  return {
-    id: input.id,
-    budget_period_id: input.budgetPeriodId,
-    date: input.date,
-    operation_type: input.operationType,
-    input_yen: input.inputYen,
-    before_total_yen: input.beforeTotalYen,
-    after_total_yen: input.afterTotalYen,
-    memo: input.memo,
-    created_at: input.createdAt,
-  };
-}

@@ -93,11 +93,7 @@ function buildHistoryInsert(
   eligible: ReturnType<typeof and>,
 ) {
   const currentTotal = sql<number>`coalesce(${daily_totals.total_used_yen}, 0)`;
-  // Match the auto-assigned rowid while older Workers can still append,
-  // and keep advancing the per-day order if physical rowids were compacted.
-  const lastRowId = database
-    .select({ value: sql<number>`max(rowid)` })
-    .from(daily_operation_histories_v2);
+  // Migrated histories have negative ranks. Begin new writes at a positive rank.
   const lastDayOrder = database
     .select({
       value: sql<number>`max(${daily_operation_histories_v2.write_order})`,
@@ -131,10 +127,9 @@ function buildHistoryInsert(
         ).as("after_total_yen"),
         memo: sql<string | null>`${history.memo}`.as("memo"),
         created_at: sql<string>`${history.createdAt}`.as("created_at"),
-        write_order:
-          sql<number>`max(coalesce((${lastRowId}), 0), coalesce((${lastDayOrder}), 0)) + 1`.as(
-            "write_order",
-          ),
+        write_order: sql<number>`max(0, coalesce((${lastDayOrder}), 0)) + 1`.as(
+          "write_order",
+        ),
       })
       .from(budget_periods)
       .leftJoin(

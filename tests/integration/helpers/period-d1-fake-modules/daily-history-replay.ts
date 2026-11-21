@@ -18,8 +18,7 @@ export function replayDailyHistoryRows(
     )
     .sort(
       (left, right) =>
-        (left.write_order || left.rowid) - (right.write_order || right.rowid) ||
-        left.rowid - right.rowid,
+        left.write_order - right.write_order || left.rowid - right.rowid,
     );
 
   for (const row of rows) {

@@ -156,14 +156,15 @@ function tryApplyInsert(
   const createdAtIndex = memoIndex + 1;
 
   const rowid = state.nextHistoryRowId();
-  const writeOrder = Math.max(
-    rowid,
-    ...state.dailyOperationHistories
-      .filter(
-        (row) => row.budget_period_id === budgetPeriodId && row.date === date,
-      )
-      .map((row) => (row.write_order ?? 0) + 1),
-  );
+  const writeOrder =
+    Math.max(
+      0,
+      ...state.dailyOperationHistories
+        .filter(
+          (row) => row.budget_period_id === budgetPeriodId && row.date === date,
+        )
+        .map((row) => row.write_order),
+    ) + 1;
   state.dailyOperationHistories.push({
     write_order: computesTotalsFromDailyTotals ? writeOrder : 0,
     rowid,
