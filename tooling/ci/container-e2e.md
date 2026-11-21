@@ -6,8 +6,8 @@ Wrangler・使い捨て D1・Playwright を同じ container/path で実行しま
 
 ## 実行
 
-Linux x86_64/amd64、Docker Engine と BuildKit、bash、プロジェクト定義の Node
-が必要です。Node は `.node_version`、pnpm は `package.json#packageManager`、
+Linux x86_64/amd64、bash、プロジェクト定義の Node が必要です。
+コンテナーの既定は Docker Engine と BuildKit で、GitHub Actions でも変更しません。Node は `.node_version`、pnpm は `package.json#packageManager`、
 Playwright の解決版は `pnpm-lock.yaml` が正です。通常開発の手順は変えません。
 
 ```bash
@@ -16,6 +16,16 @@ pnpm test:e2e --shard=1/2
 pnpm test:e2e --shard=2/2
 pnpm test:e2e --grep 'budget'
 ```
+
+ローカルでは、Docker の代わりに rootless Podman を選べます。
+
+```bash
+YOSAN_CONTAINER_ENGINE=podman pnpm test:e2e
+```
+
+Podman は一般ユーザーで実行し、`--userns=keep-id` で成果物を呼出し元の
+UID/GID で書き込みます。Docker 互換パッケージや Podman の API ソケットは不要です。
+イメージとそのキャッシュは Docker とは別です。
 
 標準入口は `scripts/e2e-container.sh` です。CI/手動 workflow も同じ入口を使い、
 shard は別 runner、各１ worker で実行します。Playwright 引数は literal argv

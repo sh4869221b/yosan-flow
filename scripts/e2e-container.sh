@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
+engine=${YOSAN_CONTAINER_ENGINE:-docker}
+user_namespace=()
+case "$engine" in
+  docker) ;;
+  podman) user_namespace=(--userns=keep-id) ;;
+  *) printf 'Unsupported container engine: %s\n' "$engine" >&2; exit 2 ;;
+esac
 # Pass Playwright options as literal argv, including --shard=1/2 or --shard=2/2.
 # Default local invocation runs the complete suite with the existing single worker.
 node scripts/e2e-container-config.ts >/dev/null
@@ -35,12 +42,12 @@ cp tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf tooling/ci/co
 image_key=$(cat tooling/ci/container/Dockerfile tooling/ci/container/fonts.conf tooling/ci/container/font.json tooling/ci/container/image.json .node_version | sha256sum | cut -d' ' -f1)
 image="yosan-flow-e2e:$image_key"
 cache_hit=false
-if docker image inspect "$image" >/dev/null 2>&1; then
+if "$engine" image inspect "$image" >/dev/null 2>&1; then
   cache_hit=true
 else
-  measure image-pull-playwright docker pull "$playwright_image" &
+  measure image-pull-playwright "$engine" pull "$playwright_image" &
   playwright_pull=$!
-  measure image-pull-node docker pull "$node_image" &
+  measure image-pull-node "$engine" pull "$node_image" &
   node_pull=$!
   # Download/verify only the pinned font package, in parallel with the image pulls.
   # Preserve the host proxy/CA settings and enable Node's native proxy support.
@@ -57,9 +64,9 @@ else
   [[ $status == 0 ]] || exit "$status"
   font_hash=$(node -p 'JSON.parse(require("node:fs").readFileSync("tooling/ci/container/font.json")).sha256')
   cp ".tmp-container-fonts/$font_hash.deb" .tmp-container-e2e/image-context/font.deb
-  measure image-build docker build --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY --platform linux/amd64 --build-arg "PLAYWRIGHT_IMAGE=$playwright_image" --build-arg "NODE_IMAGE=$node_image" --tag "$image" .tmp-container-e2e/image-context
+  measure image-build "$engine" build --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY --platform linux/amd64 --build-arg "PLAYWRIGHT_IMAGE=$playwright_image" --build-arg "NODE_IMAGE=$node_image" --tag "$image" .tmp-container-e2e/image-context
 fi
-image_id=$(docker image inspect "$image" --format '{{.Id}}')
+image_id=$("$engine" image inspect "$image" --format '{{.Id}}')
 printf '{"image":"%s","imageId":"%s","localImageCacheHit":%s}\n' "$image" "$image_id" "$cache_hit" > .tmp-container-e2e/runner.json
 # Egress proxy and CI identity only. Do not forward cloud credentials or app env.
 environment=()
@@ -84,7 +91,7 @@ case "$common_directory" in
   "$PWD"/*) ;;
   *) git_metadata=(--mount "type=bind,src=$common_directory,dst=$common_directory,readonly") ;;
 esac
-docker run --rm --init --platform linux/amd64 --shm-size=1g \
+"$engine" run "${user_namespace[@]}" --rm --init --platform linux/amd64 --shm-size=1g \
   --user "$(id -u):$(id -g)" --workdir /work/yosan-flow \
   --env HOME=/tmp --env PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
   "${environment[@]}" "${certificate[@]}" "${git_metadata[@]}" \
