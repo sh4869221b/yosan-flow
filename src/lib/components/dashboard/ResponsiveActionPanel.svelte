@@ -107,8 +107,10 @@
             class={cn(
               buttonVariants({ variant: "secondary" }),
               "shrink-0 px-3 font-extrabold",
-            )}>閉じる</Dialog.Close
+            )}
           >
+            閉じる
+          </Dialog.Close>
         </div>
         <div data-testid={testId}>
           {@render children()}

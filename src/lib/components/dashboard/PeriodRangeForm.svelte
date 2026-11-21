@@ -233,8 +233,10 @@
           class="justify-self-start"
           type="button"
           onclick={onretry}
-          disabled={confirmation.refreshing}>最新情報を再取得</Button
+          disabled={confirmation.refreshing}
         >
+          最新情報を再取得
+        </Button>
       {/if}
       <p>{confirmation.result.message}</p>
     </div>
@@ -308,15 +310,18 @@
       aria-disabled={submitUnavailable}
       aria-describedby={range.serverError
         ? "range-settings-server-error"
-        : undefined}>{submitLabel}</Button
+        : undefined}
     >
+      {submitLabel}
+    </Button>
     <Button
       variant="outline"
       type="button"
       disabled={disabled || !canReset}
       onclick={reset}
-      >{range.settingChanged ? "最新の期間に戻す" : "キャンセル"}</Button
     >
+      {range.settingChanged ? "最新の期間に戻す" : "キャンセル"}
+    </Button>
   </div>
   {#if range.serverError}<p id="range-settings-server-error" role="alert">
       {#if range.success}期間の保存は完了していますが、最新情報の再取得に失敗しました。{/if}{range.serverError}

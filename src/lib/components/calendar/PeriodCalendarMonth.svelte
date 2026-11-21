@@ -78,9 +78,9 @@
         class:selected={presentation.isSelected}
       >
         <span class="date-number">{Number(date.slice(8, 10))}</span>
-        <span class="used" data-testid={`used-${date}`}
-          >{presentation.amountLabel}</span
-        >
+        <span class="used" data-testid={`used-${date}`}>
+          {presentation.amountLabel}
+        </span>
         <CalendarStatusList statuses={presentation.statuses} />
       </button>
     {/if}
