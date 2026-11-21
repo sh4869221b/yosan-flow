@@ -7,7 +7,7 @@ Yosan Flow は Cloudflare Workers 上で動く、SvelteKit 製の期間単位の
 - Node.js: [.node_version](.node_version) に指定されたバージョンを使用
 - pnpm: [package.json](package.json) の `packageManager` に指定されたバージョンを使用
 - Cloudflare アカウント（D1/Workers 利用時）
-- E2E: Linux amd64 上の Docker/BuildKit（通常の開発には不要）
+- E2E: Linux amd64 上の Docker/BuildKit（既定）、またはローカルの rootless Podman（通常の開発には不要）
 
 ## フレームワーク設定
 
