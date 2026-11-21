@@ -241,6 +241,17 @@ async function probe(url: string) {
     assert(ok, `Public Preview probe failed: ${path}`);
   }
 }
+async function deployedPreviewUrl(target: Resources) {
+  const deployed = await request(target.previewPath);
+  assert(
+    deployed?.name === target.preview &&
+      Array.isArray(deployed.urls) &&
+      typeof deployed.urls[0] === "string",
+    "Missing or invalid deployed Preview URL",
+  );
+  return previewUrl(target.number, deployed.urls[0]);
+}
+
 async function operate(number: number) {
   const target = resources(number);
   if (mode === "cleanup") {
@@ -283,14 +294,7 @@ async function operate(number: number) {
   ]);
   if (!(await current(target))) return;
   stage = "probe";
-  const deployed = await request(target.previewPath);
-  assert(
-    deployed?.name === target.preview &&
-      Array.isArray(deployed.urls) &&
-      typeof deployed.urls[0] === "string",
-    "Missing or invalid deployed Preview URL",
-  );
-  const url = previewUrl(number, deployed.urls[0]);
+  const url = await deployedPreviewUrl(target);
   await probe(url);
   if (await current(target)) output("url", url);
 }
