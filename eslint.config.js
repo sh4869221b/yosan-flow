@@ -109,6 +109,7 @@ export default defineConfig(
       "scripts/e2e-*.ts",
       "scripts/fallow-ci.ts",
       "scripts/ci-changes.ts",
+      "scripts/pr-preview*.ts",
       "tests/**/*.ts",
     ],
     languageOptions: {
