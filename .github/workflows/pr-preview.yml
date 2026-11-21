@@ -43,10 +43,11 @@ jobs:
     if: ${{ needs.resolve.outputs.number }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Shared by deploy and close. Do not cancel remote mutations midway.
+    # Keep waiting cleanup jobs while serializing deploy and close.
     concurrency:
       group: yosan-flow-pr-preview-${{ needs.resolve.outputs.number }}
       cancel-in-progress: false
+      queue: max
     permissions:
       contents: read
       pull-requests: write
@@ -99,4 +100,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PREVIEW_STATUS: ${{ job.status }}
           PREVIEW_URL: ${{ steps.preview.outputs.url }}
+          PREVIEW_CLEANED_UP: ${{ steps.preview.outputs.cleaned_up }}
           PREVIEW_FAILURE: ${{ steps.preview.outputs.failure }}

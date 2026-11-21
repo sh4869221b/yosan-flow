@@ -268,6 +268,7 @@ describe("PR Preview lifecycle with fake APIs and CLI", () => {
       "DELETE",
     ]);
     expect(remoteDatabases).toEqual([]);
+    expect(readFileSync(output, "utf8")).toContain("cleaned_up=true");
   });
   it("retains D1 when Preview deletion fails, so cleanup can be retried", async () => {
     state.state = "closed";
@@ -282,6 +283,7 @@ describe("PR Preview lifecycle with fake APIs and CLI", () => {
     expect(
       vi.mocked(request).mock.calls.some(([, method]) => method === "DELETE"),
     ).toBe(false);
+    expect(readFileSync(output, "utf8")).toBe("failure=cleanup\n");
   });
   it("refuses cleanup of a protected production UUID even with a matching PR name", async () => {
     state.state = "closed";
@@ -297,6 +299,7 @@ describe("PR Preview lifecycle with fake APIs and CLI", () => {
     await run("cleanup");
     expect(commands).toEqual([]);
     expect(process.exitCode).not.toBe(1);
+    expect(readFileSync(output, "utf8")).toContain("cleaned_up=true");
   });
   it("does not remove a reopened PR", async () => {
     previewExists = true;
@@ -304,6 +307,7 @@ describe("PR Preview lifecycle with fake APIs and CLI", () => {
     await run("cleanup");
     expect(commands).toEqual([]);
     expect(remoteDatabases).toEqual([db]);
+    expect(readFileSync(output, "utf8")).toBe("");
   });
   it("cleans up instead of deploying when close occurs after migration", async () => {
     const original = vi.mocked(wrangler).getMockImplementation()!;
@@ -317,7 +321,29 @@ describe("PR Preview lifecycle with fake APIs and CLI", () => {
       commands.some((args) => args[0] === "preview" && args[1] === "--name"),
     ).toBe(false);
     expect(remoteDatabases).toEqual([]);
+    expect(readFileSync(output, "utf8")).toContain("cleaned_up=true");
   });
+  it.each([
+    [undefined, "Previewと専用D1の削除完了は確認できていません。"],
+    ["true", "Previewと専用D1を削除しました。"],
+  ] as const)(
+    "reports the cleanup result when a closed PR has cleaned_up=%s",
+    async (cleanedUp, message) => {
+      state.state = "closed";
+      vi.stubEnv("PREVIEW_STATUS", "success");
+      vi.stubEnv("PREVIEW_CLEANED_UP", cleanedUp);
+      vi.stubEnv(
+        "PREVIEW_URL",
+        "https://pr-123-yosan-flow-pr.test.workers.dev",
+      );
+      await run("report");
+      expect(vi.mocked(request).mock.calls).toContainEqual([
+        expect.stringContaining("/issues/123/comments"),
+        "POST",
+        { body: expect.stringContaining(message) },
+      ]);
+    },
+  );
   it("reports a safe D1/quota failure reason in the PR comment", async () => {
     vi.stubEnv("PREVIEW_STATUS", "failure");
     vi.stubEnv("PREVIEW_FAILURE", "database");

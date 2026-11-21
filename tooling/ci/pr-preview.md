@@ -56,8 +56,9 @@ migration前、配備直前、配備後、probe後にHEAD/stateを再確認し�
 同じrunでcleanupし、closeイベントも独立してcleanupします。新HEADなら旧runは配備を
 見送ります。チェック直後のpushとの短い競合では旧版が一時公開され得ますが、新CIが成功後
 同じURLを更新します。新CI失敗時は旧版が残り、コメントのSHAで区別します。
-GitHub concurrencyは待機runを置換し順序を保証しません。各runが現在stateを再確認するため、
-close後の古いrunは再作成しません。reopen後の古いclose処理は削除しません。
+`queue: max`で後続ジョブによる待機中の削除ジョブの置換を防ぎます。待機上限はPRごとに100件です。
+各runが現在stateを再確認するため、close後の古いrunは再作成しません。
+reopen後の古いclose処理は削除しません。
 
 close（merge含む）は`pull_request_target.closed`を使い、信頼済みmainだけをcheckoutします。
 Previewの実在・名前・IDを確認し、公式`wrangler preview delete`で削除します。

@@ -149,13 +149,16 @@ async function cleanup(target: Resources) {
     ]);
   }
   const db = await target.find();
-  if (!db) return;
-  const actual = await request(`${target.accountPath}/d1/database/${db.uuid}`);
-  assert(
-    actual.uuid === db.uuid && actual.name === target.database,
-    "Database identity changed",
-  );
-  await request(`${target.accountPath}/d1/database/${db.uuid}`, "DELETE");
+  if (db) {
+    const path = `${target.accountPath}/d1/database/${db.uuid}`;
+    const actual = await request(path);
+    assert(
+      actual.uuid === db.uuid && actual.name === target.database,
+      "Database identity changed",
+    );
+    await request(path, "DELETE");
+  }
+  output("cleaned_up", "true");
 }
 async function current(target: Resources) {
   const value = await pr(target.number);
@@ -285,7 +288,10 @@ async function operate(number: number) {
 function reportStatus(closed: boolean, url: string | undefined) {
   if (process.env.PREVIEW_STATUS !== "success")
     return `失敗箇所: ${failureLabels[process.env.PREVIEW_FAILURE as keyof typeof failureLabels] ?? "checkout・依存関係・build等（実行ログ参照）"}。直前のPreviewが残っている可能性があります。下記runとリソース状況を確認してください。`;
-  if (closed) return "Previewと専用D1を削除しました。";
+  if (closed)
+    return process.env.PREVIEW_CLEANED_UP === "true"
+      ? "Previewと専用D1を削除しました。"
+      : "Previewと専用D1の削除完了は確認できていません。";
   if (url)
     return `公開URL: ${url}\n\n公開の使い捨てデータです。実際の個人情報は入力しないでください。`;
   return "配備を見送りました。runと現在のPR状態を確認してください。";
