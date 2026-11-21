@@ -56,15 +56,15 @@
             </dt>
             <dd class="period-id">期間ID: {period.value.before.id}</dd>
             <dd class="ranges">
-              <span
-                ><strong>変更前</strong>{period.value.before.startDate} ～ {period
-                  .value.before.endDate}</span
-              >
+              <span>
+                <strong>変更前</strong>{period.value.before.startDate} ～ {period
+                  .value.before.endDate}
+              </span>
               <span class="arrow" aria-hidden="true">→</span>
-              <span
-                ><strong>変更後</strong>{period.value.after.startDate} ～ {period
-                  .value.after.endDate}</span
-              >
+              <span>
+                <strong>変更後</strong>{period.value.after.startDate} ～ {period
+                  .value.after.endDate}
+              </span>
             </dd>
           </div>
         {/each}

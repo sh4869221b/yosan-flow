@@ -30,21 +30,22 @@
 >
   <p class="remaining-card">
     <span>今日あと使える金額</span>
-    <strong data-testid="today-food-remaining"
-      >{formatYen(pace.todayRemainingYen)}</strong
-    >
+    <strong data-testid="today-food-remaining">
+      {formatYen(pace.todayRemainingYen)}
+    </strong>
     {#if todayAction}{@render todayAction()}{/if}
   </p>
   <p class="allowance-card">
     <span>今日の食費枠</span>
-    <strong data-testid="today-food-allowance"
-      >{formatYen(pace.todayAllowanceYen)}</strong
-    >
+    <strong data-testid="today-food-allowance">
+      {formatYen(pace.todayAllowanceYen)}
+    </strong>
   </p>
   <p>
     <span>使用済み</span>
-    <strong data-testid="today-food-used">{formatYen(pace.usedTodayYen)}</strong
-    >
+    <strong data-testid="today-food-used">
+      {formatYen(pace.usedTodayYen)}
+    </strong>
   </p>
 </div>
 
@@ -58,20 +59,21 @@
   </p>
   <p>
     <span>基準</span>
-    <strong data-testid="base-daily-food">{formatYen(pace.baseDailyYen)}</strong
-    >
+    <strong data-testid="base-daily-food">
+      {formatYen(pace.baseDailyYen)}
+    </strong>
   </p>
   <p>
     <span>今日のボーナス</span>
-    <strong data-testid="today-food-bonus"
-      >+{formatYen(pace.todayBonusYen)}</strong
-    >
+    <strong data-testid="today-food-bonus">
+      +{formatYen(pace.todayBonusYen)}
+    </strong>
   </p>
   <p>
     <span>調整</span>
-    <strong data-testid="today-food-adjustment"
-      >-{formatYen(pace.adjustmentYen)}</strong
-    >
+    <strong data-testid="today-food-adjustment">
+      -{formatYen(pace.adjustmentYen)}
+    </strong>
   </p>
   {#if pace.totalAdjustmentYen > 0}
     <p class="total-adjustment">

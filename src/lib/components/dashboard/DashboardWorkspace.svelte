@@ -243,8 +243,10 @@
     <Button
       type="button"
       disabled={todayEntryDisabled}
-      onclick={requestTodayEntry}>今日の支出を追加</Button
+      onclick={requestTodayEntry}
     >
+      今日の支出を追加
+    </Button>
   {/if}
 {/snippet}
 

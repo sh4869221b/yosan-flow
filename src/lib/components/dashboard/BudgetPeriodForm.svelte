@@ -165,15 +165,18 @@
       aria-disabled={!dirty || settingChanged}
       aria-describedby={serverError
         ? "budget-settings-server-error"
-        : undefined}>{submitLabel}</Button
+        : undefined}
     >
+      {submitLabel}
+    </Button>
     <Button
       variant="outline"
       type="button"
       disabled={disabled || !canReset}
       onclick={reset}
-      >{settingChanged ? "最新の予算に戻す" : "キャンセル"}</Button
     >
+      {settingChanged ? "最新の予算に戻す" : "キャンセル"}
+    </Button>
   </div>
   {#if serverError}
     <p id="budget-settings-server-error" role="alert">

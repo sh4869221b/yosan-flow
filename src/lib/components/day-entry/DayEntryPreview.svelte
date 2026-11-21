@@ -29,9 +29,9 @@
   </div>
   <div class="summary-item">
     <span class="summary-label">追加後の日計</span>
-    <strong
-      >{addedYen == null ? "—" : `${formatYen(previewAfterYen)} 円`}</strong
-    >
+    <strong>
+      {addedYen == null ? "—" : `${formatYen(previewAfterYen)} 円`}
+    </strong>
   </div>
 </div>
 {#if addedYen != null}

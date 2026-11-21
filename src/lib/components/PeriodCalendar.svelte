@@ -120,9 +120,14 @@
   <div class="calendar-heading">
     <h2>日付を選ぶ</h2>
     {#if hasToday}
-      <Button type="button" variant="outline" {disabled} onclick={returnToToday}
-        >今日へ戻る</Button
+      <Button
+        type="button"
+        variant="outline"
+        {disabled}
+        onclick={returnToToday}
       >
+        今日へ戻る
+      </Button>
     {/if}
   </div>
   {#if disabled}

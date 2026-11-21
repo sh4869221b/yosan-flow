@@ -163,8 +163,10 @@
       class="justify-self-start"
       type="button"
       aria-disabled={controller.periodInteractionDisabled}
-      onclick={retry}>表示を再読み込み</Button
+      onclick={retry}
     >
+      表示を再読み込み
+    </Button>
     {#if controller.createdRefreshing}
       <p role="status">表示を再取得しています...</p>
     {/if}
@@ -194,8 +196,10 @@
       type="button"
       data-testid={`${prefix}-range-apply`}
       {disabled}
-      onclick={applyRange}>期間を反映</Button
+      onclick={applyRange}
     >
+      期間を反映
+    </Button>
     <div class="grid min-w-0 gap-1.5">
       <Label for={`${prefix}-budget`}>新規予算額 (円)</Label>
       <Input
@@ -221,8 +225,9 @@
           if (event.button === 0) event.preventDefault();
         }}
         onclick={(event) => event.currentTarget.focus()}
-        >詳細設定（任意）</summary
       >
+        詳細設定（任意）
+      </summary>
       <p class="advanced-note">
         期間IDは自動で設定されます。通常は変更不要です。
       </p>
