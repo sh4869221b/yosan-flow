@@ -39,6 +39,7 @@ export function createPeriodAwareD1Fake(
     for (const date of dates) {
       state.dailyOperationHistories.push({
         rowid: state.nextHistoryRowId(),
+        write_order: 1,
         id: `seed-history-${periodId}-${date}`,
         budget_period_id: periodId,
         date,

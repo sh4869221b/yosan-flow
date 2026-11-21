@@ -56,7 +56,7 @@ export function applyDailyTotalMutation(
   if (args.length < 5) return;
 
   if (
-    /order by coalesce\(nullif\((?:daily_operation_histories_v2\.)?write_order, 0\), rowid\) desc, rowid desc/.test(
+    /order by (?:daily_operation_histories_v2\.)?write_order desc, rowid desc/.test(
       normalizedSql,
     )
   ) {
@@ -119,8 +119,7 @@ function upsertReplayedDailyTotal(
     .filter((row) => !deleting || row.id !== targetId)
     .sort(
       (left, right) =>
-        (right.write_order || right.rowid) - (left.write_order || left.rowid) ||
-        right.rowid - left.rowid,
+        right.write_order - left.write_order || right.rowid - left.rowid,
     )[0];
   if (!last) return;
   state.dailyTotals.set(toDailyTotalKey(String(date), String(periodId)), {

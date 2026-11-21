@@ -5,11 +5,7 @@ import { assertValidBudgetPeriodRow } from "#lib/server/db/budget-period-row-map
 import { createDrizzleD1Database } from "#lib/server/db/client.ts";
 import { dailyEntryOutsideRange } from "#lib/server/db/daily-entry-range-query.ts";
 import type { D1Database } from "#lib/server/db/d1-types.ts";
-import {
-  toDailyHistoryInsertValues,
-  toDailyHistoryRecord,
-  toDailyHistoryRecordFromInput,
-} from "#lib/server/db/daily-history-mapper.ts";
+import { toDailyHistoryRecord } from "#lib/server/db/daily-history-mapper.ts";
 import type { D1DailyHistoryRepository } from "#lib/server/db/daily-history-types.ts";
 import { daily_operation_histories_v2 } from "#lib/server/db/schema.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
@@ -33,9 +29,7 @@ export function createD1DailyHistoryRepository(
         ),
       )
       .orderBy(
-        desc(
-          sql`coalesce(nullif(${daily_operation_histories_v2.write_order}, 0), rowid)`,
-        ),
+        desc(daily_operation_histories_v2.write_order),
         desc(sql`rowid`),
       );
 
@@ -60,19 +54,6 @@ export function createD1DailyHistoryRepository(
           if (!period) return null;
           assertValidBudgetPeriodRow(period);
           return rows.map((row) => toDailyHistoryRecord(row));
-        },
-        catch: toEffectError,
-      });
-    },
-
-    insertHistory(inputRow) {
-      return Effect.tryPromise({
-        try: async () => {
-          await database
-            .insert(daily_operation_histories_v2)
-            .values(toDailyHistoryInsertValues(inputRow))
-            .run();
-          return toDailyHistoryRecordFromInput(inputRow);
         },
         catch: toEffectError,
       });

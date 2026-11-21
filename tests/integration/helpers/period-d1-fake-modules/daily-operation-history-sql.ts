@@ -42,8 +42,7 @@ export function queryDailyOperationHistories(
       .filter((row) => row.budget_period_id === periodId && row.date === date)
       .sort(
         (left, right) =>
-          (right.write_order || right.rowid) -
-            (left.write_order || left.rowid) || right.rowid - left.rowid,
+          right.write_order - left.write_order || right.rowid - left.rowid,
       );
   }
   if (

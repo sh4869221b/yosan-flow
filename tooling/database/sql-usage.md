@@ -19,7 +19,7 @@ Paths below are under `src/lib/server/db/` unless stated otherwise.
 | `budget-period-d1-repository.ts`         | Typed period CRUD and orchestration of validation and the linked-boundary writer.                                                                        |
 | `budget-period-boundary-d1.ts`           | One conditional two-period UPDATE through Drizzle, with JSON/date/CASE expressions and commit-time predicates.                                           |
 | `daily-total-repository.ts`              | Typed scoped total reads, upsert and outside-range existence checks. In-memory implementation has no SQL.                                                |
-| `daily-history-d1-repository.ts`         | Batches period validation with the scoped history read. Hidden SQLite `rowid` breaks timestamp ties. Also owns history inserts and ID existence checks.  |
+| `daily-history-d1-repository.ts`         | Batches period validation with scoped history reads ordered by persisted `write_order`. SQLite `rowid` breaks order ties.                                |
 | `daily-entry-range-query.ts`             | Shared outside-range predicate. Each branch constrains both period and date for an indexed seek.                                                         |
 | `day-entry-write-sql.ts`                 | Typed history INSERT…SELECT and total UPSERT. Compiles builders with `toSQL()` and binds their parameters without executing them.                        |
 | `day-entry-replay-sql.ts`                | Typed history update/delete, empty-total deletion and final-total upsert; one handwritten recursive replay statement.                                    |
@@ -38,7 +38,7 @@ these boundaries rather than adding a second execution path.
   execute builders early or replace these batches with JavaScript read/write loops.
 - Recursive replay is the deliberate SQL exception because the SQLite Drizzle
   builder does not provide a recursive-CTE API. It scopes by period/date and orders
-  by `created_at ASC, rowid ASC`. Internal row identity is `rowid`, so preserved
+  by `write_order ASC, rowid ASC`. Internal row identity is `rowid`, so preserved
   legacy NULL text IDs also participate correctly. The UPDATE joins the replay
   result by rowid and writes only rows whose derived totals changed. External
   mutations still use the period/date/history-ID contract. Do not rebuild tables

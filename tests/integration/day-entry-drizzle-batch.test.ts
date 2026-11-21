@@ -106,6 +106,27 @@ describe("Drizzle-generated day-entry atomic batch", () => {
     }
   });
 
+  it("assigns positive write order after migrated history", async () => {
+    const writer = createD1DayEntryWriter({ db: createSqliteD1(db) });
+    await runApiEffect(writer.writeDailyEntry(command("migrated", 100)));
+    db.prepare(
+      "UPDATE daily_operation_histories_v2 SET write_order = -1",
+    ).run();
+
+    await runApiEffect(writer.writeDailyEntry(command("new", 25)));
+
+    expect(
+      db
+        .prepare(
+          "SELECT id, write_order FROM daily_operation_histories_v2 ORDER BY write_order",
+        )
+        .all(),
+    ).toEqual([
+      { id: "migrated", write_order: -1 },
+      { id: "new", write_order: 1 },
+    ]);
+  });
+
   it.each(["missing", "shortened"])(
     "writes neither row and preserves the range error when the period is %s",
     async (state) => {

@@ -1,11 +1,6 @@
 import { json } from "@sveltejs/kit";
 import { Effect } from "effect";
 import { toApiErrorResponseResult } from "#lib/server/effect/result.ts";
-import {
-  isDotPeriodId,
-  LEGACY_PERIOD_PATH,
-  LEGACY_PERIOD_QUERY,
-} from "#lib/period-id.ts";
 
 export class ApiRouteError extends Error {
   readonly status: number;
@@ -31,7 +26,7 @@ export function parsePeriodId(value: unknown): string {
 }
 
 export function parseNewPeriodId(value: unknown): string {
-  if (isDotPeriodId(value)) {
+  if (value === "." || value === "..") {
     throw new ApiRouteError(
       400,
       "INVALID_PERIOD_ID",
@@ -39,29 +34,6 @@ export function parseNewPeriodId(value: unknown): string {
     );
   }
   return parsePeriodId(value);
-}
-
-export function parsePeriodPathId(
-  value: string | undefined,
-  request: Request,
-): string {
-  const legacyIds = new URL(request.url).searchParams.getAll(
-    LEGACY_PERIOD_QUERY,
-  );
-  if (legacyIds.length === 0) return parsePeriodId(value);
-  const [legacyId] = legacyIds;
-  if (
-    value === LEGACY_PERIOD_PATH &&
-    legacyIds.length === 1 &&
-    isDotPeriodId(legacyId)
-  ) {
-    return legacyId;
-  }
-  throw new ApiRouteError(
-    400,
-    "INVALID_PERIOD_ID",
-    "旧期間IDの指定が不正です。",
-  );
 }
 
 export function parseNonNegativeIntegerYen(

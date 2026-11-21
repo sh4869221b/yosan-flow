@@ -22,12 +22,13 @@ function seed(db: DatabaseSync, only: boolean) {
     VALUES (?, '2026-05-01', '2026-05-31', 1000, 'active', ?, ?)`);
   for (const id of ["target", "other"]) period.run(id, nowIso, nowIso);
   const history = db.prepare(`INSERT INTO daily_operation_histories_v2
-    (rowid, id, budget_period_id, date, operation_type, input_yen,
+    (rowid, write_order, id, budget_period_id, date, operation_type, input_yen,
       before_total_yen, after_total_yen, memo, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`);
-  // Insert out of rowid order; all timestamps tie, and IDs sort differently.
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`);
+  // Insert out of write order; all timestamps tie, and IDs sort differently.
   history.run(
     90,
+    3,
     "a-last",
     "target",
     date,
@@ -38,9 +39,10 @@ function seed(db: DatabaseSync, only: boolean) {
     nowIso,
   );
   if (!only) {
-    history.run(10, "z-first", "target", date, "add", 100, 0, 100, nowIso);
+    history.run(10, 1, "z-first", "target", date, "add", 100, 0, 100, nowIso);
     history.run(
       40,
+      2,
       "m-middle",
       "target",
       date,
@@ -51,9 +53,21 @@ function seed(db: DatabaseSync, only: boolean) {
       nowIso,
     );
   }
-  history.run(100, "other-period", "other", date, "add", 900, 0, 900, nowIso);
+  history.run(
+    100,
+    1,
+    "other-period",
+    "other",
+    date,
+    "add",
+    900,
+    0,
+    900,
+    nowIso,
+  );
   history.run(
     110,
+    1,
     "other-date",
     "target",
     "2026-05-02",
@@ -76,7 +90,7 @@ function histories(db: DatabaseSync) {
     .prepare(
       `SELECT id, before_total_yen, after_total_yen
     FROM daily_operation_histories_v2 WHERE budget_period_id = 'target'
-      AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid), rowid`,
+      AND date = ? ORDER BY write_order, rowid`,
     )
     .all(date);
 }
@@ -250,7 +264,7 @@ describe("history replay totals against SQLite", () => {
       for (const id of nullIds) markLegacy.run(id);
       const beforeRows = db
         .prepare(
-          "SELECT rowid, id FROM daily_operation_histories_v2 WHERE budget_period_id = 'target' AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid), rowid",
+          "SELECT rowid, id FROM daily_operation_histories_v2 WHERE budget_period_id = 'target' AND date = ? ORDER BY write_order, rowid",
         )
         .all(date);
       const writer = createD1DayEntryWriter({ db: createSqliteD1(db) });
@@ -265,7 +279,7 @@ describe("history replay totals against SQLite", () => {
       );
       const rows = db
         .prepare(
-          "SELECT rowid, id, before_total_yen, after_total_yen FROM daily_operation_histories_v2 WHERE budget_period_id = 'target' AND date = ? ORDER BY coalesce(nullif(write_order, 0), rowid), rowid",
+          "SELECT rowid, id, before_total_yen, after_total_yen FROM daily_operation_histories_v2 WHERE budget_period_id = 'target' AND date = ? ORDER BY write_order, rowid",
         )
         .all(date);
       expect(rows.map(({ rowid, id }) => ({ rowid, id }))).toEqual(
@@ -315,7 +329,7 @@ describe("history replay totals against SQLite", () => {
       '"daily_operation_histories_v2"."budget_period_id" = ? and "daily_operation_histories_v2"."date" = ?',
     );
     expect(sql[2]).toContain(
-      'order by coalesce(nullif("daily_operation_histories_v2"."write_order", 0), rowid) desc, rowid desc',
+      'order by "daily_operation_histories_v2"."write_order" desc, rowid desc',
     );
   });
 
