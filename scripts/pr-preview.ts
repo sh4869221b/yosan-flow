@@ -33,7 +33,7 @@ const failureLabels = {
   isolation: "Previewのbinding・secret分離確認",
   migration: "PR専用D1のmigration適用",
   deploy: "Worker Preview配備",
-  probe: "公開URLの画面・D1 API確認",
+  probe: "公開URLの取得・画面とD1 APIの確認",
   cleanup: "Preview・PR専用D1の削除",
 };
 let stage: keyof typeof failureLabels = "prepare";
@@ -241,6 +241,17 @@ async function probe(url: string) {
     assert(ok, `Public Preview probe failed: ${path}`);
   }
 }
+async function deployedPreviewUrl(target: Resources) {
+  const deployed = await request(target.previewPath);
+  assert(
+    deployed?.name === target.preview &&
+      Array.isArray(deployed.urls) &&
+      typeof deployed.urls[0] === "string",
+    "Missing or invalid deployed Preview URL",
+  );
+  return previewUrl(target.number, deployed.urls[0]);
+}
+
 async function operate(number: number) {
   const target = resources(number);
   if (mode === "cleanup") {
@@ -273,20 +284,17 @@ async function operate(number: number) {
   ]);
   if (!(await current(target))) return;
   stage = "deploy";
-  const deployed = JSON.parse(
-    wrangler([
-      "preview",
-      "--name",
-      target.preview,
-      "--config",
-      target.configPath,
-      "--ignore-base-config",
-      "--json",
-    ]),
-  );
-  const url = previewUrl(number, deployed.preview.urls[0]);
+  wrangler([
+    "preview",
+    "--name",
+    target.preview,
+    "--config",
+    target.configPath,
+    "--ignore-base-config",
+  ]);
   if (!(await current(target))) return;
   stage = "probe";
+  const url = await deployedPreviewUrl(target);
   await probe(url);
   if (await current(target)) output("url", url);
 }

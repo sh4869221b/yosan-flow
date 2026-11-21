@@ -47,7 +47,7 @@ PR内でも一度適用したSQLは書き換えず、追加migrationで変更し
 一時設定はrootの`.tmp-pr-*.json`だけです。共用・本番・placeholder UUIDと重複するDB、
 同じUUIDを持つ別DB、曖昧な名前は拒否します。productionや共用previewのrouteは継承しません。
 
-配備後はJSONの`.preview.urls[0]`を検証し、認証なし・redirectなしで`/`のHTMLと
+配備後はCloudflare APIから取得したPreviewの公開URLを検証し、認証なし・redirectなしで`/`のHTMLと
 `/api/periods`のD1 readをprobeします。DNS/配備伝播は最大6回再試行します。
 E2E reset token、ローカルintent、認証secretは渡しません。ObservabilityはPreview側だけ
 に設定し、既存の金額・ユーザー入力・IDをlog/spanに入れないprivacy contractを保ちます。

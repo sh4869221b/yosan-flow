@@ -17,6 +17,7 @@ vi.mock("../../scripts/pr-preview-api.ts", () => ({
 }));
 const uuid = "11111111-1111-4111-8111-111111111111";
 const db = { name: "yosan-flow-pr-123", uuid };
+const publicUrl = "https://pr-123-yosan-flow-pr.test.workers.dev";
 const parent = JSON.parse(readFileSync("wrangler.pr-preview.json", "utf8"));
 const argv = process.argv;
 let directory: string;
@@ -77,7 +78,9 @@ beforeEach(() => {
     if (path.includes("/pulls/123")) return structuredClone(state);
     if (path.endsWith("/deployments/latest")) return null;
     if (path.endsWith("/previews/pr-123"))
-      return previewExists ? { name: "pr-123", id: uuid } : null;
+      return previewExists
+        ? { name: "pr-123", id: uuid, urls: [publicUrl] }
+        : null;
     if (path.includes("/d1/database"))
       return databaseRequest(path, method, body);
     if (path.includes("/comments")) return {};
@@ -94,9 +97,7 @@ beforeEach(() => {
     }
     if (args[0] === "preview" && args[1] === "--name") previewExists = true;
     if (args[1] === "delete") previewExists = false;
-    return JSON.stringify({
-      preview: { urls: ["https://pr-123-yosan-flow-pr.test.workers.dev"] },
-    });
+    return "🌀 Building list of assets...\nPreview deployed";
   });
   vi.stubGlobal(
     "fetch",
@@ -210,7 +211,7 @@ describe("PR Preview lifecycle with fake APIs and CLI", () => {
       ).toBe(true);
     },
   );
-  it("creates isolated D1, migrates before deploy and probes the public app/API", async () => {
+  it("migrates before deploy and probes the URL returned by the Cloudflare API", async () => {
     await run("deploy");
     expect(commands.map((args) => args[0])).toEqual(["d1", "preview"]);
     expect(generated!.migration.d1_databases).toEqual(
@@ -226,10 +227,23 @@ describe("PR Preview lifecycle with fake APIs and CLI", () => {
       join(directory, "migrations"),
     );
     expect(commands[1]).toContain("--ignore-base-config");
-    expect(fetch).toHaveBeenCalledTimes(2);
-    expect(readFileSync(output, "utf8")).toContain(
-      "url=https://pr-123-yosan-flow-pr.test.workers.dev",
+    expect(fetch).toHaveBeenCalledWith(`${publicUrl}/`, expect.any(Object));
+    expect(fetch).toHaveBeenCalledWith(
+      `${publicUrl}/api/periods`,
+      expect.any(Object),
     );
+    expect(readFileSync(output, "utf8")).toContain(`url=${publicUrl}`);
+  });
+  it("does not probe or publish a URL for another Preview", async () => {
+    const original = vi.mocked(request).getMockImplementation()!;
+    vi.mocked(request).mockImplementation(async (...args) =>
+      args[0].endsWith("/previews/pr-123")
+        ? { name: "pr-123", urls: [publicUrl.replace("123", "124")] }
+        : original(...args),
+    );
+    await run("deploy");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(readFileSync(output, "utf8")).toBe("failure=probe\n");
   });
   it("reuses the PR database on additional pushes", async () => {
     remoteDatabases = [db];
