@@ -57,6 +57,7 @@ beforeEach(() => {
   vi.stubEnv("PR_NUMBER", "123");
   vi.stubEnv("PR_SHA", "latest-sha");
   vi.stubEnv("PR_PREVIEW_MAX_DATABASES", "10");
+  vi.stubEnv("PREVIEW_INPUT_DIR", directory);
   state = {
     state: "open",
     head: { sha: "latest-sha", repo: { full_name: "sh4869221b/yosan-flow" } },
@@ -153,19 +154,24 @@ describe("PR Preview isolation policy", () => {
     expect(selectDatabase(124, [db], [])).toBeUndefined();
   });
   it("generates identical migration/Preview bindings without production inheritance", () => {
-    const result = configs(123, db, {
-      ...parent,
-      vars: { SECRET: "never" },
-      d1_databases: [{ database_id: "production" }],
-    });
+    const result = configs(
+      123,
+      db,
+      {
+        ...parent,
+        vars: { SECRET: "never" },
+        d1_databases: [{ database_id: "production" }],
+      },
+      directory,
+    );
     expect(result.preview.previews.d1_databases).toEqual(
       result.migration.d1_databases,
     );
     expect(result.preview).not.toHaveProperty("d1_databases");
     expect(JSON.stringify(result)).not.toMatch(/SECRET|production|E2E/);
     expect(
-      configs(124, { ...db, name: "yosan-flow-pr-124" }, parent).preview
-        .previews.d1_databases[0].database_name,
+      configs(124, { ...db, name: "yosan-flow-pr-124" }, parent, directory)
+        .preview.previews.d1_databases[0].database_name,
     ).not.toBe(db.name);
   });
   it("rejects other PR URLs, redirects and unrelated origins", () => {
@@ -209,6 +215,15 @@ describe("PR Preview lifecycle with fake APIs and CLI", () => {
     expect(commands.map((args) => args[0])).toEqual(["d1", "preview"]);
     expect(generated!.migration.d1_databases).toEqual(
       generated!.preview.previews.d1_databases,
+    );
+    expect(generated!.preview).toMatchObject({
+      main: join(directory, "worker", "_worker.js"),
+      assets: { directory: join(directory, "assets") },
+      no_bundle: true,
+      find_additional_modules: false,
+    });
+    expect(generated!.migration.d1_databases[0].migrations_dir).toBe(
+      join(directory, "migrations"),
     );
     expect(commands[1]).toContain("--ignore-base-config");
     expect(fetch).toHaveBeenCalledTimes(2);

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 
 export type Database = { uuid: string; name: string };
 export const workerName = "yosan-flow-pr";
@@ -35,19 +36,21 @@ export function configs(
   number: number,
   database: Database,
   parent: Record<string, unknown>,
+  inputDir: string,
 ) {
   assert(
     parent.name === workerName &&
       parent.workers_dev === false &&
       parent.preview_urls === true,
   );
+  const migrationsDir = join(inputDir, "migrations");
   // Construct from an allowlist: no top-level binding, vars, secret, route or environment inheritance.
   const binding = {
     binding: "DB",
     database_name: names(number).database,
     database_id: database.uuid,
-    migrations_dir: "migrations",
-    migrations_pattern: "migrations/*.sql",
+    migrations_dir: migrationsDir,
+    migrations_pattern: `${migrationsDir}/*.sql`,
   };
   assert(database.name === binding.database_name);
   const common = {
@@ -60,8 +63,10 @@ export function configs(
   return {
     preview: {
       ...common,
-      main: ".svelte-kit/cloudflare/_worker.js",
-      assets: { binding: "ASSETS", directory: ".svelte-kit/cloudflare" },
+      main: join(inputDir, "worker", "_worker.js"),
+      no_bundle: true,
+      find_additional_modules: false,
+      assets: { binding: "ASSETS", directory: join(inputDir, "assets") },
       previews: {
         observability: (parent.previews as Record<string, unknown>)
           .observability,

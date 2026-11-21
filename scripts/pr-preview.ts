@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { isAbsolute } from "node:path";
 import {
   configs,
   names,
@@ -247,9 +248,14 @@ async function operate(number: number) {
     return;
   }
   if (!(await current(target))) return;
+  const inputDir = process.env.PREVIEW_INPUT_DIR;
+  assert(
+    inputDir && isAbsolute(inputDir),
+    "Missing/invalid Preview artifact path",
+  );
   stage = "database";
   const db = await ensureDatabase(target);
-  const generated = configs(number, db, parent);
+  const generated = configs(number, db, parent, inputDir);
   writeFileSync(target.configPath, JSON.stringify(generated.preview));
   writeFileSync(target.migrationPath, JSON.stringify(generated.migration));
   stage = "isolation";

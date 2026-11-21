@@ -16,11 +16,10 @@ preview、本番D1、Access、CI / E2Eの設定は変更しません。
    D1 Editを持つAPI tokenを用意します。必要ならAccount Settings Readも付けて
    workers.devサブドメイン取得を許可します。DNS / Access / 本番secretの権限は不要です。
    アカウント権限はWorker名やD1 prefix単位への隔離を保証しません。
-   同一repoのPRコードは信頼済みとして実行されます。信頼できないコードを同一repoへ
-   pushしないでください。forkはCI成功でも明示的にskipします。
+   同一repoのPRだけが配備対象です。forkはCI成功でも明示的にskipします。
 3. GitHub ActionsにSecrets `PR_PREVIEW_CLOUDFLARE_API_TOKEN` と
    `PR_PREVIEW_CLOUDFLARE_ACCOUNT_ID` を登録します。既存本番用secretを流用しません。
-   Workflowの`GITHUB_TOKEN`はPRコメント更新だけに使用します。
+   配備ジョブの`GITHUB_TOKEN`はPR状態の確認とPRコメント更新に使用します。
 4. クリーンなmain checkoutから、専用親Workerだけを初期配備します。
    `pnpm exec wrangler deploy --config wrangler.pr-preview.json`
    `workers_dev: false` / `preview_urls: true`を確認します。親は404だけを返し、DB・assets・
@@ -34,8 +33,11 @@ preview、本番D1、Access、CI / E2Eの設定は変更しません。
 ## ライフサイクルと失敗
 
 `CI`の`workflow_run.completed`から、pull_request起点・同一repo・最新HEAD・成功した
-`Quality checks`を確認します。制御コードは常にdefault branchから取得し、PRの
-HEADを別checkoutでインストール・ビルドします。ビルドには配備credentialを渡しません。
+`Quality checks`を確認します。PRのHEADは読み取り権限のビルドジョブでインストールし、
+Workerをバンドルします。配備ジョブは別のランナーでdefault branchの制御コードと
+lockfileに固定したWranglerを使います。ジョブ間で依存キャッシュを共有せず、
+Workerバンドル・公開アセット・SQLだけを配備ジョブの一時ディレクトリに取り込みます。
+配備ジョブはバンドルを再ビルドせず、配備時にだけCloudflare credentialを渡します。
 PRのmigrationだけを`yosan-flow-pr-<番号>`に適用し、成功後に`pr-<番号>`を配備します。
 DBは既存なら再利用し、migration履歴を維持します。seedや既存データのコピーはしません。
 PR内でも一度適用したSQLは書き換えず、追加migrationで変更します。Wranglerは適用済みの
