@@ -1,0 +1,170 @@
+name: PR Preview
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      number: ${{ steps.resolve.outputs.number }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      action: ${{ steps.resolve.outputs.action }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+      - name: Resolve trusted PR and successful Quality checks
+        id: resolve
+        run: node scripts/pr-preview.ts resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Explain skip
+        if: ${{ !steps.resolve.outputs.number }}
+        run: echo 'No eligible same-repository PR at the successful CI HEAD (fork, failed CI, obsolete run or reopened PR); Preview skipped.' >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.action == 'deploy' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Prepare Worker bundle, assets and SQL
+        run: |
+          payload="$RUNNER_TEMP/pr-preview-input"
+          pnpm exec wrangler deploy --dry-run --config wrangler.jsonc --env="" --outdir "$RUNNER_TEMP/pr-preview-worker"
+          mkdir -p "$payload/worker" "$payload/migrations"
+          cp "$RUNNER_TEMP/pr-preview-worker/_worker.js" "$payload/worker/"
+          rsync -a --exclude=/_worker.js .svelte-kit/cloudflare/ "$payload/assets/"
+          cp migrations/*.sql "$payload/migrations/"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pr-preview-input
+          path: ${{ runner.temp }}/pr-preview-input/
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  preview:
+    needs: [resolve, build]
+    if: ${{ !cancelled() && needs.resolve.outputs.number }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Keep waiting cleanup jobs while serializing deploy and close.
+    concurrency:
+      group: yosan-flow-pr-preview-${{ needs.resolve.outputs.number }}
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      PR_NUMBER: ${{ needs.resolve.outputs.number }}
+      PR_SHA: ${{ needs.resolve.outputs.sha }}
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      # Control code always comes from main, including cleanup after branch deletion.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node_version
+          package-manager-cache: false
+      - name: Install trusted Wrangler from the default branch lockfile
+        if: ${{ needs.resolve.outputs.action == 'cleanup' || needs.build.result == 'success' }}
+        run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        if: ${{ needs.build.result == 'success' }}
+        with:
+          name: pr-preview-input
+          path: ${{ runner.temp }}/pr-preview-download
+          skip-decompress: true
+      - name: Extract Preview inputs outside the trusted checkout
+        if: ${{ needs.build.result == 'success' }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import shutil
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          temp = Path(os.environ['RUNNER_TEMP'])
+          archive, = (temp / 'pr-preview-download').iterdir()
+          payload = temp / 'pr-preview-input'
+          payload.mkdir()
+          with ZipFile(archive) as bundle:
+              for member in bundle.infolist():
+                  if member.is_dir():
+                      continue
+                  parts = member.filename.split('/')
+                  if any(part in ('', '.', '..') or '\\' in part for part in parts):
+                      raise ValueError('Invalid Preview artifact path')
+                  if not (
+                      parts == ['worker', '_worker.js']
+                      or (len(parts) > 1 and parts[0] == 'assets')
+                      or (len(parts) == 2 and parts[0] == 'migrations' and parts[1].endswith('.sql'))
+                  ):
+                      raise ValueError('Unexpected Preview artifact entry')
+                  target = payload.joinpath(*parts)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  # Create regular files from bytes so archive metadata cannot create links or set executable bits.
+                  with bundle.open(member) as source, target.open('xb') as dest:
+                      shutil.copyfileobj(source, dest)
+
+          if not (payload / 'worker/_worker.js').is_file() or not (payload / 'assets').is_dir() or not (payload / 'migrations').is_dir():
+              raise ValueError('Missing Preview Worker, assets or migrations')
+          PY
+      - name: Prepare D1, migrate and deploy / delete closed PR resources
+        id: preview
+        if: ${{ needs.resolve.outputs.action == 'cleanup' || needs.build.result == 'success' }}
+        run: node scripts/pr-preview.ts "$PREVIEW_ACTION"
+        env:
+          PREVIEW_ACTION: ${{ needs.resolve.outputs.action }}
+          PREVIEW_INPUT_DIR: ${{ runner.temp }}/pr-preview-input
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.PR_PREVIEW_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.PR_PREVIEW_CLOUDFLARE_ACCOUNT_ID }}
+          PR_PREVIEW_MAX_DATABASES: ${{ vars.PR_PREVIEW_MAX_DATABASES || '10' }}
+      - name: Update the single Preview comment
+        if: ${{ always() }}
+        run: node scripts/pr-preview.ts report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_STATUS: ${{ needs.build.result == 'failure' && 'failure' || job.status }}
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+          PREVIEW_CLEANED_UP: ${{ steps.preview.outputs.cleaned_up }}
+          PREVIEW_FAILURE: ${{ steps.preview.outputs.failure }}
