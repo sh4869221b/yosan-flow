@@ -203,7 +203,8 @@ pnpm test:coverage
 
 - `wrangler.jsonc` の top-level `d1_databases[0].database_id` はローカル開発用プレースホルダです。そのまま `wrangler deploy` を実行すると、Cloudflare 上では存在しない UUID を参照して失敗します。
 - preview / production にデプロイするときは、必ず `--env` を指定してください。`wrangler deploy` を引数なしで実行すると root 環境を対象にし、preview / production の D1 binding は使われません。
-- Cloudflare の Workers / Pages の build 設定でも、Deploy command は `npx wrangler deploy` ではなく、`pnpm run deploy:preview` または `pnpm run deploy:production` を使ってください。
+- 配備用スクリプトは対象環境の `CLOUDFLARE_ENV` でビルドしてから、アダプターが生成した Wrangler 設定を使って配備します。ローカル向けのビルド出力は再利用しません。
+- Cloudflare Workers Builds の Deploy command は `npx wrangler deploy` ではなく、`pnpm run deploy:preview` または `pnpm run deploy:production` を使ってください。
 
 ### local
 
