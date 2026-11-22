@@ -45,7 +45,7 @@
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.15.0",
     "eslint-plugin-svelte": "^3.24.1",
-    "fallow": "3.43.2",
+    "fallow": "3.44.0",
     "globals": "^17.14.0",
     "prettier": "^3.10.1",
     "prettier-plugin-svelte": "^4.2.0",
