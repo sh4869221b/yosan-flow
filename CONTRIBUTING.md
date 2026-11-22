@@ -905,6 +905,8 @@ pnpm run deploy:preview
 pnpm run deploy:production
 ```
 
+Each script builds with the corresponding `CLOUDFLARE_ENV` before deploying. The Cloudflare adapter generates a Wrangler config for that build target; do not reuse a root/local build or pass the checked-in config directly to deploy.
+
 Before preview or production deploys, confirm the matching `env.preview` or `env.production` D1 `database_id` is not `00000000-0000-0000-0000-000000000000`.
 
 ## Commit Messages

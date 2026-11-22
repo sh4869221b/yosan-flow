@@ -26,7 +26,7 @@ function fixture() {
   const pnpm = join(bin, "pnpm");
   writeFileSync(
     pnpm,
-    '#!/bin/sh\n[ "$1" = build ] || exit 9\n[ "$E2E_TEST_FAIL_BUILD" != 1 ] || exit 7\nmkdir -p .svelte-kit/cloudflare .svelte-kit/cloudflare-tmp .svelte-kit/output/server\nprintf worker > .svelte-kit/cloudflare/_worker.js\nprintf asset > .svelte-kit/cloudflare/asset.js\nprintf server > .svelte-kit/cloudflare-tmp/server.js\nprintf index > .svelte-kit/output/server/index.js\n',
+    '#!/bin/sh\n[ "$1" = build ] || exit 9\n[ "$E2E_TEST_FAIL_BUILD" != 1 ] || exit 7\nmkdir -p .svelte-kit/cloudflare/worker .svelte-kit/cloudflare/client/_app .svelte-kit/output/server .wrangler/deploy\nprintf worker > .svelte-kit/cloudflare/worker/index.js\nprintf asset > .svelte-kit/cloudflare/client/_app/version.json\nprintf config > .svelte-kit/cloudflare/worker/wrangler.json\nprintf redirect > .wrangler/deploy/config.json\nprintf server > .svelte-kit/cloudflare/worker/server.js\nprintf index > .svelte-kit/output/server/index.js\n',
   );
   chmodSync(pnpm, 0o755);
   const git = (args: string[]) =>
@@ -35,7 +35,7 @@ function fixture() {
   writeFileSync(join(cwd, "source.txt"), "source");
   writeFileSync(
     join(cwd, ".gitignore"),
-    "bin/\n.svelte-kit/\n.tmp-*\n.env*\n.dev.vars*\n",
+    "bin/\n.svelte-kit/\n.wrangler/\n.tmp-*\n.env*\n.dev.vars*\n",
   );
   git(["add", "source.txt", ".gitignore"]);
   git([
@@ -100,9 +100,11 @@ describe("CI-only E2E prebuild", () => {
   });
 
   it.each([
-    ".svelte-kit/cloudflare/_worker.js",
-    ".svelte-kit/cloudflare/asset.js",
-    ".svelte-kit/cloudflare-tmp/server.js",
+    ".svelte-kit/cloudflare/worker/index.js",
+    ".svelte-kit/cloudflare/client/_app/version.json",
+    ".svelte-kit/cloudflare/worker/server.js",
+    ".svelte-kit/cloudflare/worker/wrangler.json",
+    ".wrangler/deploy/config.json",
     ".svelte-kit/output/server/index.js",
     "source.txt",
   ])("rejects changed output or source: %s", (path) => {
@@ -115,8 +117,10 @@ describe("CI-only E2E prebuild", () => {
   it.each([
     ".tmp-e2e-build.json",
     ".tmp-e2e-timing.json",
-    ".svelte-kit/cloudflare/_worker.js",
-    ".svelte-kit/cloudflare-tmp/server.js",
+    ".svelte-kit/cloudflare/worker/index.js",
+    ".svelte-kit/cloudflare/worker/server.js",
+    ".svelte-kit/cloudflare/worker/wrangler.json",
+    ".wrangler/deploy/config.json",
     ".svelte-kit/output/server/index.js",
   ])("rejects missing evidence: %s", (path) => {
     const f = fixture();

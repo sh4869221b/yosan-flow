@@ -8,7 +8,7 @@ const manifestPath = ".tmp-e2e-build.json";
 const timingPath = ".tmp-e2e-timing.json";
 const outputPaths = [
   ".svelte-kit/cloudflare",
-  ".svelte-kit/cloudflare-tmp",
+  ".wrangler/deploy",
   ".svelte-kit/output",
 ];
 
@@ -86,8 +86,11 @@ function identity() {
 
 function outputDigest() {
   // Hash all served assets as well as the Worker, and reject missing output.
-  readFileSync(".svelte-kit/cloudflare/_worker.js");
-  readFileSync(".svelte-kit/cloudflare-tmp/server.js");
+  readFileSync(".svelte-kit/cloudflare/worker/index.js");
+  readFileSync(".svelte-kit/cloudflare/worker/server.js");
+  readFileSync(".svelte-kit/cloudflare/worker/wrangler.json");
+  readFileSync(".svelte-kit/cloudflare/client/_app/version.json");
+  readFileSync(".wrangler/deploy/config.json");
   readFileSync(".svelte-kit/output/server/index.js");
   const hash = createHash("sha256");
   function visit(directory: string) {
