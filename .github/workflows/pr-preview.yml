@@ -62,10 +62,46 @@ jobs:
       - name: Prepare Worker bundle, assets and SQL
         run: |
           payload="$RUNNER_TEMP/pr-preview-input"
-          pnpm exec wrangler deploy --dry-run --config wrangler.jsonc --env="" --outdir "$RUNNER_TEMP/pr-preview-worker"
-          mkdir -p "$payload/worker" "$payload/migrations"
-          cp "$RUNNER_TEMP/pr-preview-worker/_worker.js" "$payload/worker/"
-          rsync -a --exclude=/_worker.js .svelte-kit/cloudflare/ "$payload/assets/"
+          # workflow_run runs this workflow from main. Accept both artifact
+          # layouts while the adapter upgrade is still on an open PR.
+          if test -f .svelte-kit/cloudflare/worker/wrangler.json; then
+            build=.svelte-kit/cloudflare
+            config="$build/worker/.tmp-preview-wrangler.json"
+            # The adapter emits split modules. Only the read-only job bundles
+            # them; the credentialed job still accepts just one Worker file.
+            jq 'del(.no_bundle, .rules)' "$build/worker/wrangler.json" > "$config"
+            mkdir -p "$payload/worker" "$payload/migrations" "$payload/assets"
+            bundle="$RUNNER_TEMP/pr-preview-worker.multipart"
+            pnpm exec wrangler deploy --dry-run --config "$config" --outfile "$bundle"
+            python3 - "$bundle" "$payload/worker/_worker.js" <<'PYTHON'
+          import json
+          import re
+          import sys
+          from email import policy
+          from email.parser import BytesParser
+          from pathlib import Path
+
+          raw = Path(sys.argv[1]).read_bytes()
+          boundary = raw.partition(b"\r\n")[0].removeprefix(b"--")
+          if not re.fullmatch(rb"[A-Za-z0-9_-]+", boundary):
+              raise ValueError("Invalid Wrangler multipart boundary")
+          header = b'Content-Type: multipart/form-data; boundary="' + boundary + b'"\r\n\r\n'
+          parts = list(BytesParser(policy=policy.default).parsebytes(header + raw).iter_parts())
+          metadata, = (part for part in parts if part.get_param("name", header="content-disposition") == "metadata")
+          entry = json.loads(metadata.get_payload(decode=True))["main_module"]
+          modules = [part for part in parts if part is not metadata and part.get_content_type() != "application/source-map"]
+          if len(modules) != 1 or modules[0].get_filename() != entry or modules[0].get_content_type() != "application/javascript+module":
+              raise ValueError("Expected one self-contained Preview Worker module")
+          Path(sys.argv[2]).write_bytes(modules[0].get_payload(decode=True))
+          PYTHON
+            node --check "$payload/worker/_worker.js"
+            rsync -a "$build/client/" "$payload/assets/"
+          else
+            pnpm exec wrangler deploy --dry-run --config wrangler.jsonc --env="" --outdir "$RUNNER_TEMP/pr-preview-worker"
+            mkdir -p "$payload/worker" "$payload/migrations"
+            cp "$RUNNER_TEMP/pr-preview-worker/_worker.js" "$payload/worker/"
+            rsync -a --exclude=/_worker.js .svelte-kit/cloudflare/ "$payload/assets/"
+          fi
           cp migrations/*.sql "$payload/migrations/"
       - uses: actions/upload-artifact@v7
         with:
