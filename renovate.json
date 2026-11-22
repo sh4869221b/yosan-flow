@@ -2,8 +2,10 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "security:minimumReleaseAgeNpm"],
   "timezone": "Asia/Tokyo",
-  "dependencyDashboard": true,
-  "dependencyDashboardTitle": "Dependency Dashboard",
+  "dependencyDashboard": {
+    "enabled": true,
+    "title": "Dependency Dashboard"
+  },
   "labels": ["dependencies"],
   "branchPrefix": "renovate/",
   "prConcurrentLimit": 5,
