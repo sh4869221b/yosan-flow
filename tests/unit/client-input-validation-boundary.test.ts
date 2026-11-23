@@ -31,6 +31,7 @@ describe("client yen input boundary", () => {
     const parse = vi.spyOn(yenInput, "parseNonNegativeIntegerYenInput");
     const summary = createSummary(200);
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => summary.periodId,
       getSummary: () => summary,
       historyController: {

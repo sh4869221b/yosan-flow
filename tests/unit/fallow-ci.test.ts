@@ -481,14 +481,12 @@ const canonicalBaseline = {
 const cleanDeadCode = {
   kind: "dead-code",
   total_issues: 0,
-  gate_outcomes: { "stale-baseline": { enforced: false, status: "skipped" } },
+  gate_outcomes: { "stale-baseline": { enforced: true, status: "pass" } },
   baseline_staleness: {
     ...emptyStaleness,
     baseline_entries: 1,
     matched_entries: 1,
     current_findings: 1,
-    change_scoped: true,
-    scope_reasons: ["include-entry-exports"],
   },
 };
 
@@ -513,23 +511,21 @@ describe("Fallow report validation", () => {
     expect(() =>
       verifyReport("dead-code", cleanDeadCode, canonicalBaseline),
     ).not.toThrow();
-    expect(() =>
-      verifyReport(
-        "dead-code",
-        {
-          ...cleanDeadCode,
-          baseline_staleness: {
-            ...cleanDeadCode.baseline_staleness,
-            change_scoped: false,
-            scope_reasons: [],
-          },
-          gate_outcomes: {
-            "stale-baseline": { enforced: true, status: "pass" },
-          },
-        },
-        canonicalBaseline,
-      ),
-    ).not.toThrow();
+  });
+
+  it("rejects a scoped entry-aware report with a skipped native gate", () => {
+    const report = {
+      ...withDeadCodeStaleness({
+        change_scoped: true,
+        scope_reasons: ["include-entry-exports"],
+      }),
+      gate_outcomes: {
+        "stale-baseline": { enforced: false, status: "skipped" },
+      },
+    };
+    expect(() => verifyReport("dead-code", report, canonicalBaseline)).toThrow(
+      "Expected whole-project analysis",
+    );
   });
 
   it.each([
@@ -557,7 +553,7 @@ describe("Fallow report validation", () => {
     { enforced: false, status: "pass" },
     { enforced: true, status: "skipped" },
     { enforced: true, status: "fail" },
-    { enforced: "false", status: "skipped" },
+    { enforced: "true", status: "pass" },
   ])("rejects an unexpected entry-aware native verdict %#", (gate) => {
     expect(() =>
       verifyReport(
@@ -572,11 +568,10 @@ describe("Fallow report validation", () => {
   });
 
   it.each([
-    { change_scoped: false },
+    { change_scoped: true },
     { change_scoped: undefined },
     { change_scoped: "true" },
-    { scope_reasons: [] },
-    { scope_reasons: undefined },
+    { scope_reasons: ["include-entry-exports"] },
     { scope_reasons: "include-entry-exports" },
     { scope_reasons: ["file"] },
     { scope_reasons: ["include-entry-exports", "file"] },
@@ -666,9 +661,11 @@ describe("Fallow report validation", () => {
         kind,
         stats: { clone_groups: 0 },
         findings: [],
-        summary: { baseline_staleness: cleanDeadCode.baseline_staleness },
-        baseline_staleness: cleanDeadCode.baseline_staleness,
-        gate_outcomes: cleanDeadCode.gate_outcomes,
+        summary: { baseline_staleness: emptyStaleness },
+        baseline_staleness: emptyStaleness,
+        gate_outcomes: {
+          "stale-baseline": { enforced: false, status: "skipped" },
+        },
       };
       expect(() => verifyReport(kind, value)).toThrow();
     },

@@ -88,36 +88,14 @@ function verifyBaseline(
     assert.equal(entries, savedEntries, "Loaded baseline count mismatch");
     assert.equal(current, matched, "Unfiltered dead-code findings remain");
   }
-  if (stale.change_scoped === true) {
-    assert.equal(kind, "dead-code", "Unexpected scoped analysis");
-    assert.deepEqual(
-      stale.scope_reasons,
-      ["include-entry-exports"],
-      "Unexpected baseline scope",
-    );
-    assert.equal(
-      gate.enforced,
-      false,
-      "Unexpected scoped baseline enforcement",
-    );
-    assert.equal(
-      gate.status,
-      "skipped",
-      "Expected native freshness check to be skipped",
-    );
-    // This is a separate repository policy, not a native freshness verdict.
-    // dc1 consumes one saved occurrence per match. Full equality proves every
-    // accepted occurrence was observed; an unmatched occurrence needs review.
-  } else {
-    assert.equal(stale.change_scoped, false, "Missing baseline scope");
-    assert.deepEqual(
-      stale.scope_reasons === undefined ? [] : stale.scope_reasons,
-      [],
-      "Unexpected baseline scope",
-    );
-    assert.equal(gate.enforced, true, "Baseline gate must be enforced");
-    assert.equal(gate.status, "pass", "Stale baseline entries");
-  }
+  assert.equal(stale.change_scoped, false, "Expected whole-project analysis");
+  assert.deepEqual(
+    stale.scope_reasons === undefined ? [] : stale.scope_reasons,
+    [],
+    "Unexpected baseline scope",
+  );
+  assert.equal(gate.enforced, true, "Baseline gate must be enforced");
+  assert.equal(gate.status, "pass", "Stale baseline entries");
   assert.equal(
     matched,
     entries,

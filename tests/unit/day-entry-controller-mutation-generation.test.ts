@@ -36,6 +36,7 @@ it("starts a new add generation after a cross-kind mutation", async () => {
   let summary = initialSummary;
   const controller = createDayEntryControllerState(
     {
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {

@@ -128,7 +128,6 @@ export const day_entry_cutover = sqliteTable(
 
 export type BudgetPeriodRow = typeof budget_periods.$inferSelect;
 export type NewBudgetPeriodRow = typeof budget_periods.$inferInsert;
-export type DailyTotalRow = typeof daily_totals.$inferSelect;
 export type NewDailyTotalRow = typeof daily_totals.$inferInsert;
 export type DailyOperationHistoryRow =
   typeof daily_operation_histories_v2.$inferSelect;

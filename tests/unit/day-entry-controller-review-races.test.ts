@@ -24,6 +24,7 @@ describe("day-entry controller review races", () => {
     vi.stubGlobal("fetch", fetchMock);
     let summary = createSummary(0);
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
@@ -79,6 +80,7 @@ describe("day-entry controller review races", () => {
     let summary = createSummary(0);
     const loadHistoryEffect = vi.fn(() => Effect.void);
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
@@ -120,6 +122,7 @@ describe("day-entry controller review races", () => {
     const loadHistoryEffect = vi.fn(() => Effect.void);
     const setSummary = vi.fn();
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
@@ -161,6 +164,7 @@ describe("day-entry controller review races", () => {
     vi.stubGlobal("fetch", fetchMock);
     let summary = createSummary(0);
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
@@ -209,6 +213,7 @@ describe("day-entry controller review races", () => {
     let summary = periodTwoSummary;
     const loadHistoryEffect = vi.fn(() => Effect.void);
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => selectedPeriodId,
       getSummary: () => summary,
       historyController: {

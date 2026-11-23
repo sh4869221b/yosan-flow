@@ -23,6 +23,7 @@ function createSequencedSubmissionHarness() {
   let summary = createSummary(0, 0);
   vi.stubGlobal("fetch", fetchMock);
   const controller = createDayEntryControllerState({
+    getDayEntryEpoch: () => "d".repeat(32),
     getSelectedPeriodId: () => "period-1",
     getSummary: () => summary,
     historyController: {
@@ -153,6 +154,7 @@ describe("day-entry controller modal generation", () => {
       vi.fn(() => successfulResponse.promise),
     );
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
@@ -199,6 +201,7 @@ describe("day-entry controller modal generation", () => {
       vi.fn(() => failedResponse.promise),
     );
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {

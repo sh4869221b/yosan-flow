@@ -111,6 +111,7 @@ describe("dashboard history mutation races", () => {
       },
     });
     const dayEntryController = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController,

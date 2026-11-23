@@ -15,6 +15,7 @@ function setup() {
   const fetchMock = vi.fn(() => response.promise);
   vi.stubGlobal("fetch", fetchMock);
   const controller = createDayEntryControllerState({
+    getDayEntryEpoch: () => "d".repeat(32),
     getSelectedPeriodId: () => periodId,
     getSummary: () => summary,
     historyController: {
