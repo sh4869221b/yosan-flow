@@ -18,7 +18,7 @@ Paths below are under `src/lib/server/db/` unless stated otherwise.
 | `budget-period-write-d1.ts`              | Typed conditional INSERT/UPDATE with overlap, current linkage and displaced-entry predicates in the write; fresh-read classification of rejected writes. |
 | `budget-period-d1-repository.ts`         | Typed period CRUD and orchestration of validation and the linked-boundary writer.                                                                        |
 | `budget-period-boundary-d1.ts`           | One conditional two-period UPDATE through Drizzle, with JSON/date/CASE expressions and commit-time predicates.                                           |
-| `daily-total-repository.ts`              | Typed scoped total reads, upsert and outside-range existence checks. In-memory implementation has no SQL.                                                |
+| `daily-total-repository.ts`              | Typed scoped total reads and outside-range existence checks. In-memory implementation has no SQL.                                                        |
 | `daily-history-d1-repository.ts`         | Batches period validation with scoped history reads ordered by persisted `write_order`. SQLite `rowid` breaks order ties.                                |
 | `daily-entry-range-query.ts`             | Shared outside-range predicate. Each branch constrains both period and date for an indexed seek.                                                         |
 | `day-entry-write-sql.ts`                 | Typed history INSERT…SELECT and total UPSERT. Compiles builders with `toSQL()` and binds their parameters without executing them.                        |

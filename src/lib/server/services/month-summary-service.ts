@@ -14,8 +14,6 @@ import {
 export { getApiServices } from "#lib/server/services/api-services/cache.ts";
 export type { InMemoryApiServices } from "#lib/server/services/api-services/types.ts";
 
-export type { PeriodSummary } from "#lib/server/services/period-summary/period-summary-calculator.ts";
-
 export function getPeriodSummaryFromServices(
   services: InMemoryApiServices,
   periodId: string,

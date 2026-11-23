@@ -1,10 +1,10 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 import type { DatabaseTransaction } from "#lib/server/db/client.ts";
 import { createDrizzleD1Database } from "#lib/server/db/client.ts";
 import { dailyEntryOutsideRange } from "#lib/server/db/daily-entry-range-query.ts";
 import type { D1Database } from "#lib/server/db/d1-types.ts";
-import { daily_totals, type DailyTotalRow } from "#lib/server/db/schema.ts";
+import { daily_totals } from "#lib/server/db/schema.ts";
 import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
 import { toEffectError } from "#lib/server/effect/runtime.ts";
 
@@ -47,13 +47,6 @@ export interface DailyTotalRepository {
 }
 
 export interface D1DailyTotalRepository {
-  findByDate(
-    date: string,
-    budgetPeriodId: string,
-  ): Effect.Effect<DailyTotalRecord | null, Error>;
-  upsertDailyTotal(
-    input: DailyTotalUpsertInput,
-  ): Effect.Effect<DailyTotalRecord, Error>;
   listByPeriodId(
     periodId: string,
   ): Effect.Effect<
@@ -73,17 +66,6 @@ function cloneDailyTotal(row: DailyTotalRecord): DailyTotalRecord {
 
 function toDailyTotalKey(date: string, budgetPeriodId: string): string {
   return `${budgetPeriodId}:${date}`;
-}
-
-function toDailyTotalRecord(row: DailyTotalRow): DailyTotalRecord {
-  assertValidDate(row.date);
-  return {
-    date: row.date,
-    yearMonth: row.year_month,
-    budgetPeriodId: row.budget_period_id,
-    totalUsedYen: row.total_used_yen,
-    updatedAt: row.updated_at,
-  };
 }
 
 export function createDailyTotalRepository(): DailyTotalRepository {
@@ -160,69 +142,7 @@ export function createD1DailyTotalRepository(
 ): D1DailyTotalRepository {
   const database = createDrizzleD1Database(input.db);
 
-  const findByDateInternal = async (
-    date: string,
-    budgetPeriodId: string,
-  ): Promise<DailyTotalRecord | null> => {
-    const [row] = await database
-      .select()
-      .from(daily_totals)
-      .where(
-        and(
-          eq(daily_totals.budget_period_id, budgetPeriodId),
-          eq(daily_totals.date, date),
-        ),
-      )
-      .limit(1)
-      .all();
-    return row ? toDailyTotalRecord(row) : null;
-  };
-  const buildUpsertDailyTotalQuery = (inputRow: DailyTotalUpsertInput) =>
-    database
-      .insert(daily_totals)
-      .values({
-        budget_period_id: inputRow.budgetPeriodId,
-        date: inputRow.date,
-        year_month: inputRow.yearMonth,
-        total_used_yen: inputRow.totalUsedYen,
-        updated_at: inputRow.nowIso,
-      })
-      .onConflictDoUpdate({
-        target: [daily_totals.budget_period_id, daily_totals.date],
-        set: {
-          year_month: sql`excluded.${sql.identifier(daily_totals.year_month.name)}`,
-          total_used_yen: sql`excluded.${sql.identifier(daily_totals.total_used_yen.name)}`,
-          updated_at: sql`excluded.${sql.identifier(daily_totals.updated_at.name)}`,
-        },
-      });
-
   return {
-    findByDate(date, budgetPeriodId) {
-      return Effect.tryPromise({
-        try: () => findByDateInternal(date, budgetPeriodId),
-        catch: toEffectError,
-      });
-    },
-
-    upsertDailyTotal(inputRow) {
-      return Effect.tryPromise({
-        try: async () => {
-          await buildUpsertDailyTotalQuery(inputRow).run();
-          const updated = await findByDateInternal(
-            inputRow.date,
-            inputRow.budgetPeriodId,
-          );
-          if (!updated) {
-            throw new Error(
-              `daily total not found after upsert: ${inputRow.budgetPeriodId}:${inputRow.date}`,
-            );
-          }
-          return updated;
-        },
-        catch: toEffectError,
-      });
-    },
-
     listByPeriodId(periodId) {
       return Effect.tryPromise({
         try: async () => {

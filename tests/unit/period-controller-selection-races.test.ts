@@ -89,6 +89,7 @@ it.each(["selector", "navigation"])(
     );
     const dayEntryController = createDayEntryControllerState(
       {
+        getDayEntryEpoch: () => "d".repeat(32),
         getSelectedPeriodId: () => periodController.selectedPeriodId,
         getSummary: () => periodController.summary,
         historyController: {
@@ -417,6 +418,7 @@ it("does not let a queued period update reclaim a newer selection", async () => 
   );
   const dayEntryController = createDayEntryControllerState(
     {
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => periodController.selectedPeriodId,
       getSummary: () => periodController.summary,
       historyController: {

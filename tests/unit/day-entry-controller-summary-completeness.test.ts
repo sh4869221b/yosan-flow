@@ -24,6 +24,7 @@ it("applies an off-screen successful body after returning to its period", async 
   let selectedPeriodId = "period-1";
   let summary = createSummary(0);
   const controller = createDayEntryControllerState({
+    getDayEntryEpoch: () => "d".repeat(32),
     getSelectedPeriodId: () => selectedPeriodId,
     getSummary: () => summary,
     historyController: {
@@ -77,6 +78,7 @@ it("does not replace a newer current summary with an off-screen candidate", asyn
   let selectedPeriodId = "period-1";
   let summary = createSummary(0);
   const controller = createDayEntryControllerState({
+    getDayEntryEpoch: () => "d".repeat(32),
     getSelectedPeriodId: () => selectedPeriodId,
     getSummary: () => summary,
     historyController: {

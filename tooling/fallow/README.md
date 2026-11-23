@@ -65,8 +65,9 @@ installed executable for the **whole project**, not only changed files:
   Raw health summary counts still include retained findings and are not the delta.
 - All three use `--no-cache`, JSON output and `--fail-on-stale-baseline`. Every
   process must exit 0, the expected report must parse, and no workspace diagnostic
-  may mark analysis as degraded. Dupes/health require the native baseline gate to
-  be enforced and pass. Dead code uses the occurrence-match policy below.
+  may mark analysis as degraded. Every report must cover the whole project and
+  pass the enforced native baseline gate. Dead code also uses the occurrence-match
+  policy below.
   Missing/corrupt baselines, malformed output, missing binaries, process failures
   and timeouts fail closed. The runner attempts all three analyses even if one fails.
 
@@ -108,12 +109,9 @@ baseline's entry count against the report, requires `matched_entries ==
 baseline_entries`, zero unmatched entries and zero new findings, and validates
 nonnegative integer counts and their relationships. Legacy baselines are rejected:
 their repeated findings can inflate matched counts without observing every identity.
-The runner retains its older compatibility path for an exact
-`include-entry-exports` scoped report with a skipped native gate, using the same
-independent occurrence checks. Fallow before 3.39 reported this even for matching
-modes. Reports containing changed-file, production, workspace, or additional/unknown
-scope reasons still fail closed, as do inconsistent fields or an unrecognised
-baseline. A full-scope report must have a native enforced/passing freshness gate.
+The runner rejects scoped reports, including the `include-entry-exports` scoped
+format emitted by earlier Fallow versions. Inconsistent fields and unrecognised
+baselines also fail the gate.
 
 The two previously reviewed dead-code findings were migrated to dc1 without adding
 findings or occurrences. Duplication and health baselines are unchanged. A missing

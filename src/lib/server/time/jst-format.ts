@@ -5,7 +5,7 @@ const jstDateFormatter = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
-function formatJstDate(date: Date): string {
+export function formatJstDate(date: Date): string {
   const parts = jstDateFormatter.formatToParts(date);
   const year = parts.find((part) => part.type === "year")?.value;
   const month = parts.find((part) => part.type === "month")?.value;
@@ -16,12 +16,4 @@ function formatJstDate(date: Date): string {
   }
 
   return `${year}-${month}-${day}`;
-}
-
-export function getJstDateParts(now: Date) {
-  const date = formatJstDate(now);
-  return {
-    date,
-    yearMonth: date.slice(0, 7),
-  };
 }

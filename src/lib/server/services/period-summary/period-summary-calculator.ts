@@ -4,7 +4,7 @@ import type {
   BudgetPeriodRepository,
 } from "#lib/server/db/budget-period-repository.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
-import { getJstDateParts } from "#lib/server/time/jst-format.ts";
+import { formatJstDate } from "#lib/server/time/jst-format.ts";
 import { summarizeDailyTotals } from "./daily-totals";
 import { getDateIndex, getDateRange, mapDateRange } from "./date-range";
 import { buildFoodPaceSummary, type FoodPaceSummary } from "./food-pace";
@@ -91,7 +91,7 @@ export function calculatePeriodSummary(
   period: BudgetPeriodRecord,
   options: BuildPeriodSummaryOptions = {},
 ): PeriodSummary {
-  const jstToday = options.jstToday ?? getJstDateParts(new Date()).date;
+  const jstToday = options.jstToday ?? formatJstDate(new Date());
   const {
     totalsByDate,
     plannedTotalYen,

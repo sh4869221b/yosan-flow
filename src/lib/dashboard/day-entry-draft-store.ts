@@ -13,9 +13,8 @@ function createNonce(): string {
   ).join("");
 }
 
-function createKey(epoch: string | undefined): string {
-  const nonce = createNonce();
-  return epoch ? `${epoch}.${nonce}` : nonce;
+function createKey(epoch: string): string {
+  return `${epoch}.${createNonce()}`;
 }
 
 export function createDayEntryDraftStore() {
@@ -24,7 +23,7 @@ export function createDayEntryDraftStore() {
   const key = (periodId: string, date: string) =>
     JSON.stringify([periodId, date]);
   return {
-    keyForSubmission(draft: Draft | undefined, epoch?: string): string {
+    keyForSubmission(draft: Draft | undefined, epoch: string): string {
       if (draft === undefined) return createKey(epoch);
       return (draft.idempotencyKey ??= createKey(epoch));
     },
