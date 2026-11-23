@@ -19,7 +19,7 @@ import {
   PeriodNotFoundError,
 } from "#lib/server/services/day-entry-service.ts";
 import { createPeriodUpdateService } from "#lib/server/services/period-update/period-update-service.ts";
-import { getJstDateParts } from "#lib/server/time/jst-format.ts";
+import { formatJstDate } from "#lib/server/time/jst-format.ts";
 import { DayEntryReceiptConflictError } from "#lib/server/services/day-entry/errors.ts";
 import {
   dayEntryFingerprint,
@@ -213,6 +213,6 @@ export function createInMemoryApiServices(
         );
       }),
     nowIso: () => now().toISOString(),
-    jstToday: () => getJstDateParts(now()).date,
+    jstToday: () => formatJstDate(now()),
   };
 }

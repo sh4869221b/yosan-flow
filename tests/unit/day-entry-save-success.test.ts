@@ -25,6 +25,7 @@ function createController(options?: {
   let selectedPeriodId = "period-1";
   let summary = forPeriod(createSummary(0), selectedPeriodId);
   const controller = createDayEntryControllerState({
+    getDayEntryEpoch: () => "d".repeat(32),
     getSelectedPeriodId: () => selectedPeriodId,
     getSummary: () => summary,
     historyController: {

@@ -25,6 +25,7 @@ function setup(initial = createSummary(0)) {
   );
   let summary = initial;
   const controller = createDayEntryControllerState({
+    getDayEntryEpoch: () => "d".repeat(32),
     getSelectedPeriodId: () => periodId,
     getSummary: () => summary,
     historyController: {

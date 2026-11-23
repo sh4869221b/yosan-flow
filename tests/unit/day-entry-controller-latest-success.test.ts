@@ -58,6 +58,7 @@ function createControllerState(
   setSummary: (summary: PeriodSummary) => void,
 ) {
   return createDayEntryControllerState({
+    getDayEntryEpoch: () => "d".repeat(32),
     getSelectedPeriodId,
     getSummary,
     historyController: {

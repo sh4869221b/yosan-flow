@@ -71,6 +71,7 @@ it("runs a period update after an active add", async () => {
   const periodController = createPeriodController(initialSummary, revision);
   const dayController = createDayEntryControllerState(
     {
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => period.id,
       getSummary: () => periodController.summary,
       historyController: {

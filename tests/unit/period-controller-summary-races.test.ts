@@ -216,6 +216,7 @@ it("keeps a later period PUT authoritative over an older add response", async ()
   );
   const dayEntryController = createDayEntryControllerState(
     {
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => periodController.selectedPeriodId,
       getSummary: () => periodController.summary,
       historyController: {
@@ -298,6 +299,7 @@ it("does not let add reconciliation overwrite a newer period update", async () =
   );
   const dayEntryController = createDayEntryControllerState(
     {
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => periodController.selectedPeriodId,
       getSummary: () => periodController.summary,
       historyController: {

@@ -73,6 +73,7 @@ describe("day-entry controller period submission sequence", () => {
     let selectedPeriodId = "period-a";
     let summary = periodAInitial;
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => selectedPeriodId,
       getSummary: () => summary,
       historyController: {

@@ -31,7 +31,7 @@ type HistoryController = {
 type DayEntryControllerDependencies = {
   readonly getSelectedPeriodId: () => string | null;
   readonly getSummary: () => PeriodSummary | null;
-  readonly getDayEntryEpoch?: () => string | undefined;
+  readonly getDayEntryEpoch: () => string | undefined;
   readonly historyController: HistoryController;
   readonly setSummary: (_summary: PeriodSummary) => void;
 };
@@ -220,8 +220,8 @@ export function createDayEntryControllerState(
       const submitted = periodId
         ? drafts.read(periodId, payload.date)
         : undefined;
-      const epoch = dependencies.getDayEntryEpoch?.();
-      if (dependencies.getDayEntryEpoch && !epoch) {
+      const epoch = dependencies.getDayEntryEpoch();
+      if (!epoch) {
         modalError =
           "保存の準備ができていません。履歴を確認してから、画面を読み直してください。";
         return;

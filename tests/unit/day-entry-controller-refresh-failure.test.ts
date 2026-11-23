@@ -63,6 +63,7 @@ describe("day-entry controller refresh failure", () => {
       .mockImplementationOnce(() => refreshResponse.promise);
     vi.stubGlobal("fetch", fetchMock);
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
@@ -105,6 +106,7 @@ describe("day-entry controller refresh failure", () => {
     const setSummary = vi.fn();
     const loadHistoryEffect = vi.fn(() => Deferred.await(historyFinished));
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => submittedSummary,
       historyController: {
@@ -143,6 +145,7 @@ describe("day-entry controller refresh failure", () => {
         .mockResolvedValueOnce(jsonResponse({ error: {} }, 503)),
     );
     const controller = createDayEntryControllerState({
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController: {
@@ -181,6 +184,7 @@ it("publishes a zero-yen recording even when the follow-up refresh fails", async
   vi.stubGlobal("fetch", fetchMock);
   let current = before;
   const controller = createDayEntryControllerState({
+    getDayEntryEpoch: () => "d".repeat(32),
     getSelectedPeriodId: () => "period-1",
     getSummary: () => current,
     historyController: {

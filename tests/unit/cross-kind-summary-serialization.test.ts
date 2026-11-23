@@ -70,6 +70,7 @@ it("serializes a period update between earlier and later add groups", async () =
   );
   const dayController = createDayEntryControllerState(
     {
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => periodController.selectedPeriodId,
       getSummary: () => periodController.summary,
       historyController: {

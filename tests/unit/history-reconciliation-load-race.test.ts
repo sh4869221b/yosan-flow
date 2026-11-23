@@ -214,6 +214,7 @@ it("does not publish a reconciliation history load after a later add starts", as
   );
   const dayController = createDayEntryControllerState(
     {
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController,

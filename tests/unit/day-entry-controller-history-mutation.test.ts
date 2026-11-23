@@ -94,6 +94,7 @@ it("rejects a save body captured before a history mutation", async () => {
     },
   });
   const dayEntryController = createDayEntryControllerState({
+    getDayEntryEpoch: () => "d".repeat(32),
     getSelectedPeriodId: () => "period-1",
     getSummary: () => summary,
     historyController,
@@ -216,6 +217,7 @@ it("runs a newer add after an active history mutation", async () => {
   );
   const dayEntryController = createDayEntryControllerState(
     {
+      getDayEntryEpoch: () => "d".repeat(32),
       getSelectedPeriodId: () => "period-1",
       getSummary: () => summary,
       historyController,
