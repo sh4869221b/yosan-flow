@@ -1,7 +1,11 @@
 import { Deferred, Effect, Fiber, Result } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import { createInMemoryApiServices } from "#lib/server/services/api-services/in-memory.ts";
-import { getPeriodSummaryFromServices } from "#lib/server/services/month-summary-service.ts";
+import {
+  getDisplayPeriodSummary,
+  getPeriodSummaryFromServices,
+} from "#lib/server/services/month-summary-service.ts";
+import { YenTotalOutOfRangeError } from "#lib/server/domain/yen.ts";
 import {
   buildPeriodSummary,
   PeriodNotFoundError,
@@ -41,6 +45,24 @@ function pending<A>() {
 }
 
 describe("period summary loading", () => {
+  it("degrades the display for the typed yen error and propagates an unrelated DB error", async () => {
+    const { services, period } = await fixture();
+    const totals = vi.spyOn(services, "listDailyTotalsByPeriodId");
+    const display = getDisplayPeriodSummary(services, period.id);
+    totals.mockReturnValue(Effect.fail(new YenTotalOutOfRangeError()));
+    await expect(Effect.runPromise(display)).resolves.toMatchObject({
+      summary: null,
+      summaryError: { code: "YEN_TOTAL_OUT_OF_RANGE" },
+    });
+    const dbFailure = new Error("YEN_TOTAL_OUT_OF_RANGE");
+    totals.mockReturnValue(Effect.fail(dbFailure));
+    await expect(
+      Effect.runPromise(Effect.result(display)),
+    ).resolves.toMatchObject({
+      failure: dbFailure,
+    });
+  });
+
   it.each(["period", "totals"] as const)(
     "starts both scoped reads before either finishes (%s resolves first)",
     async (first) => {

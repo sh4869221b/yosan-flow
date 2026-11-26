@@ -8,6 +8,7 @@ import {
 } from "#lib/server/observability/mutation-response.ts";
 import {
   getApiServices,
+  getDisplayPeriodSummary,
   getPeriodSummaryFromServices,
   type InMemoryApiServices,
 } from "#lib/server/services/month-summary-service.ts";
@@ -90,14 +91,22 @@ export function _createPeriodPutHandler(
                 ),
               };
             case "updated": {
-              const summary = await runApiEffect(
-                getPeriodSummaryFromServices(
+              const display = await runApiEffect(
+                getDisplayPeriodSummary(
                   dependencies.services,
                   periodId,
                   dependencies.tracing,
                 ),
               );
-              return { response: json(summary) };
+              return {
+                response: json(
+                  display.summary ?? {
+                    period: result.period,
+                    linkedPeriod: result.linkedPeriod,
+                    ...display,
+                  },
+                ),
+              };
             }
           }
         } catch (error) {

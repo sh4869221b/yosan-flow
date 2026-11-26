@@ -4,7 +4,7 @@ import { runApiEffect } from "#lib/server/effect/runtime.ts";
 import { getRequestTracing } from "#lib/server/observability/tracing-workers.ts";
 import {
   getApiServices,
-  getPeriodSummaryFromServices,
+  getDisplayPeriodSummary,
 } from "#lib/server/services/month-summary-service.ts";
 import { parsePeriodId } from "#lib/server/validation/month.ts";
 
@@ -39,8 +39,8 @@ export const load = (async ({ url, setHeaders }) => {
   if (selectedPeriodId === null) {
     return { ...cutover, today, periods, selectedPeriodId, summary: null };
   }
-  const summary = await runApiEffect(
-    getPeriodSummaryFromServices(services, selectedPeriodId, tracing),
+  const display = await runApiEffect(
+    getDisplayPeriodSummary(services, selectedPeriodId, tracing),
   );
-  return { ...cutover, today, periods, selectedPeriodId, summary };
+  return { ...cutover, today, periods, selectedPeriodId, ...display };
 }) satisfies PageServerLoad;

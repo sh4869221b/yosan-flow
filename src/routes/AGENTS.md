@@ -25,6 +25,7 @@
 ## Response Contracts
 
 - Period create and period summary endpoints return the period/summary object directly.
+- Period PUT returns the summary on success. If the write committed and the summary exceeds the safe yen range, it returns HTTP 200 with `period`, `summary: null`, and `summaryError`. Linked updates also include `linkedPeriod` in this response.
 - Period list returns `{ periods }`.
 - Add/overwrite returns the summary on HTTP 200 and acknowledges a committed save with HTTP 204 when the summary could not be read.
 - History GET returns `{ periodId, date, histories }`.

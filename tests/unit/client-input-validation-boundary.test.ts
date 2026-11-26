@@ -6,6 +6,7 @@ import { createPeriodCreateState } from "#lib/dashboard/period-create-state.svel
 import { createPeriodControllerState } from "#lib/dashboard/period-controller-state.svelte.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import { createPeriodSettingsState } from "#lib/dashboard/period-settings-state.svelte.ts";
+import { getModalPreview } from "#lib/dashboard/modal-preview.ts";
 import * as yenInput from "#lib/dashboard/yen-input.ts";
 import {
   createSummary,
@@ -27,6 +28,29 @@ const executions = captureClientEffects();
 afterEach(() => vi.restoreAllMocks());
 
 describe("client yen input boundary", () => {
+  it("checks the exact delta in each operation mode", () => {
+    const max = Number.MAX_SAFE_INTEGER;
+    const summary = createSummary(max - 5, 5);
+    const [first, second] = summary.dailyRows;
+    expect(getModalPreview(summary, first, 6, "add")).toMatchObject({
+      afterYen: null,
+      error: "日計が扱える金額の上限を超えます。",
+    });
+    expect(getModalPreview(summary, second, 1, "add")).toMatchObject({
+      afterYen: null,
+      error: "期間合計が扱える金額の上限を超えます。",
+    });
+    expect(getModalPreview(summary, second, 6, "overwrite")).toMatchObject({
+      afterYen: null,
+      error: "期間合計が扱える金額の上限を超えます。",
+    });
+    expect(getModalPreview(summary, second, 5, "overwrite")).toEqual({
+      afterYen: 5,
+      remainingYen: summary.budgetYen - max,
+      error: null,
+    });
+  });
+
   it("reuses the parsed day draft for previews, memo changes and reopening", () => {
     const parse = vi.spyOn(yenInput, "parseNonNegativeIntegerYenInput");
     const summary = createSummary(200);

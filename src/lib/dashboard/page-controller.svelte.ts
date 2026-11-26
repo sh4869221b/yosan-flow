@@ -185,6 +185,9 @@ export function createDashboardPageController(getData: () => PageData) {
     get modalPreviewRecommendedYen() {
       return dayEntryController.modalPreviewRecommendedYen;
     },
+    get modalPreviewError() {
+      return dayEntryController.modalPreviewError;
+    },
     saveBudget: periodController.saveBudget,
     saveRange: periodController.saveRange,
     refreshOnResume(complete: () => void): void {

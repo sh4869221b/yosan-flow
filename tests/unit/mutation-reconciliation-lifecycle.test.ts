@@ -136,6 +136,7 @@ it("releases a period slot before a pending reconciliation", async () => {
     getSummary: () => createSummary(0),
     getSummaryLoading: () => false,
     publishSummary: vi.fn(),
+    publishUnavailableSummary: vi.fn(),
     refreshPeriodListEffect: () =>
       Effect.sync(() => reconciliationStarted.resolve()).pipe(
         Effect.andThen(Effect.never),
@@ -198,6 +199,7 @@ it("preserves the mutation error while falling back after reconciliation fails",
     getSummary: () => createSummary(0),
     getSummaryLoading: () => false,
     publishSummary: vi.fn(),
+    publishUnavailableSummary: vi.fn(),
     refreshPeriodListEffect: () => Effect.fail("補正に失敗しました。"),
     refreshSummaryEffect: refreshSummary,
     setError,
@@ -268,6 +270,7 @@ it.each(["budget", "range"] as const)(
       getSummary: () => createSummary(0),
       getSummaryLoading: () => false,
       publishSummary,
+      publishUnavailableSummary: vi.fn(),
       refreshPeriodListEffect: () => Effect.void,
       refreshSummaryEffect: () => Effect.void,
       setError: (message, operation = "range") => {

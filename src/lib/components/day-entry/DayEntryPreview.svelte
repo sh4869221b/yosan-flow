@@ -3,7 +3,7 @@
     inputYen?: string;
     addedYen?: number | null;
     currentUsedYen?: number;
-    previewAfterYen?: number;
+    previewAfterYen?: number | null;
     previewRemainingYen?: number | null;
     previewRecommendedYen?: number | null;
   };
@@ -20,6 +20,16 @@
   function formatYen(value: number): string {
     return value.toLocaleString("ja-JP");
   }
+  const afterAmount = $derived(
+    addedYen == null || previewAfterYen == null
+      ? null
+      : formatYen(previewAfterYen),
+  );
+  const equation = $derived(
+    afterAmount == null || addedYen == null
+      ? null
+      : `現在 ${formatYen(currentUsedYen)} 円 ＋ 今回の追加 ${formatYen(addedYen)} 円 ＝ 日計 ${afterAmount} 円`,
+  );
 </script>
 
 <div class="summary-grid" aria-label="追加前後の日計の試算">
@@ -30,14 +40,13 @@
   <div class="summary-item">
     <span class="summary-label">追加後の日計</span>
     <strong>
-      {addedYen == null ? "—" : `${formatYen(previewAfterYen)} 円`}
+      {afterAmount == null ? "—" : `${afterAmount} 円`}
     </strong>
   </div>
 </div>
-{#if addedYen != null}
+{#if equation}
   <p class="addition-equation">
-    現在 {formatYen(currentUsedYen)} 円 ＋ 今回の追加 {formatYen(addedYen)} 円 ＝
-    日計 {formatYen(previewAfterYen)} 円
+    {equation}
   </p>
   {#if previewRemainingYen != null || previewRecommendedYen != null}
     <details class="preview-details">
@@ -52,7 +61,7 @@
       {/if}
     </details>
   {/if}
-{:else}
+{:else if addedYen == null}
   <p class="addition-equation">
     {inputYen.trim() === ""
       ? "追加する金額を入力すると日計を試算します。"

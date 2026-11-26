@@ -114,6 +114,111 @@ async function assertOverflow(response) {
   assert.equal((await response.json()).error.code, "YEN_TOTAL_OUT_OF_RANGE");
 }
 
+test("an over-limit legacy period acknowledges a committed budget PUT while a concurrent add is rejected", async () => {
+  const id = "legacy-period-cap";
+  const first = "2028-11-01";
+  const second = "2028-11-02";
+  await createPeriod(id, first);
+  await db.batch([
+    db
+      .prepare("UPDATE budget_periods SET budget_yen = 500 WHERE id = ?")
+      .bind(id),
+    ...[
+      [first, max],
+      [second, 2],
+    ].flatMap(([date, amount], index) => [
+      db
+        .prepare(
+          `
+        INSERT INTO daily_totals (budget_period_id, date, year_month, total_used_yen, updated_at)
+        VALUES (?, ?, '2028-11', ?, '2028-11-01T00:00:00Z')
+      `,
+        )
+        .bind(id, date, amount),
+      db
+        .prepare(
+          `
+        INSERT INTO daily_operation_histories_v2
+        (id, budget_period_id, date, operation_type, input_yen, before_total_yen,
+          after_total_yen, created_at, write_order)
+        VALUES (?, ?, ?, 'add', ?, 0, ?, '2028-11-01T00:00:00Z', 1)
+      `,
+        )
+        .bind(`legacy-period-cap-${index}`, id, date, amount, amount),
+    ]),
+  ]);
+  const path = periodPath(id);
+  await assertOverflow(await request(app, path, "GET"));
+  const [budget, add] = await Promise.all([
+    request(app, path, "PUT", { budgetYen: 777 }),
+    request(
+      app,
+      dayPath(id, second) + "/add",
+      "POST",
+      { inputYen: 1 },
+      keyFor(40),
+    ),
+  ]);
+  assert.equal(budget.status, 200, await budget.clone().text());
+  const body = await budget.json();
+  assert.equal(body.period.id, id);
+  assert.equal(body.period.budgetYen, 777);
+  assert.equal(body.summary, null);
+  assert.equal(body.summaryError.code, "YEN_TOTAL_OUT_OF_RANGE");
+  await assertOverflow(add);
+  assert.equal(await receipt(keyFor(40)), null);
+  assert.equal(
+    await db
+      .prepare("SELECT budget_yen FROM budget_periods WHERE id = ?")
+      .bind(id)
+      .first("budget_yen"),
+    777,
+  );
+  const totals = await db
+    .prepare(
+      "SELECT total_used_yen FROM daily_totals WHERE budget_period_id = ? ORDER BY date",
+    )
+    .bind(id)
+    .all();
+  assert.deepEqual(totals.results, [
+    { total_used_yen: max },
+    { total_used_yen: 2 },
+  ]);
+  const repaired = await request(
+    app,
+    dayPath(id, second) + "/history/legacy-period-cap-1",
+    "DELETE",
+  );
+  assert.equal(repaired.status, 200);
+  assert.equal((await repaired.json()).summary.budgetYen, 777);
+});
+
+test("creating malformed UTF-16 period IDs writes no row and well-formed IDs round trip", async () => {
+  for (const id of ["broken-\uD800", "broken-\uDC00"]) {
+    const response = await request(app, "/api/periods", "POST", {
+      id,
+      startDate: "2029-01-01",
+      endDate: "2029-01-28",
+      budgetYen: 500,
+    });
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error.code, "INVALID_PERIOD_ID");
+  }
+  assert.equal(
+    await db
+      .prepare(
+        "SELECT count(*) AS count FROM budget_periods WHERE start_date = '2029-01-01'",
+      )
+      .first("count"),
+    0,
+  );
+  const id = "食費🍙 50%";
+  await createPeriod(id, "2029-01-01");
+  const summary = await request(app, periodPath(id), "GET");
+  assert.equal(summary.status, 200);
+  assert.equal((await summary.json()).periodId, id);
+});
+
 test("Dot saves app-created period IDs with reserved characters through the service binding", async () => {
   const periods = [
     ["食費 50%", "2028-01-01"],

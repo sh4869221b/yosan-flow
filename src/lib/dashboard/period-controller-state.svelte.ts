@@ -8,7 +8,10 @@ import type {
 } from "#lib/dashboard/controller-types.ts";
 import { createPeriodControllerActions } from "#lib/dashboard/period-controller-actions.svelte.ts";
 import { createPeriodCreateState } from "#lib/dashboard/period-create-state.svelte.ts";
-import { createPeriodUpdateEffect } from "#lib/dashboard/period-controller-update-effect.ts";
+import {
+  createPeriodUpdateEffect,
+  type PeriodUpdateDependencies,
+} from "#lib/dashboard/period-controller-update-effect.ts";
 import { getInitialPeriodControllerState } from "#lib/dashboard/period-controller-initial-state.ts";
 import { createPeriodUpdateConfirmationState } from "#lib/dashboard/period-update-confirmation-state.svelte.ts";
 import { createPeriodSummaryRequestTracker } from "#lib/dashboard/period-summary-request-tracker.ts";
@@ -31,7 +34,7 @@ export function createPeriodControllerState(
   let selectedPeriodId = $state<string | null>(initialState.selectedPeriodId);
   let summary = $state<PeriodSummary | null>(initialState.summary);
   let summaryLoading = $state(false);
-  let summaryError = $state<string | null>(null);
+  let summaryError = $state(initialState.summaryError);
   const createState = createPeriodCreateState({
     startDate: initialState.createStartDate,
   });
@@ -93,12 +96,21 @@ export function createPeriodControllerState(
     },
   });
 
-  const periodUpdateDependencies = {
+  const periodUpdateDependencies: PeriodUpdateDependencies = {
     confirmationState,
     getSelectedPeriodId: () => selectedPeriodId,
     getSummary: () => summary,
     getSummaryLoading: () => summaryLoading,
     publishSummary,
+    publishUnavailableSummary: ({ period, linkedPeriod, message }) => {
+      periods = periods.map((option) => {
+        if (option.id === period.id) return period;
+        return option.id === linkedPeriod?.id ? linkedPeriod : option;
+      });
+      summaryRevision.advance(period.id);
+      publishSummary(null);
+      summaryError = `期間の設定は保存済みです。${message}`;
+    },
     refreshPeriodListEffect,
     refreshSummaryEffect,
     setError: settings.setError,

@@ -7,9 +7,8 @@ import { createDayEntrySyncState } from "#lib/dashboard/day-entry-sync-state.sve
 import { findSummaryRow } from "#lib/dashboard/summary-rows.ts";
 import { createPeriodSummaryRevision } from "#lib/dashboard/period-summary-revision.ts";
 import {
-  getModalPreviewAfterYen,
+  getModalPreview,
   getModalPreviewRecommendedYen,
-  getModalPreviewRemainingYen,
   getModalRemainingRows,
 } from "#lib/dashboard/modal-preview.ts";
 import type { SubmitDayEntryPayload } from "#lib/dashboard/types.ts";
@@ -83,21 +82,22 @@ export function createDayEntryControllerState(
     summaryRevision,
   });
 
-  const modalPreviewAfterYen = $derived(
-    getModalPreviewAfterYen(selectedRow, modalInputValue),
+  const modalPreview = $derived(
+    getModalPreview(
+      dependencies.getSummary(),
+      selectedRow,
+      modalInputValue,
+      "add",
+    ),
   );
   const modalRemainingRows = $derived(
     getModalRemainingRows(dependencies.getSummary(), selectedDate),
   );
-  const modalPreviewRemainingYen = $derived(
-    getModalPreviewRemainingYen(
-      dependencies.getSummary(),
-      selectedRow,
-      modalPreviewAfterYen,
-    ),
-  );
   const modalPreviewRecommendedYen = $derived(
-    getModalPreviewRecommendedYen(modalPreviewRemainingYen, modalRemainingRows),
+    getModalPreviewRecommendedYen(
+      modalPreview.remainingYen,
+      modalRemainingRows,
+    ),
   );
 
   function retainDraft(): void {
@@ -183,13 +183,16 @@ export function createDayEntryControllerState(
       daySaveSuccess = null;
     },
     get modalPreviewAfterYen() {
-      return modalPreviewAfterYen;
+      return modalPreview.afterYen;
     },
     get modalPreviewRemainingYen() {
-      return modalPreviewRemainingYen;
+      return modalPreview.remainingYen;
     },
     get modalPreviewRecommendedYen() {
       return modalPreviewRecommendedYen;
+    },
+    get modalPreviewError() {
+      return modalPreview.error;
     },
     openDayEntry(payload: { date: string }): void {
       const summary = dependencies.getSummary();

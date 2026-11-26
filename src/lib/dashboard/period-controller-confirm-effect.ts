@@ -91,8 +91,18 @@ export function createPeriodConfirmationEffects(dependencies: Dependencies) {
     current: boolean,
     acceptSummary: (() => void) | undefined,
   ): Effect.Effect<void, never> {
+    const periodId = pending.ownership.editedPeriodId;
+    if (outcome.kind === "saved-without-summary") {
+      const { previousId, nextId } = pending.ownership;
+      if (current && outcome.period.id === periodId)
+        dependencies.publishUnavailableSummary(outcome);
+      else dependencies.summaryRevision.advance(periodId);
+      dependencies.summaryRevision.advance(
+        previousId === periodId ? nextId : previousId,
+      );
+      return Effect.void;
+    }
     return Effect.gen(function* () {
-      const periodId = pending.ownership.editedPeriodId;
       switch (outcome.kind) {
         case "updated":
           publishConfirmation(pending, outcome.summary, current, acceptSummary);

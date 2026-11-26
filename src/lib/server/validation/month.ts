@@ -2,7 +2,11 @@ import { json } from "@sveltejs/kit";
 import { Effect } from "effect";
 import { toApiErrorResponseResult } from "#lib/server/effect/result.ts";
 import { ApiRouteError } from "#lib/server/effect/api-route-error.ts";
-import { isNonBlankPeriodId, isReservedPeriodId } from "#lib/period-id.js";
+import {
+  isNonBlankPeriodId,
+  isReservedPeriodId,
+  isWellFormedPeriodId,
+} from "#lib/period-id.js";
 
 export { ApiRouteError };
 
@@ -25,7 +29,15 @@ export function parseNewPeriodId(value: unknown): string {
       "期間IDに「.」や「..」は使用できません。",
     );
   }
-  return parsePeriodId(value);
+  const id = parsePeriodId(value);
+  if (!isWellFormedPeriodId(id)) {
+    throw new ApiRouteError(
+      400,
+      "INVALID_PERIOD_ID",
+      "期間IDに単独のサロゲート文字は使用できません。",
+    );
+  }
+  return id;
 }
 
 export function parseNonNegativeIntegerYen(

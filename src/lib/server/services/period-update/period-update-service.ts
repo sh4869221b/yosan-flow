@@ -30,7 +30,11 @@ import {
 } from "#lib/server/services/period-update/period-update-types.ts";
 
 export type PeriodUpdateServiceResult =
-  | { readonly kind: "updated"; readonly period: BudgetPeriodRecord }
+  | {
+      readonly kind: "updated";
+      readonly period: BudgetPeriodRecord;
+      readonly linkedPeriod?: BudgetPeriodRecord;
+    }
   | {
       readonly kind: "confirmation-required";
       readonly proposal: PeriodBoundaryUpdateProposal;
@@ -178,12 +182,11 @@ export function createPeriodUpdateService(
                       () => confirmationConflict(),
                     ),
                   );
+                const editedTarget = periodId === result.target.id;
                 return {
                   kind: "updated",
-                  period:
-                    periodId === result.target.id
-                      ? result.target
-                      : result.successor,
+                  period: editedTarget ? result.target : result.successor,
+                  linkedPeriod: editedTarget ? result.successor : result.target,
                 };
               }
             }

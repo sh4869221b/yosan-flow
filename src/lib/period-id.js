@@ -10,12 +10,17 @@ export function isReservedPeriodId(value) {
   return value === "." || value === "..";
 }
 
+/** @param {string} value */
+export function isWellFormedPeriodId(value) {
+  return value.isWellFormed();
+}
+
 /** @param {unknown} value */
 export function encodePeriodPathSegment(value) {
   if (
     !isNonBlankPeriodId(value) ||
     isReservedPeriodId(value) ||
-    !value.isWellFormed()
+    !isWellFormedPeriodId(value)
   ) {
     return null;
   }
