@@ -6,25 +6,54 @@ const expectedFields = new Set([
   "idempotencyKey",
 ]);
 
+function isPeriodId(value) {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 256 &&
+    value.trim() === value &&
+    !/[/%\\\u0000-\u001f\u007f]/.test(value) &&
+    value !== "." &&
+    value !== ".."
+  );
+}
+
+function isMemo(value) {
+  return value == null || (typeof value === "string" && value.length <= 500);
+}
+
+function isExpenseObject(value) {
+  return (
+    value != null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value).every((key) => expectedFields.has(key))
+  );
+}
+
+function hasExpenseDetails(date, inputYen, memo) {
+  return (
+    typeof date === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+    Number.isSafeInteger(inputYen) &&
+    inputYen > 0 &&
+    isMemo(memo)
+  );
+}
+
+function isDotKey(value) {
+  return (
+    typeof value === "string" && /^[a-f0-9]{32}\.dot_[a-f0-9]{32}$/.test(value)
+  );
+}
+
 function parseExpense(body) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
-  if (Object.keys(body).some((key) => !expectedFields.has(key))) return null;
+  if (!isExpenseObject(body)) return null;
   const { periodId, date, inputYen, memo, idempotencyKey } = body;
   if (
-    typeof periodId !== "string" ||
-    periodId.length === 0 ||
-    periodId.length > 256 ||
-    periodId.trim() !== periodId ||
-    /[/%\\\u0000-\u001f\u007f]/.test(periodId) ||
-    periodId === "." ||
-    periodId === ".." ||
-    typeof date !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-    !Number.isSafeInteger(inputYen) ||
-    inputYen <= 0 ||
-    (memo != null && (typeof memo !== "string" || memo.length > 500)) ||
-    typeof idempotencyKey !== "string" ||
-    !/^[a-f0-9]{32}\.dot_[a-f0-9]{32}$/.test(idempotencyKey)
+    !isPeriodId(periodId) ||
+    !hasExpenseDetails(date, inputYen, memo) ||
+    !isDotKey(idempotencyKey)
   )
     return null;
   return {
