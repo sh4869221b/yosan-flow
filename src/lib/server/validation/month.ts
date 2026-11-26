@@ -1,21 +1,13 @@
 import { json } from "@sveltejs/kit";
 import { Effect } from "effect";
 import { toApiErrorResponseResult } from "#lib/server/effect/result.ts";
+import { ApiRouteError } from "#lib/server/effect/api-route-error.ts";
+import { isNonBlankPeriodId, isReservedPeriodId } from "#lib/period-id.js";
 
-export class ApiRouteError extends Error {
-  readonly status: number;
-  readonly code: string;
-
-  constructor(status: number, code: string, message: string) {
-    super(message);
-    this.name = "ApiRouteError";
-    this.status = status;
-    this.code = code;
-  }
-}
+export { ApiRouteError };
 
 export function parsePeriodId(value: unknown): string {
-  if (!value || typeof value !== "string" || value.trim().length === 0) {
+  if (!isNonBlankPeriodId(value)) {
     throw new ApiRouteError(
       400,
       "INVALID_PERIOD_ID",
@@ -26,7 +18,7 @@ export function parsePeriodId(value: unknown): string {
 }
 
 export function parseNewPeriodId(value: unknown): string {
-  if (value === "." || value === "..") {
+  if (isReservedPeriodId(value)) {
     throw new ApiRouteError(
       400,
       "INVALID_PERIOD_ID",

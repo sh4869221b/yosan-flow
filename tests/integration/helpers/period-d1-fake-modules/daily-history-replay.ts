@@ -1,4 +1,5 @@
 import type { DailyOperationHistoryRow } from "./types";
+import { requireSafeYen } from "#lib/server/domain/yen.ts";
 
 export function replayDailyHistoryRows(
   periodId: string,
@@ -25,7 +26,9 @@ export function replayDailyHistoryRows(
     row.before_total_yen = totalUsedYen;
     const input =
       row.id === targetId && newAmount !== null ? newAmount : row.input_yen;
-    totalUsedYen = row.operation_type === "add" ? totalUsedYen + input : input;
+    totalUsedYen = requireSafeYen(
+      row.operation_type === "add" ? totalUsedYen + input : input,
+    );
     row.after_total_yen = totalUsedYen;
   }
 

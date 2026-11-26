@@ -4,6 +4,7 @@ import type {
   BudgetPeriodRepository,
 } from "#lib/server/db/budget-period-repository.ts";
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import { formatJstDate } from "#lib/server/time/jst-format.ts";
 import { summarizeDailyTotals } from "./daily-totals";
 import { getDateIndex, getDateRange, mapDateRange } from "./date-range";
@@ -68,7 +69,10 @@ export function buildPeriodSummary(
       return yield* Effect.fail(new PeriodNotFoundError(periodId));
     }
 
-    return calculatePeriodSummary(period, options);
+    return yield* Effect.try({
+      try: () => calculatePeriodSummary(period, options),
+      catch: toEffectError,
+    });
   });
 }
 

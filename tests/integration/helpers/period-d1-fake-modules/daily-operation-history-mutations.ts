@@ -1,4 +1,5 @@
 import { replayDailyHistoryRows } from "./daily-history-replay";
+import { requirePeriodYenFits } from "#lib/server/domain/yen.ts";
 import { toDailyTotalKey, type PeriodAwareD1FakeState } from "./table-state";
 import type { DailyOperationHistoryRow } from "./types";
 
@@ -35,10 +36,8 @@ function tryApplyRecursiveReplay(
   state: PeriodAwareD1FakeState,
 ): boolean {
   if (
-    !normalizedSql.includes("with recursive") ||
-    !normalizedSql.includes("update daily_operation_histories_v2") ||
-    !normalizedSql.includes("from replay") ||
-    args.length !== 9
+    !normalizedSql.startsWith("with recursive") ||
+    !normalizedSql.includes("from replay_writes")
   ) {
     return false;
   }
@@ -50,16 +49,20 @@ function tryApplyRecursiveReplay(
     id,
   });
   const amount = args[3] === null ? null : Number(args[3]);
-  if (target && (amount === null || target.input_yen !== amount)) {
-    replayDailyHistoryRows(
-      periodId,
-      date,
-      state.dailyOperationHistories,
-      id,
-      amount,
-      args[6] === 1,
-    );
-  }
+  if (!target) return true;
+  const afterTotalYen =
+    amount === target.input_yen
+      ? (state.dailyTotals.get(toDailyTotalKey(date, periodId))
+          ?.total_used_yen ?? 0)
+      : replayDailyHistoryRows(
+          periodId,
+          date,
+          state.dailyOperationHistories,
+          id,
+          amount,
+          args[6] === 1,
+        );
+  requireFakePeriodYenFits(state, periodId, date, afterTotalYen);
 
   return true;
 }
@@ -152,7 +155,9 @@ function tryApplyInsert(
       ? beforeTotalYen + inputYen
       : inputYen
     : Number(args[6]);
-  const memoIndex = computesTotalsFromDailyTotals ? 6 : 7;
+  if (computesTotalsFromDailyTotals)
+    requireFakePeriodYenFits(state, budgetPeriodId, date, afterTotalYen);
+  const memoIndex = computesTotalsFromDailyTotals ? 18 : 7;
   const createdAtIndex = memoIndex + 1;
 
   const rowid = state.nextHistoryRowId();
@@ -179,6 +184,24 @@ function tryApplyInsert(
     created_at: String(args[createdAtIndex]),
   });
   return true;
+}
+
+function requireFakePeriodYenFits(
+  state: PeriodAwareD1FakeState,
+  periodId: string,
+  date: string,
+  afterTotalYen: number,
+) {
+  requirePeriodYenFits(
+    state.dailyTotals.values().map((row) => ({
+      budgetPeriodId: row.budget_period_id,
+      date: row.date,
+      totalUsedYen: row.total_used_yen,
+    })),
+    periodId,
+    date,
+    afterTotalYen,
+  );
 }
 
 function findDailyOperationHistory(

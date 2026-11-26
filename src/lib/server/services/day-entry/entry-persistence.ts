@@ -1,4 +1,9 @@
 import { Effect } from "effect";
+import {
+  requirePeriodYenFits,
+  requireSafeYen,
+} from "#lib/server/domain/yen.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import type { DatabaseClient } from "#lib/server/db/client.ts";
 import type { BudgetPeriodRecord } from "#lib/server/db/budget-period-repository.ts";
 import type {
@@ -39,6 +44,19 @@ export function persistEntryEffect(
         input.prepared.operationType === "add"
           ? beforeTotalYen + input.prepared.command.inputYen
           : input.prepared.command.inputYen;
+
+      yield* Effect.try({
+        try: () => {
+          requireSafeYen(beforeTotalYen);
+          requirePeriodYenFits(
+            tx.state.dailyTotals.values(),
+            input.prepared.period.id,
+            input.prepared.command.date,
+            afterTotalYen,
+          );
+        },
+        catch: toEffectError,
+      });
 
       const dailyTotal = yield* input.dailyTotalRepository.upsertDailyTotal(
         tx,

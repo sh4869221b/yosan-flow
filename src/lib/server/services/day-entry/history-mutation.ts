@@ -1,4 +1,6 @@
 import { Effect } from "effect";
+import { requirePeriodYenFits } from "#lib/server/domain/yen.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import type { DatabaseClient } from "#lib/server/db/client.ts";
 import type {
   BudgetPeriodRecord,
@@ -79,7 +81,19 @@ export function replayHistoryMutationEffect(
         const next = input.mutateTarget(history);
         return next ? [next] : [];
       });
-      const replayed = replayDailyHistories(mutatedHistories);
+      const replayed = yield* Effect.try({
+        try: () => {
+          const replayed = replayDailyHistories(mutatedHistories);
+          requirePeriodYenFits(
+            tx.state.dailyTotals.values(),
+            period.id,
+            input.command.date,
+            replayed.finalTotalYen,
+          );
+          return replayed;
+        },
+        catch: toEffectError,
+      });
 
       yield* input.dailyHistoryRepository.replaceHistoriesForDate(tx, {
         budgetPeriodId: period.id,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DrizzleQueryError } from "drizzle-orm";
 import {
   ApiRouteError,
   toApiErrorResponse,
@@ -144,17 +145,23 @@ describe("API error response mapping", () => {
     },
   );
 
-  it("maps known domain codes from messages", async () => {
-    const response = toApiErrorResponse(
-      new Error("budget period overlap: PERIOD_OVERLAP p-a overlaps p-b"),
-    );
-
-    expect(response.status).toBe(400);
-    await expect(parseJson(response)).resolves.toEqual({
-      error: {
-        code: "PERIOD_OVERLAP",
-        message: "予算期間が既存期間と重複しています。",
-      },
+  it.each([
+    new DrizzleQueryError(
+      "select * from budget_periods where id = ?",
+      ["PERIOD_NOT_FOUND"],
+      new Error("D1 failed"),
+    ),
+    new Error("PERIOD_OVERLAP"),
+    Object.assign(new Error("private detail"), { code: "toString" }),
+    Object.assign(new Error("private detail"), {
+      code: "PERIOD_NOT_FOUND_SUFFIX",
+      status: 404,
+    }),
+  ])("masks DB failures and unrecognized codes as 500", async (error) => {
+    const response = toApiErrorResponse(error);
+    expect(response.status).toBe(500);
+    await expect(parseJson(response)).resolves.toMatchObject({
+      error: { code: "INTERNAL_ERROR" },
     });
   });
 

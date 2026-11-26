@@ -1,3 +1,5 @@
+import { encodePeriodPathSegment } from "../../src/lib/period-id.js";
+
 const expectedFields = new Set([
   "periodId",
   "date",
@@ -5,18 +7,6 @@ const expectedFields = new Set([
   "memo",
   "idempotencyKey",
 ]);
-
-function isPeriodId(value) {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 256 &&
-    value.trim() === value &&
-    !/[/%\\\u0000-\u001f\u007f]/.test(value) &&
-    value !== "." &&
-    value !== ".."
-  );
-}
 
 function isMemo(value) {
   return value == null || (typeof value === "string" && value.length <= 500);
@@ -50,14 +40,15 @@ function isDotKey(value) {
 function parseExpense(body) {
   if (!isExpenseObject(body)) return null;
   const { periodId, date, inputYen, memo, idempotencyKey } = body;
+  const periodSegment = encodePeriodPathSegment(periodId);
   if (
-    !isPeriodId(periodId) ||
+    periodSegment === null ||
     !hasExpenseDetails(date, inputYen, memo) ||
     !isDotKey(idempotencyKey)
   )
     return null;
   return {
-    periodId,
+    periodSegment,
     date,
     inputYen,
     memo: memo?.trim() || null,
@@ -81,7 +72,7 @@ export default {
       try {
         response = await env.YOSAN.fetch(
           new Request(
-            `${origin.origin}/api/periods/${encodeURIComponent(expense.periodId)}/days/${expense.date}/add`,
+            `${origin.origin}/api/periods/${expense.periodSegment}/days/${expense.date}/add`,
             {
               method: "POST",
               redirect: "manual",

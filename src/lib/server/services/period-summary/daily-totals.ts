@@ -1,4 +1,5 @@
 import { isDateWithinPeriod } from "#lib/server/domain/budget-period.ts";
+import { requireSafeYen } from "#lib/server/domain/yen.ts";
 import type { BudgetPeriodRecord } from "#lib/server/db/budget-period-repository.ts";
 import type { PeriodSummaryDailyTotal } from "./period-summary-calculator";
 
@@ -17,7 +18,9 @@ export function summarizeDailyTotals(
     }
     totalsByDate.set(
       row.date,
-      (totalsByDate.get(row.date) ?? 0) + row.totalUsedYen,
+      requireSafeYen(
+        (totalsByDate.get(row.date) ?? 0) + requireSafeYen(row.totalUsedYen),
+      ),
     );
   }
 
@@ -25,9 +28,8 @@ export function summarizeDailyTotals(
   let spentToDateYen = 0;
   let spentBeforeTodayYen = 0;
   let usedTodayYen = 0;
-  // Sum grouped dates in first-seen order so large totals round consistently.
   for (const [date, totalUsedYen] of totalsByDate) {
-    plannedTotalYen += totalUsedYen;
+    plannedTotalYen = requireSafeYen(plannedTotalYen + totalUsedYen);
     if (date < jstToday) {
       spentBeforeTodayYen += totalUsedYen;
       spentToDateYen += totalUsedYen;

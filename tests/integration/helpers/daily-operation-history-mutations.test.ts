@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_SAFE_YEN } from "#lib/server/domain/yen.ts";
 import { applyDailyOperationHistoryMutation } from "./period-d1-fake-modules/daily-operation-history-mutations";
 import { applySqlMutation } from "./period-d1-fake-modules/sql-dispatch";
 import {
@@ -16,7 +17,7 @@ const UPDATE_SQL = "UPDATE daily_operation_histories_v2 SET input_yen = ?";
 const INSERT_SQL =
   "INSERT INTO daily_operation_histories_v2 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 const REPLAY_SQL =
-  "WITH RECURSIVE replay AS (SELECT 1) UPDATE daily_operation_histories_v2 SET before_total_yen = replay.before_total_yen FROM replay";
+  "WITH RECURSIVE replay_writes AS (SELECT 1) UPDATE daily_operation_histories_v2 SET before_total_yen = replay_writes.before_total_yen FROM replay_writes";
 const COMPUTED_INSERT_SQL =
   "INSERT INTO daily_operation_histories_v2 SELECT coalesce(daily_totals.total_used_yen, 0) FROM budget_periods LEFT JOIN daily_totals";
 
@@ -94,7 +95,7 @@ describe("applyDailyOperationHistoryMutation", () => {
 
     applyDailyOperationHistoryMutation(
       REPLAY_SQL,
-      [PERIOD_ID, DATE, "first-add", 100, PERIOD_ID, DATE, 0, 100, 100],
+      [PERIOD_ID, DATE, "first-add", 100, PERIOD_ID, DATE, 0, 100, 100, 100],
       state,
     );
 
@@ -147,6 +148,18 @@ describe("applyDailyOperationHistoryMutation", () => {
         DATE,
         "add",
         250,
+        MAX_SAFE_YEN,
+        MAX_SAFE_YEN,
+        MAX_SAFE_YEN + 1,
+        PERIOD_ID,
+        DATE,
+        MAX_SAFE_YEN,
+        250,
+        PERIOD_ID,
+        DATE,
+        MAX_SAFE_YEN,
+        MAX_SAFE_YEN,
+        MAX_SAFE_YEN,
         250,
         "add memo",
         "2026-04-20T00:11:00.000Z",
@@ -195,7 +208,7 @@ describe("applyDailyOperationHistoryMutation", () => {
 
     applySqlMutation(
       REPLAY_SQL,
-      [PERIOD_ID, DATE, "history-a", 200, PERIOD_ID, DATE, 0, 200, 200],
+      [PERIOD_ID, DATE, "history-a", 200, PERIOD_ID, DATE, 0, 200, 200, 200],
       state,
     );
     applySqlMutation(

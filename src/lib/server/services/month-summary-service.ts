@@ -1,4 +1,5 @@
 import { Effect, Fiber } from "effect";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import {
   noopTracing,
   type TracingAdapter,
@@ -34,7 +35,10 @@ export function getPeriodSummaryFromServices(
       if (!period) {
         return yield* Effect.fail(new PeriodNotFoundError(periodId));
       }
-      return calculatePeriodSummary(period, { jstToday, dailyTotals });
+      return yield* Effect.try({
+        try: () => calculatePeriodSummary(period, { jstToday, dailyTotals }),
+        catch: toEffectError,
+      });
     }),
     () => ({ "app.operation": "summary.calculate" }),
   );
