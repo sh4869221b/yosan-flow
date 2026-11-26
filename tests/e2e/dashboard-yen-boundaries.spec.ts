@@ -3,6 +3,7 @@ import { createTestHarness } from "wrangler";
 import { configureDashboardDayEntryE2E } from "./dashboard-day-entry-helpers";
 import { getBaseUrl, waitForDashboardReady } from "./dashboard-shared";
 import { seedPeriod } from "./helpers/db";
+import { holdResponse } from "./period-operation-state-helpers";
 
 configureDashboardDayEntryE2E();
 
@@ -57,70 +58,131 @@ test("marks overflow in the day and period forecasts and restores the exact boun
   }
 });
 
-test("an unreportable legacy period preserves the period selector and acknowledges a saved budget", async ({
-  page,
-  request,
-}) => {
-  // A separate local runtime supplies rows that the current public API cannot
-  // create. The normal Playwright database is isolated from this fixture.
-  const harness = createTestHarness({
-    workers: [{ configPath: ".svelte-kit/cloudflare/worker/wrangler.json" }],
-  });
-  try {
-    const { url } = await harness.listen();
-    const app = harness.getWorker<{ DB: D1Database }>();
-    await app.applyD1Migrations("DB");
-    const healthy = "healthy-period";
-    const legacy = "legacy-over-limit";
-    for (const [periodId, month] of [
-      [healthy, "01"],
-      [legacy, "02"],
-    ]) {
-      await seedPeriod(request, url.origin, {
-        periodId,
-        startDate: `2028-${month}-01`,
-        endDate: `2028-${month}-02`,
-        budgetYen: 500,
+for (const unavailable of [true, false]) {
+  test(`a budget save queued behind a history edit handles a ${unavailable ? "missing" : "normal"} summary`, async ({
+    page,
+    request,
+  }) => {
+    // A separate local runtime supplies rows that the current public API cannot
+    // create. The normal Playwright database is isolated from this fixture.
+    const harness = createTestHarness({
+      workers: [{ configPath: ".svelte-kit/cloudflare/worker/wrangler.json" }],
+    });
+    try {
+      const { url } = await harness.listen();
+      const app = harness.getWorker<{ DB: D1Database }>();
+      await app.applyD1Migrations("DB");
+      const healthy = "healthy-period";
+      const legacy = "legacy-over-limit";
+      for (const [periodId, month] of [
+        [healthy, "01"],
+        [legacy, "02"],
+      ]) {
+        await seedPeriod(request, url.origin, {
+          periodId,
+          startDate: `2028-${month}-01`,
+          endDate: `2028-${month}-02`,
+          budgetYen: 500,
+          dailyTotals:
+            periodId === legacy
+              ? [{ date: "2028-02-01", totalUsedYen: 100 }]
+              : [],
+        });
+      }
+      const opened = await page.goto(url.href);
+      expect(opened?.status()).toBe(200);
+      await waitForDashboardReady(page);
+      const select = page.getByTestId("period-select");
+      await expect(select).toHaveValue(legacy);
+      const periodUrl = new URL(`/api/periods/${legacy}`, url).href;
+      const historyUrl = `${periodUrl}/days/2028-02-01/history`;
+      const { histories } = await (await request.get(historyUrl)).json();
+      expect(histories).toHaveLength(1);
+      const patch = await holdResponse(
+        page,
+        `${historyUrl}/${histories[0].id}`,
+        "PATCH",
+      );
+      const put = await holdResponse(page, periodUrl, "PUT");
+      const putSent: string[] = [];
+      page.on("request", (req) => {
+        if (req.method() === "PUT" && req.url() === periodUrl)
+          putSent.push(req.url());
       });
-    }
-    const opened = await page.goto(url.href);
-    expect(opened?.status()).toBe(200);
-    await waitForDashboardReady(page);
-    const select = page.getByTestId("period-select");
-    await expect(select).toHaveValue(legacy);
-    await page.getByText("期間の日付や予算を変更する").click();
-    await page.getByLabel("期間予算 (円)").fill("777");
+      const day = page.getByTestId("calendar-day-2028-02-01");
+      await day.click();
+      const modal = page.getByTestId("day-entry-modal");
+      await modal.getByRole("button", { name: "編集" }).click();
+      await modal.getByLabel("入力額 (円)").fill("111");
+      await modal.getByRole("button", { name: "保存", exact: true }).click();
+      expect((await patch.arrived).status()).toBe(200);
+      await modal.getByRole("button", { name: "閉じる" }).click();
+      await expect(modal).toBeHidden();
+      await page.getByText("期間の日付や予算を変更する").click();
+      await page.getByLabel("期間予算 (円)").fill("777");
+      await page.getByRole("button", { name: "予算を保存" }).click();
+      await expect(
+        page.getByRole("button", { name: "保存中..." }),
+      ).toBeDisabled();
+      expect(putSent).toHaveLength(0);
 
-    const { DB: db } = await app.getEnv();
-    await db
-      .prepare(
-        `
+      const { DB: db } = await app.getEnv();
+      if (unavailable)
+        await db
+          .prepare(
+            `
       INSERT INTO daily_totals (budget_period_id, date, year_month, total_used_yen, updated_at)
-      VALUES (?, '2028-02-01', '2028-02', ?, '2028-02-01T00:00:00Z'),
-             (?, '2028-02-02', '2028-02', 2, '2028-02-02T00:00:00Z')
+      VALUES (?, '2028-02-02', '2028-02', ?, '2028-02-02T00:00:00Z')
     `,
-      )
-      .bind(legacy, Number.MAX_SAFE_INTEGER, legacy)
-      .run();
-    await page.getByRole("button", { name: "予算を保存" }).click();
-    await expect(page.getByRole("alert")).toContainText(
-      "期間の設定は保存済みです。",
-    );
-    await expect(page.getByTestId("budget-value")).toHaveCount(0);
+          )
+          .bind(legacy, Number.MAX_SAFE_INTEGER)
+          .run();
 
-    const reloaded = await page.reload();
-    expect(reloaded?.status()).toBe(200);
-    await waitForDashboardReady(page);
-    await expect(page.getByRole("alert")).toContainText(
-      "集計を表示できません。",
-    );
-    await expect(select).toHaveValue(legacy);
-    await expect(select.locator("option")).toHaveCount(2);
-    await select.selectOption(healthy);
-    await expect(page.getByTestId("period-id")).toContainText(healthy);
-    await expect(page.getByTestId("budget-value")).toContainText("500");
-    await expect(page.getByRole("alert")).toHaveCount(0);
-  } finally {
-    await harness.close();
-  }
-});
+      patch.release();
+      const saved = await put.arrived;
+      try {
+        expect(saved.status()).toBe(200);
+        expect(await saved.json()).toMatchObject(
+          unavailable
+            ? { period: { budgetYen: 777 }, summary: null }
+            : { budgetYen: 777 },
+        );
+        await expect(day.getByTestId("used-2028-02-01")).toHaveText("111 円");
+        await expect(page.getByTestId("budget-value")).toContainText("500");
+      } finally {
+        put.release();
+      }
+      expect(
+        await db
+          .prepare("SELECT budget_yen FROM budget_periods WHERE id = ?")
+          .bind(legacy)
+          .first("budget_yen"),
+      ).toBe(777);
+      if (!unavailable) {
+        await expect(page.getByTestId("budget-value")).toContainText("777");
+        await expect(day.getByTestId("used-2028-02-01")).toHaveText("111 円");
+        await expect(page.getByRole("alert")).toHaveCount(0);
+        return;
+      }
+      await expect(page.getByRole("alert")).toContainText(
+        "期間の設定は保存済みです。",
+      );
+      await expect(page.getByTestId("budget-value")).toHaveCount(0);
+
+      const reloaded = await page.reload();
+      expect(reloaded?.status()).toBe(200);
+      await waitForDashboardReady(page);
+      await expect(page.getByRole("alert")).toContainText(
+        "集計を表示できません。",
+      );
+      await expect(select).toHaveValue(legacy);
+      await expect(select.locator("option")).toHaveCount(2);
+      await select.selectOption(healthy);
+      await expect(page.getByTestId("period-id")).toContainText(healthy);
+      await expect(page.getByTestId("budget-value")).toContainText("500");
+      await expect(page.getByRole("alert")).toHaveCount(0);
+    } finally {
+      await harness.close();
+    }
+  });
+}

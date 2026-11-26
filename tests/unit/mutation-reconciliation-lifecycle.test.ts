@@ -11,6 +11,7 @@ import {
   jsonResponse,
 } from "./day-entry-controller-test-fixtures";
 import { settled } from "./period-controller-effect-fixture";
+import { targetPeriod } from "./period-controller-confirmation-fixture";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -20,6 +21,95 @@ function invalidJsonResponse(): Response {
     status: 200,
   });
 }
+
+it.each([
+  "current",
+  "newer summary",
+  "newer request",
+  "another period",
+] as const)(
+  "settles a queued budget PUT without summary when the view is %s",
+  async (view) => {
+    const revision = createPeriodSummaryRevision();
+    const summaryRequests = createPeriodSummaryRequestTracker(revision);
+    let selectedId = targetPeriod.id;
+    const getSelectedPeriodId = () => selectedId;
+    const historyStarted = Promise.withResolvers<void>();
+    const releaseHistory = Promise.withResolvers<void>();
+    const putStarted = Promise.withResolvers<void>();
+    const put = Promise.withResolvers<Response>();
+    const fetch = vi.fn(() => {
+      expect(revision.get(targetPeriod.id)).toBe(1);
+      putStarted.resolve();
+      return put.promise;
+    });
+    vi.stubGlobal("fetch", fetch);
+    const publishUnavailableSummary = vi.fn();
+    const publishSummary = vi.fn();
+    const update = createPeriodUpdateEffect({
+      confirmationState: createPeriodUpdateConfirmationState({
+        getSelectedPeriodId,
+        summaryRevision: revision,
+      }),
+      getSelectedPeriodId,
+      getSummary: () => createSummary(0),
+      getSummaryLoading: () => false,
+      publishSummary,
+      publishUnavailableSummary,
+      refreshPeriodListEffect: () => Effect.void,
+      refreshSummaryEffect: () => Effect.void,
+      setError: vi.fn(),
+      setSaving: vi.fn(),
+      summaryRequests,
+      summaryRevision: revision,
+    });
+    const history = Effect.runPromise(
+      revision.withMutationSlot(
+        targetPeriod.id,
+        "history",
+        Effect.promise(() => {
+          historyStarted.resolve();
+          return releaseHistory.promise;
+        }).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => revision.advance(targetPeriod.id)),
+          ),
+        ),
+      ),
+    );
+    await settled(historyStarted.promise);
+    const budgetYen = 777;
+    const save = Effect.runPromise(
+      update({ ...targetPeriod, budgetYen }, "budget"),
+    );
+    expect(fetch).not.toHaveBeenCalled();
+    releaseHistory.resolve();
+    await settled(history);
+    await settled(putStarted.promise);
+
+    if (view === "newer summary") revision.advance(targetPeriod.id);
+    if (view === "newer request") summaryRequests.start(targetPeriod.id);
+    if (view === "another period") selectedId = "period-2";
+    const period = { ...targetPeriod, budgetYen };
+    const summaryError = {
+      code: "YEN_TOTAL_OUT_OF_RANGE",
+      message: "集計を表示できません。",
+    };
+    put.resolve(jsonResponse({ period, summary: null, summaryError }));
+    await settled(save);
+    if (view === "current") {
+      expect(publishUnavailableSummary).toHaveBeenCalledExactlyOnceWith({
+        kind: "saved-without-summary",
+        period,
+        linkedPeriod: null,
+        message: summaryError.message,
+      });
+    } else {
+      expect(publishUnavailableSummary).not.toHaveBeenCalled();
+    }
+    expect(publishSummary).not.toHaveBeenCalled();
+  },
+);
 
 it("releases a history slot before reconciling an unreadable success", async () => {
   const reconciliationResponse = Promise.withResolvers<Response>();

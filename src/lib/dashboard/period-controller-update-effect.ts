@@ -178,6 +178,7 @@ export function fetchUpdateWithSummarySync(
       summaryRevision.getMutationSequence(periodId) === mutation;
     return {
       result,
+      revision,
       acceptSummary: summaryIsFresh ? acceptSummary : undefined,
     };
   });
@@ -245,7 +246,7 @@ export function createPeriodUpdateEffect(
     dependencies.setSaving(true, operation);
     localDependencies.setError(null);
     return Effect.gen(function* () {
-      const { result, acceptSummary } =
+      const { result, revision, acceptSummary } =
         yield* dependencies.summaryRevision.withMutationSlot(
           periodId,
           "period",
@@ -283,7 +284,7 @@ export function createPeriodUpdateEffect(
       }
       yield* settleUpdateEffect(localDependencies, {
         periodId,
-        revision: request.revision,
+        revision,
         result,
         submission,
         acceptSummary,
