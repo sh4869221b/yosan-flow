@@ -124,11 +124,11 @@ describe("period summary date ranges", () => {
     ]);
   });
 
-  it("groups duplicate totals and sums dates in their first-seen order", () => {
+  it("groups duplicate totals and preserves the exact safe upper bound", () => {
     const dailyTotals = [
       { date: "2028-03-01", totalUsedYen: 1 },
       { date: "2028-02-29", totalUsedYen: 1 },
-      { date: "2028-02-28", totalUsedYen: Number.MAX_SAFE_INTEGER },
+      { date: "2028-02-28", totalUsedYen: Number.MAX_SAFE_INTEGER - 3 },
       { date: "2028-02-28", totalUsedYen: 1 },
     ].map((row) => ({ ...row, budgetPeriodId: period.id }));
     const summary = calculatePeriodSummary(period, {
@@ -136,13 +136,20 @@ describe("period summary date ranges", () => {
       dailyTotals,
     });
 
-    const firstDayTotal = Number.MAX_SAFE_INTEGER + 1;
+    const firstDayTotal = Number.MAX_SAFE_INTEGER - 2;
     expect(summary.dailyRows.map((row) => row.usedYen)).toEqual([
       firstDayTotal,
       1,
       1,
     ]);
-    expect(summary.plannedTotalYen).toBe(firstDayTotal + 2);
-    expect(summary.spentToDateYen).toBe(firstDayTotal + 2);
+    expect(summary.plannedTotalYen).toBe(Number.MAX_SAFE_INTEGER);
+    expect(summary.spentToDateYen).toBe(Number.MAX_SAFE_INTEGER);
+
+    expect(() =>
+      calculatePeriodSummary(period, {
+        jstToday: "2028-03-01",
+        dailyTotals: [...dailyTotals, dailyTotals[0]],
+      }),
+    ).toThrow(expect.objectContaining({ code: "YEN_TOTAL_OUT_OF_RANGE" }));
   });
 });

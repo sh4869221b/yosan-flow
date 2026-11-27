@@ -559,6 +559,7 @@ it("ignores a preview superseded by a newer save request", async () => {
     getSummary: () => summary,
     getSummaryLoading: () => false,
     publishSummary,
+    publishUnavailableSummary: vi.fn(),
     refreshPeriodListEffect: () =>
       fetchJsonEffect("/api/periods", undefined, "保存に失敗しました。").pipe(
         Effect.flatMap(() => refreshSummaryEffect(targetPeriod.id)),

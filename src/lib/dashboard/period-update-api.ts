@@ -46,6 +46,12 @@ export type PeriodUpdateConfirmationRequest = PeriodUpdateRequest & {
 export type PeriodUpdateApiOutcome =
   | { readonly kind: "updated"; readonly summary: PeriodSummary }
   | {
+      readonly kind: "saved-without-summary";
+      readonly period: PeriodSnapshot;
+      readonly linkedPeriod: PeriodSnapshot | null;
+      readonly message: string;
+    }
+  | {
       readonly kind: "confirmation-required";
       readonly proposal: PeriodBoundaryUpdateProposal;
     }
@@ -226,13 +232,37 @@ function parseError(body: unknown, fallback: string) {
   } as const;
 }
 
+function parseSavedWithoutSummary(
+  body: unknown,
+): PeriodUpdateApiOutcome | null {
+  if (
+    !isObject(body) ||
+    body.summary !== null ||
+    !isObject(body.summaryError) ||
+    body.summaryError.code !== "YEN_TOTAL_OUT_OF_RANGE" ||
+    !isString(body.summaryError.message)
+  )
+    return null;
+  const period = parseSnapshot(body.period);
+  const linkedPeriod = parseSnapshot(body.linkedPeriod);
+  if (!period || (body.linkedPeriod !== undefined && !linkedPeriod))
+    return null;
+  return {
+    kind: "saved-without-summary",
+    period,
+    linkedPeriod,
+    message: body.summaryError.message,
+  };
+}
+
 function parseBody(
   response: Response,
   body: unknown,
   fallback: string,
 ): PeriodUpdateApiOutcome {
-  if (response.status === 200 && isPeriodSummary(body)) {
-    return { kind: "updated", summary: body };
+  if (response.status === 200) {
+    if (isPeriodSummary(body)) return { kind: "updated", summary: body };
+    return parseSavedWithoutSummary(body) ?? parseError(body, fallback);
   }
   if (
     response.status === 409 &&

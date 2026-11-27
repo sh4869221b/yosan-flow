@@ -12,6 +12,12 @@ import type {
   DayEntryReceipt,
 } from "#lib/server/db/day-entry-writer-types.ts";
 import {
+  invalidStoredHistoryYen,
+  isStoredYen,
+  maxStoredYen,
+  otherDaysTotal,
+} from "#lib/server/db/day-entry-yen-sql.ts";
+import {
   budget_periods,
   daily_operation_histories_v2,
   daily_totals,
@@ -93,6 +99,18 @@ function buildHistoryInsert(
   eligible: ReturnType<typeof and>,
 ) {
   const currentTotal = sql<number>`coalesce(${daily_totals.total_used_yen}, 0)`;
+  // D1 can bind a JS number as REAL. Cast validated inputs before arithmetic.
+  const input = sql<number>`cast(${history.inputYen} as integer)`;
+  const afterTotal = mode === "add" ? sql`${currentTotal} + ${input}` : input;
+  const isValid = sql`
+    (${daily_totals.date} is null or ${isStoredYen(daily_totals.total_used_yen)})
+    and ${otherDaysTotal(history.budgetPeriodId, history.date)} <= ${maxStoredYen} - (${afterTotal})
+    and not exists (
+      select 1 from ${daily_operation_histories_v2}
+      where budget_period_id = ${history.budgetPeriodId} and date = ${history.date}
+        and ${invalidStoredHistoryYen}
+    )
+  `;
   // Migrated histories have negative ranks. Begin new writes at a positive rank.
   const lastDayOrder = database
     .select({
@@ -119,12 +137,13 @@ function buildHistoryInsert(
         operation_type: sql<D1DayEntryWriteMode>`${history.operationType}`.as(
           "operation_type",
         ),
-        input_yen: sql<number>`${history.inputYen}`.as("input_yen"),
-        before_total_yen: currentTotal.as("before_total_yen"),
-        after_total_yen: (mode === "add"
-          ? sql<number>`${currentTotal} + ${history.inputYen}`
-          : sql<number>`${history.inputYen}`
-        ).as("after_total_yen"),
+        input_yen: input.as("input_yen"),
+        // Use the existing NOT NULL constraint to abort the whole D1 batch.
+        before_total_yen:
+          sql<number>`case when ${isValid} then ${currentTotal} end`.as(
+            "before_total_yen",
+          ),
+        after_total_yen: afterTotal.as("after_total_yen"),
         memo: sql<string | null>`${history.memo}`.as("memo"),
         created_at: sql<string>`${history.createdAt}`.as("created_at"),
         write_order: sql<number>`max(0, coalesce((${lastDayOrder}), 0)) + 1`.as(
@@ -160,9 +179,10 @@ function buildDailyTotalUpsert(
           ),
           date: sql<string>`${total.date}`.as("date"),
           year_month: sql<string>`${total.yearMonth}`.as("year_month"),
-          total_used_yen: sql<number>`${total.totalUsedYen}`.as(
-            "total_used_yen",
-          ),
+          total_used_yen:
+            sql<number>`cast(${total.totalUsedYen} as integer)`.as(
+              "total_used_yen",
+            ),
           updated_at: sql<string>`${total.nowIso}`.as("updated_at"),
         })
         .from(budget_periods)

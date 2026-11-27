@@ -1,4 +1,5 @@
 import type { DailyHistoryRecord } from "#lib/server/db/daily-history-repository.ts";
+import { requireSafeYen } from "#lib/server/domain/yen.ts";
 
 export function replayDailyHistories(orderedHistories: DailyHistoryRecord[]): {
   histories: DailyHistoryRecord[];
@@ -7,10 +8,10 @@ export function replayDailyHistories(orderedHistories: DailyHistoryRecord[]): {
   let currentTotalYen = 0;
   const replayed = orderedHistories.map((history) => {
     const beforeTotalYen = currentTotalYen;
-    const afterTotalYen =
-      history.operationType === "add"
-        ? beforeTotalYen + history.inputYen
-        : history.inputYen;
+    const inputYen = requireSafeYen(history.inputYen);
+    const afterTotalYen = requireSafeYen(
+      history.operationType === "add" ? beforeTotalYen + inputYen : inputYen,
+    );
     currentTotalYen = afterTotalYen;
     return {
       ...history,

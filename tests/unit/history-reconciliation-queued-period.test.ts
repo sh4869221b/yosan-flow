@@ -113,6 +113,7 @@ it("recovers histories after a pre-queued period mutation settles", async () => 
     getSelectedPeriodId: () => "period-1",
     getSummary: () => summary,
     getSummaryLoading: () => false,
+    publishUnavailableSummary: vi.fn(),
     publishSummary: (nextSummary) => {
       summary = nextSummary;
     },

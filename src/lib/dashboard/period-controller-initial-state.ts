@@ -11,5 +11,6 @@ export function getInitialPeriodControllerState(data: PageData) {
     periods,
     selectedPeriodId: data.selectedPeriodId,
     summary: data.summary,
+    summaryError: data.summaryError?.message ?? null,
   };
 }

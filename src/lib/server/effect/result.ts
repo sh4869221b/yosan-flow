@@ -1,3 +1,5 @@
+import { ApiRouteError } from "#lib/server/effect/api-route-error.ts";
+
 type ErrorResponseBody = {
   error: {
     code: string;
@@ -33,6 +35,10 @@ const KNOWN_ERROR_RESPONSES: Record<
     status: 409,
     message: "同じ保存キーが別の支出の保存に使用されています。",
   },
+  YEN_TOTAL_OUT_OF_RANGE: {
+    status: 400,
+    message: "日計または期間合計を正確に扱える金額の範囲を超えています。",
+  },
   PERIOD_OVERLAP: {
     status: 400,
     message: "予算期間が既存期間と重複しています。",
@@ -63,60 +69,22 @@ const KNOWN_ERROR_RESPONSES: Record<
   },
 };
 
-const KNOWN_ERROR_CODES = Object.keys(KNOWN_ERROR_RESPONSES);
-
-function readStringProperty(value: unknown, property: string): string | null {
-  if (typeof value !== "object" || value == null || !(property in value)) {
-    return null;
-  }
-
-  const propertyValue = (value as Record<string, unknown>)[property];
-  return typeof propertyValue === "string" && propertyValue.length > 0
-    ? propertyValue
-    : null;
-}
-
-function readNumberProperty(value: unknown, property: string): number | null {
-  if (typeof value !== "object" || value == null || !(property in value)) {
-    return null;
-  }
-
-  const propertyValue = (value as Record<string, unknown>)[property];
-  return typeof propertyValue === "number" && Number.isInteger(propertyValue)
-    ? propertyValue
-    : null;
-}
-
-function resolveKnownCode(error: unknown): string | null {
-  const explicitCode = readStringProperty(error, "code");
-  if (explicitCode && explicitCode in KNOWN_ERROR_RESPONSES) {
-    return explicitCode;
-  }
-
-  const message = error instanceof Error ? error.message : "";
-  return (
-    KNOWN_ERROR_CODES.find((candidate) => message.includes(candidate)) ?? null
-  );
-}
-
 export function toApiErrorResponseResult(
   error: unknown,
 ): ApiErrorResponseResult {
-  const routeStatus = readNumberProperty(error, "status");
-  const routeCode = readStringProperty(error, "code");
-  if (routeStatus != null && routeCode != null && error instanceof Error) {
+  if (error instanceof ApiRouteError) {
     return {
-      status: routeStatus,
-      body: { error: { code: routeCode, message: error.message } },
+      status: error.status,
+      body: { error: { code: error.code, message: error.message } },
     };
   }
 
-  const knownCode = resolveKnownCode(error);
-  if (knownCode) {
-    const response = KNOWN_ERROR_RESPONSES[knownCode];
+  const code = error instanceof Error && "code" in error ? error.code : null;
+  if (typeof code === "string" && Object.hasOwn(KNOWN_ERROR_RESPONSES, code)) {
+    const response = KNOWN_ERROR_RESPONSES[code];
     return {
       status: response.status,
-      body: { error: { code: knownCode, message: response.message } },
+      body: { error: { code, message: response.message } },
     };
   }
 

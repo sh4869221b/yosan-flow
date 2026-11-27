@@ -1,4 +1,5 @@
 import { assertValidDate } from "#lib/server/domain/daily-entry.ts";
+import { requireSafeYen } from "#lib/server/domain/yen.ts";
 import type {
   DailyHistoryRecord,
   InsertDailyHistoryInput,
@@ -14,9 +15,9 @@ export function toDailyHistoryRecord(
     date: row.date,
     budgetPeriodId: row.budget_period_id,
     operationType: row.operation_type,
-    inputYen: row.input_yen,
-    beforeTotalYen: row.before_total_yen,
-    afterTotalYen: row.after_total_yen,
+    inputYen: requireSafeYen(row.input_yen),
+    beforeTotalYen: requireSafeYen(row.before_total_yen),
+    afterTotalYen: requireSafeYen(row.after_total_yen),
     memo: row.memo,
     createdAt: row.created_at,
   };

@@ -1,4 +1,6 @@
 import { Effect, Fiber } from "effect";
+import { YenTotalOutOfRangeError } from "#lib/server/domain/yen.ts";
+import { toEffectError } from "#lib/server/effect/runtime.ts";
 import {
   noopTracing,
   type TracingAdapter,
@@ -13,6 +15,28 @@ import {
 
 export { getApiServices } from "#lib/server/services/api-services/cache.ts";
 export type { InMemoryApiServices } from "#lib/server/services/api-services/types.ts";
+
+export function getDisplayPeriodSummary(
+  services: InMemoryApiServices,
+  periodId: string,
+  tracing: TracingAdapter = noopTracing,
+) {
+  return getPeriodSummaryFromServices(services, periodId, tracing).pipe(
+    Effect.map((summary) => ({ summary })),
+    Effect.catchIf(
+      (error) => error instanceof YenTotalOutOfRangeError,
+      () =>
+        Effect.succeed({
+          summary: null,
+          summaryError: {
+            code: "YEN_TOTAL_OUT_OF_RANGE",
+            message:
+              "この期間の支出合計が上限を超えているため、集計を表示できません。",
+          },
+        }),
+    ),
+  );
+}
 
 export function getPeriodSummaryFromServices(
   services: InMemoryApiServices,
@@ -34,7 +58,10 @@ export function getPeriodSummaryFromServices(
       if (!period) {
         return yield* Effect.fail(new PeriodNotFoundError(periodId));
       }
-      return calculatePeriodSummary(period, { jstToday, dailyTotals });
+      return yield* Effect.try({
+        try: () => calculatePeriodSummary(period, { jstToday, dailyTotals }),
+        catch: toEffectError,
+      });
     }),
     () => ({ "app.operation": "summary.calculate" }),
   );

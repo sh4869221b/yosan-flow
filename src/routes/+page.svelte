@@ -128,6 +128,7 @@
     previewAfterYen={controller.modalPreviewAfterYen}
     previewRemainingYen={controller.modalPreviewRemainingYen}
     previewRecommendedYen={controller.modalPreviewRecommendedYen}
+    previewError={controller.modalPreviewError}
     close={controller.closeDayEntry}
     onCloseAutoFocus={(event) =>
       restoreDayEntryFocus(event, controller.dayEntryCloseReason)}

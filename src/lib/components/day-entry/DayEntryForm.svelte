@@ -18,6 +18,7 @@
     date?: string | null;
     preview?: Snippet;
     saveError?: string | null;
+    amountRangeError?: string | null;
   };
 
   let {
@@ -30,9 +31,12 @@
     date = null,
     preview,
     saveError = null,
+    amountRangeError = null,
   }: Props = $props();
 
   let inputError = $state<string | null>(null);
+  const amountError = $derived(amountRangeError ?? inputError);
+  const submitDisabled = $derived(saving || amountRangeError != null);
   let amountInput = $state<HTMLInputElement | null>(null);
   let formHeading: HTMLHeadingElement;
   let saveErrorElement = $state<HTMLParagraphElement>();
@@ -66,7 +70,7 @@
 
   async function handleSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    if (!date || saving) {
+    if (!date || submitDisabled) {
       return;
     }
     const parsed = inputValue;
@@ -102,14 +106,14 @@
         inputmode="numeric"
         bind:ref={amountInput}
         bind:value={inputYen}
-        aria-invalid={inputError != null}
-        aria-describedby={inputError ? "day-entry-amount-error" : undefined}
+        aria-invalid={amountError != null}
+        aria-describedby={amountError ? "day-entry-amount-error" : undefined}
       />
     </span>
   </div>
-  {#if inputError}
+  {#if amountError}
     <p id="day-entry-amount-error" class="error-message" role="alert">
-      {inputError}
+      {amountError}
     </p>
   {/if}
 
@@ -139,7 +143,7 @@
       <X size={18} strokeWidth={2.4} aria-hidden="true" />
       閉じる
     </Button>
-    <Button class="h-auto min-h-12" type="submit" disabled={saving}>
+    <Button class="h-auto min-h-12" type="submit" disabled={submitDisabled}>
       <Save size={18} strokeWidth={2.4} aria-hidden="true" />
       {saving ? "追加中..." : "支出を追加"}
     </Button>

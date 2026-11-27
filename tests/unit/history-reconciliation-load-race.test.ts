@@ -144,6 +144,7 @@ it("recovers histories after a later period mutation repairs the summary", async
     getSelectedPeriodId: () => "period-1",
     getSummary: () => summary,
     getSummaryLoading: () => false,
+    publishUnavailableSummary: vi.fn(),
     publishSummary: (nextSummary) => {
       summary = nextSummary;
     },

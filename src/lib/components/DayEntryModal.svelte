@@ -46,9 +46,10 @@
     inputYen?: string;
     inputValue?: number | null;
     memo?: string;
-    previewAfterYen?: number;
+    previewAfterYen?: number | null;
     previewRemainingYen?: number | null;
     previewRecommendedYen?: number | null;
+    previewError?: string | null;
     close?: (_reason: DayEntryCloseReason) => void;
     onCloseAutoFocus?: (_event: Event) => void;
     save?: (_payload: SavePayload) => void;
@@ -78,6 +79,7 @@
     previewAfterYen = 0,
     previewRemainingYen = null,
     previewRecommendedYen = null,
+    previewError = null,
     close = () => {},
     onCloseAutoFocus = () => {},
     save = () => {},
@@ -169,6 +171,7 @@
           {save}
           {date}
           saveError={errorMessage}
+          amountRangeError={previewError}
         >
           {#snippet preview()}
             <DayEntryPreview

@@ -30,6 +30,12 @@ export type PeriodUpdateDependencies = {
     _summary: PeriodSummary,
     _submission?: PeriodSettingsSubmission,
   ) => void;
+  readonly publishUnavailableSummary: (
+    _outcome: Extract<
+      PeriodUpdateApiOutcome,
+      { readonly kind: "saved-without-summary" }
+    >,
+  ) => void;
   readonly refreshPeriodListEffect: (
     _periodId: string,
     _reportSummaryError?: PeriodRefreshError,
@@ -103,6 +109,52 @@ function publishUpdatedSummary(
   return false;
 }
 
+function settleUpdateEffect(
+  dependencies: PeriodUpdateDependencies,
+  input: {
+    periodId: string;
+    revision: number;
+    result: Exclude<PeriodUpdateApiOutcome, { kind: "confirmation-required" }>;
+    submission: PeriodSettingsSubmission;
+    acceptSummary: (() => void) | undefined;
+  },
+): Effect.Effect<void, never> {
+  const { periodId, revision, result, submission, acceptSummary } = input;
+  const mutation = dependencies.summaryRevision.beginMutation(periodId);
+  const fresh =
+    dependencies.summaryRevision.isMutationFresh(periodId, mutation) &&
+    dependencies.summaryRevision.get(periodId) === revision;
+
+  if (
+    result.kind === "saved-without-summary" &&
+    fresh &&
+    result.period.id === periodId
+  ) {
+    dependencies.summaryRevision.completeMutation(periodId, mutation);
+    dependencies.publishUnavailableSummary(result);
+    return Effect.void;
+  }
+  const published =
+    result.kind === "updated" &&
+    publishUpdatedSummary(
+      dependencies,
+      periodId,
+      result,
+      fresh,
+      submission,
+      acceptSummary,
+    );
+  if (result.kind === "error") dependencies.setError(result.message);
+  dependencies.summaryRevision.completeMutation(periodId, mutation);
+  return reconcileEffect(
+    dependencies,
+    periodId,
+    result.kind === "updated",
+    fresh,
+    result.kind !== "error" && !published ? submission : undefined,
+  );
+}
+
 export function fetchUpdateWithSummarySync(
   summaryRevision: PeriodSummaryRevision,
   periodId: string,
@@ -126,6 +178,7 @@ export function fetchUpdateWithSummarySync(
       summaryRevision.getMutationSequence(periodId) === mutation;
     return {
       result,
+      revision,
       acceptSummary: summaryIsFresh ? acceptSummary : undefined,
     };
   });
@@ -193,7 +246,7 @@ export function createPeriodUpdateEffect(
     dependencies.setSaving(true, operation);
     localDependencies.setError(null);
     return Effect.gen(function* () {
-      const { result, acceptSummary } =
+      const { result, revision, acceptSummary } =
         yield* dependencies.summaryRevision.withMutationSlot(
           periodId,
           "period",
@@ -229,31 +282,13 @@ export function createPeriodUpdateEffect(
         }
         return;
       }
-      const mutation = dependencies.summaryRevision.beginMutation(periodId);
-      const mutationIsFresh =
-        dependencies.summaryRevision.isMutationFresh(periodId, mutation) &&
-        dependencies.summaryRevision.get(periodId) === request.revision;
-      let published = false;
-      if (result.kind === "updated") {
-        published = publishUpdatedSummary(
-          dependencies,
-          periodId,
-          result,
-          mutationIsFresh,
-          submission,
-          acceptSummary,
-        );
-      } else {
-        localDependencies.setError(result.message);
-      }
-      dependencies.summaryRevision.completeMutation(periodId, mutation);
-      yield* reconcileEffect(
-        localDependencies,
+      yield* settleUpdateEffect(localDependencies, {
         periodId,
-        result.kind === "updated",
-        mutationIsFresh,
-        result.kind === "updated" && !published ? submission : undefined,
-      );
+        revision,
+        result,
+        submission,
+        acceptSummary,
+      });
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => {
